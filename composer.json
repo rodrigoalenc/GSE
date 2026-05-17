@@ -1,0 +1,14 @@
+{
+    "name": "tcc/sistema-escolar",
+    "description": "Sistema escolar em PHP com testes PHPUnit.",
+    "type": "project",
+    "require-dev": {
+        "phpunit/phpunit": "^12.0"
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

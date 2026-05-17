@@ -1,0 +1,7 @@
+/.env
+/.phpunit.cache/
+/vendor/
+/database/*.db
+/database/*.sqlite
+/database/*.sqlite3
+/database/backups/*.db
