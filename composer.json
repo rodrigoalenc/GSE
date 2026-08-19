@@ -1,0 +1,33 @@
+{
+    "name": "tcc/sistema-escolar",
+    "description": "Sistema escolar em PHP com testes PHPUnit.",
+    "license": "proprietary",
+    "type": "project",
+    "require": {
+        "php": "^8.3",
+        "ext-mbstring": "*",
+        "ext-pdo": "*",
+        "ext-pdo_sqlite": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.0"
+    },
+    "scripts": {
+        "validate-project": "@composer validate --strict",
+        "lint": "@php bin/lint.php",
+        "test": "phpunit",
+        "http-test": "@php tests/http-smoke.php",
+        "maintenance": "@php bin/maintenance.php",
+        "security-check": "@composer audit --locked",
+        "check": [
+            "@validate-project",
+            "@lint",
+            "@test",
+            "@http-test",
+            "@security-check"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
