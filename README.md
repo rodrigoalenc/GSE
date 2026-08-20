@@ -1,11 +1,13 @@
-# GSE — Módulo 1: Autenticação e Controle de Usuários
+# GSE — Módulos 1 e 2
 
-Entrega funcional e endurecida do Módulo 1 do Gestor de Secretaria Escolar:
+Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 
 - UC002 — controlar usuários;
 - UC003 — realizar login.
+- UC001 — cadastrar, consultar, editar e inativar alunos, turmas e DVAs;
+- RF006 — alertas consolidados de DVA por e-mail, quando habilitados.
 
-O sistema usa PHP 8.3+, SQLite e MVC sem framework. Gestão de alunos, DVA, certidões, contratos, estoque e demais módulos acadêmicos não fazem parte desta entrega. Models e tabelas antigos desses domínios foram preservados para trabalho futuro, mas não possuem rotas nem telas publicadas.
+O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários) e 2 (alunos, turmas e DVA) estão publicados. Arquivo passivo, certidões, fornecedores, contratos, estoque, pedidos e relatórios gerais permanecem fora do escopo; seus Models e tabelas preservados não possuem rotas novas nesta entrega.
 
 ## Arquitetura de segurança
 
@@ -20,6 +22,9 @@ Componentes principais:
 - `PasswordPolicy` valida frases-senha Unicode e usa Argon2id quando disponível;
 - `AuditLogger` registra eventos de segurança em tabela separada do log técnico;
 - `DatabaseInitializer` aplica migrações versionadas, idempotentes e com backup preventivo;
+- `Aluno`, `Turma` e `Dva` concentram persistência tipada sem acessar dados HTTP ou sessão;
+- `DvaStatus` centraliza datas, filtros e o semáforo usado em telas, dashboard e notificações;
+- `DvaNotificationService` usa transporte injetável, entrega consolidada e idempotência diária;
 - trigger SQLite e transação `BEGIN IMMEDIATE`, executada por um helper com rollback explícito, protegem o último administrador ativo;
 - `SecurityHeaders` aplica CSP sem `unsafe-inline` e HSTS somente sob HTTPS reconhecido.
 
@@ -129,6 +134,40 @@ Cada evento registra horário UTC, ação, resultado, IDs aplicáveis, IP seguro
 
 `AUDIT_RETENTION_DAYS` usa 365 dias por padrão e nunca aceita menos de 90. A escola deve aprovar a retenção conforme obrigações legais e administrativas. Para proteção adicional, exporte eventos para armazenamento externo imutável/SIEM.
 
+## Gestão de alunos e turmas
+
+Funcionários e administradores autenticados podem listar, pesquisar, filtrar, cadastrar, editar e consultar o perfil de alunos. Somente administradores podem inativar/reativar alunos e administrar turmas. Não existe rota de exclusão física: a situação do cadastro muda, enquanto os dados e o histórico permanecem preservados.
+
+Nome, nascimento, turma e telefones são validados no servidor. Telefones opcionais são normalizados para 10 ou 11 dígitos e só geram link de WhatsApp após essa validação. A busca escapa `%`, `_` e `\`. Um nome e nascimento coincidentes produzem um alerta de possível duplicidade e exigem confirmação explícita; não há unicidade absoluta porque pessoas diferentes podem compartilhar esses dados.
+
+Turmas possuem nome, ano letivo e situação. A combinação nome/ano é única sem diferenciar caixa. Uma turma com alunos ativos não pode ser inativada até que esses alunos sejam remanejados ou inativados. Turmas legadas ficam com `ano_letivo` nulo para preenchimento administrativo: a migração não inventa datas históricas.
+
+## DVA, histórico e semáforo
+
+Uma DVA inicial é opcional. Renovar não altera o documento anterior: em uma transação `BEGIN IMMEDIATE`, a DVA vigente é arquivada e uma nova versão é inserida. Um índice único parcial garante no banco no máximo uma DVA ativa por aluno. Registros históricos não são excluídos, inclusive após a inativação do aluno.
+
+`DvaStatus` usa datas civis no fuso `APP_TIMEZONE` e classifica:
+
+- `sem_dva`: nenhum registro vigente;
+- `vencida`: vencimento anterior a hoje;
+- `vence_hoje`: vencimento igual a hoje;
+- `a_vencer`: de amanhã até `DVA_WARNING_DAYS` (30 por padrão), inclusive;
+- `vigente`: após esse limite.
+
+Datas vencidas podem ser registradas para correção histórica e são sinalizadas imediatamente. Timestamps de criação, substituição e auditoria são UTC.
+
+## Notificações opcionais de DVA
+
+O comando `php bin/notify-dva.php` funciona somente em CLI, consolida DVAs vencidas ou dentro de `DVA_EMAIL_WARNING_DAYS` e envia a administradores ativos que habilitaram a preferência. A execução do mesmo dia não duplica uma entrega já concluída; falhas parciais ficam aptas a nova tentativa. Testes usam transporte falso e nunca enviam e-mail real.
+
+O envio usa PHPMailer por SMTP. Com `MAIL_ENABLED=false`, o comando retorna zero sem abrir conexão. Em produção, habilitar o envio exige host, remetente válido, porta e credenciais coerentes. Exemplo de cron diário:
+
+```cron
+25 7 * * * cd /var/www/gse && /usr/bin/php bin/notify-dva.php >> /var/log/gse/notify-dva.log 2>&1
+```
+
+Proteja o log do agendador e o `.env`; nunca coloque `MAIL_PASSWORD` no crontab ou no repositório. Em Windows, use o Agendador de Tarefas com o mesmo usuário restrito da aplicação e execute `php.exe bin\notify-dva.php` no diretório do projeto.
+
 ## Manutenção periódica
 
 Limpezas de tentativas antigas e auditoria não são executadas durante requisições HTTP. Isso evita transformar leituras comuns em escritas SQLite e reduz contenção. Execute o comando idempotente diariamente, de preferência fora do horário de maior uso:
@@ -154,6 +193,7 @@ Proteja também o arquivo de log do cron e ajuste `/var/www/gse` ao caminho real
 |---|---|
 | `APP_ENV` | fallback `production` |
 | `APP_URL` | obrigatório e absoluto em produção |
+| `APP_TIMEZONE` | fuso das datas civis; padrão `America/Cuiaba` |
 | `APP_ALLOWED_HOSTS` | hosts adicionais separados por vírgula |
 | `DB_PATH` | arquivo SQLite fora de `public/` |
 | `LOG_PATH` | log técnico fora de `public/` |
@@ -169,6 +209,13 @@ Proteja também o arquivo de log do cron e ajuste `/var/www/gse` ao caminho real
 | `LOGIN_DELAY_BASE_MS` / `LOGIN_DELAY_MAX_MS` | `200` / `2000` |
 | `LOGIN_RETENTION_DAYS` | `7` |
 | `AUDIT_RETENTION_DAYS` | `365` (mínimo 90) |
+| `DVA_WARNING_DAYS` | `30`; limite visual do semáforo |
+| `DVA_EMAIL_WARNING_DAYS` | `15`; limite do resumo por e-mail |
+| `MAIL_ENABLED` | `false` por padrão |
+| `MAIL_HOST` / `MAIL_PORT` | servidor SMTP e porta (`587`) |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | credenciais SMTP, nunca versionadas |
+| `MAIL_ENCRYPTION` | `tls`, `smtps` ou `none` conforme o provedor |
+| `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | remetente institucional |
 | `DB_DIRECTORY_MODE` | Linux: `0700` ou `0750` |
 | `DB_FILE_MODE` | Linux: `0600` ou `0640` |
 
@@ -208,13 +255,26 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou atualiza banco legado sem apagar tabelas/Models futuros. A migração adiciona `ativo`, `atualizado_em`, `session_version`, `deve_alterar_senha`, `password_changed_at`, auditoria e tentativas. Um índice `COLLATE NOCASE` garante e-mail único no banco.
+`schema_migrations` controla versões individuais de 1 a 9. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 9 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas e controle idempotente de entregas.
+
+| Versão | Alteração |
+|---|---|
+| 1–4 | esquema base e hardening de usuários do Módulo 1 |
+| 5 | situação, atualização e inativação de alunos |
+| 6 | ano letivo, situação e timestamps de turmas |
+| 7 | DVA vigente/histórica e índice único parcial |
+| 8 | recurso de auditoria e preferência de alertas |
+| 9 | idempotência de notificações e triggers de integridade |
+
+Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas. Índices apoiam nome, turma, situação, nascimento, vencimento e histórico.
 
 Antes de alteração estrutural em banco existente, é criado um backup SQLite consistente em `backups/`, validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
 
 Mantenha backups fora do servidor, criptografados e com restauração testada. Backups locais, bancos e sidecars estão no `.gitignore`.
 
-## Rotas do Módulo 1
+Para restaurar, coloque a aplicação em manutenção, preserve uma cópia do estado atual, remova somente sidecars `-wal`/`-shm` depois de encerrar todos os processos PHP, copie o backup validado para o `DB_PATH`, reaplique permissões e execute `PRAGMA integrity_check` antes de reabrir o serviço. Faça esse procedimento primeiro em homologação; o inicializador nunca substitui automaticamente um banco existente.
+
+## Rotas explícitas
 
 | Método | Rota | Acesso |
 |---|---|---|
@@ -228,6 +288,17 @@ Mantenha backups fora do servidor, criptografados e com restauração testada. B
 | GET/POST | `/usuario/editar/{id}` | administrador |
 | POST | `/usuario/status/{id}` | administrador + CSRF |
 | GET | `/auditoria` | administrador, somente leitura |
+| GET | `/aluno` | autenticado |
+| GET/POST | `/aluno/criar` | autenticado |
+| GET | `/aluno/perfil/{id}` | autenticado |
+| GET/POST | `/aluno/editar/{id}` | autenticado |
+| POST | `/aluno/status/{id}` | administrador + CSRF |
+| GET/POST | `/aluno/dva/{id}` | autenticado |
+| GET | `/dva` | autenticado |
+| GET | `/turma` | administrador |
+| GET/POST | `/turma/criar` | administrador |
+| GET/POST | `/turma/editar/{id}` | administrador |
+| POST | `/turma/status/{id}` | administrador + CSRF |
 
 Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado recebe 403 e visitante é redirecionado ao login.
 
@@ -239,11 +310,12 @@ composer lint
 composer test
 composer http-test
 composer maintenance
+composer notify-dva # somente após configurar MAIL_ENABLED
 composer security-check
 composer check
 ```
 
-PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, auditoria, headers, host/proxy/HTTPS, migração e SQLite. `tests/http-smoke.php` inicia servidores temporários e testa o fluxo HTTP real em Windows/Linux. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
+PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migração e SQLite. `tests/http-smoke.php` inicia servidores temporários e testa o fluxo HTTP real dos dois módulos em Windows/Linux. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
 `.github/workflows/ci.yml` usa PHP 8.3 e `actions/checkout@v5`, e roda instalação limpa, validação estrita, auditoria, lint, PHPUnit e HTTP em pushes e pull requests. Qualquer etapa com falha interrompe o job. Nenhum baseline de análise estática foi criado; uma ferramenta estática poderá ser adotada em etapa própria, com correção real dos achados.
 
@@ -255,11 +327,14 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 4. Acesse `/dashboard` sem sessão e observe o redirecionamento.
 5. Entre e demonstre que somente troca de senha/logout estão disponíveis.
 6. Troque a senha e faça novo login.
-7. Mostre painel neutro, gestão de usuários e auditoria.
-8. Cadastre funcionário, demonstre e-mail `NOCASE`, senha temporária e 403 administrativo.
-9. Redefina senha/perfil/situação e demonstre invalidação da sessão alvo.
-10. Demonstre bloqueio da autoinativação e do último administrador.
-11. Execute `composer check`.
+7. Cadastre uma turma e um aluno com DVA inicial.
+8. Mostre perfil, WhatsApp validado, semáforo e filtros.
+9. Renove a DVA e confirme a versão anterior no histórico.
+10. Inative/reative o aluno e demonstre que não ocorre exclusão física.
+11. Cadastre funcionário, demonstre e-mail `NOCASE`, senha temporária, acesso a alunos e 403 para turma/status.
+12. Mostre dashboard integrado e auditoria filtrada por `student`, `dva` e `class`.
+13. Com transporte SMTP de homologação, execute `php bin/notify-dva.php` duas vezes e confirme idempotência.
+14. Execute `composer check`.
 
 ## Limitações conhecidas e fora do escopo
 
@@ -267,8 +342,9 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 - auditoria local não substitui SIEM/armazenamento imutável;
 - disponibilidade distribuída exigiria rate limiting e sessões em armazenamento compartilhado;
 - identidade visual institucional definitiva ainda depende da escola;
-- alunos, turmas, DVA, arquivo passivo, certidões, fornecedores, contratos, estoque, relatórios e notificações não têm telas/rotas funcionais nesta entrega.
+- notificações dependem de um SMTP institucional configurado e de agendamento externo;
+- arquivo passivo, certidões, fornecedores, contratos, estoque, pedidos e relatórios gerais não têm telas/rotas funcionais nesta entrega.
 
-O dashboard foi deliberadamente alterado para exibir somente informações do Módulo 1. Indicadores de alunos e DVA antecipavam entregas posteriores; seus Models e tabelas permanecem intactos.
+O dashboard combina indicadores do Módulo 1 com dados operacionais limitados do Módulo 2. Não antecipa indicadores dos Módulos 3, 4 ou 5.
 
 Antes de implantar, conclua [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) e leia [SECURITY.md](SECURITY.md).

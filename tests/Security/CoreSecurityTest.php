@@ -34,11 +34,18 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(14, $routes);
+        $this->assertCount(30, $routes);
         $this->assertSame(['id' => '42'], $match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/42'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/excluirTudo'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/../1'));
         $this->assertContainsOnlyArray($routes);
+
+        $studentStatus = array_values(array_filter(
+            $routes,
+            static fn (array $route): bool => $route['pattern'] === 'aluno/status/{id}'
+        ));
+        $this->assertTrue($studentStatus[0]['admin']);
+        $this->assertSame('POST', $studentStatus[0]['method']);
 
         foreach ($routes as $route) {
             $this->assertContains($route['method'], ['GET', 'POST']);

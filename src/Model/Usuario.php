@@ -35,7 +35,7 @@ class Usuario extends Model
     public function listar(string $termo = ''): array
     {
         $termo = trim($termo);
-        $columns = 'id, nome, email, tipo, ativo, deve_alterar_senha, criado_em, atualizado_em';
+        $columns = 'id, nome, email, tipo, ativo, deve_alterar_senha, recebe_alertas_dva, criado_em, atualizado_em';
 
         if ($termo === '') {
             return self::$pdo->query("SELECT {$columns} FROM usuarios ORDER BY nome COLLATE NOCASE")->fetchAll();
@@ -57,7 +57,8 @@ class Usuario extends Model
         string $email,
         string $senha,
         string $tipo,
-        bool $senhaTemporaria = true
+        bool $senhaTemporaria = true,
+        bool $recebeAlertasDva = false
     ): bool {
         $this->lastErrorCode = null;
         $nome = trim($nome);
@@ -72,8 +73,9 @@ class Usuario extends Model
         try {
             $stmt = self::$pdo->prepare(
                 'INSERT INTO usuarios
-                    (nome, email, senha, tipo, ativo, session_version, deve_alterar_senha, password_changed_at)
-                 VALUES (:nome, :email, :senha, :tipo, 1, 1, :temporary, :changed_at)'
+                    (nome, email, senha, tipo, ativo, session_version, deve_alterar_senha,
+                     password_changed_at, recebe_alertas_dva)
+                 VALUES (:nome, :email, :senha, :tipo, 1, 1, :temporary, :changed_at, :dva_alerts)'
             );
 
             return $stmt->execute([
@@ -83,6 +85,7 @@ class Usuario extends Model
                 'tipo' => $tipo,
                 'temporary' => $senhaTemporaria ? 1 : 0,
                 'changed_at' => $senhaTemporaria ? null : gmdate('Y-m-d H:i:s'),
+                'dva_alerts' => $tipo === self::PERFIL_ADMINISTRADOR && $recebeAlertasDva ? 1 : 0,
             ]);
         } catch (PDOException $exception) {
             $this->lastErrorCode = str_contains(strtolower($exception->getMessage()), 'unique')
@@ -99,7 +102,8 @@ class Usuario extends Model
         string $nome,
         string $email,
         string $tipo,
-        ?string $novaSenha = null
+        ?string $novaSenha = null,
+        ?bool $recebeAlertasDva = null
     ): bool {
         $this->lastErrorCode = null;
         $nome = trim($nome);
@@ -112,7 +116,7 @@ class Usuario extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $nome, $email, $tipo, $novaSenha): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $nome, $email, $tipo, $novaSenha, $recebeAlertasDva): bool {
                 $atual = $this->buscarPorId($id);
 
                 if (!$atual) {
@@ -152,6 +156,13 @@ class Usuario extends Model
                     $sql .= ', senha = :senha, deve_alterar_senha = 1, password_changed_at = NULL,
                                session_version = session_version + 1';
                     $params['senha'] = PasswordPolicy::hash($novaSenha);
+                }
+
+                if ($recebeAlertasDva !== null) {
+                    $sql .= ', recebe_alertas_dva = :dva_alerts';
+                    $params['dva_alerts'] = $tipo === self::PERFIL_ADMINISTRADOR && $recebeAlertasDva ? 1 : 0;
+                } elseif ($tipo !== self::PERFIL_ADMINISTRADOR) {
+                    $sql .= ', recebe_alertas_dva = 0';
                 }
 
                 $sql .= ' WHERE id = :id';

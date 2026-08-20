@@ -1,94 +1,72 @@
 <?php
+
+declare(strict_types=1);
+
 require_once ROOT_PATH . '/src/Core/Model.php';
 
-class Painel extends Model
+final class Painel extends Model
 {
-    public function getTotalAlunos()
+    public function resumo(?DvaStatus $statusService = null): array
     {
-        try {
-            return self::$pdo->query("SELECT COUNT(id) FROM alunos")->fetchColumn();
-        } catch (Exception $e) {
-            error_log("Erro no Painel (getTotalAlunos): " . $e->getMessage());
-            return 0;
-        }
+        $statusService ??= new DvaStatus();
+        $statement = self::$pdo->prepare(
+            'SELECT
+                SUM(CASE WHEN a.ativo = 1 THEN 1 ELSE 0 END) AS alunos_ativos,
+                SUM(CASE WHEN a.ativo = 0 THEN 1 ELSE 0 END) AS alunos_inativos,
+                SUM(CASE WHEN a.ativo = 1 AND d.id IS NULL THEN 1 ELSE 0 END) AS sem_dva,
+                SUM(CASE WHEN a.ativo = 1 AND d.data_vencimento < :today THEN 1 ELSE 0 END) AS vencidas,
+                SUM(CASE WHEN a.ativo = 1 AND d.data_vencimento = :today THEN 1 ELSE 0 END) AS vence_hoje,
+                SUM(CASE WHEN a.ativo = 1 AND d.data_vencimento > :today
+                          AND d.data_vencimento <= :warning_limit THEN 1 ELSE 0 END) AS a_vencer,
+                SUM(CASE WHEN a.ativo = 1 AND d.data_vencimento > :warning_limit THEN 1 ELSE 0 END) AS vigentes
+             FROM alunos a
+             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1'
+        );
+        $statement->execute([
+            'today' => $statusService->today(),
+            'warning_limit' => $statusService->warningLimit(),
+        ]);
+        $row = $statement->fetch() ?: [];
+
+        return [
+            'alunos_ativos' => (int) ($row['alunos_ativos'] ?? 0),
+            'alunos_inativos' => (int) ($row['alunos_inativos'] ?? 0),
+            'sem_dva' => (int) ($row['sem_dva'] ?? 0),
+            'vencidas' => (int) ($row['vencidas'] ?? 0),
+            'vence_hoje' => (int) ($row['vence_hoje'] ?? 0),
+            'a_vencer' => (int) ($row['a_vencer'] ?? 0),
+            'vigentes' => (int) ($row['vigentes'] ?? 0),
+        ];
     }
 
-    public function getTotalSemDva()
+    public function pendenciasPrioritarias(int $limit = 8, ?DvaStatus $statusService = null): array
     {
-        try {
-            return self::$pdo->query("SELECT COUNT(id) FROM alunos WHERE id NOT IN (SELECT id_aluno FROM dvas)")->fetchColumn();
-        } catch (Exception $e) {
-            error_log("Erro no Painel (getTotalSemDva): " . $e->getMessage());
-            return 0;
-        }
-    }
+        $statusService ??= new DvaStatus();
+        $statement = self::$pdo->prepare(
+            'SELECT a.id, a.nome_completo, t.nome_turma, d.data_vencimento
+             FROM alunos a
+             LEFT JOIN turmas t ON t.id = a.id_turma
+             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
+             WHERE a.ativo = 1 AND (d.id IS NULL OR d.data_vencimento <= :warning_limit)
+             ORDER BY CASE
+                WHEN d.id IS NULL THEN 0
+                WHEN d.data_vencimento < :today THEN 1
+                WHEN d.data_vencimento = :today THEN 2
+                ELSE 3 END,
+                d.data_vencimento, a.nome_completo COLLATE NOCASE
+             LIMIT :limit'
+        );
+        $statement->bindValue(':warning_limit', $statusService->warningLimit());
+        $statement->bindValue(':today', $statusService->today());
+        $statement->bindValue(':limit', max(1, min(50, $limit)), PDO::PARAM_INT);
+        $statement->execute();
+        $items = $statement->fetchAll();
 
-    public function getDvasVencidas()
-    {
-        try {
-            $hoje = date('Y-m-d');
-            $sql = "SELECT a.nome_completo, t.nome_turma, d.data_vencimento, d.id AS dva_id, a.id AS aluno_id 
-                    FROM dvas d 
-                    JOIN alunos a ON d.id_aluno = a.id 
-                    LEFT JOIN turmas t ON a.id_turma = t.id 
-                    WHERE d.data_vencimento < ? ORDER BY d.data_vencimento ASC";
-            $stmt = self::$pdo->prepare($sql);
-            $stmt->execute([$hoje]);
-            return $stmt->fetchAll();
-        } catch (Exception $e) {
-            error_log("Erro no Painel (getDvasVencidas): " . $e->getMessage());
-            return [];
+        foreach ($items as &$item) {
+            $item['dva_status'] = $statusService->classify($item['data_vencimento'] ?: null);
         }
-    }
+        unset($item);
 
-    public function getDvasAVencer()
-    {
-        try {
-            $hoje = date('Y-m-d');
-            $sql = "SELECT a.nome_completo, t.nome_turma, d.data_vencimento, d.id AS dva_id, a.id AS aluno_id 
-                    FROM dvas d 
-                    JOIN alunos a ON d.id_aluno = a.id 
-                    LEFT JOIN turmas t ON a.id_turma = t.id 
-                    WHERE d.data_vencimento >= ? AND d.data_vencimento <= date('now', '+30 days') 
-                    ORDER BY d.data_vencimento ASC";
-            $stmt = self::$pdo->prepare($sql);
-            $stmt->execute([$hoje]);
-            return $stmt->fetchAll();
-        } catch (Exception $e) {
-            error_log("Erro no Painel (getDvasAVencer): " . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function getDvasVigentes()
-    {
-        try {
-            $sql = "SELECT a.nome_completo, t.nome_turma, d.data_vencimento, d.id AS dva_id, a.id AS aluno_id 
-                    FROM dvas d 
-                    JOIN alunos a ON d.id_aluno = a.id 
-                    LEFT JOIN turmas t ON a.id_turma = t.id 
-                    WHERE d.data_vencimento > date('now', '+30 days') 
-                    ORDER BY a.nome_completo";
-            return self::$pdo->query($sql)->fetchAll();
-        } catch (Exception $e) {
-            error_log("Erro no Painel (getDvasVigentes): " . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function getListaAlunosSemDva()
-    {
-        try {
-            $sql = "SELECT a.id, a.nome_completo, t.nome_turma 
-                FROM alunos a
-                LEFT JOIN turmas t ON a.id_turma = t.id
-                WHERE a.id NOT IN (SELECT id_aluno FROM dvas)
-                ORDER BY a.nome_completo ASC";
-
-            return self::$pdo->query($sql)->fetchAll();
-        } catch (Exception $e) {
-            error_log("Erro no Painel (getListaAlunosSemDva): " . $e->getMessage());
-            return [];
-        }
+        return $items;
     }
 }

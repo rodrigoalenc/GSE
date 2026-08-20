@@ -6,6 +6,9 @@ $dashboardActive = in_array($currentPath, ['dashboard', 'painel', ''], true);
 $usersActive = str_starts_with($currentPath, 'usuario');
 $auditActive = str_starts_with($currentPath, 'auditoria');
 $passwordActive = str_starts_with($currentPath, 'senha/alterar');
+$studentsActive = str_starts_with($currentPath, 'aluno');
+$dvaActive = $currentPath === 'dva';
+$classesActive = str_starts_with($currentPath, 'turma');
 $mustChangePassword = (bool) ($_SESSION['must_change_password'] ?? false);
 $flashClass = [
     'success' => 'success',
@@ -25,6 +28,9 @@ $flashClass = [
     <?php if ($usersActive || $auditActive || $passwordActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/usuarios.css')) ?>">
     <?php endif; ?>
+    <?php if ($studentsActive || $dvaActive || $classesActive || $dashboardActive): ?>
+        <link rel="stylesheet" href="<?= e(url('assets/css/alunos.css')) ?>">
+    <?php endif; ?>
 </head>
 <body>
 <div class="layout-container">
@@ -39,6 +45,14 @@ $flashClass = [
                     <span class="sidebar-icon" aria-hidden="true">🏠</span>
                     <span>Painel Geral</span>
                 </a>
+                <a href="<?= e(url('aluno')) ?>" class="sidebar-link <?= $studentsActive ? 'active' : '' ?>">
+                    <span class="sidebar-icon" aria-hidden="true">A</span>
+                    <span>Alunos</span>
+                </a>
+                <a href="<?= e(url('dva')) ?>" class="sidebar-link <?= $dvaActive ? 'active' : '' ?>">
+                    <span class="sidebar-icon" aria-hidden="true">D</span>
+                    <span>DVAs</span>
+                </a>
             <?php endif; ?>
 
             <?php if ($isAdmin && !$mustChangePassword): ?>
@@ -47,6 +61,10 @@ $flashClass = [
                 <a href="<?= e(url('usuario')) ?>" class="sidebar-link <?= $usersActive ? 'active' : '' ?>">
                     <span class="sidebar-icon" aria-hidden="true">👥</span>
                     <span>Usuários</span>
+                </a>
+                <a href="<?= e(url('turma')) ?>" class="sidebar-link <?= $classesActive ? 'active' : '' ?>">
+                    <span class="sidebar-icon" aria-hidden="true">T</span>
+                    <span>Turmas</span>
                 </a>
                 <a href="<?= e(url('auditoria')) ?>" class="sidebar-link <?= $auditActive ? 'active' : '' ?>">
                     <span class="sidebar-icon" aria-hidden="true">🛡️</span>

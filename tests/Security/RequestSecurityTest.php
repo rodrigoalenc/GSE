@@ -84,4 +84,28 @@ final class RequestSecurityTest extends TestCase
         $this->expectExceptionMessage('fora do diretório public');
         Database::resolvePath();
     }
+
+    public function testProductionValidatesMailConfigurationOnlyWhenEnabled(): void
+    {
+        $_ENV['APP_ENV'] = 'production';
+        $_ENV['APP_URL'] = 'https://gse.example.test';
+        $_ENV['FORCE_HTTPS'] = 'true';
+        $_ENV['MAIL_ENABLED'] = 'true';
+        $_ENV['MAIL_HOST'] = '';
+        $_ENV['MAIL_FROM_ADDRESS'] = 'invalido';
+
+        $this->assertNotSame([], \Config::productionErrors());
+
+        $_ENV['MAIL_HOST'] = 'smtp.example.test';
+        $_ENV['MAIL_FROM_ADDRESS'] = 'gse@example.test';
+        $_ENV['MAIL_ENCRYPTION'] = 'tls';
+        $_ENV['MAIL_USERNAME'] = '';
+        $_ENV['MAIL_PASSWORD'] = '';
+        $this->assertSame([], \Config::productionErrors());
+
+        $_ENV['MAIL_ENABLED'] = 'false';
+        $_ENV['MAIL_HOST'] = '';
+        $_ENV['MAIL_FROM_ADDRESS'] = '';
+        $this->assertSame([], \Config::productionErrors());
+    }
 }

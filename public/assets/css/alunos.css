@@ -1,0 +1,249 @@
+.module-toolbar,
+.toolbar-actions,
+.profile-actions,
+.form-actions,
+.table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .65rem;
+}
+
+.module-toolbar,
+.profile-actions {
+    margin-bottom: 1rem;
+}
+
+.student-filters,
+.form-grid,
+.profile-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.student-filters {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    align-items: end;
+}
+
+.student-filters label,
+.student-form label {
+    display: block;
+    margin-bottom: .35rem;
+    font-weight: 650;
+}
+
+.student-filters input,
+.student-filters select,
+.student-form input,
+.student-form select,
+.student-form textarea {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    padding: .65rem .75rem;
+    background: #fff;
+    color: #172033;
+}
+
+.student-form textarea {
+    resize: vertical;
+}
+
+.form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-wide {
+    grid-column: 1 / -1;
+}
+
+.form-section,
+.dva-form-card {
+    margin-bottom: 1rem;
+}
+
+.form-help,
+.result-summary {
+    color: #526174;
+    font-size: .92rem;
+}
+
+.filter-actions {
+    display: flex;
+    gap: .5rem;
+}
+
+.dva-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: .3rem .65rem;
+    font-size: .82rem;
+    font-weight: 750;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.dva-sem_dva {
+    color: #3f4754;
+    background: #eef1f5;
+    border-color: #ccd3dc;
+}
+
+.dva-vencida {
+    color: #8b1520;
+    background: #fde8ea;
+    border-color: #efabb2;
+}
+
+.dva-vence_hoje {
+    color: #7a3510;
+    background: #fff0de;
+    border-color: #f1be83;
+}
+
+.dva-a_vencer {
+    color: #5f4a00;
+    background: #fff8cb;
+    border-color: #e7d269;
+}
+
+.dva-vigente {
+    color: #14532d;
+    background: #e1f6e8;
+    border-color: #8dd0a5;
+}
+
+.profile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 1rem;
+}
+
+.profile-card dl,
+.profile-card dd {
+    margin: 0;
+}
+
+.profile-card dl > div {
+    padding: .55rem 0;
+    border-bottom: 1px solid #e6eaf0;
+}
+
+.profile-card dt {
+    color: #526174;
+    font-size: .84rem;
+}
+
+.profile-card dd {
+    margin-top: .2rem;
+    overflow-wrap: anywhere;
+}
+
+.duplicate-confirmation,
+.warning-message {
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid #e4b44c;
+    border-radius: 8px;
+    background: #fff8dd;
+    color: #5d4500;
+}
+
+.status-panel {
+    margin-bottom: 1rem;
+}
+
+.btn-danger {
+    border: 0;
+    border-radius: 6px;
+    padding: .65rem 1rem;
+    background: #a61b2b;
+    color: #fff;
+    cursor: pointer;
+}
+
+.checkbox-field {
+    display: flex;
+    gap: .55rem;
+    align-items: flex-start;
+}
+
+.checkbox-field input,
+.duplicate-confirmation input {
+    width: auto;
+    min-height: auto;
+}
+
+.stat-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.stat-link:hover,
+.stat-link:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(21, 39, 69, .12);
+}
+
+.stat-link small {
+    display: block;
+    margin-top: .25rem;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.section-heading,
+.security-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.birthday-list {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+}
+
+.birthday-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .55rem 0;
+    border-bottom: 1px solid #e6eaf0;
+}
+
+.birthday-list small {
+    color: #526174;
+}
+
+@media (max-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .profile-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .field-wide {
+        grid-column: auto;
+    }
+}

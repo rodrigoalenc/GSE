@@ -24,6 +24,22 @@ final class Router
             $this->route('GET', 'senha/alterar', 'SenhaController', 'alterar', true, false, true),
             $this->route('POST', 'senha/alterar', 'SenhaController', 'alterar', true, false, true),
             $this->route('GET', 'auditoria', 'AuditoriaController', 'index', true, true),
+            $this->route('GET', 'aluno', 'AlunoController', 'index', true),
+            $this->route('GET', 'aluno/criar', 'AlunoController', 'criar', true),
+            $this->route('POST', 'aluno/criar', 'AlunoController', 'criar', true),
+            $this->route('GET', 'aluno/perfil/{id}', 'AlunoController', 'perfil', true),
+            $this->route('GET', 'aluno/editar/{id}', 'AlunoController', 'editar', true),
+            $this->route('POST', 'aluno/editar/{id}', 'AlunoController', 'editar', true),
+            $this->route('POST', 'aluno/status/{id}', 'AlunoController', 'status', true, true),
+            $this->route('GET', 'aluno/dva/{id}', 'AlunoController', 'dva', true),
+            $this->route('POST', 'aluno/dva/{id}', 'AlunoController', 'dva', true),
+            $this->route('GET', 'dva', 'AlunoController', 'painelDva', true),
+            $this->route('GET', 'turma', 'TurmaController', 'index', true, true),
+            $this->route('GET', 'turma/criar', 'TurmaController', 'criar', true, true),
+            $this->route('POST', 'turma/criar', 'TurmaController', 'criar', true, true),
+            $this->route('GET', 'turma/editar/{id}', 'TurmaController', 'editar', true, true),
+            $this->route('POST', 'turma/editar/{id}', 'TurmaController', 'editar', true, true),
+            $this->route('POST', 'turma/status/{id}', 'TurmaController', 'status', true, true),
         ];
     }
 

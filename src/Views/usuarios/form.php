@@ -38,6 +38,11 @@ $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
                         </div>
                     </div>
 
+                    <label class="checkbox-field" for="recebe_alertas_dva">
+                        <input type="checkbox" id="recebe_alertas_dva" name="recebe_alertas_dva" value="1" <?= !empty($dados['recebe_alertas_dva']) ? 'checked' : '' ?>>
+                        Receber o resumo diário de DVAs por e-mail (somente administradores ativos)
+                    </label>
+
                     <label for="confirmar_senha">Confirmar Senha:</label>
                     <input type="password" id="confirmar_senha" name="confirmar_senha" autocomplete="new-password" maxlength="128" placeholder="Repita a senha" <?= $edicao ? '' : 'required' ?>>
                     <small class="form-help">Use de 12 a 128 caracteres. Frases-senha, espaços e caracteres Unicode são aceitos; senhas comuns ou semelhantes ao nome/e-mail são recusadas.<?= $edicao ? ' Deixe os dois campos em branco para manter a senha atual.' : '' ?> A senha definida por administrador será temporária.</small>

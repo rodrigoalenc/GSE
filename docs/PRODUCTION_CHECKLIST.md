@@ -1,4 +1,4 @@
-# Checklist de Produção — GSE Módulo 1
+# Checklist de Produção — GSE Módulos 1 e 2
 
 ## Plataforma
 
@@ -26,6 +26,8 @@
 - [ ] Diretório de logs restrito ao usuário de serviço.
 - [ ] Backup externo, criptografado, retido e restaurado em teste.
 - [ ] Backup preventivo de migração verificado e movido para armazenamento protegido.
+- [ ] Migração de cópia legada conferida: contagens de alunos/turmas/DVAs, uma DVA vigente por aluno e `PRAGMA integrity_check=ok`.
+- [ ] Estratégia de preenchimento de `ano_letivo` das turmas legadas aprovada, sem inventar histórico.
 - [ ] Nenhum `.env`, SQLite, log, backup, cookie, senha ou token está versionado.
 
 ## Contas e operação
@@ -39,6 +41,13 @@
 - [ ] Log do agendador protegido e falhas do comando de manutenção monitoradas.
 - [ ] Relógio do servidor sincronizado; auditoria opera em UTC.
 - [ ] Procedimento de inativação imediata de contas desligadas documentado.
+- [ ] Permissões de funcionários e administradores sobre alunos, status e turmas revisadas com a escola.
+- [ ] Retenção dos dados pessoais de alunos e responsáveis definida conforme a finalidade institucional e LGPD.
+- [ ] `DVA_WARNING_DAYS`, `DVA_EMAIL_WARNING_DAYS` e `APP_TIMEZONE` revisados.
+- [ ] Administradores destinatários habilitados individualmente e e-mails institucionais conferidos.
+- [ ] Se `MAIL_ENABLED=true`, SMTP/TLS testado em homologação sem credenciais no repositório.
+- [ ] `php bin/notify-dva.php` agendado diariamente e idempotência verificada; com e-mail desabilitado, nenhum agendamento é necessário.
+- [ ] Logs do agendador não contêm telefone, nascimento, observação integral ou credencial.
 
 ## Verificação e GitHub
 

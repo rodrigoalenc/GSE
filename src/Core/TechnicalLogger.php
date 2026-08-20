@@ -37,9 +37,19 @@ final class TechnicalLogger
 
     public static function error(string $event, array $context = []): void
     {
+        self::write('error', $event, $context);
+    }
+
+    public static function info(string $event, array $context = []): void
+    {
+        self::write('info', $event, $context);
+    }
+
+    private static function write(string $level, string $event, array $context = []): void
+    {
         $record = [
             'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
-            'level' => 'error',
+            'level' => $level,
             'event' => self::clean($event, 80),
             'request_id' => class_exists(RequestContext::class, false) ? RequestContext::requestId() : null,
         ];

@@ -60,7 +60,7 @@ try {
             throw new RuntimeException('Já existe um administrador ativo. Cadastre novos administradores pela interface.');
         }
 
-        if (!$users->cadastrar($name, $email, $password, Usuario::PERFIL_ADMINISTRADOR, true)) {
+        if (!$users->cadastrar($name, $email, $password, Usuario::PERFIL_ADMINISTRADOR, true, true)) {
             throw new RuntimeException('Não foi possível criar o administrador. Verifique nome, e-mail e política de senha.');
         }
 

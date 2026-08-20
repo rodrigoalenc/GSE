@@ -18,7 +18,7 @@ final class Auditoria extends Model
         $pages = max(1, (int) ceil($total / $perPage));
         $page = min($page, $pages);
         $statement = self::$pdo->prepare(
-            "SELECT id, occurred_at, action, result, actor_user_id, target_user_id,
+            "SELECT id, occurred_at, action, result, actor_user_id, target_user_id, resource_type, resource_id,
                     ip_address, request_id, description
              FROM security_audit {$where}
              ORDER BY occurred_at DESC, id DESC LIMIT :limit OFFSET :offset"
@@ -54,6 +54,7 @@ final class Auditoria extends Model
         $result = trim((string) ($filters['result'] ?? ''));
         $from = trim((string) ($filters['from'] ?? ''));
         $to = trim((string) ($filters['to'] ?? ''));
+        $resourceType = trim((string) ($filters['resource_type'] ?? ''));
 
         if ($action !== '' && preg_match('/^[a-z0-9_.-]{1,80}$/i', $action) === 1) {
             $conditions[] = 'action = :action';
@@ -63,6 +64,11 @@ final class Auditoria extends Model
         if (in_array($result, ['success', 'failure', 'blocked'], true)) {
             $conditions[] = 'result = :result';
             $params['result'] = $result;
+        }
+
+        if ($resourceType !== '' && preg_match('/^[a-z0-9_.-]{1,50}$/i', $resourceType) === 1) {
+            $conditions[] = 'resource_type = :resource_type';
+            $params['resource_type'] = $resourceType;
         }
 
         if (self::validDate($from)) {

@@ -5,7 +5,7 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
     <form class="audit-filters" method="get" action="<?= e(url('auditoria')) ?>">
         <div>
             <label for="action">Ação</label>
-            <input id="action" name="action" value="<?= e($filters['action']) ?>" maxlength="80" placeholder="Ex.: login.success">
+            <input id="action" name="action" value="<?= e($filters['action']) ?>" maxlength="80" placeholder="Ex.: student.created">
         </div>
         <div>
             <label for="result">Resultado</label>
@@ -14,6 +14,16 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
                 <option value="success" <?= $filters['result'] === 'success' ? 'selected' : '' ?>>Sucesso</option>
                 <option value="failure" <?= $filters['result'] === 'failure' ? 'selected' : '' ?>>Falha</option>
                 <option value="blocked" <?= $filters['result'] === 'blocked' ? 'selected' : '' ?>>Bloqueado</option>
+            </select>
+        </div>
+        <div>
+            <label for="resource_type">Tipo de recurso</label>
+            <select id="resource_type" name="resource_type">
+                <option value="">Todos</option>
+                <option value="student" <?= $filters['resource_type'] === 'student' ? 'selected' : '' ?>>Aluno</option>
+                <option value="dva" <?= $filters['resource_type'] === 'dva' ? 'selected' : '' ?>>DVA</option>
+                <option value="class" <?= $filters['resource_type'] === 'class' ? 'selected' : '' ?>>Turma</option>
+                <option value="user" <?= $filters['resource_type'] === 'user' ? 'selected' : '' ?>>Usuário</option>
             </select>
         </div>
         <div>
@@ -41,7 +51,8 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
                 <th>Ação</th>
                 <th>Resultado</th>
                 <th>Responsável</th>
-                <th>Afetado</th>
+                <th>Usuário afetado</th>
+                <th>Recurso</th>
                 <th>IP</th>
                 <th>Requisição</th>
                 <th>Descrição</th>
@@ -49,7 +60,7 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
             </thead>
             <tbody>
             <?php if ($result['items'] === []): ?>
-                <tr><td colspan="8" class="empty-state">Nenhum evento encontrado.</td></tr>
+                <tr><td colspan="9" class="empty-state">Nenhum evento encontrado.</td></tr>
             <?php else: ?>
                 <?php foreach ($result['items'] as $item): ?>
                     <tr>
@@ -58,6 +69,7 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
                         <td><span class="badge-status badge-audit-<?= e((string) $item['result']) ?>"><?= e((string) $item['result']) ?></span></td>
                         <td><?= e($item['actor_user_id'] === null ? '—' : '#' . (string) $item['actor_user_id']) ?></td>
                         <td><?= e($item['target_user_id'] === null ? '—' : '#' . (string) $item['target_user_id']) ?></td>
+                        <td><?= e($item['resource_type'] === null ? '—' : (string) $item['resource_type'] . ' #' . (string) $item['resource_id']) ?></td>
                         <td><?= e((string) ($item['ip_address'] ?? '—')) ?></td>
                         <td><code><?= e(mb_substr((string) $item['request_id'], 0, 12)) ?>…</code></td>
                         <td><?= e((string) $item['description']) ?></td>

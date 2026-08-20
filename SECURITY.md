@@ -10,7 +10,7 @@ O mantenedor deve confirmar o recebimento, avaliar severidade e coordenar corre�
 
 ## Escopo suportado
 
-O código atualmente suportado é o Módulo 1 — Autenticação e Controle de Usuários — na branch `main`. Models e tabelas preservados para módulos futuros não representam funcionalidades publicadas.
+O código atualmente suportado abrange o Módulo 1 — Autenticação e Controle de Usuários — e o Módulo 2 — Gestão de Alunos, Turmas e DVA. Models e tabelas preservados para os módulos 3, 4 e 5 não representam funcionalidades publicadas.
 
 ## Dados que nunca devem ser enviados
 
@@ -32,6 +32,10 @@ Use contas e senhas artificiais em qualquer prova de conceito.
 - monitore auditoria, erros, espaço em disco e falhas de backup;
 - atualize dependências somente após CI e `composer audit --locked`;
 - configure backups externos criptografados e teste restauração;
+- restrinja o acesso aos dados pessoais de alunos à finalidade escolar e revise periodicamente contas ativas;
+- não envie bancos, telas reais de alunos ou relatórios de DVA em canais públicos de suporte;
+- mantenha alunos inativos para preservação controlada do histórico; qualquer futura política de eliminação deve ser formal, auditada e aprovada pela escola;
+- execute notificações de DVA somente em CLI, com SMTP institucional, destinatários administradores habilitados e logs restritos;
 - habilite proteção da branch `main`, revisão e checks obrigatórios no GitHub.
 - agende `php bin/maintenance.php` diariamente e monitore seu código de saída, sem executar limpezas em requisições HTTP.
 

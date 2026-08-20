@@ -34,4 +34,17 @@ final class AuditTest extends DatabaseTestCase
         $this->assertSame(1, $deleted);
         $this->assertSame('recent.event', $this->pdo->query('SELECT action FROM security_audit')->fetchColumn());
     }
+
+    public function testAuditCanFilterModuleTwoResourceType(): void
+    {
+        \AuditLogger::record('student.created', \AuditLogger::SUCCESS, null, null, 'Aluno cadastrado.', 'student', 10);
+        \AuditLogger::record('class.created', \AuditLogger::SUCCESS, null, null, 'Turma cadastrada.', 'class', 20);
+
+        $result = (new \Auditoria())->paginate(['resource_type' => 'student'], 1, 10);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame('student', $result['items'][0]['resource_type']);
+        $this->assertSame(10, (int) $result['items'][0]['resource_id']);
+        $this->assertNull($result['items'][0]['target_user_id']);
+    }
 }

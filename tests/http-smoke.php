@@ -262,8 +262,12 @@ try {
     checkHttp($valid['status'] === 302 && str_contains($valid['headers']['location'] ?? '', '/dashboard'), 'Login com senha definitiva');
 
     $dashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);
-    checkHttp($dashboard['status'] === 200 && str_contains($dashboard['body'], 'Contas cadastradas'), 'Dashboard do Módulo 1');
-    checkHttp(!str_contains($dashboard['body'], 'DVAs Vencidas') && !str_contains($dashboard['body'], 'Total de Alunos'), 'Dashboard não antecipa módulos futuros');
+    checkHttp(
+        $dashboard['status'] === 200
+        && str_contains($dashboard['body'], 'Alunos ativos')
+        && str_contains($dashboard['body'], 'Segurança e controle de acesso'),
+        'Dashboard integra os Módulos 1 e 2'
+    );
 
     $createPage = request('GET', $baseUrl . '/usuario/criar', $cookieAdmin);
     $employeeTemporaryPassword = 'Inicial funcionário HTTP 2026';
@@ -287,6 +291,71 @@ try {
         'confirmar_senha' => '',
     ]);
     checkHttp($editedUser['status'] === 302, 'Edição administrativa de usuário');
+
+    $classPage = request('GET', $baseUrl . '/turma/criar', $cookieAdmin);
+    $createdClass = request('POST', $baseUrl . '/turma/criar', $cookieAdmin, [
+        '_csrf_token' => csrf($classPage['body']),
+        'nome_turma' => 'Turma HTTP A',
+        'ano_letivo' => date('Y'),
+    ]);
+    checkHttp($createdClass['status'] === 302 && str_contains($createdClass['headers']['location'] ?? '', '/turma'), 'Criação administrativa de turma');
+
+    $studentPage = request('GET', $baseUrl . '/aluno/criar', $cookieAdmin);
+    $initialExpiration = date('Y-m-d', strtotime('+10 days'));
+    $createdStudent = request('POST', $baseUrl . '/aluno/criar', $cookieAdmin, [
+        '_csrf_token' => csrf($studentPage['body']),
+        'nome_completo' => 'Aluno HTTP <Seguro>',
+        'data_nascimento' => '2011-05-10',
+        'id_turma' => '1',
+        'telefone_aluno' => '(65) 99999-0000',
+        'telefone_responsavel' => '(65) 3333-0000',
+        'data_vencimento' => $initialExpiration,
+        'observacao' => 'DVA inicial HTTP',
+    ]);
+    checkHttp($createdStudent['status'] === 302 && str_contains($createdStudent['headers']['location'] ?? '', '/aluno/perfil/1'), 'Cadastro de aluno com DVA inicial');
+
+    $profile = request('GET', $baseUrl . '/aluno/perfil/1', $cookieAdmin);
+    checkHttp(
+        $profile['status'] === 200
+        && str_contains($profile['body'], 'Aluno HTTP &lt;Seguro&gt;')
+        && str_contains($profile['body'], 'DVA inicial HTTP'),
+        'Perfil do aluno escapa HTML e exibe DVA'
+    );
+
+    $studentEdit = request('GET', $baseUrl . '/aluno/editar/1', $cookieAdmin);
+    $editedStudent = request('POST', $baseUrl . '/aluno/editar/1', $cookieAdmin, [
+        '_csrf_token' => csrf($studentEdit['body']),
+        'nome_completo' => 'Aluno HTTP Editado',
+        'data_nascimento' => '2011-05-10',
+        'id_turma' => '1',
+        'telefone_aluno' => '65999990000',
+        'telefone_responsavel' => '6533330000',
+    ]);
+    checkHttp($editedStudent['status'] === 302, 'Edição do aluno');
+
+    $dvaPage = request('GET', $baseUrl . '/aluno/dva/1', $cookieAdmin);
+    $renewedExpiration = date('Y-m-d', strtotime('+20 days'));
+    $renewedDva = request('POST', $baseUrl . '/aluno/dva/1', $cookieAdmin, [
+        '_csrf_token' => csrf($dvaPage['body']),
+        'data_vencimento' => $renewedExpiration,
+        'observacao' => 'Renovação HTTP',
+    ]);
+    checkHttp($renewedDva['status'] === 302, 'Renovação de DVA');
+    $profile = request('GET', $baseUrl . '/aluno/perfil/1', $cookieAdmin);
+    checkHttp(str_contains($profile['body'], 'Arquivada') && str_contains($profile['body'], 'Renovação HTTP'), 'Histórico da DVA preservado');
+
+    $dvaFilter = request('GET', $baseUrl . '/dva?dva=a_vencer', $cookieAdmin);
+    checkHttp($dvaFilter['status'] === 200 && str_contains($dvaFilter['body'], 'Aluno HTTP Editado'), 'Semáforo e filtro de DVA integrados');
+
+    $invalidStudentCsrf = request('POST', $baseUrl . '/aluno/status/1', $cookieAdmin, ['_csrf_token' => 'invalid', 'ativo' => '0']);
+    checkHttp($invalidStudentCsrf['status'] === 419, 'CSRF protege alteração de aluno');
+
+    $profile = request('GET', $baseUrl . '/aluno/perfil/1', $cookieAdmin);
+    $deactivatedStudent = request('POST', $baseUrl . '/aluno/status/1', $cookieAdmin, [
+        '_csrf_token' => csrf($profile['body']),
+        'ativo' => '0',
+    ]);
+    checkHttp($deactivatedStudent['status'] === 302, 'Administrador inativa aluno sem exclusão');
 
     $wrongMethod = request('POST', $baseUrl . '/dashboard', $cookieAdmin, ['_csrf_token' => csrf($dashboard['body'])]);
     checkHttp($wrongMethod['status'] === 405 && ($wrongMethod['headers']['allow'] ?? '') === 'GET', 'Método não permitido retorna 405 e Allow');
@@ -318,9 +387,20 @@ try {
     ]);
     checkHttp($employeeAuth['status'] === 302 && str_contains($employeeAuth['headers']['location'] ?? '', '/dashboard'), 'Login de funcionário com senha definitiva');
     checkHttp(request('GET', $baseUrl . '/usuario', $cookieEmployee)['status'] === 403, 'Funcionário recebe 403 em rota administrativa');
+    checkHttp(request('GET', $baseUrl . '/aluno', $cookieEmployee)['status'] === 200, 'Funcionário autenticado consulta alunos');
+    checkHttp(
+        request('POST', $baseUrl . '/aluno/status/1', $cookieEmployee, ['_csrf_token' => 'irrelevante', 'ativo' => '1'])['status'] === 403,
+        'Funcionário recebe 403 ao tentar reativar aluno'
+    );
+    checkHttp(request('GET', $baseUrl . '/turma', $cookieEmployee)['status'] === 403, 'Funcionário não gerencia turmas');
 
     $audit = request('GET', $baseUrl . '/auditoria', $cookieAdmin);
-    checkHttp($audit['status'] === 200 && str_contains($audit['body'], 'login.success'), 'Auditoria administrativa paginada');
+    checkHttp(
+        $audit['status'] === 200
+        && str_contains($audit['body'], 'login.success')
+        && str_contains($audit['body'], 'student.created'),
+        'Auditoria administrativa inclui recursos do Módulo 2'
+    );
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');
     $adminDashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);

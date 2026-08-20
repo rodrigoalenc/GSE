@@ -95,6 +95,17 @@ final class Config
             $errors[] = 'APP_URL deve usar https quando FORCE_HTTPS estiver habilitado.';
         }
 
+        if (self::bool('MAIL_ENABLED', false)) {
+            $encryption = strtolower(self::string('MAIL_ENCRYPTION', 'tls'));
+
+            if (self::string('MAIL_HOST') === ''
+                || filter_var(self::string('MAIL_FROM_ADDRESS'), FILTER_VALIDATE_EMAIL) === false
+                || !in_array($encryption, ['', 'none', 'tls', 'smtps'], true)
+                || (self::string('MAIL_USERNAME') !== '' && self::string('MAIL_PASSWORD') === '')) {
+                $errors[] = 'A configuração de e-mail está incompleta ou inválida.';
+            }
+        }
+
         return $errors;
     }
 

@@ -7,7 +7,8 @@
         "php": "^8.3",
         "ext-mbstring": "*",
         "ext-pdo": "*",
-        "ext-pdo_sqlite": "*"
+        "ext-pdo_sqlite": "*",
+        "phpmailer/phpmailer": "^7.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^12.0"
@@ -18,6 +19,7 @@
         "test": "phpunit",
         "http-test": "@php tests/http-smoke.php",
         "maintenance": "@php bin/maintenance.php",
+        "notify-dva": "@php bin/notify-dva.php",
         "security-check": "@composer audit --locked",
         "check": [
             "@validate-project",

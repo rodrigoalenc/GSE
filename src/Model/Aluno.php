@@ -1,183 +1,494 @@
 <?php
+
+declare(strict_types=1);
+
 require_once ROOT_PATH . '/src/Core/Model.php';
+require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
+require_once ROOT_PATH . '/src/Model/Dva.php';
 
-class Aluno extends Model
+use src\Core\SqliteTransaction;
+
+final class Aluno extends Model
 {
-    public function contarTotal($termo = '')
+    public const NAME_MAX_LENGTH = 150;
+
+    private ?string $lastErrorCode = null;
+
+    /** @return array{items:array,total:int,page:int,pages:int,per_page:int} */
+    public function paginate(array $filters, int $page = 1, int $perPage = 20, ?DvaStatus $statusService = null): array
     {
-        if ($termo) {
-            $sql = "SELECT COUNT(id) FROM alunos WHERE nome_completo LIKE ?";
-            $stmt = self::$pdo->prepare($sql);
-            $stmt->execute(["%$termo%"]);
-            return $stmt->fetchColumn();
-        } else {
-            return self::$pdo->query("SELECT COUNT(id) FROM alunos")->fetchColumn();
+        $statusService ??= new DvaStatus();
+        $page = max(1, $page);
+        $perPage = max(10, min(100, $perPage));
+        [$where, $params] = $this->where($filters, $statusService);
+        $joins = 'LEFT JOIN turmas t ON t.id = a.id_turma
+                  LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1';
+        $count = self::$pdo->prepare("SELECT COUNT(*) FROM alunos a {$joins} {$where}");
+        $count->execute($params);
+        $total = (int) $count->fetchColumn();
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $pages);
+        $statement = self::$pdo->prepare(
+            "SELECT a.id, a.nome_completo, a.data_nascimento, a.id_turma,
+                    a.telefone_aluno, a.telefone_responsavel, a.ativo,
+                    a.criado_em, a.atualizado_em, a.inativado_em, a.inativado_por,
+                    t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
+                    d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao
+             FROM alunos a {$joins} {$where}
+             ORDER BY a.nome_completo COLLATE NOCASE, a.id
+             LIMIT :limit OFFSET :offset"
+        );
+        $this->bind($statement, $params);
+        $statement->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $statement->bindValue(':offset', ($page - 1) * $perPage, PDO::PARAM_INT);
+        $statement->execute();
+        $items = $statement->fetchAll();
+
+        foreach ($items as &$item) {
+            $item['dva_status'] = $statusService->classify($item['data_vencimento'] ?: null);
+            $item['dva_dias_restantes'] = $statusService->daysRemaining($item['data_vencimento'] ?: null);
         }
+        unset($item);
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
+            'per_page' => $perPage,
+        ];
     }
 
-    public function listar($limite, $offset, $termo = '')
+    public function contar(array $filters = [], ?DvaStatus $statusService = null): int
     {
-        if ($termo) {
-            $sql = "SELECT a.*, t.nome_turma 
-                    FROM alunos a 
-                    LEFT JOIN turmas t ON a.id_turma = t.id 
-                    WHERE a.nome_completo LIKE ? 
-                    ORDER BY a.nome_completo ASC 
-                    LIMIT ? OFFSET ?";
-            $stmt = self::$pdo->prepare($sql);
-            $stmt->bindValue(1, "%$termo%");
-            $stmt->bindValue(2, $limite, PDO::PARAM_INT);
-            $stmt->bindValue(3, $offset, PDO::PARAM_INT);
-            $stmt->execute();
-        } else {
-            $sql = "SELECT a.*, t.nome_turma 
-                    FROM alunos a 
-                    LEFT JOIN turmas t ON a.id_turma = t.id 
-                    ORDER BY a.nome_completo ASC 
-                    LIMIT ? OFFSET ?";
-            $stmt = self::$pdo->prepare($sql);
-            $stmt->bindValue(1, $limite, PDO::PARAM_INT);
-            $stmt->bindValue(2, $offset, PDO::PARAM_INT);
-            $stmt->execute();
-        }
-        return $stmt->fetchAll();
+        $statusService ??= new DvaStatus();
+        [$where, $params] = $this->where($filters, $statusService);
+        $statement = self::$pdo->prepare(
+            "SELECT COUNT(*) FROM alunos a
+             LEFT JOIN turmas t ON t.id = a.id_turma
+             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1 {$where}"
+        );
+        $statement->execute($params);
+
+        return (int) $statement->fetchColumn();
     }
 
-    public function existeAluno($nome, $dataNasc)
+    public function buscarPorId(int $id): array|false
     {
-        $sql = "SELECT id FROM alunos WHERE nome_completo = :nome AND data_nascimento = :data";
-        $stmt = self::$pdo->prepare($sql);
-        $stmt->bindValue(':nome', trim($nome));
-        $stmt->bindValue(':data', $dataNasc);
-        $stmt->execute();
-        return $stmt->fetch();
-    }
-
-    public function cadastrar($nome, $dataNasc, $idTurma, $dataDva, $tel_aluno, $tel_responsavel)
-    {
-        try {
-            $idUsuarioLogado = $_SESSION['usuario_id'] ?? null;
-            self::$pdo->beginTransaction();
-
-            $sql = "INSERT INTO alunos (nome_completo, data_nascimento, id_turma, telefone_aluno, telefone_responsavel) VALUES (?, ?, ?, ?, ?)";
-            $stmt = self::$pdo->prepare($sql);
-            $stmt->execute([$nome, $dataNasc, $idTurma, $tel_aluno, $tel_responsavel ?: null]);
-            $idAluno = self::$pdo->lastInsertId();
-
-            if (!empty($dataDva)) {
-                $sqlDva = "INSERT INTO dvas (id_aluno, id_usuario_registro, data_vencimento) VALUES (?, ?, ?)";
-                $stmtDva = self::$pdo->prepare($sqlDva);
-                $stmtDva->execute([$idAluno, $idUsuarioLogado, $dataDva]);
-            }
-
-            self::$pdo->commit();
-            return $idAluno;
-        } catch (Exception $e) {
-            self::$pdo->rollBack();
-            error_log("Erro no Model Aluno (cadastrar): " . $e->getMessage());
+        if ($id < 1) {
             return false;
         }
+
+        $statement = self::$pdo->prepare(
+            'SELECT a.id, a.nome_completo, a.data_nascimento, a.id_turma,
+                    a.telefone_aluno, a.telefone_responsavel, a.ativo,
+                    a.criado_em, a.atualizado_em, a.inativado_em, a.inativado_por,
+                    t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
+                    d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao,
+                    d.id_usuario_registro AS dva_usuario_id, d.criado_em AS dva_criado_em
+             FROM alunos a
+             LEFT JOIN turmas t ON t.id = a.id_turma
+             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
+             WHERE a.id = :id LIMIT 1'
+        );
+        $statement->execute(['id' => $id]);
+
+        return $statement->fetch();
     }
 
-    public function buscarPorId($id)
+    /** @param array<string,mixed> $data @param array<string,mixed>|null $initialDva */
+    public function cadastrar(array $data, int $actorId, ?array $initialDva = null, bool $confirmDuplicate = false): int|false
     {
-        $sql = "SELECT a.*, d.data_vencimento as data_dva, d.observacao as obs_dva, t.nome_turma
-                FROM alunos a 
-                LEFT JOIN dvas d ON a.id = d.id_aluno 
-                LEFT JOIN turmas t ON a.id_turma = t.id
-                WHERE a.id = ?";
+        $this->lastErrorCode = null;
+        $normalized = $this->validateAndNormalize($data);
 
-        $stmt = self::$pdo->prepare($sql);
-        $stmt->execute([$id]);
-        return $stmt->fetch();
-    }
+        if ($normalized === false || $actorId < 1) {
+            $this->lastErrorCode ??= 'invalid_data';
 
-    public function atualizar($id, $nome, $dataNasc, $idTurma, $dataDva, $tel_aluno, $tel_responsavel)
-    {
+            return false;
+        }
+
+        if (!$confirmDuplicate && $this->possivelDuplicidade($normalized['nome_completo'], $normalized['data_nascimento'])) {
+            $this->lastErrorCode = 'possible_duplicate';
+
+            return false;
+        }
+
+        $dva = null;
+
+        if ($initialDva !== null && trim((string) ($initialDva['data_vencimento'] ?? '')) !== '') {
+            $dva = Dva::validateData(
+                (string) ($initialDva['data_vencimento'] ?? ''),
+                isset($initialDva['observacao']) ? (string) $initialDva['observacao'] : null
+            );
+
+            if ($dva === false) {
+                $this->lastErrorCode = 'invalid_dva';
+
+                return false;
+            }
+        }
+
         try {
-            $idUsuarioLogado = $_SESSION['usuario_id'] ?? null;
-            self::$pdo->beginTransaction();
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($normalized, $actorId, $dva): int|false {
+                $actor = $pdo->prepare('SELECT 1 FROM usuarios WHERE id = :id AND ativo = 1 LIMIT 1');
+                $actor->execute(['id' => $actorId]);
 
-            $sqlAluno = "UPDATE alunos SET nome_completo = ?, data_nascimento = ?, id_turma = ?, telefone_aluno = ?, telefone_responsavel = ? WHERE id = ?";
-            $stmt = self::$pdo->prepare($sqlAluno);
-            $stmt->execute([$nome, $dataNasc, $idTurma ?: null, $tel_aluno, $tel_responsavel ?: null, $id]);
+                if ($actor->fetchColumn() === false) {
+                    $this->lastErrorCode = 'invalid_actor';
 
-            $stmtCheck = self::$pdo->prepare("SELECT id FROM dvas WHERE id_aluno = ?");
-            $stmtCheck->execute([$id]);
-            $temDva = $stmtCheck->fetch();
-
-            if ($dataDva) {
-                if ($temDva) {
-                    $sqlDva = "UPDATE dvas SET data_vencimento = ?, id_usuario_registro = ? WHERE id_aluno = ?";
-                    self::$pdo->prepare($sqlDva)->execute([$dataDva, $idUsuarioLogado, $id]);
-                } else {
-                    $sqlDva = "INSERT INTO dvas (id_aluno, id_usuario_registro, data_vencimento) VALUES (?, ?, ?)";
-                    self::$pdo->prepare($sqlDva)->execute([$id, $idUsuarioLogado, $dataDva]);
+                    return false;
                 }
-            }
 
-            self::$pdo->commit();
-            return true;
-        } catch (Exception $e) {
-            self::$pdo->rollBack();
-            error_log("Erro no Model Aluno (atualizar ID {$id}): " . $e->getMessage());
+                if (!$this->activeClassExists((int) $normalized['id_turma'], $pdo)) {
+                    $this->lastErrorCode = 'invalid_class';
+
+                    return false;
+                }
+
+                $now = gmdate('Y-m-d H:i:s');
+                $statement = $pdo->prepare(
+                    'INSERT INTO alunos
+                        (nome_completo, data_nascimento, id_turma, telefone_aluno, telefone_responsavel,
+                         ativo, criado_em, atualizado_em)
+                     VALUES (:name, :birth, :class, :student_phone, :guardian_phone, 1, :now, :now)'
+                );
+                $statement->execute([
+                    'name' => $normalized['nome_completo'],
+                    'birth' => $normalized['data_nascimento'],
+                    'class' => $normalized['id_turma'],
+                    'student_phone' => $normalized['telefone_aluno'],
+                    'guardian_phone' => $normalized['telefone_responsavel'],
+                    'now' => $now,
+                ]);
+                $studentId = (int) $pdo->lastInsertId();
+
+                if ($dva !== null) {
+                    $dvaStatement = $pdo->prepare(
+                        'INSERT INTO dvas
+                            (id_aluno, id_usuario_registro, data_vencimento, observacao, ativo, criado_em, atualizado_em)
+                         VALUES (:student, :actor, :expiration, :observation, 1, :now, :now)'
+                    );
+                    $dvaStatement->execute([
+                        'student' => $studentId,
+                        'actor' => $actorId,
+                        'expiration' => $dva['expiration_date'],
+                        'observation' => $dva['observation'],
+                        'now' => $now,
+                    ]);
+                }
+
+                return $studentId;
+            });
+        } catch (Throwable $exception) {
+            $this->lastErrorCode = 'database_error';
+            TechnicalLogger::error('student_create_failed', ['exception' => $exception::class]);
+
             return false;
         }
     }
 
-    public function excluir($id)
+    /** @param array<string,mixed> $data */
+    public function atualizar(int $id, array $data): bool
     {
+        $this->lastErrorCode = null;
+        $normalized = $this->validateAndNormalize($data);
+
+        if ($id < 1 || $normalized === false) {
+            $this->lastErrorCode ??= 'invalid_data';
+
+            return false;
+        }
+
         try {
-            $stmtNome = self::$pdo->prepare("SELECT nome_completo FROM alunos WHERE id = ?");
-            $stmtNome->execute([$id]);
-            $nome = $stmtNome->fetchColumn();
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized): bool {
+                $current = $this->buscarPorId($id);
 
-            if ($nome) {
+                if (!$current) {
+                    $this->lastErrorCode = 'not_found';
 
-                $stmtDel = self::$pdo->prepare("DELETE FROM alunos WHERE id = ?");
-                $stmtDel->execute([$id]);
-                return $nome;
-            }
-            return false;
-        } catch (Exception $e) {
-            error_log("Erro no Model Aluno (excluir ID {$id}): " . $e->getMessage());
+                    return false;
+                }
+
+                if (!$this->activeClassExists((int) $normalized['id_turma'], $pdo)
+                    && (int) $current['id_turma'] !== (int) $normalized['id_turma']) {
+                    $this->lastErrorCode = 'invalid_class';
+
+                    return false;
+                }
+
+                $statement = $pdo->prepare(
+                    'UPDATE alunos SET nome_completo = :name, data_nascimento = :birth,
+                        id_turma = :class, telefone_aluno = :student_phone,
+                        telefone_responsavel = :guardian_phone, atualizado_em = :now
+                     WHERE id = :id'
+                );
+                $statement->execute([
+                    'name' => $normalized['nome_completo'],
+                    'birth' => $normalized['data_nascimento'],
+                    'class' => $normalized['id_turma'],
+                    'student_phone' => $normalized['telefone_aluno'],
+                    'guardian_phone' => $normalized['telefone_responsavel'],
+                    'now' => gmdate('Y-m-d H:i:s'),
+                    'id' => $id,
+                ]);
+
+                return true;
+            });
+        } catch (Throwable $exception) {
+            $this->lastErrorCode = 'database_error';
+            TechnicalLogger::error('student_update_failed', ['exception' => $exception::class]);
+
             return false;
         }
     }
 
-    public function listarSemDva()
+    public function definirAtivo(int $id, bool $active, int $actorId): bool
     {
-        $sql = "SELECT a.id, a.nome_completo, t.nome_turma
-                FROM alunos a 
-                LEFT JOIN turmas t ON a.id_turma = t.id 
-                WHERE a.id NOT IN (SELECT id_aluno FROM dvas)
-                ORDER BY a.nome_completo ASC";
-        return self::$pdo->query($sql)->fetchAll();
+        $this->lastErrorCode = null;
+
+        if ($id < 1 || $actorId < 1) {
+            $this->lastErrorCode = 'invalid_data';
+
+            return false;
+        }
+
+        try {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $active, $actorId): bool {
+                $student = $this->buscarPorId($id);
+
+                if (!$student) {
+                    $this->lastErrorCode = 'not_found';
+
+                    return false;
+                }
+
+                if ($active && !$this->activeClassExists((int) $student['id_turma'], $pdo)) {
+                    $this->lastErrorCode = 'invalid_class';
+
+                    return false;
+                }
+
+                $statement = $pdo->prepare(
+                    'UPDATE alunos SET ativo = :active, atualizado_em = :now,
+                        inativado_em = :deactivated_at, inativado_por = :deactivated_by
+                     WHERE id = :id AND ativo <> :active'
+                );
+                $now = gmdate('Y-m-d H:i:s');
+                $statement->execute([
+                    'active' => $active ? 1 : 0,
+                    'now' => $now,
+                    'deactivated_at' => $active ? null : $now,
+                    'deactivated_by' => $active ? null : $actorId,
+                    'id' => $id,
+                ]);
+
+                return true;
+            });
+        } catch (Throwable $exception) {
+            $this->lastErrorCode = 'database_error';
+            TechnicalLogger::error('student_status_change_failed', ['exception' => $exception::class]);
+
+            return false;
+        }
     }
 
-    public function getAniversariantesDoMes($mes)
+    public function possivelDuplicidade(string $name, string $birthDate, ?int $ignoreId = null): bool
     {
-        $sql = "SELECT a.id, a.nome_completo, a.data_nascimento, t.nome_turma 
-                FROM alunos a 
-                LEFT JOIN turmas t ON a.id_turma = t.id
-                WHERE strftime('%m', a.data_nascimento) = ? 
-                ORDER BY strftime('%d', a.data_nascimento) ASC";
+        $sql = 'SELECT COUNT(*) FROM alunos
+                WHERE nome_completo = :name COLLATE NOCASE AND data_nascimento = :birth';
+        $params = ['name' => self::normalizeName($name), 'birth' => trim($birthDate)];
 
-        $stmt = self::$pdo->prepare($sql);
-        $stmt->execute([$mes]);
-        return $stmt->fetchAll();
+        if ($ignoreId !== null) {
+            $sql .= ' AND id <> :ignore';
+            $params['ignore'] = $ignoreId;
+        }
+
+        $statement = self::$pdo->prepare($sql);
+        $statement->execute($params);
+
+        return (int) $statement->fetchColumn() > 0;
     }
 
-    public function getAniversariantesHoje($dia, $mes)
+    public function aniversariantesDoDia(?DateTimeImmutable $today = null, int $limit = 10): array
     {
-        $sql = "SELECT a.nome_completo, a.data_nascimento, t.nome_turma 
-                FROM alunos a 
-                LEFT JOIN turmas t ON a.id_turma = t.id
-                WHERE strftime('%d', a.data_nascimento) = ? 
-                AND strftime('%m', a.data_nascimento) = ?";
+        $today ??= new DateTimeImmutable((new DvaStatus())->today());
+        $statement = self::$pdo->prepare(
+            "SELECT a.id, a.nome_completo, a.data_nascimento, t.nome_turma
+             FROM alunos a LEFT JOIN turmas t ON t.id = a.id_turma
+             WHERE a.ativo = 1 AND strftime('%m-%d', a.data_nascimento) = :month_day
+             ORDER BY a.nome_completo COLLATE NOCASE LIMIT :limit"
+        );
+        $statement->bindValue(':month_day', $today->format('m-d'));
+        $statement->bindValue(':limit', max(1, min(100, $limit)), PDO::PARAM_INT);
+        $statement->execute();
 
-        $stmt = self::$pdo->prepare($sql);
-        $stmt->execute([$dia, $mes]);
-        return $stmt->fetchAll();
+        return $statement->fetchAll();
+    }
+
+    public function aniversariantesDoMes(?DateTimeImmutable $today = null, int $limit = 10): array
+    {
+        $today ??= new DateTimeImmutable((new DvaStatus())->today());
+        $statement = self::$pdo->prepare(
+            "SELECT a.id, a.nome_completo, a.data_nascimento, t.nome_turma
+             FROM alunos a LEFT JOIN turmas t ON t.id = a.id_turma
+             WHERE a.ativo = 1 AND strftime('%m', a.data_nascimento) = :month
+               AND strftime('%d', a.data_nascimento) >= :day
+             ORDER BY strftime('%d', a.data_nascimento), a.nome_completo COLLATE NOCASE
+             LIMIT :limit"
+        );
+        $statement->bindValue(':month', $today->format('m'));
+        $statement->bindValue(':day', $today->format('d'));
+        $statement->bindValue(':limit', max(1, min(100, $limit)), PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
+    public function perfil(int $id, ?DvaStatus $statusService = null): array|false
+    {
+        $student = $this->buscarPorId($id);
+
+        if (!$student) {
+            return false;
+        }
+
+        $statusService ??= new DvaStatus();
+        $student['dva_status'] = $statusService->classify($student['data_vencimento'] ?: null);
+        $student['dva_dias_restantes'] = $statusService->daysRemaining($student['data_vencimento'] ?: null);
+
+        return ['student' => $student, 'dva_history' => (new Dva())->historicoDoAluno($id)];
+    }
+
+    public function lastErrorCode(): ?string
+    {
+        return $this->lastErrorCode;
+    }
+
+    public static function normalizeName(string $name): string
+    {
+        return preg_replace('/\s+/u', ' ', trim($name)) ?? '';
+    }
+
+    /** @return array<string,mixed>|false */
+    private function validateAndNormalize(array $data): array|false
+    {
+        $name = self::normalizeName((string) ($data['nome_completo'] ?? ''));
+
+        if ($name === ''
+            || mb_strlen($name, 'UTF-8') > self::NAME_MAX_LENGTH
+            || preg_match('/[\x00-\x1f\x7f]/u', $name) === 1) {
+            $this->lastErrorCode = 'invalid_name';
+
+            return false;
+        }
+
+        $birth = trim((string) ($data['data_nascimento'] ?? ''));
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $birth, new DateTimeZone('UTC'));
+
+        if ($date === false || $date->format('Y-m-d') !== $birth) {
+            $this->lastErrorCode = 'invalid_birth_date';
+
+            return false;
+        }
+
+        if ($birth > (new DvaStatus())->today()) {
+            $this->lastErrorCode = 'future_birth_date';
+
+            return false;
+        }
+
+        $classId = filter_var($data['id_turma'] ?? null, FILTER_VALIDATE_INT);
+
+        if ($classId === false || (int) $classId < 1) {
+            $this->lastErrorCode = 'invalid_class';
+
+            return false;
+        }
+
+        $studentPhone = self::normalizePhone((string) ($data['telefone_aluno'] ?? ''));
+        $guardianPhone = self::normalizePhone((string) ($data['telefone_responsavel'] ?? ''));
+
+        if ($studentPhone === false || $guardianPhone === false) {
+            $this->lastErrorCode = 'invalid_phone';
+
+            return false;
+        }
+
+        return [
+            'nome_completo' => $name,
+            'data_nascimento' => $birth,
+            'id_turma' => (int) $classId,
+            'telefone_aluno' => $studentPhone,
+            'telefone_responsavel' => $guardianPhone,
+        ];
+    }
+
+    private static function normalizePhone(string $phone): string|false
+    {
+        $digits = preg_replace('/\D+/u', '', trim($phone)) ?? '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        return in_array(strlen($digits), [10, 11], true) ? $digits : false;
+    }
+
+    private function activeClassExists(int $classId, ?PDO $pdo = null): bool
+    {
+        $statement = ($pdo ?? self::$pdo)->prepare('SELECT 1 FROM turmas WHERE id = :id AND ativo = 1 LIMIT 1');
+        $statement->execute(['id' => $classId]);
+
+        return $statement->fetchColumn() !== false;
+    }
+
+    /** @return array{0:string,1:array<string,int|string>} */
+    private function where(array $filters, DvaStatus $statusService): array
+    {
+        $conditions = [];
+        $params = [];
+        $search = mb_substr(self::normalizeName((string) ($filters['q'] ?? '')), 0, 100, 'UTF-8');
+
+        if ($search !== '') {
+            $conditions[] = "a.nome_completo LIKE :search ESCAPE '\\'";
+            $params['search'] = '%' . self::escapeLike($search) . '%';
+        }
+
+        $classId = filter_var($filters['turma'] ?? null, FILTER_VALIDATE_INT);
+
+        if ($classId !== false && (int) $classId > 0) {
+            $conditions[] = 'a.id_turma = :class';
+            $params['class'] = (int) $classId;
+        }
+
+        $active = (string) ($filters['ativo'] ?? '');
+
+        if (in_array($active, ['0', '1'], true)) {
+            $conditions[] = 'a.ativo = :active';
+            $params['active'] = (int) $active;
+        }
+
+        $dvaFilter = $statusService->filter((string) ($filters['dva'] ?? ''));
+
+        if ($dvaFilter['sql'] !== '') {
+            $conditions[] = $dvaFilter['sql'];
+            $params = array_merge($params, $dvaFilter['params']);
+        }
+
+        return [$conditions === [] ? '' : 'WHERE ' . implode(' AND ', $conditions), $params];
+    }
+
+    /** @param array<string,int|string> $params */
+    private function bind(PDOStatement $statement, array $params): void
+    {
+        foreach ($params as $name => $value) {
+            $statement->bindValue(':' . $name, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+    }
+
+    private static function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
     }
 }

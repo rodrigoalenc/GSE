@@ -15,7 +15,9 @@ final class AuditLogger
         string $result,
         ?int $actorUserId = null,
         ?int $targetUserId = null,
-        string $description = ''
+        string $description = '',
+        ?string $resourceType = null,
+        ?int $resourceId = null
     ): void {
         try {
             $action = preg_replace('/[^a-z0-9_.-]/i', '_', $action) ?? 'unknown';
@@ -23,11 +25,17 @@ final class AuditLogger
                 ? $result
                 : self::FAILURE;
             $description = preg_replace('/[\x00-\x1f\x7f]+/u', ' ', $description) ?? '';
+            $resourceType = $resourceType === null
+                ? null
+                : (preg_replace('/[^a-z0-9_.-]/i', '_', $resourceType) ?? null);
+            $resourceId = $resourceId !== null && $resourceId > 0 ? $resourceId : null;
 
             $statement = Database::getConnection()->prepare(
                 'INSERT INTO security_audit
-                    (occurred_at, action, result, actor_user_id, target_user_id, ip_address, request_id, description)
-                 VALUES (:occurred_at, :action, :result, :actor, :target, :ip, :request_id, :description)'
+                    (occurred_at, action, result, actor_user_id, target_user_id, resource_type,
+                     resource_id, ip_address, request_id, description)
+                 VALUES (:occurred_at, :action, :result, :actor, :target, :resource_type,
+                         :resource_id, :ip, :request_id, :description)'
             );
             $statement->execute([
                 'occurred_at' => gmdate('Y-m-d H:i:s'),
@@ -35,6 +43,8 @@ final class AuditLogger
                 'result' => $result,
                 'actor' => $actorUserId,
                 'target' => $targetUserId,
+                'resource_type' => $resourceType === null ? null : mb_substr($resourceType, 0, 50),
+                'resource_id' => $resourceId,
                 'ip' => mb_substr(RequestContext::clientIp(), 0, 45),
                 'request_id' => RequestContext::requestId(),
                 'description' => mb_substr(trim($description), 0, 300),

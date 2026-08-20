@@ -22,6 +22,7 @@
                         <th>E-mail</th>
                         <th>Tipo</th>
                         <th>Situação</th>
+                        <th>Alertas DVA</th>
                         <th class="col-acoes">Ações</th>
                     </tr>
                     </thead>
@@ -32,6 +33,7 @@
                             <td><?= e((string) $item['email']) ?></td>
                             <td><span class="badge-perfil <?= $item['tipo'] === Usuario::PERFIL_ADMINISTRADOR ? 'badge-admin' : 'badge-funcionario' ?>"><?= e(nome_perfil((string) $item['tipo'])) ?></span></td>
                             <td><span class="badge-status <?= (int) $item['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $item['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span></td>
+                            <td><?= (int) $item['recebe_alertas_dva'] === 1 ? 'Habilitados' : 'Desabilitados' ?></td>
                             <td class="col-acoes">
                                 <a class="btn-acao btn-editar" href="<?= e(url('usuario/editar/' . (int) $item['id'])) ?>">✏️ Editar</a>
                                 <form class="inline-form" method="post" action="<?= e(url('usuario/status/' . (int) $item['id'])) ?>" data-confirm-status="<?= (int) $item['ativo'] === 1 ? 'Inativar este usuário?' : 'Ativar este usuário?' ?>">

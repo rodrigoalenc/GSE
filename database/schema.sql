@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     session_version INTEGER NOT NULL DEFAULT 1,
     deve_alterar_senha INTEGER NOT NULL DEFAULT 0 CHECK (deve_alterar_senha IN (0, 1)),
     password_changed_at TEXT NULL,
+    recebe_alertas_dva INTEGER NOT NULL DEFAULT 0 CHECK (recebe_alertas_dva IN (0, 1)),
     criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -40,6 +41,8 @@ CREATE TABLE IF NOT EXISTS security_audit (
     result TEXT NOT NULL CHECK (result IN ('success', 'failure', 'blocked')),
     actor_user_id INTEGER NULL,
     target_user_id INTEGER NULL,
+    resource_type TEXT NULL,
+    resource_id INTEGER NULL,
     ip_address TEXT NULL,
     request_id TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
@@ -52,8 +55,13 @@ CREATE INDEX IF NOT EXISTS idx_security_audit_action_result ON security_audit (a
 
 CREATE TABLE IF NOT EXISTS turmas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome_turma TEXT NOT NULL UNIQUE
+    nome_turma TEXT NOT NULL,
+    ano_letivo INTEGER NULL,
+    ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
 
 CREATE TABLE IF NOT EXISTS alunos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,9 +70,15 @@ CREATE TABLE IF NOT EXISTS alunos (
     id_turma INTEGER NULL,
     telefone_aluno TEXT NULL,
     telefone_responsavel TEXT NULL,
-    criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_turma) REFERENCES turmas(id) ON DELETE SET NULL
+    ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    inativado_em TEXT NULL,
+    inativado_por INTEGER NULL,
+    FOREIGN KEY (id_turma) REFERENCES turmas(id) ON DELETE SET NULL,
+    FOREIGN KEY (inativado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 );
+
 
 CREATE TABLE IF NOT EXISTS dvas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,9 +86,22 @@ CREATE TABLE IF NOT EXISTS dvas (
     id_usuario_registro INTEGER NULL,
     data_vencimento TEXT NOT NULL,
     observacao TEXT NULL,
-    criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_aluno) REFERENCES alunos(id) ON DELETE CASCADE,
+    ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    substituido_em TEXT NULL,
+    FOREIGN KEY (id_aluno) REFERENCES alunos(id) ON DELETE RESTRICT,
     FOREIGN KEY (id_usuario_registro) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS dva_notification_deliveries (
+    notification_date TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    sent_at TEXT NULL,
+    status TEXT NOT NULL CHECK (status IN ('processing', 'sent', 'failed')),
+    last_error_code TEXT NULL,
+    PRIMARY KEY (notification_date, user_id),
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS lista_fornecedores (

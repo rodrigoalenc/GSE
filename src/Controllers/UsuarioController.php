@@ -25,7 +25,14 @@ final class UsuarioController extends Controller
             $erros = $this->validar($dados, true);
             $model = new Usuario();
 
-            if (!$erros && $model->cadastrar($dados['nome'], $dados['email'], $dados['senha'], $dados['tipo'], true)) {
+            if (!$erros && $model->cadastrar(
+                $dados['nome'],
+                $dados['email'],
+                $dados['senha'],
+                $dados['tipo'],
+                true,
+                $dados['recebe_alertas_dva']
+            )) {
                 $created = $model->buscarPorEmail($dados['email']);
                 AuditLogger::record(
                     'user.created',
@@ -79,6 +86,7 @@ final class UsuarioController extends Controller
             'tipo' => (string) $usuario['tipo'],
             'senha' => '',
             'confirmar_senha' => '',
+            'recebe_alertas_dva' => (int) ($usuario['recebe_alertas_dva'] ?? 0) === 1,
         ];
         $erros = [];
 
@@ -87,7 +95,14 @@ final class UsuarioController extends Controller
             $erros = $this->validar($dados, false);
             $novaSenha = $dados['senha'] !== '' ? $dados['senha'] : null;
 
-            if (!$erros && $model->atualizar((int) $usuarioId, $dados['nome'], $dados['email'], $dados['tipo'], $novaSenha)) {
+            if (!$erros && $model->atualizar(
+                (int) $usuarioId,
+                $dados['nome'],
+                $dados['email'],
+                $dados['tipo'],
+                $novaSenha,
+                $dados['recebe_alertas_dva']
+            )) {
                 $actor = (int) $_SESSION['usuario_id'];
                 $target = (int) $usuarioId;
                 $securityChange = false;
@@ -217,6 +232,7 @@ final class UsuarioController extends Controller
             'tipo' => mb_substr((string) ($_POST['tipo'] ?? Usuario::PERFIL_FUNCIONARIO), 0, 30, 'UTF-8'),
             'senha' => (string) ($_POST['senha'] ?? ''),
             'confirmar_senha' => (string) ($_POST['confirmar_senha'] ?? ''),
+            'recebe_alertas_dva' => isset($_POST['recebe_alertas_dva']),
         ];
     }
 
