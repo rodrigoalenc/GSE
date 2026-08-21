@@ -1,0 +1,19 @@
+parameters:
+    level: 6
+    paths:
+        - src/Core
+        - src/Controllers
+        - src/Mail
+        - src/Services
+        - src/Model/Aluno.php
+        - src/Model/Auditoria.php
+        - src/Model/Dva.php
+        - src/Model/Painel.php
+        - src/Model/Turma.php
+        - src/Model/Usuario.php
+        - bin
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    tmpDir: .phpstan-cache
+    checkMissingCallableSignature: true
+    treatPhpDocTypesAsCertain: true

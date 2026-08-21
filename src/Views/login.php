@@ -11,6 +11,7 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login - Sistema Escolar</title>
+    <link rel="icon" type="image/png" href="<?= e(url('assets/image/logo_escola.png')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/login.css')) ?>">
 </head>
@@ -18,6 +19,10 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
     <form action="<?= e(url('login/entrar')) ?>" method="post" class="login" aria-labelledby="login-title">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
 
+        <div class="login-brand">
+            <img src="<?= e(url('assets/image/logo_escola.png')) ?>" alt="Logotipo da E.E. São José">
+            <p>Gestão Escolar</p>
+        </div>
         <h2 id="login-title">Login</h2>
 
         <?php if ($flash): ?>

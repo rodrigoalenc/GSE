@@ -110,6 +110,7 @@ final class Auth
         return true;
     }
 
+    /** @return array<string,mixed>|null */
     public static function user(): ?array
     {
         if (!self::check()) {

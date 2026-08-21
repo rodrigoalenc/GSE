@@ -9,8 +9,35 @@ $phone = static function (?string $value): string {
     }
     return '—';
 };
-$whatsAppPhone = $student['telefone_responsavel'] ?: $student['telefone_aluno'];
+$studentPhoneValid = in_array(strlen((string) $student['telefone_aluno']), [10, 11], true);
+$guardianPhoneValid = in_array(strlen((string) $student['telefone_responsavel']), [10, 11], true);
+$dvaStatus = (string) $student['dva_status'];
+$daysRemaining = $student['dva_dias_restantes'];
 ?>
+<div class="profile-shell">
+<section class="profile-head">
+    <div>
+        <p class="hero-kicker">Perfil do aluno</p>
+        <h2><?= e((string) $student['nome_completo']) ?></h2>
+        <p>Cadastro acadêmico, contatos e histórico documental.</p>
+    </div>
+    <div class="profile-identifiers">
+        <span class="perfil-id">ID <?= e((string) $student['id']) ?></span>
+        <span class="badge-status <?= (int) $student['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $student['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span>
+    </div>
+</section>
+
+<section class="status-box dva-status-large dva-<?= e($dvaStatus) ?>" aria-label="Situação atual da DVA">
+    <span class="dva-badge dva-<?= e($dvaStatus) ?>"><?= e(DvaStatus::label($dvaStatus)) ?></span>
+    <?php if ($student['data_vencimento']): ?>
+        <h2>Vencimento em <?= e(date('d/m/Y', strtotime((string) $student['data_vencimento']))) ?></h2>
+        <p><?= e((string) $daysRemaining) ?> dia(s) em relação à data de referência.</p>
+    <?php else: ?>
+        <h2>Nenhuma DVA registrada</h2>
+        <p>Registre a primeira DVA para iniciar o acompanhamento.</p>
+    <?php endif; ?>
+</section>
+
 <div class="profile-actions">
     <a class="btn-primary" href="<?= e(url('aluno/editar/' . (int) $student['id'])) ?>">Editar dados</a>
     <?php if ((int) $student['ativo'] === 1): ?>
@@ -35,9 +62,14 @@ $whatsAppPhone = $student['telefone_responsavel'] ?: $student['telefone_aluno'];
             <div><dt>Aluno</dt><dd><?= e($phone($student['telefone_aluno'])) ?></dd></div>
             <div><dt>Responsável</dt><dd><?= e($phone($student['telefone_responsavel'])) ?></dd></div>
         </dl>
-        <?php if (in_array(strlen((string) $whatsAppPhone), [10, 11], true)): ?>
-            <a class="btn-secondary" href="<?= e('https://wa.me/55' . $whatsAppPhone) ?>" target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
+        <div class="contact-actions">
+        <?php if ($studentPhoneValid): ?>
+            <a class="btn-whatsapp" href="<?= e('https://wa.me/55' . (string) $student['telefone_aluno']) ?>" target="_blank" rel="noopener noreferrer">WhatsApp do aluno</a>
         <?php endif; ?>
+        <?php if ($guardianPhoneValid): ?>
+            <a class="btn-whatsapp" href="<?= e('https://wa.me/55' . (string) $student['telefone_responsavel']) ?>" target="_blank" rel="noopener noreferrer">WhatsApp do responsável</a>
+        <?php endif; ?>
+        </div>
     </article>
     <article class="relatorio profile-card dva-current">
         <h2>DVA atual</h2>
@@ -77,3 +109,4 @@ $whatsAppPhone = $student['telefone_responsavel'] ?: $student['telefone_aluno'];
         </table>
     </div>
 </section>
+</div>

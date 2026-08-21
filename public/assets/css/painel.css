@@ -16,7 +16,8 @@
     --shadow-md: 0 18px 40px rgba(15, 36, 64, 0.10);
     --radius: 14px;
     --radius-lg: 20px;
-    --sidebar-width: 260px;
+    --sidebar-width: 78px;
+    --sidebar-expanded-width: 260px;
 }
 
 * { box-sizing: border-box; outline: none; }
@@ -65,15 +66,22 @@ h1, h2, h3 {
         linear-gradient(180deg, #103f78 0%, #0a2d55 100%);
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 18px 0 42px rgba(5, 19, 36, 0.18);
+    overflow: hidden;
+    transition: width 0.22s ease;
 }
 
+.sidebar:hover,
+.sidebar:focus-within { width: var(--sidebar-expanded-width); }
+
 .sidebar-header {
-    padding: 28px 24px 22px;
+    padding: 20px 14px;
     background: rgba(255, 255, 255, 0.03);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.sidebar-header h2 { margin: 0; color: #ffffff; font-size: 1.35rem; }
+.sidebar-brand { display: flex; align-items: center; gap: 13px; min-width: 220px; color: #fff; font-weight: 800; }
+.sidebar-brand-icon { width: 48px; height: 48px; flex: 0 0 48px; padding: 3px; object-fit: contain; background: #fff; border-radius: 13px; }
+.sidebar-brand-text { font-size: 1.35rem; letter-spacing: .04em; }
 
 .sidebar nav { flex-grow: 1; padding: 18px 14px; overflow-y: auto; }
 
@@ -87,6 +95,7 @@ h1, h2, h3 {
     border-radius: 12px;
     color: rgba(255, 255, 255, 0.86);
     font-weight: 600;
+    min-width: 220px;
 }
 
 .sidebar-icon {
@@ -94,9 +103,23 @@ h1, h2, h3 {
     align-items: center;
     justify-content: center;
     width: 22px;
-    flex-shrink: 0;
-    font-size: 1rem;
+    flex: 0 0 22px;
+    font-size: 1.08rem;
 }
+
+.sidebar-label,
+.sidebar-section-label,
+.sidebar-footer-label {
+    opacity: 0;
+    transition: opacity 0.14s ease;
+}
+
+.sidebar:hover .sidebar-label,
+.sidebar:hover .sidebar-section-label,
+.sidebar:hover .sidebar-footer-label,
+.sidebar:focus-within .sidebar-label,
+.sidebar:focus-within .sidebar-section-label,
+.sidebar:focus-within .sidebar-footer-label { opacity: 1; }
 
 .sidebar-link:hover {
     color: #ffffff;
@@ -125,11 +148,15 @@ h1, h2, h3 {
 }
 
 .sidebar-footer {
-    padding: 20px;
+    padding: 14px;
     background: rgba(0, 0, 0, 0.10);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     font-size: 0.9rem;
 }
+
+.sidebar-user,
+.btn-sair { display: flex; align-items: center; gap: 12px; min-width: 220px; white-space: nowrap; }
+.sidebar-footer-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; flex: 0 0 22px; }
 
 .sidebar-user-role {
     display: block;
@@ -141,7 +168,7 @@ h1, h2, h3 {
 .logout-form { margin: 0; padding: 0; background: transparent; box-shadow: none; }
 
 .btn-sair {
-    display: inline-flex;
+    display: flex;
     margin-top: 8px;
     padding: 0;
     color: #ffc7c2;
@@ -160,6 +187,9 @@ h1, h2, h3 {
     flex-grow: 1;
     padding: 34px 36px 42px;
 }
+
+:focus-visible { outline: 3px solid #f4c95d; outline-offset: 3px; }
+.table-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
 
 header {
     display: flex;
@@ -278,7 +308,12 @@ header h1 { margin: 0; color: var(--primary-dark); font-size: 2rem; }
 
 @media (max-width: 768px) {
     .layout-container { flex-direction: column; }
-    .sidebar { position: relative; width: 100%; height: auto; }
+    .sidebar,
+    .sidebar:hover,
+    .sidebar:focus-within { position: relative; width: 100%; height: auto; overflow: visible; }
+    .sidebar-header { padding: 14px 18px; }
+    .sidebar-brand-icon { width: 42px; height: 42px; flex-basis: 42px; }
+    .sidebar-label, .sidebar-section-label, .sidebar-footer-label { opacity: 1; }
     .sidebar nav { display: flex; overflow-x: auto; padding: 10px; }
     .sidebar-link { white-space: nowrap; margin-right: 8px; margin-bottom: 0; }
     .sidebar-divider, .sidebar-section-label { display: none; }
@@ -288,6 +323,10 @@ header h1 { margin: 0; color: var(--primary-dark); font-size: 2rem; }
     header { flex-direction: column; align-items: flex-start; }
     .stats-container { grid-template-columns: 1fr; }
     .relatorio { padding: 20px; border-radius: 16px; overflow-x: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
 
 @media (max-width: 480px) {

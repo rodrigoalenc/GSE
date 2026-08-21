@@ -47,17 +47,15 @@ final class PasswordPolicy
     public static function hash(string $password): string
     {
         $algorithm = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
-        $hash = password_hash($password, $algorithm);
+        try {
+            return password_hash($password, $algorithm);
+        } catch (ValueError $exception) {
+            if ($algorithm === PASSWORD_DEFAULT) {
+                throw new RuntimeException('Não foi possível proteger a senha.', 0, $exception);
+            }
 
-        if ($hash === false && $algorithm !== PASSWORD_DEFAULT) {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
+            return password_hash($password, PASSWORD_DEFAULT);
         }
-
-        if ($hash === false) {
-            throw new RuntimeException('Não foi possível proteger a senha.');
-        }
-
-        return $hash;
     }
 
     public static function needsRehash(string $hash): bool

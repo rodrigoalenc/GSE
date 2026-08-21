@@ -66,6 +66,7 @@ final class DvaNotificationService
         return $result;
     }
 
+    /** @return list<array<string,mixed>> */
     private function warnings(DvaStatus $status): array
     {
         $statement = $this->pdo->prepare(
@@ -81,6 +82,7 @@ final class DvaNotificationService
         return $statement->fetchAll();
     }
 
+    /** @return list<array<string,mixed>> */
     private function recipients(): array
     {
         return $this->pdo->query(
@@ -148,7 +150,10 @@ final class DvaNotificationService
         ]);
     }
 
-    /** @return array{0:string,1:string,2:string} */
+    /**
+     * @param list<array<string,mixed>> $warnings
+     * @return array{0:string,1:string,2:string}
+     */
     private function message(array $warnings, DvaStatus $status): array
     {
         $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');

@@ -96,6 +96,7 @@ function definir_flash(string $tipo, string $mensagem): void
     ];
 }
 
+/** @return array<string,mixed>|null */
 function consumir_flash(): ?array
 {
     $flash = $_SESSION['_flash'] ?? null;

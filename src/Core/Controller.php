@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 abstract class Controller
 {
+    /** @param array<string,mixed> $viewData */
     protected function view(string $view, array $viewData = [], bool $useLayout = true): void
     {
         $viewFile = ROOT_PATH . '/src/Views/' . trim($view, '/') . '.php';

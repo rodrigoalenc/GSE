@@ -76,6 +76,47 @@ final class ModuleTwoTest extends DatabaseTestCase
         $this->assertSame(2, (int) $this->pdo->query('SELECT COUNT(*) FROM alunos')->fetchColumn());
     }
 
+    public function testEdicaoIgnoraOProprioAlunoEBloqueiaColisaoNormalizadaAteConfirmacao(): void
+    {
+        $classId = $this->insertTurma();
+        $actor = $this->insertUsuario();
+        $model = new \Aluno();
+        $first = $this->validStudentData($classId);
+        $first['nome_completo'] = 'Maria da Silva';
+        $second = $this->validStudentData($classId);
+        $second['nome_completo'] = 'Outra Pessoa';
+        $second['data_nascimento'] = '2011-03-10';
+        $firstId = $model->cadastrar($first, $actor);
+        $secondId = $model->cadastrar($second, $actor);
+
+        $this->assertIsInt($firstId);
+        $this->assertIsInt($secondId);
+        $this->assertTrue($model->atualizar($firstId, $first));
+
+        $collision = $second;
+        $collision['nome_completo'] = '  MARIA   DA   SILVA ';
+        $collision['data_nascimento'] = $first['data_nascimento'];
+        $this->assertFalse($model->atualizar($secondId, $collision));
+        $this->assertSame('possible_duplicate', $model->lastErrorCode());
+        $this->assertSame('Outra Pessoa', $model->buscarPorId($secondId)['nome_completo']);
+
+        $this->assertTrue($model->atualizar($secondId, $collision, true));
+        $this->assertSame('MARIA DA SILVA', $model->buscarPorId($secondId)['nome_completo']);
+    }
+
+    public function testMesmoNomeComNascimentoDiferenteNaoEhDuplicidade(): void
+    {
+        $classId = $this->insertTurma();
+        $actor = $this->insertUsuario();
+        $model = new \Aluno();
+        $first = $this->validStudentData($classId);
+        $second = $first;
+        $second['data_nascimento'] = '2011-02-28';
+
+        $this->assertIsInt($model->cadastrar($first, $actor));
+        $this->assertIsInt($model->cadastrar($second, $actor));
+    }
+
     public function testRenovacaoDaDvaTemUmaAtivaPreservaAtorEExecutaRollback(): void
     {
         $classId = $this->insertTurma();

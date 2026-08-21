@@ -30,12 +30,13 @@ use src\Core\Database;
 use src\Core\DatabaseInitializer;
 use src\Core\SqliteTransaction;
 
-$options = getopt('', ['name:', 'email:']);
+$options = getopt('', ['name:', 'email:', 'enable-dva-alerts']);
 $name = trim((string) ($options['name'] ?? ''));
 $email = trim((string) ($options['email'] ?? ''));
+$enableDvaAlerts = array_key_exists('enable-dva-alerts', $options);
 
 if ($name === '' || $email === '') {
-    fwrite(STDERR, "Uso: php bin/create-admin.php --name=\"Nome\" --email=admin@exemplo.local\n");
+    fwrite(STDERR, "Uso: php bin/create-admin.php --name=\"Nome\" --email=admin@exemplo.local [--enable-dva-alerts]\n");
     exit(1);
 }
 
@@ -55,12 +56,12 @@ try {
 
     $users = new Usuario();
 
-    $created = SqliteTransaction::immediate($pdo, static function () use ($users, $name, $email, $password): array|false {
+    $created = SqliteTransaction::immediate($pdo, static function () use ($users, $name, $email, $password, $enableDvaAlerts): array|false {
         if ($users->contarAdministradoresAtivos() > 0) {
             throw new RuntimeException('Já existe um administrador ativo. Cadastre novos administradores pela interface.');
         }
 
-        if (!$users->cadastrar($name, $email, $password, Usuario::PERFIL_ADMINISTRADOR, true, true)) {
+        if (!$users->cadastrar($name, $email, $password, Usuario::PERFIL_ADMINISTRADOR, true, $enableDvaAlerts)) {
             throw new RuntimeException('Não foi possível criar o administrador. Verifique nome, e-mail e política de senha.');
         }
 

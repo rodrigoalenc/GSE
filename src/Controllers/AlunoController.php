@@ -89,11 +89,12 @@ final class AlunoController extends Controller
             'observacao' => '',
         ];
         $errors = [];
+        $possibleDuplicate = false;
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $data = $this->formData();
 
-            if ($model->atualizar($studentId, $data)) {
+            if ($model->atualizar($studentId, $data, isset($_POST['confirmar_duplicidade']))) {
                 AuditLogger::record(
                     'student.updated', AuditLogger::SUCCESS, (int) $_SESSION['usuario_id'], null,
                     'Dados cadastrais do aluno atualizados.', 'student', $studentId
@@ -101,6 +102,7 @@ final class AlunoController extends Controller
                 $this->redirectWithFlash('aluno/perfil/' . $studentId, 'success', 'Aluno atualizado com sucesso.');
             }
 
+            $possibleDuplicate = $model->lastErrorCode() === 'possible_duplicate';
             $errors[] = $this->studentError($model->lastErrorCode());
             http_response_code(422);
         }
@@ -121,7 +123,7 @@ final class AlunoController extends Controller
             'data' => $data,
             'errors' => $errors,
             'editing' => true,
-            'possibleDuplicate' => false,
+            'possibleDuplicate' => $possibleDuplicate,
             'studentId' => $studentId,
             'turmas' => $turmas,
         ]);
@@ -189,6 +191,7 @@ final class AlunoController extends Controller
         ];
         $errors = [];
         $current = (new Dva())->atualDoAluno($studentId);
+        $statusService = new DvaStatus();
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $model = new Dva();
@@ -224,6 +227,8 @@ final class AlunoController extends Controller
             'title' => $current ? 'Renovar DVA' : 'Registrar DVA',
             'student' => $student,
             'current' => $current,
+            'currentStatus' => $statusService->classify(is_array($current) ? (string) $current['data_vencimento'] : null),
+            'currentDays' => $statusService->daysRemaining(is_array($current) ? (string) $current['data_vencimento'] : null),
             'data' => $data,
             'errors' => $errors,
         ]);

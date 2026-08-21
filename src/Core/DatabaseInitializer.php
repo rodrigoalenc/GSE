@@ -44,18 +44,7 @@ final class DatabaseInitializer
                     continue;
                 }
 
-                SqliteTransaction::immediate($pdo, static function (PDO $pdo) use ($schema, $version): void {
-                    self::applyMigration($pdo, $version, $schema);
-
-                    $insert = $pdo->prepare(
-                        'INSERT INTO schema_migrations (version, applied_at) VALUES (:version, :applied_at)'
-                    );
-                    $insert->execute([
-                        'version' => $version,
-                        'applied_at' => gmdate('Y-m-d H:i:s'),
-                    ]);
-                    $pdo->exec('PRAGMA user_version = ' . $version);
-                });
+                self::runMigration($pdo, $version, $schema);
             }
 
             Database::protectFiles();
@@ -68,6 +57,49 @@ final class DatabaseInitializer
             }
 
             throw $exception;
+        }
+    }
+
+    private static function runMigration(PDO $pdo, int $version, string $schema): void
+    {
+        $rebuildsClasses = $version === 6 && self::classesRequireRebuild($pdo);
+        $foreignKeysBefore = (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn();
+
+        if ($rebuildsClasses) {
+            // SQLite ignora mudancas de foreign_keys dentro de uma transacao. A
+            // desativacao ocorre antes do BEGIN IMMEDIATE e e sempre restaurada.
+            $pdo->exec('PRAGMA foreign_keys = OFF');
+
+            if ((int) $pdo->query('PRAGMA foreign_keys')->fetchColumn() !== 0) {
+                throw new RuntimeException('Nao foi possivel preparar a migracao segura de turmas.');
+            }
+        }
+
+        try {
+            SqliteTransaction::immediate($pdo, static function (PDO $pdo) use ($schema, $version): void {
+                self::applyMigration($pdo, $version, $schema);
+
+                $insert = $pdo->prepare(
+                    'INSERT INTO schema_migrations (version, applied_at) VALUES (:version, :applied_at)'
+                );
+                $insert->execute([
+                    'version' => $version,
+                    'applied_at' => gmdate('Y-m-d H:i:s'),
+                ]);
+                $pdo->exec('PRAGMA user_version = ' . $version);
+            });
+        } finally {
+            if ($rebuildsClasses) {
+                $pdo->exec('PRAGMA foreign_keys = ' . ($foreignKeysBefore === 1 ? 'ON' : 'OFF'));
+
+                if ((int) $pdo->query('PRAGMA foreign_keys')->fetchColumn() !== $foreignKeysBefore) {
+                    throw new RuntimeException('Nao foi possivel restaurar a protecao de chaves estrangeiras.');
+                }
+            }
+        }
+
+        if ($rebuildsClasses && self::foreignKeyViolations($pdo) !== []) {
+            throw new RuntimeException('A migracao de turmas deixou relacionamentos invalidos.');
         }
     }
 
@@ -160,9 +192,7 @@ final class DatabaseInitializer
 
     private static function migrateClasses(PDO $pdo): void
     {
-        $legacySql = (string) $pdo->query(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'turmas'"
-        )->fetchColumn();
+        $requiresRebuild = self::classesRequireRebuild($pdo);
         self::addColumnIfMissing($pdo, 'turmas', 'ano_letivo', 'INTEGER');
         self::addColumnIfMissing($pdo, 'turmas', 'ativo', 'INTEGER NOT NULL DEFAULT 1');
         self::addColumnIfMissing($pdo, 'turmas', 'criado_em', 'TEXT');
@@ -170,9 +200,12 @@ final class DatabaseInitializer
 
         $pdo->exec('UPDATE turmas SET ativo = 1 WHERE ativo IS NULL OR ativo NOT IN (0, 1)');
 
-        if (preg_match('/nome_turma\s+TEXT\s+NOT\s+NULL\s+UNIQUE/i', $legacySql) === 1) {
-            $before = (int) $pdo->query('SELECT COUNT(*) FROM turmas')->fetchColumn();
-            $pdo->exec('PRAGMA defer_foreign_keys = ON');
+        if ($requiresRebuild) {
+            $beforeCounts = self::moduleTwoCounts($pdo);
+            $classIdsBefore = self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id');
+            $studentIdsBefore = self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id');
+            $dvaIdsBefore = self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id');
+            $relationshipsBefore = self::studentClassRelationships($pdo);
             $pdo->exec(
                 'CREATE TABLE turmas_v6 (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,12 +221,21 @@ final class DatabaseInitializer
                  SELECT id, nome_turma, ano_letivo, ativo, criado_em, atualizado_em FROM turmas'
             );
 
-            if ((int) $pdo->query('SELECT COUNT(*) FROM turmas_v6')->fetchColumn() !== $before) {
+            if ((int) $pdo->query('SELECT COUNT(*) FROM turmas_v6')->fetchColumn() !== $beforeCounts['classes']) {
                 throw new RuntimeException('A migracao de turmas falhou na validacao de contagem.');
             }
 
             $pdo->exec('DROP TABLE turmas');
             $pdo->exec('ALTER TABLE turmas_v6 RENAME TO turmas');
+
+            if (self::moduleTwoCounts($pdo) !== $beforeCounts
+                || self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id') !== $classIdsBefore
+                || self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id') !== $studentIdsBefore
+                || self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id') !== $dvaIdsBefore
+                || self::studentClassRelationships($pdo) !== $relationshipsBefore
+                || self::foreignKeyViolations($pdo) !== []) {
+                throw new RuntimeException('A migracao de turmas nao preservou integralmente os dados e relacionamentos.');
+            }
         }
 
         $pdo->exec(
@@ -239,8 +281,68 @@ final class DatabaseInitializer
         self::addColumnIfMissing($pdo, 'usuarios', 'recebe_alertas_dva', 'INTEGER NOT NULL DEFAULT 0');
 
         $pdo->exec('UPDATE usuarios SET recebe_alertas_dva = 0 WHERE recebe_alertas_dva IS NULL OR recebe_alertas_dva NOT IN (0, 1)');
-        $pdo->exec("UPDATE usuarios SET recebe_alertas_dva = 1 WHERE tipo = 'administrador' AND ativo = 1");
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_security_audit_resource ON security_audit (resource_type, resource_id)');
+    }
+
+    private static function classesRequireRebuild(PDO $pdo): bool
+    {
+        if (!self::tableExists($pdo, 'turmas')) {
+            return false;
+        }
+
+        foreach ($pdo->query('PRAGMA index_list(turmas)')->fetchAll() as $index) {
+            if ((int) ($index['unique'] ?? 0) !== 1) {
+                continue;
+            }
+
+            $indexName = str_replace('"', '""', (string) ($index['name'] ?? ''));
+
+            if ($indexName === '') {
+                continue;
+            }
+
+            $columns = $pdo->query('PRAGMA index_info("' . $indexName . '")')->fetchAll(PDO::FETCH_COLUMN, 2);
+
+            if ($columns === ['nome_turma']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return array{classes:int,students:int,dvas:int} */
+    private static function moduleTwoCounts(PDO $pdo): array
+    {
+        return [
+            'classes' => (int) $pdo->query('SELECT COUNT(*) FROM turmas')->fetchColumn(),
+            'students' => (int) $pdo->query('SELECT COUNT(*) FROM alunos')->fetchColumn(),
+            'dvas' => (int) $pdo->query('SELECT COUNT(*) FROM dvas')->fetchColumn(),
+        ];
+    }
+
+    /** @return list<int> */
+    private static function integerColumn(PDO $pdo, string $sql): array
+    {
+        return array_map('intval', $pdo->query($sql)->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /** @return array<int,int|null> */
+    private static function studentClassRelationships(PDO $pdo): array
+    {
+        $relationships = [];
+
+        foreach ($pdo->query('SELECT id, id_turma FROM alunos ORDER BY id')->fetchAll() as $row) {
+            $relationships[(int) $row['id']] = $row['id_turma'] === null ? null : (int) $row['id_turma'];
+        }
+
+        return $relationships;
+    }
+
+    /** @return list<array<string,mixed>> */
+    private static function foreignKeyViolations(PDO $pdo): array
+    {
+        return $pdo->query('PRAGMA foreign_key_check')->fetchAll();
     }
 
     private static function ensureModuleTwoGuardsAndNotifications(PDO $pdo): void

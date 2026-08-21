@@ -6,7 +6,10 @@ require_once ROOT_PATH . '/src/Core/Model.php';
 
 final class Auditoria extends Model
 {
-    /** @return array{items: array, total: int, page: int, pages: int} */
+    /**
+     * @param array<string,mixed> $filters
+     * @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int}
+     */
     public function paginate(array $filters, int $page = 1, int $perPage = 25): array
     {
         $page = max(1, $page);
@@ -45,7 +48,10 @@ final class Auditoria extends Model
         return $statement->rowCount();
     }
 
-    /** @return array{0: string, 1: array<string, string>} */
+    /**
+     * @param array<string,mixed> $filters
+     * @return array{0:string,1:array<string,string>}
+     */
     private function where(array $filters): array
     {
         $conditions = [];

@@ -3,6 +3,7 @@
 !/.env.example
 !/.env.production.example
 /.phpunit.cache/
+/.phpstan-cache/
 /vendor/
 /logs/
 *.log

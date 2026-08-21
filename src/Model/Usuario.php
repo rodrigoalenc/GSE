@@ -16,6 +16,7 @@ class Usuario extends Model
 
     private ?string $lastErrorCode = null;
 
+    /** @return array<string,mixed>|false */
     public function buscarPorEmail(string $email): array|false
     {
         $stmt = self::$pdo->prepare('SELECT * FROM usuarios WHERE email = :email COLLATE NOCASE LIMIT 1');
@@ -24,6 +25,7 @@ class Usuario extends Model
         return $stmt->fetch();
     }
 
+    /** @return array<string,mixed>|false */
     public function buscarPorId(int $id): array|false
     {
         $stmt = self::$pdo->prepare('SELECT * FROM usuarios WHERE id = :id LIMIT 1');
@@ -32,6 +34,7 @@ class Usuario extends Model
         return $stmt->fetch();
     }
 
+    /** @return list<array<string,mixed>> */
     public function listar(string $termo = ''): array
     {
         $termo = trim($termo);
@@ -247,7 +250,8 @@ class Usuario extends Model
 
                 $statement = $pdo->prepare(
                     'UPDATE usuarios SET ativo = :active, atualizado_em = :updated,
-                        session_version = session_version + 1
+                        session_version = session_version + 1,
+                        recebe_alertas_dva = CASE WHEN :active = 1 THEN recebe_alertas_dva ELSE 0 END
                      WHERE id = :id AND ativo <> :active'
                 );
                 $statement->execute([
@@ -281,6 +285,7 @@ class Usuario extends Model
         return (int) $stmt->fetchColumn();
     }
 
+    /** @return array<string,int> */
     public function estatisticas(): array
     {
         $resultado = self::$pdo->query(

@@ -224,6 +224,7 @@ final class UsuarioController extends Controller
         );
     }
 
+    /** @return array<string,mixed> */
     private function dadosDoFormulario(): array
     {
         return [
@@ -236,6 +237,10 @@ final class UsuarioController extends Controller
         ];
     }
 
+    /**
+     * @param array<string,mixed> $dados
+     * @return list<string>
+     */
     private function validar(array $dados, bool $senhaObrigatoria): array
     {
         $erros = [];

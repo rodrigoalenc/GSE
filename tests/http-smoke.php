@@ -209,6 +209,12 @@ try {
         $baseEnvironment
     );
     checkHttp($exit === 0 && str_contains($stdout, 'sucesso'), 'Criação do primeiro administrador temporário', trim($stderr));
+    $verification = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    checkHttp(
+        (int) $verification->query('SELECT recebe_alertas_dva FROM usuarios WHERE id = 1')->fetchColumn() === 0,
+        'Primeiro administrador inicia com alertas DVA desabilitados'
+    );
+    $verification = null;
 
     unset($baseEnvironment['GSE_ADMIN_PASSWORD']);
     $process = startServer($port, $baseEnvironment, $serverOut, $serverError);
@@ -221,6 +227,10 @@ try {
     $login = request('GET', $baseUrl . '/login', $cookieAdmin);
     $preLoginSession = sessionCookieValue($cookieAdmin);
     checkHttp($login['status'] === 200, 'GET /login', 'HTTP ' . $login['status'] . ' ' . mb_substr(strip_tags($login['body']), 0, 180));
+    checkHttp(
+        str_contains($login['body'], 'assets/image/logo_escola.png') && str_contains($login['body'], 'rel="icon"'),
+        'Login exibe logo institucional e favicon estático'
+    );
     checkHttp(isset($login['headers']['x-request-id']), 'Identificador de requisição');
     checkHttp(!str_contains($login['headers']['content-security-policy'] ?? '', 'unsafe-inline'), 'CSP sem unsafe-inline');
     checkHttp(!isset($login['headers']['strict-transport-security']), 'HSTS ausente em HTTP direto');
@@ -265,7 +275,9 @@ try {
     checkHttp(
         $dashboard['status'] === 200
         && str_contains($dashboard['body'], 'Alunos ativos')
-        && str_contains($dashboard['body'], 'Segurança e controle de acesso'),
+        && str_contains($dashboard['body'], 'Segurança e controle de acesso')
+        && str_contains($dashboard['body'], 'assets/image/logo_escola.png')
+        && str_contains($dashboard['body'], 'aria-current="page"'),
         'Dashboard integra os Módulos 1 e 2'
     );
 
@@ -318,7 +330,9 @@ try {
     checkHttp(
         $profile['status'] === 200
         && str_contains($profile['body'], 'Aluno HTTP &lt;Seguro&gt;')
-        && str_contains($profile['body'], 'DVA inicial HTTP'),
+        && str_contains($profile['body'], 'DVA inicial HTTP')
+        && str_contains($profile['body'], 'WhatsApp do aluno')
+        && str_contains($profile['body'], 'WhatsApp do responsável'),
         'Perfil do aluno escapa HTML e exibe DVA'
     );
 

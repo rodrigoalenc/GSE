@@ -50,7 +50,7 @@ final class RequestContext
             }
         }
 
-        return $chain[0] ?? $source;
+        return $chain[0];
     }
 
     public static function isHttps(): bool

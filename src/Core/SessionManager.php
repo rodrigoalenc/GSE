@@ -26,6 +26,7 @@ final class SessionManager
         session_start();
     }
 
+    /** @param array<string,mixed> $user */
     public static function authenticate(array $user, ?int $now = null): void
     {
         $now ??= time();
@@ -106,7 +107,7 @@ final class SessionManager
                 'domain' => $params['domain'],
                 'secure' => $params['secure'],
                 'httponly' => $params['httponly'],
-                'samesite' => $params['samesite'] ?? 'Lax',
+                'samesite' => $params['samesite'],
             ]);
         }
 

@@ -23,6 +23,7 @@ $flashClass = [
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title) ?> - Sistema</title>
+    <link rel="icon" type="image/png" href="<?= e(url('assets/image/logo_escola.png')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/painel.css')) ?>">
     <?php if ($usersActive || $auditActive || $passwordActive): ?>
@@ -36,56 +37,61 @@ $flashClass = [
 <div class="layout-container">
     <aside class="sidebar" aria-label="Menu principal">
         <div class="sidebar-header">
-            <h2>GSE</h2>
+            <div class="sidebar-brand">
+                <img class="sidebar-brand-icon" src="<?= e(url('assets/image/logo_escola.png')) ?>" alt="Logotipo da E.E. São José">
+                <span class="sidebar-brand-text">GSE</span>
+            </div>
         </div>
 
         <nav>
             <?php if (!$mustChangePassword): ?>
-                <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>">
-                    <span class="sidebar-icon" aria-hidden="true">🏠</span>
-                    <span>Painel Geral</span>
+                <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#8962;</span>
+                    <span class="sidebar-label">Painel Geral</span>
                 </a>
-                <a href="<?= e(url('aluno')) ?>" class="sidebar-link <?= $studentsActive ? 'active' : '' ?>">
-                    <span class="sidebar-icon" aria-hidden="true">A</span>
-                    <span>Alunos</span>
+                <a href="<?= e(url('aluno')) ?>" class="sidebar-link <?= $studentsActive ? 'active' : '' ?>" <?= $studentsActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#127891;</span>
+                    <span class="sidebar-label">Gestão de Alunos</span>
                 </a>
-                <a href="<?= e(url('dva')) ?>" class="sidebar-link <?= $dvaActive ? 'active' : '' ?>">
-                    <span class="sidebar-icon" aria-hidden="true">D</span>
-                    <span>DVAs</span>
+                <a href="<?= e(url('dva')) ?>" class="sidebar-link <?= $dvaActive ? 'active' : '' ?>" <?= $dvaActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#128196;</span>
+                    <span class="sidebar-label">DVAs</span>
                 </a>
             <?php endif; ?>
 
             <?php if ($isAdmin && !$mustChangePassword): ?>
                 <div class="sidebar-divider"></div>
                 <small class="sidebar-section-label">Admin</small>
-                <a href="<?= e(url('usuario')) ?>" class="sidebar-link <?= $usersActive ? 'active' : '' ?>">
-                    <span class="sidebar-icon" aria-hidden="true">👥</span>
-                    <span>Usuários</span>
+                <a href="<?= e(url('usuario')) ?>" class="sidebar-link <?= $usersActive ? 'active' : '' ?>" <?= $usersActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#128101;</span>
+                    <span class="sidebar-label">Usuários</span>
                 </a>
-                <a href="<?= e(url('turma')) ?>" class="sidebar-link <?= $classesActive ? 'active' : '' ?>">
-                    <span class="sidebar-icon" aria-hidden="true">T</span>
-                    <span>Turmas</span>
+                <a href="<?= e(url('turma')) ?>" class="sidebar-link <?= $classesActive ? 'active' : '' ?>" <?= $classesActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#9638;</span>
+                    <span class="sidebar-label">Turmas</span>
                 </a>
-                <a href="<?= e(url('auditoria')) ?>" class="sidebar-link <?= $auditActive ? 'active' : '' ?>">
-                    <span class="sidebar-icon" aria-hidden="true">🛡️</span>
-                    <span>Auditoria</span>
+                <a href="<?= e(url('auditoria')) ?>" class="sidebar-link <?= $auditActive ? 'active' : '' ?>" <?= $auditActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#128737;</span>
+                    <span class="sidebar-label">Auditoria</span>
                 </a>
             <?php endif; ?>
 
-            <a href="<?= e(url('senha/alterar')) ?>" class="sidebar-link <?= $passwordActive ? 'active' : '' ?>">
-                <span class="sidebar-icon" aria-hidden="true">🔑</span>
-                <span>Alterar senha</span>
+            <a href="<?= e(url('senha/alterar')) ?>" class="sidebar-link <?= $passwordActive ? 'active' : '' ?>" <?= $passwordActive ? 'aria-current="page"' : '' ?>>
+                <span class="sidebar-icon" aria-hidden="true">&#128273;</span>
+                <span class="sidebar-label">Alterar senha</span>
             </a>
         </nav>
 
         <div class="sidebar-footer">
             <div class="sidebar-user">
-                <div>Olá, <strong><?= e((string) ($_SESSION['usuario_nome'] ?? 'Usuário')) ?></strong></div>
-                <small class="sidebar-user-role"><?= e(nome_perfil((string) ($_SESSION['usuario_tipo'] ?? ''))) ?></small>
+                <span class="sidebar-footer-icon" aria-hidden="true">&#128100;</span>
+                <div class="sidebar-footer-label">Olá, <strong><?= e((string) ($_SESSION['usuario_nome'] ?? 'Usuário')) ?></strong>
+                    <small class="sidebar-user-role"><?= e(nome_perfil((string) ($_SESSION['usuario_tipo'] ?? ''))) ?></small>
+                </div>
             </div>
             <form class="logout-form" method="post" action="<?= e(url('login/sair')) ?>">
                 <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
-                <button class="btn-sair" type="submit">Sair do Sistema</button>
+                <button class="btn-sair" type="submit"><span class="sidebar-footer-icon" aria-hidden="true">&#10140;</span><span class="sidebar-footer-label">Sair do Sistema</span></button>
             </form>
         </div>
     </aside>

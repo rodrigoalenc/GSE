@@ -11,11 +11,13 @@
         "phpmailer/phpmailer": "^7.0"
     },
     "require-dev": {
+        "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^12.0"
     },
     "scripts": {
         "validate-project": "@composer validate --strict",
         "lint": "@php bin/lint.php",
+        "analyse": "@php vendor/phpstan/phpstan/phpstan.phar analyse --memory-limit=1G --no-progress",
         "test": "phpunit",
         "http-test": "@php tests/http-smoke.php",
         "maintenance": "@php bin/maintenance.php",
@@ -24,6 +26,7 @@
         "check": [
             "@validate-project",
             "@lint",
+            "@analyse",
             "@test",
             "@http-test",
             "@security-check"

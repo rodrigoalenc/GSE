@@ -6,6 +6,7 @@ require_once ROOT_PATH . '/src/Core/Model.php';
 
 final class Painel extends Model
 {
+    /** @return array<string,int> */
     public function resumo(?DvaStatus $statusService = null): array
     {
         $statusService ??= new DvaStatus();
@@ -39,6 +40,7 @@ final class Painel extends Model
         ];
     }
 
+    /** @return list<array<string,mixed>> */
     public function pendenciasPrioritarias(int $limit = 8, ?DvaStatus $statusService = null): array
     {
         $statusService ??= new DvaStatus();

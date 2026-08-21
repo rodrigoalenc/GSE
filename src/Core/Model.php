@@ -6,9 +6,9 @@ use src\Core\Database;
 
 class Model
 {
-    protected static $pdo;
+    protected static ?PDO $pdo = null;
 
-    public static function getConexao()
+    public static function getConexao(): PDO
     {
         if (!self::$pdo) {
             self::$pdo = Database::getConnection();

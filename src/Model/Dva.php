@@ -13,6 +13,7 @@ final class Dva extends Model
 
     private ?string $lastErrorCode = null;
 
+    /** @return array<string,mixed>|false */
     public function atualDoAluno(int $studentId): array|false
     {
         if ($studentId < 1) {
@@ -33,6 +34,7 @@ final class Dva extends Model
         return $statement->fetch();
     }
 
+    /** @return list<array<string,mixed>> */
     public function historicoDoAluno(int $studentId): array
     {
         if ($studentId < 1) {

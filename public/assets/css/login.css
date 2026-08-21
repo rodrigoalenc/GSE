@@ -48,6 +48,10 @@ form.login h2 {
     letter-spacing: -0.03em;
 }
 
+.login-brand { margin-bottom: 14px; text-align: center; }
+.login-brand img { display: block; width: 88px; height: 88px; margin: 0 auto 10px; padding: 5px; object-fit: contain; background: #fff; border-radius: 20px; box-shadow: 0 12px 28px rgba(12, 53, 102, .16); }
+.login-brand p { margin: 0; color: var(--primary-color); font-size: .8rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+
 .form-group,
 .password-wrapper {
     margin-bottom: 18px;
@@ -161,4 +165,9 @@ form.login .btn-login:hover {
 
 @media (max-width: 480px) {
     form.login { padding: 34px 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    form.login { animation: none; }
+    *, *::before, *::after { transition-duration: 0.01ms !important; }
 }

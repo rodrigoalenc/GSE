@@ -27,7 +27,7 @@ final class Config
     {
         $value = $_ENV[$key] ?? getenv($key);
 
-        return $value === false || $value === null ? $default : trim((string) $value);
+        return $value === false ? $default : trim((string) $value);
     }
 
     public static function bool(string $key, bool $default = false): bool
@@ -97,10 +97,13 @@ final class Config
 
         if (self::bool('MAIL_ENABLED', false)) {
             $encryption = strtolower(self::string('MAIL_ENCRYPTION', 'tls'));
+            $port = self::int('MAIL_PORT', 587, 1, 65535);
 
             if (self::string('MAIL_HOST') === ''
                 || filter_var(self::string('MAIL_FROM_ADDRESS'), FILTER_VALIDATE_EMAIL) === false
-                || !in_array($encryption, ['', 'none', 'tls', 'smtps'], true)
+                || !in_array($encryption, ['tls', 'smtps'], true)
+                || ($encryption === 'tls' && $port === 465)
+                || ($encryption === 'smtps' && $port === 587)
                 || (self::string('MAIL_USERNAME') !== '' && self::string('MAIL_PASSWORD') === '')) {
                 $errors[] = 'A configuração de e-mail está incompleta ou inválida.';
             }

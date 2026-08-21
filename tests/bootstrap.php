@@ -41,6 +41,7 @@ require_once ROOT_PATH . '/src/Model/Aluno.php';
 require_once ROOT_PATH . '/src/Model/Dva.php';
 require_once ROOT_PATH . '/src/Model/Turma.php';
 require_once ROOT_PATH . '/src/Mail/MailTransport.php';
+require_once ROOT_PATH . '/src/Mail/PhpMailerTransport.php';
 require_once ROOT_PATH . '/src/Services/DvaNotificationService.php';
 require_once ROOT_PATH . '/src/Model/Painel.php';
 require_once ROOT_PATH . '/src/Model/Pedido.php';

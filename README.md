@@ -28,6 +28,10 @@ Componentes principais:
 - trigger SQLite e transação `BEGIN IMMEDIATE`, executada por um helper com rollback explícito, protegem o último administrador ativo;
 - `SecurityHeaders` aplica CSP sem `unsafe-inline` e HSTS somente sob HTTPS reconhecido.
 
+## Identidade visual e acessibilidade
+
+A interface recupera a identidade azul e o logo institucional da E.E. São José a partir do commit `f0bb641b2d1a074bddd598e52f3e733872d230db` do ProjetoGSE original, usado somente como referência visual. O backend, as rotas e as proteções atuais não foram substituídos pelo código legado. A sidebar ocupa cerca de 78 px no desktop, expande por `hover` ou `focus-within`, permanece inteiramente utilizável por teclado e se adapta no mobile sem depender de hover. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`.
+
 As decisões seguem as recomendações de [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) e [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) da OWASP, além das APIs nativas de senha do [manual do PHP](https://www.php.net/manual/en/book.password.php).
 
 ## Requisitos
@@ -92,6 +96,8 @@ Para automação controlada, `GSE_ADMIN_PASSWORD` pode ser fornecida apenas ao p
 
 Senhas definidas ou redefinidas por administrador também são temporárias e nunca são exibidas novamente pela aplicação.
 
+Alertas de DVA são opt-in. O primeiro administrador inicia sem alertas; para uma escolha explícita já na criação, acrescente `--enable-dva-alerts`. A preferência também pode ser habilitada depois pela tela administrativa.
+
 ## Política de senhas
 
 - 12 a 128 caracteres Unicode;
@@ -138,7 +144,7 @@ Cada evento registra horário UTC, ação, resultado, IDs aplicáveis, IP seguro
 
 Funcionários e administradores autenticados podem listar, pesquisar, filtrar, cadastrar, editar e consultar o perfil de alunos. Somente administradores podem inativar/reativar alunos e administrar turmas. Não existe rota de exclusão física: a situação do cadastro muda, enquanto os dados e o histórico permanecem preservados.
 
-Nome, nascimento, turma e telefones são validados no servidor. Telefones opcionais são normalizados para 10 ou 11 dígitos e só geram link de WhatsApp após essa validação. A busca escapa `%`, `_` e `\`. Um nome e nascimento coincidentes produzem um alerta de possível duplicidade e exigem confirmação explícita; não há unicidade absoluta porque pessoas diferentes podem compartilhar esses dados.
+Nome, nascimento, turma e telefones são validados no servidor. Telefones opcionais são normalizados para 10 ou 11 dígitos e só geram links independentes de WhatsApp após essa validação. A busca escapa `%`, `_` e `\`. Um nome normalizado e nascimento coincidentes produzem um alerta de possível duplicidade tanto no cadastro quanto na edição e exigem confirmação explícita; consulta e gravação ocorrem na mesma transação `BEGIN IMMEDIATE`. Não há unicidade absoluta porque pessoas diferentes podem compartilhar esses dados.
 
 Turmas possuem nome, ano letivo e situação. A combinação nome/ano é única sem diferenciar caixa. Uma turma com alunos ativos não pode ser inativada até que esses alunos sejam remanejados ou inativados. Turmas legadas ficam com `ano_letivo` nulo para preenchimento administrativo: a migração não inventa datas históricas.
 
@@ -158,9 +164,9 @@ Datas vencidas podem ser registradas para correção histórica e são sinalizad
 
 ## Notificações opcionais de DVA
 
-O comando `php bin/notify-dva.php` funciona somente em CLI, consolida DVAs vencidas ou dentro de `DVA_EMAIL_WARNING_DAYS` e envia a administradores ativos que habilitaram a preferência. A execução do mesmo dia não duplica uma entrega já concluída; falhas parciais ficam aptas a nova tentativa. Testes usam transporte falso e nunca enviam e-mail real.
+O comando `php bin/notify-dva.php` funciona somente em CLI, consolida DVAs vencidas ou dentro de `DVA_EMAIL_WARNING_DAYS` e envia somente a administradores ativos que habilitaram a preferência. Migrações e criação por CLI mantêm essa opção em `0`; funcionários, contas rebaixadas e contas inativas não são destinatários. O e-mail não inclui telefone, nascimento nem observação integral. A execução do mesmo dia não duplica uma entrega já concluída; falhas parciais ficam aptas a nova tentativa. Testes usam transporte falso e nunca enviam e-mail real.
 
-O envio usa PHPMailer por SMTP. Com `MAIL_ENABLED=false`, o comando retorna zero sem abrir conexão. Em produção, habilitar o envio exige host, remetente válido, porta e credenciais coerentes. Exemplo de cron diário:
+O envio usa PHPMailer por SMTP. `tls` é mapeado para `PHPMailer::ENCRYPTION_STARTTLS`, `smtps` para `PHPMailer::ENCRYPTION_SMTPS` e `none` desativa também `SMTPAutoTLS`. Produção exige `tls` ou `smtps` e rejeita combinações incoerentes com as portas padrão; a validação de certificados não é relaxada. Com `MAIL_ENABLED=false`, o comando retorna zero sem abrir conexão. Sempre teste o SMTP institucional em homologação. Exemplo de cron diário:
 
 ```cron
 25 7 * * * cd /var/www/gse && /usr/bin/php bin/notify-dva.php >> /var/log/gse/notify-dva.log 2>&1
@@ -266,9 +272,11 @@ O banco permanece fora de `public/`; em produção essa regra é validada e uma 
 | 8 | recurso de auditoria e preferência de alertas |
 | 9 | idempotência de notificações e triggers de integridade |
 
-Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas. Índices apoiam nome, turma, situação, nascimento, vencimento e histórico.
+Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
 
 Antes de alteração estrutural em banco existente, é criado um backup SQLite consistente em `backups/`, validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
+
+Bancos locais de teste que já executaram a versão v6 defeituosa anterior a esta correção podem ter perdido os vínculos e devem ser restaurados a partir do backup `pre-migration`; o sistema não tenta reconstruí-los por adivinhação.
 
 Mantenha backups fora do servidor, criptografados e com restauração testada. Backups locais, bancos e sidecars estão no `.gitignore`.
 
@@ -307,6 +315,7 @@ Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado r
 ```bash
 composer validate-project
 composer lint
+composer analyse
 composer test
 composer http-test
 composer maintenance
@@ -317,7 +326,7 @@ composer check
 
 PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migração e SQLite. `tests/http-smoke.php` inicia servidores temporários e testa o fluxo HTTP real dos dois módulos em Windows/Linux. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
-`.github/workflows/ci.yml` usa PHP 8.3 e `actions/checkout@v5`, e roda instalação limpa, validação estrita, auditoria, lint, PHPUnit e HTTP em pushes e pull requests. Qualquer etapa com falha interrompe o job. Nenhum baseline de análise estática foi criado; uma ferramenta estática poderá ser adotada em etapa própria, com correção real dos achados.
+`composer analyse` executa PHPStan no nível 6 sobre o núcleo, controllers, Models ativos dos Módulos 1 e 2, serviços, e comandos CLI. Views possuem uma verificação dedicada contra estilos, scripts e handlers inline. Não há baseline nem `ignoreErrors`. O workflow usa PHP 8.3, actions fixadas por SHA imutável e executa instalação limpa, validação estrita, auditoria, lint, PHPStan, PHPUnit e HTTP em pushes e pull requests.
 
 ## Roteiro de demonstração
 
@@ -341,7 +350,7 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 - não há MFA nem recuperação de senha por e-mail nesta etapa;
 - auditoria local não substitui SIEM/armazenamento imutável;
 - disponibilidade distribuída exigiria rate limiting e sessões em armazenamento compartilhado;
-- identidade visual institucional definitiva ainda depende da escola;
+- alterações futuras do logo ou da identidade institucional dependem de aprovação da escola;
 - notificações dependem de um SMTP institucional configurado e de agendamento externo;
 - arquivo passivo, certidões, fornecedores, contratos, estoque, pedidos e relatórios gerais não têm telas/rotas funcionais nesta entrega.
 

@@ -10,6 +10,31 @@ use Tests\Support\DatabaseTestCase;
 
 final class DvaNotificationTest extends DatabaseTestCase
 {
+    public function testAlertasSaoOptInEDesabilitadosAoRebaixarOuInativarAdministrador(): void
+    {
+        $admin = $this->insertUsuario('Admin Opt In');
+        $this->insertUsuario('Admin Guardiao');
+        $this->assertSame(0, (int) $this->pdo->query("SELECT recebe_alertas_dva FROM usuarios WHERE id = {$admin}")->fetchColumn());
+        $this->pdo->prepare('UPDATE usuarios SET recebe_alertas_dva = 1 WHERE id = ?')->execute([$admin]);
+
+        $users = new \Usuario();
+        $row = $users->buscarPorId($admin);
+        $this->assertTrue($users->atualizar(
+            $admin,
+            (string) $row['nome'],
+            (string) $row['email'],
+            \Usuario::PERFIL_FUNCIONARIO,
+            null,
+            true
+        ));
+        $this->assertSame(0, (int) $users->buscarPorId($admin)['recebe_alertas_dva']);
+
+        $otherAdmin = $this->insertUsuario('Admin Inativado');
+        $this->pdo->prepare('UPDATE usuarios SET recebe_alertas_dva = 1 WHERE id = ?')->execute([$otherAdmin]);
+        $this->assertTrue($users->definirAtivo($otherAdmin, false));
+        $this->assertSame(0, (int) $users->buscarPorId($otherAdmin)['recebe_alertas_dva']);
+    }
+
     public function testEnviaSomenteParaAdministradoresAtivosHabilitadosEIdempotente(): void
     {
         $admin = $this->insertUsuario('Admin Alerta');

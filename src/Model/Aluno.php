@@ -14,7 +14,10 @@ final class Aluno extends Model
 
     private ?string $lastErrorCode = null;
 
-    /** @return array{items:array,total:int,page:int,pages:int,per_page:int} */
+    /**
+     * @param array<string,mixed> $filters
+     * @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int,per_page:int}
+     */
     public function paginate(array $filters, int $page = 1, int $perPage = 20, ?DvaStatus $statusService = null): array
     {
         $statusService ??= new DvaStatus();
@@ -59,6 +62,7 @@ final class Aluno extends Model
         ];
     }
 
+    /** @param array<string,mixed> $filters */
     public function contar(array $filters = [], ?DvaStatus $statusService = null): int
     {
         $statusService ??= new DvaStatus();
@@ -73,6 +77,7 @@ final class Aluno extends Model
         return (int) $statement->fetchColumn();
     }
 
+    /** @return array<string,mixed>|false */
     public function buscarPorId(int $id): array|false
     {
         if ($id < 1) {
@@ -96,7 +101,10 @@ final class Aluno extends Model
         return $statement->fetch();
     }
 
-    /** @param array<string,mixed> $data @param array<string,mixed>|null $initialDva */
+    /**
+     * @param array<string,mixed> $data
+     * @param array<string,mixed>|null $initialDva
+     */
     public function cadastrar(array $data, int $actorId, ?array $initialDva = null, bool $confirmDuplicate = false): int|false
     {
         $this->lastErrorCode = null;
@@ -104,12 +112,6 @@ final class Aluno extends Model
 
         if ($normalized === false || $actorId < 1) {
             $this->lastErrorCode ??= 'invalid_data';
-
-            return false;
-        }
-
-        if (!$confirmDuplicate && $this->possivelDuplicidade($normalized['nome_completo'], $normalized['data_nascimento'])) {
-            $this->lastErrorCode = 'possible_duplicate';
 
             return false;
         }
@@ -130,7 +132,7 @@ final class Aluno extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($normalized, $actorId, $dva): int|false {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($normalized, $actorId, $dva, $confirmDuplicate): int|false {
                 $actor = $pdo->prepare('SELECT 1 FROM usuarios WHERE id = :id AND ativo = 1 LIMIT 1');
                 $actor->execute(['id' => $actorId]);
 
@@ -142,6 +144,16 @@ final class Aluno extends Model
 
                 if (!$this->activeClassExists((int) $normalized['id_turma'], $pdo)) {
                     $this->lastErrorCode = 'invalid_class';
+
+                    return false;
+                }
+
+                if (!$confirmDuplicate && $this->duplicateExists(
+                    $pdo,
+                    $normalized['nome_completo'],
+                    $normalized['data_nascimento']
+                )) {
+                    $this->lastErrorCode = 'possible_duplicate';
 
                     return false;
                 }
@@ -189,7 +201,7 @@ final class Aluno extends Model
     }
 
     /** @param array<string,mixed> $data */
-    public function atualizar(int $id, array $data): bool
+    public function atualizar(int $id, array $data, bool $confirmDuplicate = false): bool
     {
         $this->lastErrorCode = null;
         $normalized = $this->validateAndNormalize($data);
@@ -201,7 +213,7 @@ final class Aluno extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized, $confirmDuplicate): bool {
                 $current = $this->buscarPorId($id);
 
                 if (!$current) {
@@ -213,6 +225,17 @@ final class Aluno extends Model
                 if (!$this->activeClassExists((int) $normalized['id_turma'], $pdo)
                     && (int) $current['id_turma'] !== (int) $normalized['id_turma']) {
                     $this->lastErrorCode = 'invalid_class';
+
+                    return false;
+                }
+
+                if (!$confirmDuplicate && $this->duplicateExists(
+                    $pdo,
+                    $normalized['nome_completo'],
+                    $normalized['data_nascimento'],
+                    $id
+                )) {
+                    $this->lastErrorCode = 'possible_duplicate';
 
                     return false;
                 }
@@ -295,6 +318,11 @@ final class Aluno extends Model
 
     public function possivelDuplicidade(string $name, string $birthDate, ?int $ignoreId = null): bool
     {
+        return $this->duplicateExists(self::$pdo, $name, $birthDate, $ignoreId);
+    }
+
+    private function duplicateExists(PDO $pdo, string $name, string $birthDate, ?int $ignoreId = null): bool
+    {
         $sql = 'SELECT COUNT(*) FROM alunos
                 WHERE nome_completo = :name COLLATE NOCASE AND data_nascimento = :birth';
         $params = ['name' => self::normalizeName($name), 'birth' => trim($birthDate)];
@@ -304,12 +332,13 @@ final class Aluno extends Model
             $params['ignore'] = $ignoreId;
         }
 
-        $statement = self::$pdo->prepare($sql);
+        $statement = $pdo->prepare($sql);
         $statement->execute($params);
 
         return (int) $statement->fetchColumn() > 0;
     }
 
+    /** @return list<array<string,mixed>> */
     public function aniversariantesDoDia(?DateTimeImmutable $today = null, int $limit = 10): array
     {
         $today ??= new DateTimeImmutable((new DvaStatus())->today());
@@ -326,6 +355,7 @@ final class Aluno extends Model
         return $statement->fetchAll();
     }
 
+    /** @return list<array<string,mixed>> */
     public function aniversariantesDoMes(?DateTimeImmutable $today = null, int $limit = 10): array
     {
         $today ??= new DateTimeImmutable((new DvaStatus())->today());
@@ -345,6 +375,7 @@ final class Aluno extends Model
         return $statement->fetchAll();
     }
 
+    /** @return array<string,mixed>|false */
     public function perfil(int $id, ?DvaStatus $statusService = null): array|false
     {
         $student = $this->buscarPorId($id);
@@ -370,7 +401,10 @@ final class Aluno extends Model
         return preg_replace('/\s+/u', ' ', trim($name)) ?? '';
     }
 
-    /** @return array<string,mixed>|false */
+    /**
+     * @param array<string,mixed> $data
+     * @return array<string,mixed>|false
+     */
     private function validateAndNormalize(array $data): array|false
     {
         $name = self::normalizeName((string) ($data['nome_completo'] ?? ''));
@@ -443,7 +477,10 @@ final class Aluno extends Model
         return $statement->fetchColumn() !== false;
     }
 
-    /** @return array{0:string,1:array<string,int|string>} */
+    /**
+     * @param array<string,mixed> $filters
+     * @return array{0:string,1:array<string,int|string>}
+     */
     private function where(array $filters, DvaStatus $statusService): array
     {
         $conditions = [];

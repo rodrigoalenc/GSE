@@ -11,6 +11,7 @@ final class Turma extends Model
 {
     private ?string $lastErrorCode = null;
 
+    /** @return list<array<string,mixed>> */
     public function listar(string $search = '', ?bool $active = null): array
     {
         $conditions = [];
@@ -42,11 +43,13 @@ final class Turma extends Model
         return $statement->fetchAll();
     }
 
+    /** @return list<array<string,mixed>> */
     public function ativas(): array
     {
         return $this->listar('', true);
     }
 
+    /** @return array<string,mixed>|false */
     public function buscarPorId(int $id): array|false
     {
         if ($id < 1) {

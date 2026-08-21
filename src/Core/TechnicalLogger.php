@@ -35,16 +35,19 @@ final class TechnicalLogger
         }
     }
 
+    /** @param array<string,mixed> $context */
     public static function error(string $event, array $context = []): void
     {
         self::write('error', $event, $context);
     }
 
+    /** @param array<string,mixed> $context */
     public static function info(string $event, array $context = []): void
     {
         self::write('info', $event, $context);
     }
 
+    /** @param array<string,mixed> $context */
     private static function write(string $level, string $event, array $context = []): void
     {
         $record = [
@@ -55,7 +58,7 @@ final class TechnicalLogger
         ];
 
         foreach ($context as $key => $value) {
-            if (!is_string($key) || preg_match('/pass|secret|token|cookie|session|authorization/i', $key)) {
+            if (preg_match('/pass|secret|token|cookie|session|authorization/i', $key)) {
                 continue;
             }
 

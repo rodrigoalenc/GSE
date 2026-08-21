@@ -26,7 +26,8 @@
 - [ ] Diretório de logs restrito ao usuário de serviço.
 - [ ] Backup externo, criptografado, retido e restaurado em teste.
 - [ ] Backup preventivo de migração verificado e movido para armazenamento protegido.
-- [ ] Migração de cópia legada conferida: contagens de alunos/turmas/DVAs, uma DVA vigente por aluno e `PRAGMA integrity_check=ok`.
+- [ ] Migração de cópia legada conferida: mapa exato `aluno_id/id_turma`, IDs e contagens de alunos/turmas/DVAs preservados, `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`.
+- [ ] Banco de teste que tenha executado a v6 antiga foi descartado ou restaurado pelo backup `pre-migration`; vínculos não foram inferidos manualmente.
 - [ ] Estratégia de preenchimento de `ano_letivo` das turmas legadas aprovada, sem inventar histórico.
 - [ ] Nenhum `.env`, SQLite, log, backup, cookie, senha ou token está versionado.
 
@@ -44,14 +45,14 @@
 - [ ] Permissões de funcionários e administradores sobre alunos, status e turmas revisadas com a escola.
 - [ ] Retenção dos dados pessoais de alunos e responsáveis definida conforme a finalidade institucional e LGPD.
 - [ ] `DVA_WARNING_DAYS`, `DVA_EMAIL_WARNING_DAYS` e `APP_TIMEZONE` revisados.
-- [ ] Administradores destinatários habilitados individualmente e e-mails institucionais conferidos.
-- [ ] Se `MAIL_ENABLED=true`, SMTP/TLS testado em homologação sem credenciais no repositório.
+- [ ] Alertas DVA permanecem desabilitados por padrão e cada administrador destinatário foi habilitado conscientemente com e-mail institucional conferido.
+- [ ] Se `MAIL_ENABLED=true`, SMTP testado em homologação: `tls`/STARTTLS com porta coerente ou `smtps`/TLS implícito; certificado válido e nenhuma opção de TLS insegura.
 - [ ] `php bin/notify-dva.php` agendado diariamente e idempotência verificada; com e-mail desabilitado, nenhum agendamento é necessário.
 - [ ] Logs do agendador não contêm telefone, nascimento, observação integral ou credencial.
 
 ## Verificação e GitHub
 
-- [ ] `composer check` passa no artefato candidato.
+- [ ] `composer check` e `composer analyse` (PHPStan nível 6, sem baseline) passam no artefato candidato.
 - [ ] Teste de migração realizado sobre uma cópia, nunca sobre o único banco real.
 - [ ] Página 500 genérica confirmada sem stack trace em produção.
 - [ ] Host inválido retorna 400; HTTP retorna 308 para a URL HTTPS oficial.

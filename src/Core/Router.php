@@ -119,7 +119,10 @@ final class Router
         }
     }
 
-    /** @param array{controller:string,action:string} $route */
+    /**
+     * @param array{controller:string,action:string} $route
+     * @param array<string,string> $params
+     */
     private function invoke(array $route, array $params): void
     {
         $controllerName = $route['controller'];
