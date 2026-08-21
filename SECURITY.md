@@ -25,6 +25,7 @@ Use contas e senhas artificiais em qualquer prova de conceito.
 
 - publique somente `public/` como raiz do servidor web;
 - use PHP 8.3 atualizado e HTTPS;
+- mantenha `ext-intl` habilitada com a mesma versão suportada em desenvolvimento, homologação e produção;
 - mantenha `APP_ENV=production`, `APP_URL` fixa e `APP_ALLOWED_HOSTS` restrita;
 - configure `TRUSTED_PROXIES` apenas com IPs/CIDRs controlados;
 - armazene banco e logs fora de `public/`, com usuário de serviço dedicado;
@@ -37,6 +38,7 @@ Use contas e senhas artificiais em qualquer prova de conceito.
 - mantenha alunos inativos para preservação controlada do histórico; qualquer futura política de eliminação deve ser formal, auditada e aprovada pela escola;
 - execute notificações de DVA somente em CLI, com SMTP institucional protegido por STARTTLS/TLS implícito, destinatários administradores habilitados por opt-in e logs restritos;
 - antes de migrar um banco real, valide o backup `pre-migration` e ensaie em cópia; confirme o mapa aluno/turma e `PRAGMA foreign_key_check` vazio;
+- na migração v10, trate colisões Unicode de turmas manualmente em homologação; nunca mescle ou renomeie registros automaticamente em produção;
 - habilite proteção da branch `main`, revisão e checks obrigatórios no GitHub.
 - agende `php bin/maintenance.php` diariamente e monitore seu código de saída, sem executar limpezas em requisições HTTP.
 

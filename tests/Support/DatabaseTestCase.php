@@ -39,8 +39,11 @@ abstract class DatabaseTestCase extends TestCase
 
     protected function insertTurma(string $nome = '1 Ano A'): int
     {
-        $stmt = $this->pdo->prepare('INSERT INTO turmas (nome_turma) VALUES (?)');
-        $stmt->execute([$nome]);
+        $displayName = \src\Core\TextNormalizer::displayName($nome);
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO turmas (nome_turma, nome_normalizado) VALUES (?, ?)'
+        );
+        $stmt->execute([$displayName, \src\Core\TextNormalizer::comparisonKey($displayName)]);
 
         return (int) $this->pdo->lastInsertId();
     }
@@ -63,8 +66,16 @@ abstract class DatabaseTestCase extends TestCase
 
     protected function insertAlunoComDva(string $nome, string $vencimento, ?int $idTurma = null): int
     {
-        $stmt = $this->pdo->prepare('INSERT INTO alunos (nome_completo, data_nascimento, id_turma) VALUES (?, ?, ?)');
-        $stmt->execute([$nome, '2010-05-10', $idTurma]);
+        $displayName = \src\Core\TextNormalizer::displayName($nome);
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO alunos (nome_completo, nome_normalizado, data_nascimento, id_turma) VALUES (?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $displayName,
+            \src\Core\TextNormalizer::comparisonKey($displayName),
+            '2010-05-10',
+            $idTurma,
+        ]);
         $idAluno = (int) $this->pdo->lastInsertId();
 
         $stmtDva = $this->pdo->prepare('INSERT INTO dvas (id_aluno, data_vencimento) VALUES (?, ?)');

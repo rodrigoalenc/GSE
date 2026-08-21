@@ -14,7 +14,7 @@ $guardianPhoneValid = in_array(strlen((string) $student['telefone_responsavel'])
 $dvaStatus = (string) $student['dva_status'];
 $daysRemaining = $student['dva_dias_restantes'];
 ?>
-<div class="profile-shell">
+<div class="profile-shell card-perfil">
 <section class="profile-head">
     <div>
         <p class="hero-kicker">Perfil do aluno</p>
@@ -56,7 +56,7 @@ $daysRemaining = $student['dva_dias_restantes'];
             <div><dt>Situação</dt><dd><span class="badge-status <?= (int) $student['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $student['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span></dd></div>
         </dl>
     </article>
-    <article class="relatorio profile-card">
+    <article class="relatorio profile-card contact-profile-card">
         <h2>Contatos</h2>
         <dl>
             <div><dt>Aluno</dt><dd><?= e($phone($student['telefone_aluno'])) ?></dd></div>
@@ -83,6 +83,7 @@ $daysRemaining = $student['dva_dias_restantes'];
         <?php else: ?><p>Nenhuma DVA registrada.</p><?php endif; ?>
     </article>
 </section>
+</div>
 
 <?php if (Auth::isAdmin()): ?>
     <section class="relatorio status-panel">
@@ -109,4 +110,3 @@ $daysRemaining = $student['dva_dias_restantes'];
         </table>
     </div>
 </section>
-</div>

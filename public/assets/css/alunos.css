@@ -264,7 +264,7 @@
 
 .page-hero h2 { margin: 0 0 8px; color: #fff; font-size: clamp(1.35rem, 2.2vw, 2rem); }
 .page-hero p { max-width: 720px; margin: 0; color: rgba(255, 255, 255, .86); }
-.hero-kicker { margin: 0 0 7px !important; color: #2c7ed6; font-size: .76rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.hero-kicker { margin: 0 0 7px; color: #2c7ed6; font-size: .76rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .page-hero .hero-kicker { color: #b9ddff; }
 .hero-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .hero-stats span { min-width: 105px; padding: 10px 13px; color: rgba(255,255,255,.82); background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 13px; }
@@ -291,9 +291,13 @@
 .turma-badge { padding: 5px 10px; color: #16508f; background: #eef6ff; border: 1px solid #cde2f8; }
 .year-badge { padding: 5px 10px; color: #5b3f91; background: #f2edff; border: 1px solid #ddd0fa; }
 .student-name a { color: #0c3566; font-weight: 750; }
-.empty-state { padding: 34px !important; color: #69788c; text-align: center; background: #f9fbfd; }
+.empty-state { padding: 34px; color: #69788c; text-align: center; background: #f9fbfd; }
 
 .form-section { padding: 26px; }
+.form-container { padding: 0; }
+.form-block { margin: 0; }
+.form-block + .form-block { border-top: 1px solid #e4ebf3; }
+.dva-initial-block { background: linear-gradient(135deg, #eef7ff, #f8fbff); }
 .form-section-inner { margin-bottom: 20px; }
 .form-actions { padding-top: 20px; border-top: 1px solid #e4ebf3; }
 .duplicate-confirmation { width: min(100%, 900px); margin-right: auto; margin-left: auto; }
@@ -313,6 +317,10 @@
 .btn-whatsapp { display: inline-flex; justify-content: center; padding: 9px 12px; color: #fff; background: #168642; border-radius: 10px; font-weight: 750; }
 .btn-whatsapp:hover { color: #fff; background: #116c35; }
 .status-panel { margin-top: 20px; }
+.contact-profile-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.contact-profile-card dl > div { padding: 16px; background: #f7fafe; border: 1px solid #dbe5f0; border-radius: 12px; }
+.profile-shell + .status-panel,
+.profile-shell ~ .relatorio { width: min(100%, 900px); margin-right: auto; margin-left: auto; }
 
 .status-legend { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 20px; padding: 14px 16px; background: #fff; border: 1px solid #dbe5f0; border-radius: 14px; }
 .action-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -322,13 +330,18 @@
 .pagination a.active { color: #fff; background: #16508f; border-color: #16508f; }
 
 .dashboard-section { margin-bottom: 26px; }
+.dashboard-overview { margin-bottom: 28px; }
+.dashboard-heading { margin-bottom: 18px; }
+.dashboard-stats { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); margin-bottom: 0; }
+.dashboard-stats .stat-card { min-height: 132px; }
 .compact-stats { margin-bottom: 0; }
 .stat-card.neutral { color: #64748b; }
 .stat-card.danger { color: #cf453c; }
 .stat-card.pending { color: #d9730d; }
 .stat-card.warning { color: #b18112; }
 .stat-card.success { color: #1f8f4d; }
-.birthday-panel { border-top: 4px solid #d94697; }
+.birthday-panel { background: linear-gradient(180deg, #fff8fc, #ffffff); border-top: 4px solid #d94697; }
+.priority-panel { border-top: 4px solid #d89a1d; }
 .security-metrics span { padding: 12px 15px; color: #526174; background: #f7fafe; border-radius: 12px; }
 .security-metrics strong { color: #0c3566; font-size: 1.15rem; }
 
@@ -337,6 +350,7 @@
     .hero-stats { justify-content: flex-start; }
     .profile-shell { padding: 20px; }
     .profile-grid { grid-template-columns: 1fr; }
+    .contact-profile-card dl { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 390px) {

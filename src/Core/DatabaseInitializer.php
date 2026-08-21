@@ -8,9 +8,11 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
+require_once __DIR__ . '/TextNormalizer.php';
+
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 9;
+    private const LATEST_VERSION = 10;
 
     public static function initialize(PDO $pdo): void
     {
@@ -115,6 +117,7 @@ final class DatabaseInitializer
             7 => self::migrateDvas($pdo),
             8 => self::migrateAuditAndAlerts($pdo),
             9 => self::ensureModuleTwoGuardsAndNotifications($pdo),
+            10 => self::normalizeModuleTwoNames($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
     }
@@ -345,6 +348,15 @@ final class DatabaseInitializer
         return $pdo->query('PRAGMA foreign_key_check')->fetchAll();
     }
 
+    /** @return list<string> */
+    private static function integrityCheck(PDO $pdo): array
+    {
+        return array_map(
+            static fn (mixed $value): string => (string) $value,
+            $pdo->query('PRAGMA integrity_check')->fetchAll(PDO::FETCH_COLUMN)
+        );
+    }
+
     private static function ensureModuleTwoGuardsAndNotifications(PDO $pdo): void
     {
         $pdo->exec(
@@ -412,6 +424,92 @@ final class DatabaseInitializer
              BEFORE INSERT ON dvas WHEN NEW.ativo NOT IN (0, 1)
              BEGIN SELECT RAISE(ABORT, 'invalid_dva_active'); END"
         );
+    }
+
+    private static function normalizeModuleTwoNames(PDO $pdo): void
+    {
+        $beforeCounts = self::moduleTwoCounts($pdo);
+        $classIdsBefore = self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id');
+        $studentIdsBefore = self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id');
+        $dvaIdsBefore = self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id');
+        $relationshipsBefore = self::studentClassRelationships($pdo);
+
+        self::addColumnIfMissing($pdo, 'alunos', 'nome_normalizado', 'TEXT');
+        self::addColumnIfMissing($pdo, 'turmas', 'nome_normalizado', 'TEXT');
+
+        $updateStudent = $pdo->prepare(
+            'UPDATE alunos SET nome_normalizado = :normalized WHERE id = :id'
+        );
+
+        foreach ($pdo->query('SELECT id, nome_completo FROM alunos ORDER BY id')->fetchAll() as $student) {
+            $updateStudent->execute([
+                'normalized' => TextNormalizer::comparisonKey((string) $student['nome_completo']),
+                'id' => (int) $student['id'],
+            ]);
+        }
+
+        $updateClass = $pdo->prepare(
+            'UPDATE turmas SET nome_normalizado = :normalized WHERE id = :id'
+        );
+
+        foreach ($pdo->query('SELECT id, nome_turma FROM turmas ORDER BY id')->fetchAll() as $class) {
+            $updateClass->execute([
+                'normalized' => TextNormalizer::comparisonKey((string) $class['nome_turma']),
+                'id' => (int) $class['id'],
+            ]);
+        }
+
+        $collision = $pdo->query(
+            "SELECT ano_letivo, nome_normalizado, GROUP_CONCAT(id, ',') AS ids
+             FROM turmas
+             WHERE ano_letivo IS NOT NULL
+             GROUP BY nome_normalizado, ano_letivo
+             HAVING COUNT(*) > 1
+             ORDER BY ano_letivo, MIN(id)
+             LIMIT 1"
+        )->fetch();
+
+        if (is_array($collision)) {
+            throw new RuntimeException(sprintf(
+                'A migracao Unicode foi interrompida: as turmas de IDs %s se tornam equivalentes no ano letivo %s. Corrija a colisao manualmente e execute novamente.',
+                (string) $collision['ids'],
+                (string) $collision['ano_letivo']
+            ));
+        }
+
+        $pdo->exec('DROP INDEX IF EXISTS ux_turmas_nome_ano');
+        $pdo->exec('DROP INDEX IF EXISTS idx_alunos_nome');
+        $pdo->exec(
+            'CREATE UNIQUE INDEX IF NOT EXISTS ux_turmas_nome_normalizado_ano
+             ON turmas (nome_normalizado, ano_letivo)
+             WHERE ano_letivo IS NOT NULL'
+        );
+        $pdo->exec(
+            'CREATE INDEX IF NOT EXISTS idx_alunos_nome_normalizado
+             ON alunos (nome_normalizado)'
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_require_student_normalized_name
+             BEFORE INSERT ON alunos
+             WHEN NEW.nome_normalizado IS NULL OR trim(NEW.nome_normalizado) = ''
+             BEGIN SELECT RAISE(ABORT, 'student_normalized_name_required'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_require_class_normalized_name
+             BEFORE INSERT ON turmas
+             WHEN NEW.nome_normalizado IS NULL OR trim(NEW.nome_normalizado) = ''
+             BEGIN SELECT RAISE(ABORT, 'class_normalized_name_required'); END"
+        );
+
+        if (self::moduleTwoCounts($pdo) !== $beforeCounts
+            || self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id') !== $classIdsBefore
+            || self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id') !== $studentIdsBefore
+            || self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id') !== $dvaIdsBefore
+            || self::studentClassRelationships($pdo) !== $relationshipsBefore
+            || self::foreignKeyViolations($pdo) !== []
+            || self::integrityCheck($pdo) !== ['ok']) {
+            throw new RuntimeException('A migracao Unicode nao preservou integralmente o banco de dados.');
+        }
     }
 
     /** @return list<int> */

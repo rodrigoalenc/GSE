@@ -35,6 +35,7 @@ final class TemplateSecurityTest extends TestCase
         $this->assertStringContainsString('rel="icon"', $layout);
         $this->assertStringContainsString('rel="icon"', $login);
         $this->assertStringContainsString('rel="icon"', $error);
+        $this->assertStringContainsString('class="error-logo"', $error);
     }
 
     public function testLogoutRemainsPostWithCsrf(): void
@@ -44,6 +45,36 @@ final class TemplateSecurityTest extends TestCase
         $this->assertStringContainsString('method="post"', $layout);
         $this->assertStringContainsString("url('login/sair')", $layout);
         $this->assertStringContainsString('name="_csrf_token"', $layout);
+    }
+
+    public function testResponsiveVisualStructureKeepsOriginalProportions(): void
+    {
+        $panelCss = (string) file_get_contents(ROOT_PATH . '/public/assets/css/painel.css');
+        $studentsCss = (string) file_get_contents(ROOT_PATH . '/public/assets/css/alunos.css');
+        $dashboard = (string) file_get_contents(ROOT_PATH . '/src/Views/dashboard/index.php');
+        $studentForm = (string) file_get_contents(ROOT_PATH . '/src/Views/alunos/form.php');
+
+        $this->assertStringContainsString('--sidebar-width: 78px', $panelCss);
+        $this->assertStringContainsString('--sidebar-expanded-width: 260px', $panelCss);
+        $this->assertStringContainsString('.sidebar:focus-within', $panelCss);
+        $this->assertStringContainsString('width: 30px; height: 30px', $panelCss);
+        $this->assertStringContainsString('@media (max-width: 390px)', $studentsCss);
+        $this->assertStringNotContainsString('dashboard-hero', $dashboard);
+        $this->assertSame(7, substr_count($dashboard, 'class="stat-card'));
+        $this->assertStringContainsString('relatorio form-container', $studentForm);
+        $this->assertStringNotContainsString('relatorio form-section', $studentForm);
+    }
+
+    public function testBrowserDependenciesRemainLocal(): void
+    {
+        foreach (self::viewFiles() as [$path]) {
+            $contents = (string) file_get_contents($path);
+            $this->assertDoesNotMatchRegularExpression(
+                '/<(?:script|link)\b[^>]+(?:src|href)=["\']https?:\/\//i',
+                $contents,
+                $path
+            );
+        }
     }
 
     /** @return iterable<string,array{string}> */

@@ -64,6 +64,9 @@
 .badge-admin { background: #004a91; }
 .badge-funcionario, .badge-ativo { background: #28a745; }
 .badge-inativo { background: #6b7280; }
+.badge-alerta { display: inline-flex; padding: 4px 10px; border: 1px solid transparent; border-radius: 999px; font-size: .78rem; font-weight: 750; white-space: nowrap; }
+.badge-alerta-on { color: #166534; background: #e8f6ee; border-color: #b9e3c5; }
+.badge-alerta-off { color: #5f6b7a; background: #f3f5f7; border-color: #d8dee5; }
 
 .col-acoes { text-align: center; white-space: nowrap; }
 .btn-acao {
@@ -114,13 +117,29 @@
 .form-help { display: block; margin: -12px 0 20px; color: var(--text-muted); font-size: 0.84rem; }
 .form-actions { display: flex; align-items: center; gap: 15px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee; }
 .cancelar { color: var(--text-muted); font-weight: 600; }
-.empty-state { padding: 20px !important; text-align: center; }
+.empty-state { padding: 20px; text-align: center; }
 .table-scroll { overflow-x: auto; }
 .password-guidance { margin-top: -12px; }
+.user-page-intro { margin-bottom: 20px; }
+.usuario-check-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 4px 0 20px;
+    padding: 14px 16px;
+    background: #f8fbff;
+    border: 1px solid #dbe6f2;
+    border-radius: 12px;
+    cursor: pointer;
+}
+.usuario-check-option input { width: 18px; height: 18px; flex: 0 0 18px; margin: 2px 0 0; accent-color: var(--success-color); }
+.usuario-check-option strong,
+.usuario-check-option small { display: block; }
+.usuario-check-option small { margin-top: 3px; color: var(--text-muted); font-weight: 400; }
 
 .audit-filters {
     display: grid;
-    grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(140px, 1fr)) auto;
+    grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(130px, 1fr)) auto;
     align-items: end;
     gap: 14px;
 }
@@ -137,7 +156,6 @@
     font: inherit;
 }
 .audit-actions { display: flex; gap: 8px; }
-.audit-summary { margin-bottom: 14px !important; }
 .audit-table { min-width: 1180px; font-size: 0.86rem; }
 .badge-audit-success { background: #1f7f35; }
 .badge-audit-failure { background: #b42318; }

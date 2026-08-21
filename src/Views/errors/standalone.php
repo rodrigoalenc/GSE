@@ -9,6 +9,7 @@
 </head>
 <body>
     <main class="error-card">
+        <img class="error-logo" src="<?= e(url('assets/image/logo_escola.png')) ?>" alt="Logotipo da E.E. São José">
         <p class="error-code"><?= e((string) $statusCode) ?></p>
         <h1><?= e($heading) ?></h1>
         <p><?= e($message) ?></p>

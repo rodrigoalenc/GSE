@@ -2,6 +2,11 @@
 $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
 ?>
 <div class="usuario-form-card">
+        <section class="page-intro user-page-intro">
+            <p class="hero-kicker"><?= $edicao ? 'Atualização de conta' : 'Nova conta' ?></p>
+            <h2><?= $edicao ? 'Revise os dados e permissões' : 'Cadastre um usuário' ?></h2>
+            <p>Alterações de perfil e senha invalidam as sessões anteriores conforme a política de segurança.</p>
+        </section>
         <?php if ($erros): ?>
             <div class="error-message" role="alert">
                 <strong>Revise os dados informados:</strong>
@@ -38,9 +43,9 @@ $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
                         </div>
                     </div>
 
-                    <label class="checkbox-field" for="recebe_alertas_dva">
+                    <label class="checkbox-field usuario-check-option" for="recebe_alertas_dva">
                         <input type="checkbox" id="recebe_alertas_dva" name="recebe_alertas_dva" value="1" <?= !empty($dados['recebe_alertas_dva']) ? 'checked' : '' ?>>
-                        Receber o resumo diário de DVAs por e-mail (somente administradores ativos)
+                        <span><strong>Receber o resumo diário de DVAs</strong><small>Opção voluntária disponível somente para administradores ativos.</small></span>
                     </label>
 
                     <label for="confirmar_senha">Confirmar Senha:</label>

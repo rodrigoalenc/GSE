@@ -5,7 +5,7 @@
 <section class="page-intro">
     <p class="hero-kicker"><?= $editing ? 'Atualização de turma' : 'Nova turma' ?></p>
     <h2><?= $editing ? 'Edite a identificação da turma' : 'Cadastre uma turma' ?></h2>
-    <p>O par nome e ano letivo deve ser único, sem diferenciação entre letras maiúsculas e minúsculas.</p>
+    <p>O par nome e ano letivo deve ser único. A comparação usa Unicode NFC, ignora diferenças entre maiúsculas e minúsculas e preserva os acentos.</p>
 </section>
 
 <section class="relatorio form-shell">

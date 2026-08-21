@@ -1,4 +1,9 @@
 <div class="usuario-form-card">
+    <section class="page-intro user-page-intro">
+        <p class="hero-kicker">Segurança da conta</p>
+        <h2><?= $obrigatoria ? 'Substitua sua senha temporária' : 'Defina uma nova senha' ?></h2>
+        <p>A alteração encerra as sessões anteriores e exige uma nova autenticação.</p>
+    </section>
     <?php if ($obrigatoria): ?>
         <div class="warning-message" role="status">
             Esta é uma senha temporária. Altere-a antes de acessar as demais áreas.
@@ -19,6 +24,7 @@
     <section class="relatorio">
         <form class="usuario-form" method="post" action="<?= e(url('senha/alterar')) ?>">
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+            <h3>Alterar senha</h3>
 
             <label for="senha_atual">Senha atual:</label>
             <input type="password" id="senha_atual" name="senha_atual" maxlength="128" autocomplete="current-password" required autofocus>

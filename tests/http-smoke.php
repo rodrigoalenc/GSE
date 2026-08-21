@@ -307,16 +307,27 @@ try {
     $classPage = request('GET', $baseUrl . '/turma/criar', $cookieAdmin);
     $createdClass = request('POST', $baseUrl . '/turma/criar', $cookieAdmin, [
         '_csrf_token' => csrf($classPage['body']),
-        'nome_turma' => 'Turma HTTP A',
+        'nome_turma' => 'Turma Álvares',
         'ano_letivo' => date('Y'),
     ]);
     checkHttp($createdClass['status'] === 302 && str_contains($createdClass['headers']['location'] ?? '', '/turma'), 'Criação administrativa de turma');
+
+    $classPage = request('GET', $baseUrl . '/turma/criar', $cookieAdmin);
+    $duplicateClass = request('POST', $baseUrl . '/turma/criar', $cookieAdmin, [
+        '_csrf_token' => csrf($classPage['body']),
+        'nome_turma' => "TURMA A\u{0301}LVARES",
+        'ano_letivo' => date('Y'),
+    ]);
+    checkHttp(
+        $duplicateClass['status'] === 422 && str_contains($duplicateClass['body'], 'Já existe uma turma'),
+        'Unicidade de turma reconhece caixa acentuada e NFC equivalente'
+    );
 
     $studentPage = request('GET', $baseUrl . '/aluno/criar', $cookieAdmin);
     $initialExpiration = date('Y-m-d', strtotime('+10 days'));
     $createdStudent = request('POST', $baseUrl . '/aluno/criar', $cookieAdmin, [
         '_csrf_token' => csrf($studentPage['body']),
-        'nome_completo' => 'Aluno HTTP <Seguro>',
+        'nome_completo' => 'João HTTP <Seguro>',
         'data_nascimento' => '2011-05-10',
         'id_turma' => '1',
         'telefone_aluno' => '(65) 99999-0000',
@@ -329,11 +340,21 @@ try {
     $profile = request('GET', $baseUrl . '/aluno/perfil/1', $cookieAdmin);
     checkHttp(
         $profile['status'] === 200
-        && str_contains($profile['body'], 'Aluno HTTP &lt;Seguro&gt;')
+        && str_contains($profile['body'], 'João HTTP &lt;Seguro&gt;')
         && str_contains($profile['body'], 'DVA inicial HTTP')
         && str_contains($profile['body'], 'WhatsApp do aluno')
         && str_contains($profile['body'], 'WhatsApp do responsável'),
         'Perfil do aluno escapa HTML e exibe DVA'
+    );
+    $unicodeSearch = request('GET', $baseUrl . '/aluno?q=' . rawurlencode('JOÃO'), $cookieAdmin);
+    $canonicalSearch = request('GET', $baseUrl . '/aluno?q=' . rawurlencode("JOA\u{0303}O"), $cookieAdmin);
+    checkHttp(
+        $unicodeSearch['status'] === 200 && str_contains($unicodeSearch['body'], 'João HTTP'),
+        'Pesquisa de aluno reconhece caixa acentuada'
+    );
+    checkHttp(
+        $canonicalSearch['status'] === 200 && str_contains($canonicalSearch['body'], 'João HTTP'),
+        'Pesquisa de aluno reconhece representação Unicode canônica'
     );
 
     $studentEdit = request('GET', $baseUrl . '/aluno/editar/1', $cookieAdmin);

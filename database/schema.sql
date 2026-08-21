@@ -56,6 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_security_audit_action_result ON security_audit (a
 CREATE TABLE IF NOT EXISTS turmas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome_turma TEXT NOT NULL,
+    nome_normalizado TEXT NOT NULL,
     ano_letivo INTEGER NULL,
     ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
     criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS turmas (
 CREATE TABLE IF NOT EXISTS alunos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome_completo TEXT NOT NULL,
+    nome_normalizado TEXT NOT NULL,
     data_nascimento TEXT NOT NULL,
     id_turma INTEGER NULL,
     telefone_aluno TEXT NULL,

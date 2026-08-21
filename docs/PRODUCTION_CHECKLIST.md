@@ -3,6 +3,7 @@
 ## Plataforma
 
 - [ ] PHP 8.3+ suportado e atualizado.
+- [ ] Extensão `intl` habilitada e identificada por `php -m`; NFC validada no ambiente candidato.
 - [ ] Extensões `pdo`, `pdo_sqlite`, `mbstring`, `session`, `filter` e `hash` habilitadas.
 - [ ] `composer install --no-dev --classmap-authoritative` executado a partir do lock file revisado.
 - [ ] Raiz pública do servidor apontando exclusivamente para `public/`.
@@ -27,6 +28,7 @@
 - [ ] Backup externo, criptografado, retido e restaurado em teste.
 - [ ] Backup preventivo de migração verificado e movido para armazenamento protegido.
 - [ ] Migração de cópia legada conferida: mapa exato `aluno_id/id_turma`, IDs e contagens de alunos/turmas/DVAs preservados, `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`.
+- [ ] Migração v10 homologada; `nome_normalizado` preenchido e eventuais colisões Unicode de turmas resolvidas manualmente antes da janela de produção.
 - [ ] Banco de teste que tenha executado a v6 antiga foi descartado ou restaurado pelo backup `pre-migration`; vínculos não foram inferidos manualmente.
 - [ ] Estratégia de preenchimento de `ano_letivo` das turmas legadas aprovada, sem inventar histórico.
 - [ ] Nenhum `.env`, SQLite, log, backup, cookie, senha ou token está versionado.

@@ -53,8 +53,8 @@ final class DatabaseMigrationTest extends TestCase
         DatabaseInitializer::initialize($pdo);
         DatabaseInitializer::initialize($pdo);
 
-        $this->assertSame(9, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
-        $this->assertSame(9, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(10, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(10, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
     }
 
@@ -136,11 +136,11 @@ final class DatabaseMigrationTest extends TestCase
         $this->assertSame(3, (int) $pdo->query('SELECT id FROM dvas WHERE ativo = 1')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM dvas WHERE ativo = 1')->fetchColumn());
         $this->assertNull($pdo->query('SELECT ano_letivo FROM turmas WHERE id = 1')->fetchColumn() ?: null);
-        $this->assertSame(9, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(10, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
-        $pdo->exec("INSERT INTO turmas (nome_turma, ano_letivo) VALUES ('Turma Histórica', 2026)");
-        $pdo->exec("INSERT INTO turmas (nome_turma, ano_letivo) VALUES ('Turma Histórica', 2027)");
+        $pdo->exec("INSERT INTO turmas (nome_turma, nome_normalizado, ano_letivo) VALUES ('Turma Histórica', 'turma histórica', 2026)");
+        $pdo->exec("INSERT INTO turmas (nome_turma, nome_normalizado, ano_letivo) VALUES ('Turma Histórica', 'turma histórica', 2027)");
         $this->assertSame(3, (int) $pdo->query('SELECT COUNT(*) FROM turmas')->fetchColumn());
 
         $this->expectException(\PDOException::class);
@@ -217,13 +217,73 @@ final class DatabaseMigrationTest extends TestCase
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertSame(0, (int) $pdo->query('SELECT recebe_alertas_dva FROM usuarios WHERE id = 7')->fetchColumn());
 
-        $pdo->exec("INSERT INTO turmas (nome_turma, ano_letivo) VALUES ('Turma A', 2026), ('Turma A', 2027)");
+        $pdo->exec("INSERT INTO turmas (nome_turma, nome_normalizado, ano_letivo) VALUES ('Turma A', 'turma a', 2026), ('Turma A', 'turma a', 2027)");
         DatabaseInitializer::initialize($pdo);
         $this->assertSame([101 => 10, 102 => 20, 103 => 10], array_map(
             'intval',
             $pdo->query('SELECT id, id_turma FROM alunos ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR)
         ));
-        $this->assertSame(9, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(10, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
+    }
+
+    public function testUnicodeMigrationAbortsSafelyWhenLegacyClassesCollide(): void
+    {
+        $legacy = new PDO('sqlite:' . $this->database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $legacy->exec(
+            "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+             CREATE TABLE turmas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, nome_turma TEXT NOT NULL, ano_letivo INTEGER,
+                ativo INTEGER NOT NULL DEFAULT 1, criado_em TEXT, atualizado_em TEXT
+             );
+             CREATE TABLE alunos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, nome_completo TEXT NOT NULL, data_nascimento TEXT NOT NULL,
+                id_turma INTEGER, telefone_aluno TEXT, telefone_responsavel TEXT, ativo INTEGER NOT NULL DEFAULT 1,
+                criado_em TEXT, atualizado_em TEXT, inativado_em TEXT, inativado_por INTEGER,
+                FOREIGN KEY (id_turma) REFERENCES turmas(id) ON DELETE SET NULL
+             );
+             CREATE TABLE dvas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, id_aluno INTEGER NOT NULL, id_usuario_registro INTEGER,
+                data_vencimento TEXT NOT NULL, observacao TEXT, ativo INTEGER NOT NULL DEFAULT 1,
+                criado_em TEXT, atualizado_em TEXT, substituido_em TEXT,
+                FOREIGN KEY (id_aluno) REFERENCES alunos(id) ON DELETE RESTRICT
+             );
+             INSERT INTO schema_migrations (version, applied_at) VALUES
+                (1, CURRENT_TIMESTAMP), (2, CURRENT_TIMESTAMP), (3, CURRENT_TIMESTAMP),
+                (4, CURRENT_TIMESTAMP), (5, CURRENT_TIMESTAMP), (6, CURRENT_TIMESTAMP),
+                (7, CURRENT_TIMESTAMP), (8, CURRENT_TIMESTAMP), (9, CURRENT_TIMESTAMP);
+             PRAGMA user_version = 9;"
+        );
+        $insertClass = $legacy->prepare(
+            'INSERT INTO turmas (id, nome_turma, ano_letivo, criado_em, atualizado_em) VALUES (?, ?, 2026, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)'
+        );
+        $insertClass->execute([10, 'Turma Álvares']);
+        $insertClass->execute([20, "TURMA A\u{0301}LVARES"]);
+        $legacy->exec(
+            "INSERT INTO alunos (id, nome_completo, data_nascimento, id_turma) VALUES
+                (101, 'Aluno Preservado', '2010-01-01', 10);
+             INSERT INTO dvas (id, id_aluno, data_vencimento) VALUES
+                (201, 101, '2026-12-01');"
+        );
+        $legacy = null;
+
+        $pdo = Database::getConnection();
+
+        try {
+            DatabaseInitializer::initialize($pdo);
+            $this->fail('A colisão Unicode deveria interromper a migração.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('IDs 10,20', $exception->getMessage());
+        }
+
+        $this->assertSame(9, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertNotContains('nome_normalizado', array_column($pdo->query('PRAGMA table_info(turmas)')->fetchAll(), 'name'));
+        $this->assertSame([101 => 10], array_map(
+            'intval',
+            $pdo->query('SELECT id, id_turma FROM alunos')->fetchAll(PDO::FETCH_KEY_PAIR)
+        ));
+        $this->assertSame([201], array_map('intval', $pdo->query('SELECT id FROM dvas')->fetchAll(PDO::FETCH_COLUMN)));
+        $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
+        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
     }
 }

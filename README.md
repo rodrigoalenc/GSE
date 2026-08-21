@@ -20,6 +20,7 @@ Componentes principais:
 - `SessionManager` aplica timeout ocioso/absoluto e renovação do identificador;
 - `LoginThrottle` limita falhas por conta normalizada e IP;
 - `PasswordPolicy` valida frases-senha Unicode e usa Argon2id quando disponível;
+- `TextNormalizer` gera nomes de exibição em NFC e chaves de comparação Unicode reutilizadas por alunos, turmas e migrações;
 - `AuditLogger` registra eventos de segurança em tabela separada do log técnico;
 - `DatabaseInitializer` aplica migrações versionadas, idempotentes e com backup preventivo;
 - `Aluno`, `Turma` e `Dva` concentram persistência tipada sem acessar dados HTTP ou sessão;
@@ -30,7 +31,7 @@ Componentes principais:
 
 ## Identidade visual e acessibilidade
 
-A interface recupera a identidade azul e o logo institucional da E.E. São José a partir do commit `f0bb641b2d1a074bddd598e52f3e733872d230db` do ProjetoGSE original, usado somente como referência visual. O backend, as rotas e as proteções atuais não foram substituídos pelo código legado. A sidebar ocupa cerca de 78 px no desktop, expande por `hover` ou `focus-within`, permanece inteiramente utilizável por teclado e se adapta no mobile sem depender de hover. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`.
+A interface recupera a identidade azul e o logo institucional da E.E. São José a partir do commit `f0bb641b2d1a074bddd598e52f3e733872d230db` do ProjetoGSE original, usado somente como referência visual. Login, dashboard, usuários, senha, auditoria, alunos, DVAs, turmas e erros compartilham a mesma paleta e hierarquia. O backend, as rotas e as proteções atuais não foram substituídos pelo código legado. A sidebar ocupa cerca de 78 px no desktop, expande para 260 px por `hover` ou `focus-within`, permanece utilizável por teclado e se adapta no mobile sem depender de hover. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`.
 
 As decisões seguem as recomendações de [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) e [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) da OWASP, além das APIs nativas de senha do [manual do PHP](https://www.php.net/manual/en/book.password.php).
 
@@ -38,7 +39,7 @@ As decisões seguem as recomendações de [Authentication](https://cheatsheetser
 
 - PHP 8.3 ou superior;
 - Composer 2;
-- extensões `pdo`, `pdo_sqlite`, `mbstring`, `session`, `filter` e `hash`;
+- extensões `pdo`, `pdo_sqlite`, `intl`, `mbstring`, `session`, `filter` e `hash`;
 - extensão `curl` apenas para o teste HTTP automatizado.
 
 ```bash
@@ -46,6 +47,8 @@ php -v
 php -m
 composer --version
 ```
+
+`ext-intl` é obrigatória para normalização NFC consistente. Em Windows, habilite `extension=intl` no `php.ini`; em Linux, instale o pacote `php8.3-intl` ou o equivalente da distribuição antes do Composer.
 
 ## Desenvolvimento local
 
@@ -144,9 +147,9 @@ Cada evento registra horário UTC, ação, resultado, IDs aplicáveis, IP seguro
 
 Funcionários e administradores autenticados podem listar, pesquisar, filtrar, cadastrar, editar e consultar o perfil de alunos. Somente administradores podem inativar/reativar alunos e administrar turmas. Não existe rota de exclusão física: a situação do cadastro muda, enquanto os dados e o histórico permanecem preservados.
 
-Nome, nascimento, turma e telefones são validados no servidor. Telefones opcionais são normalizados para 10 ou 11 dígitos e só geram links independentes de WhatsApp após essa validação. A busca escapa `%`, `_` e `\`. Um nome normalizado e nascimento coincidentes produzem um alerta de possível duplicidade tanto no cadastro quanto na edição e exigem confirmação explícita; consulta e gravação ocorrem na mesma transação `BEGIN IMMEDIATE`. Não há unicidade absoluta porque pessoas diferentes podem compartilhar esses dados.
+Nome, nascimento, turma e telefones são validados no servidor. Telefones opcionais são normalizados para 10 ou 11 dígitos e só geram links independentes de WhatsApp após essa validação. A busca escapa `%`, `_` e `\`. `TextNormalizer` remove espaços externos, reduz sequências internas, converte para NFC e cria a chave minúscula com `mb_strtolower`, sem remover acentos nem modificar a capitalização do nome exibido. Um nome normalizado e nascimento coincidentes produzem um alerta de possível duplicidade tanto no cadastro quanto na edição e exigem confirmação explícita; consulta e gravação ocorrem na mesma transação `BEGIN IMMEDIATE`. Não há unicidade absoluta porque pessoas diferentes podem compartilhar esses dados.
 
-Turmas possuem nome, ano letivo e situação. A combinação nome/ano é única sem diferenciar caixa. Uma turma com alunos ativos não pode ser inativada até que esses alunos sejam remanejados ou inativados. Turmas legadas ficam com `ano_letivo` nulo para preenchimento administrativo: a migração não inventa datas históricas.
+Turmas possuem nome, ano letivo e situação. A combinação `nome_normalizado + ano_letivo` é única, inclusive para diferenças de caixa acentuada ou representações Unicode canonicamente equivalentes. O nome original em NFC continua sendo exibido. Uma turma com alunos ativos não pode ser inativada até que esses alunos sejam remanejados ou inativados. Turmas legadas ficam com `ano_letivo` nulo para preenchimento administrativo: a migração não inventa datas históricas.
 
 ## DVA, histórico e semáforo
 
@@ -261,7 +264,7 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões individuais de 1 a 9. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 9 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas e controle idempotente de entregas.
+`schema_migrations` controla versões individuais de 1 a 10. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 10 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas e comparação Unicode persistida.
 
 | Versão | Alteração |
 |---|---|
@@ -271,10 +274,13 @@ O banco permanece fora de `public/`; em produção essa regra é validada e uma 
 | 7 | DVA vigente/histórica e índice único parcial |
 | 8 | recurso de auditoria e preferência de alertas |
 | 9 | idempotência de notificações e triggers de integridade |
+| 10 | chaves de nomes em NFC/minúsculas, busca Unicode e unicidade de turmas por nome normalizado/ano |
 
 Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
 
 Antes de alteração estrutural em banco existente, é criado um backup SQLite consistente em `backups/`, validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
+
+A v10 preenche `alunos.nome_normalizado` e `turmas.nome_normalizado` sem alterar nomes, IDs, vínculos ou DVAs. Antes do commit, compara contagens, IDs e o mapa `aluno_id → id_turma`, além de exigir `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`. Se duas turmas do mesmo ano se tornarem equivalentes após NFC e conversão Unicode para minúsculas, a migração faz rollback e informa os IDs envolvidos; não exclui, mescla, renomeia nem escolhe automaticamente qual registro prevalece. Corrija a colisão em uma cópia homologada e execute novamente.
 
 Bancos locais de teste que já executaram a versão v6 defeituosa anterior a esta correção podem ter perdido os vínculos e devem ser restaurados a partir do backup `pre-migration`; o sistema não tenta reconstruí-los por adivinhação.
 

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Core/Model.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
+require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
 
 use src\Core\SqliteTransaction;
+use src\Core\TextNormalizer;
 
 final class Turma extends Model
 {
@@ -16,10 +18,14 @@ final class Turma extends Model
     {
         $conditions = [];
         $params = [];
-        $search = self::normalizeName($search);
+        try {
+            $search = TextNormalizer::comparisonKey($search);
+        } catch (RuntimeException) {
+            $search = '';
+        }
 
         if ($search !== '') {
-            $conditions[] = "t.nome_turma LIKE :search ESCAPE '\\'";
+            $conditions[] = "t.nome_normalizado LIKE :search ESCAPE '\\'";
             $params['search'] = '%' . self::escapeLike($search) . '%';
         }
 
@@ -36,7 +42,7 @@ final class Turma extends Model
              LEFT JOIN alunos a ON a.id_turma = t.id
              {$where}
              GROUP BY t.id
-             ORDER BY t.ativo DESC, t.ano_letivo DESC, t.nome_turma COLLATE NOCASE"
+             ORDER BY t.ativo DESC, t.ano_letivo DESC, t.nome_normalizado"
         );
         $statement->execute($params);
 
@@ -57,7 +63,8 @@ final class Turma extends Model
         }
 
         $statement = self::$pdo->prepare(
-            'SELECT id, nome_turma, ano_letivo, ativo, criado_em, atualizado_em FROM turmas WHERE id = :id LIMIT 1'
+            'SELECT id, nome_turma, nome_normalizado, ano_letivo, ativo, criado_em, atualizado_em
+             FROM turmas WHERE id = :id LIMIT 1'
         );
         $statement->execute(['id' => $id]);
 
@@ -67,7 +74,14 @@ final class Turma extends Model
     public function cadastrar(string $name, int $schoolYear): int|false
     {
         $this->lastErrorCode = null;
-        $name = self::normalizeName($name);
+        try {
+            $name = TextNormalizer::displayName($name);
+            $normalizedName = TextNormalizer::comparisonKey($name);
+        } catch (RuntimeException) {
+            $this->lastErrorCode = 'invalid_data';
+
+            return false;
+        }
 
         if (!self::validData($name, $schoolYear)) {
             $this->lastErrorCode = 'invalid_data';
@@ -78,10 +92,16 @@ final class Turma extends Model
         try {
             $now = gmdate('Y-m-d H:i:s');
             $statement = self::$pdo->prepare(
-                'INSERT INTO turmas (nome_turma, ano_letivo, ativo, criado_em, atualizado_em)
-                 VALUES (:name, :year, 1, :now, :now)'
+                'INSERT INTO turmas
+                    (nome_turma, nome_normalizado, ano_letivo, ativo, criado_em, atualizado_em)
+                 VALUES (:name, :normalized_name, :year, 1, :now, :now)'
             );
-            $statement->execute(['name' => $name, 'year' => $schoolYear, 'now' => $now]);
+            $statement->execute([
+                'name' => $name,
+                'normalized_name' => $normalizedName,
+                'year' => $schoolYear,
+                'now' => $now,
+            ]);
 
             return (int) self::$pdo->lastInsertId();
         } catch (PDOException $exception) {
@@ -97,7 +117,14 @@ final class Turma extends Model
     public function atualizar(int $id, string $name, int $schoolYear): bool
     {
         $this->lastErrorCode = null;
-        $name = self::normalizeName($name);
+        try {
+            $name = TextNormalizer::displayName($name);
+            $normalizedName = TextNormalizer::comparisonKey($name);
+        } catch (RuntimeException) {
+            $this->lastErrorCode = 'invalid_data';
+
+            return false;
+        }
 
         if ($id < 1 || !self::validData($name, $schoolYear)) {
             $this->lastErrorCode = 'invalid_data';
@@ -107,10 +134,12 @@ final class Turma extends Model
 
         try {
             $statement = self::$pdo->prepare(
-                'UPDATE turmas SET nome_turma = :name, ano_letivo = :year, atualizado_em = :now WHERE id = :id'
+                'UPDATE turmas SET nome_turma = :name, nome_normalizado = :normalized_name,
+                    ano_letivo = :year, atualizado_em = :now WHERE id = :id'
             );
             $statement->execute([
                 'name' => $name,
+                'normalized_name' => $normalizedName,
                 'year' => $schoolYear,
                 'now' => gmdate('Y-m-d H:i:s'),
                 'id' => $id,
@@ -192,7 +221,7 @@ final class Turma extends Model
 
     public static function normalizeName(string $name): string
     {
-        return preg_replace('/\s+/u', ' ', trim($name)) ?? '';
+        return TextNormalizer::displayName($name);
     }
 
     private static function validData(string $name, int $schoolYear): bool

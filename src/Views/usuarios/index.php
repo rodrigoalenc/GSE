@@ -1,4 +1,4 @@
-<div class="usuarios-toolbar">
+<div class="usuarios-toolbar relatorio">
     <a class="btn-primary" href="<?= e(url('usuario/criar')) ?>">+ Novo Usuário</a>
     <form class="usuario-search" method="get" action="<?= e(url('usuario')) ?>" role="search">
         <label class="visually-hidden" for="q">Pesquisar por nome ou e-mail</label>
@@ -33,7 +33,7 @@
                             <td><?= e((string) $item['email']) ?></td>
                             <td><span class="badge-perfil <?= $item['tipo'] === Usuario::PERFIL_ADMINISTRADOR ? 'badge-admin' : 'badge-funcionario' ?>"><?= e(nome_perfil((string) $item['tipo'])) ?></span></td>
                             <td><span class="badge-status <?= (int) $item['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $item['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span></td>
-                            <td><?= (int) $item['recebe_alertas_dva'] === 1 ? 'Habilitados' : 'Desabilitados' ?></td>
+                            <td><span class="badge-alerta <?= (int) $item['recebe_alertas_dva'] === 1 ? 'badge-alerta-on' : 'badge-alerta-off' ?>"><?= (int) $item['recebe_alertas_dva'] === 1 ? 'Habilitados' : 'Desabilitados' ?></span></td>
                             <td class="col-acoes">
                                 <a class="btn-acao btn-editar" href="<?= e(url('usuario/editar/' . (int) $item['id'])) ?>">✏️ Editar</a>
                                 <form class="inline-form" method="post" action="<?= e(url('usuario/status/' . (int) $item['id'])) ?>" data-confirm-status="<?= (int) $item['ativo'] === 1 ? 'Inativar este usuário?' : 'Ativar este usuário?' ?>">

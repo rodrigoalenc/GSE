@@ -2,6 +2,9 @@
 $queryBase = array_filter($filters, static fn (string $value): bool => $value !== '');
 ?>
 <section class="relatorio">
+    <div class="section-head">
+        <div><h2>Filtros de auditoria</h2><p>Consulte eventos imutáveis de segurança por ação, resultado, recurso e período.</p></div>
+    </div>
     <form class="audit-filters" method="get" action="<?= e(url('auditoria')) ?>">
         <div>
             <label for="action">Ação</label>
@@ -42,7 +45,10 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
 </section>
 
 <section class="relatorio">
-    <p class="audit-summary"><?= e((string) $result['total']) ?> registro(s). Horários em UTC.</p>
+    <div class="section-head">
+        <div><h2>Eventos registrados</h2><p>Horários apresentados em UTC para correlação operacional.</p></div>
+        <span class="result-pill"><?= e((string) $result['total']) ?> registro(s)</span>
+    </div>
     <div class="table-scroll">
         <table class="tabela-filtrada audit-table">
             <thead>

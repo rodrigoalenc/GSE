@@ -17,6 +17,7 @@ require_once ROOT_PATH . '/src/Core/SecurityHeaders.php';
 require_once ROOT_PATH . '/src/Core/ErrorHandler.php';
 require_once ROOT_PATH . '/src/Core/SessionManager.php';
 require_once ROOT_PATH . '/src/Core/PasswordPolicy.php';
+require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
 require_once ROOT_PATH . '/src/Core/DvaStatus.php';
 require_once ROOT_PATH . '/src/Core/AuditLogger.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';

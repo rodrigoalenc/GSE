@@ -32,6 +32,19 @@ final class ModuleTwoTest extends DatabaseTestCase
         $this->assertTrue($model->definirAtiva($id, true));
     }
 
+    public function testTurmasUnicodeColidemNoMesmoAnoMasNaoEmAnosDiferentes(): void
+    {
+        $model = new \Turma();
+        $first = $model->cadastrar('3º Ano Á', 2026);
+
+        $this->assertIsInt($first);
+        $this->assertFalse($model->cadastrar("3º ANO A\u{0301}", 2026));
+        $this->assertSame('duplicate_class', $model->lastErrorCode());
+        $this->assertIsInt($model->cadastrar('3º ANO Á', 2027));
+        $this->assertSame('3º Ano Á', $model->buscarPorId($first)['nome_turma']);
+        $this->assertSame('3º ano á', $model->buscarPorId($first)['nome_normalizado']);
+    }
+
     public function testValidacoesDeAlunoRecusamDatasTelefonesETurmasInvalidas(): void
     {
         $classId = $this->insertTurma();
@@ -82,7 +95,7 @@ final class ModuleTwoTest extends DatabaseTestCase
         $actor = $this->insertUsuario();
         $model = new \Aluno();
         $first = $this->validStudentData($classId);
-        $first['nome_completo'] = 'Maria da Silva';
+        $first['nome_completo'] = 'Álvaro Souza';
         $second = $this->validStudentData($classId);
         $second['nome_completo'] = 'Outra Pessoa';
         $second['data_nascimento'] = '2011-03-10';
@@ -94,14 +107,31 @@ final class ModuleTwoTest extends DatabaseTestCase
         $this->assertTrue($model->atualizar($firstId, $first));
 
         $collision = $second;
-        $collision['nome_completo'] = '  MARIA   DA   SILVA ';
+        $collision['nome_completo'] = "  A\u{0301}LVARO   SOUZA ";
         $collision['data_nascimento'] = $first['data_nascimento'];
         $this->assertFalse($model->atualizar($secondId, $collision));
         $this->assertSame('possible_duplicate', $model->lastErrorCode());
         $this->assertSame('Outra Pessoa', $model->buscarPorId($secondId)['nome_completo']);
 
         $this->assertTrue($model->atualizar($secondId, $collision, true));
-        $this->assertSame('MARIA DA SILVA', $model->buscarPorId($secondId)['nome_completo']);
+        $this->assertSame('ÁLVARO SOUZA', $model->buscarPorId($secondId)['nome_completo']);
+        $this->assertSame('álvaro souza', $model->buscarPorId($secondId)['nome_normalizado']);
+    }
+
+    public function testPesquisaDeAlunoReconheceCaixaAcentuadaENfcEquivalente(): void
+    {
+        $classId = $this->insertTurma();
+        $actor = $this->insertUsuario();
+        $model = new \Aluno();
+        $data = $this->validStudentData($classId);
+        $data['nome_completo'] = 'João Álvares';
+
+        $studentId = $model->cadastrar($data, $actor);
+
+        $this->assertIsInt($studentId);
+        $this->assertSame(1, $model->paginate(['q' => 'JOÃO'], 1, 10)['total']);
+        $this->assertSame(1, $model->paginate(['q' => "A\u{0301}LVARES"], 1, 10)['total']);
+        $this->assertCount(1, (new \Turma())->listar('1 ANO A'));
     }
 
     public function testMesmoNomeComNascimentoDiferenteNaoEhDuplicidade(): void

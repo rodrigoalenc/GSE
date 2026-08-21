@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Core/Model.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
+require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
 require_once ROOT_PATH . '/src/Model/Dva.php';
 
 use src\Core\SqliteTransaction;
+use src\Core\TextNormalizer;
 
 final class Aluno extends Model
 {
@@ -38,7 +40,7 @@ final class Aluno extends Model
                     t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
                     d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao
              FROM alunos a {$joins} {$where}
-             ORDER BY a.nome_completo COLLATE NOCASE, a.id
+             ORDER BY a.nome_normalizado, a.id
              LIMIT :limit OFFSET :offset"
         );
         $this->bind($statement, $params);
@@ -85,7 +87,7 @@ final class Aluno extends Model
         }
 
         $statement = self::$pdo->prepare(
-            'SELECT a.id, a.nome_completo, a.data_nascimento, a.id_turma,
+            'SELECT a.id, a.nome_completo, a.nome_normalizado, a.data_nascimento, a.id_turma,
                     a.telefone_aluno, a.telefone_responsavel, a.ativo,
                     a.criado_em, a.atualizado_em, a.inativado_em, a.inativado_por,
                     t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
@@ -161,12 +163,13 @@ final class Aluno extends Model
                 $now = gmdate('Y-m-d H:i:s');
                 $statement = $pdo->prepare(
                     'INSERT INTO alunos
-                        (nome_completo, data_nascimento, id_turma, telefone_aluno, telefone_responsavel,
+                        (nome_completo, nome_normalizado, data_nascimento, id_turma, telefone_aluno, telefone_responsavel,
                          ativo, criado_em, atualizado_em)
-                     VALUES (:name, :birth, :class, :student_phone, :guardian_phone, 1, :now, :now)'
+                     VALUES (:name, :normalized_name, :birth, :class, :student_phone, :guardian_phone, 1, :now, :now)'
                 );
                 $statement->execute([
                     'name' => $normalized['nome_completo'],
+                    'normalized_name' => $normalized['nome_normalizado'],
                     'birth' => $normalized['data_nascimento'],
                     'class' => $normalized['id_turma'],
                     'student_phone' => $normalized['telefone_aluno'],
@@ -241,13 +244,15 @@ final class Aluno extends Model
                 }
 
                 $statement = $pdo->prepare(
-                    'UPDATE alunos SET nome_completo = :name, data_nascimento = :birth,
+                    'UPDATE alunos SET nome_completo = :name, nome_normalizado = :normalized_name,
+                        data_nascimento = :birth,
                         id_turma = :class, telefone_aluno = :student_phone,
                         telefone_responsavel = :guardian_phone, atualizado_em = :now
                      WHERE id = :id'
                 );
                 $statement->execute([
                     'name' => $normalized['nome_completo'],
+                    'normalized_name' => $normalized['nome_normalizado'],
                     'birth' => $normalized['data_nascimento'],
                     'class' => $normalized['id_turma'],
                     'student_phone' => $normalized['telefone_aluno'],
@@ -324,8 +329,8 @@ final class Aluno extends Model
     private function duplicateExists(PDO $pdo, string $name, string $birthDate, ?int $ignoreId = null): bool
     {
         $sql = 'SELECT COUNT(*) FROM alunos
-                WHERE nome_completo = :name COLLATE NOCASE AND data_nascimento = :birth';
-        $params = ['name' => self::normalizeName($name), 'birth' => trim($birthDate)];
+                WHERE nome_normalizado = :name AND data_nascimento = :birth';
+        $params = ['name' => TextNormalizer::comparisonKey($name), 'birth' => trim($birthDate)];
 
         if ($ignoreId !== null) {
             $sql .= ' AND id <> :ignore';
@@ -346,7 +351,7 @@ final class Aluno extends Model
             "SELECT a.id, a.nome_completo, a.data_nascimento, t.nome_turma
              FROM alunos a LEFT JOIN turmas t ON t.id = a.id_turma
              WHERE a.ativo = 1 AND strftime('%m-%d', a.data_nascimento) = :month_day
-             ORDER BY a.nome_completo COLLATE NOCASE LIMIT :limit"
+             ORDER BY a.nome_normalizado LIMIT :limit"
         );
         $statement->bindValue(':month_day', $today->format('m-d'));
         $statement->bindValue(':limit', max(1, min(100, $limit)), PDO::PARAM_INT);
@@ -364,7 +369,7 @@ final class Aluno extends Model
              FROM alunos a LEFT JOIN turmas t ON t.id = a.id_turma
              WHERE a.ativo = 1 AND strftime('%m', a.data_nascimento) = :month
                AND strftime('%d', a.data_nascimento) >= :day
-             ORDER BY strftime('%d', a.data_nascimento), a.nome_completo COLLATE NOCASE
+             ORDER BY strftime('%d', a.data_nascimento), a.nome_normalizado
              LIMIT :limit"
         );
         $statement->bindValue(':month', $today->format('m'));
@@ -398,7 +403,7 @@ final class Aluno extends Model
 
     public static function normalizeName(string $name): string
     {
-        return preg_replace('/\s+/u', ' ', trim($name)) ?? '';
+        return TextNormalizer::displayName($name);
     }
 
     /**
@@ -407,7 +412,14 @@ final class Aluno extends Model
      */
     private function validateAndNormalize(array $data): array|false
     {
-        $name = self::normalizeName((string) ($data['nome_completo'] ?? ''));
+        try {
+            $name = TextNormalizer::displayName((string) ($data['nome_completo'] ?? ''));
+            $comparisonName = TextNormalizer::comparisonKey($name);
+        } catch (RuntimeException) {
+            $this->lastErrorCode = 'invalid_name';
+
+            return false;
+        }
 
         if ($name === ''
             || mb_strlen($name, 'UTF-8') > self::NAME_MAX_LENGTH
@@ -451,6 +463,7 @@ final class Aluno extends Model
 
         return [
             'nome_completo' => $name,
+            'nome_normalizado' => $comparisonName,
             'data_nascimento' => $birth,
             'id_turma' => (int) $classId,
             'telefone_aluno' => $studentPhone,
@@ -485,10 +498,19 @@ final class Aluno extends Model
     {
         $conditions = [];
         $params = [];
-        $search = mb_substr(self::normalizeName((string) ($filters['q'] ?? '')), 0, 100, 'UTF-8');
+        try {
+            $search = mb_substr(
+                TextNormalizer::comparisonKey((string) ($filters['q'] ?? '')),
+                0,
+                100,
+                'UTF-8'
+            );
+        } catch (RuntimeException) {
+            $search = '';
+        }
 
         if ($search !== '') {
-            $conditions[] = "a.nome_completo LIKE :search ESCAPE '\\'";
+            $conditions[] = "a.nome_normalizado LIKE :search ESCAPE '\\'";
             $params['search'] = '%' . self::escapeLike($search) . '%';
         }
 
