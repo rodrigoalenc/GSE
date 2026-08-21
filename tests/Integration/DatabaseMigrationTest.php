@@ -53,8 +53,10 @@ final class DatabaseMigrationTest extends TestCase
         DatabaseInitializer::initialize($pdo);
         DatabaseInitializer::initialize($pdo);
 
-        $this->assertSame(10, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
-        $this->assertSame(10, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(11, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(11, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(1, $this->columnNotNull($pdo, 'turmas', 'nome_normalizado'));
+        $this->assertSame(1, $this->columnNotNull($pdo, 'alunos', 'nome_normalizado'));
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
     }
 
@@ -136,7 +138,7 @@ final class DatabaseMigrationTest extends TestCase
         $this->assertSame(3, (int) $pdo->query('SELECT id FROM dvas WHERE ativo = 1')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM dvas WHERE ativo = 1')->fetchColumn());
         $this->assertNull($pdo->query('SELECT ano_letivo FROM turmas WHERE id = 1')->fetchColumn() ?: null);
-        $this->assertSame(10, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(11, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
         $pdo->exec("INSERT INTO turmas (nome_turma, nome_normalizado, ano_letivo) VALUES ('Turma Histórica', 'turma histórica', 2026)");
@@ -223,7 +225,7 @@ final class DatabaseMigrationTest extends TestCase
             'intval',
             $pdo->query('SELECT id, id_turma FROM alunos ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR)
         ));
-        $this->assertSame(10, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(11, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
     }
 
@@ -285,5 +287,16 @@ final class DatabaseMigrationTest extends TestCase
         $this->assertSame([201], array_map('intval', $pdo->query('SELECT id FROM dvas')->fetchAll(PDO::FETCH_COLUMN)));
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
         $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+    }
+
+    private function columnNotNull(PDO $pdo, string $table, string $column): int
+    {
+        foreach ($pdo->query('PRAGMA table_info("' . $table . '")')->fetchAll() as $metadata) {
+            if ($metadata['name'] === $column) {
+                return (int) $metadata['notnull'];
+            }
+        }
+
+        return -1;
     }
 }

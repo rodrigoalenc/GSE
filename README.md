@@ -264,7 +264,7 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões individuais de 1 a 10. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 10 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas e comparação Unicode persistida.
+`schema_migrations` controla versões individuais de 1 a 11. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema.
 
 | Versão | Alteração |
 |---|---|
@@ -275,6 +275,7 @@ O banco permanece fora de `public/`; em produção essa regra é validada e uma 
 | 8 | recurso de auditoria e preferência de alertas |
 | 9 | idempotência de notificações e triggers de integridade |
 | 10 | chaves de nomes em NFC/minúsculas, busca Unicode e unicidade de turmas por nome normalizado/ano |
+| 11 | reconstrução transacional de `turmas` e `alunos`, `nome_normalizado NOT NULL` e guards equivalentes de INSERT/UPDATE |
 
 Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
 
@@ -282,11 +283,27 @@ Antes de alteração estrutural em banco existente, é criado um backup SQLite c
 
 A v10 preenche `alunos.nome_normalizado` e `turmas.nome_normalizado` sem alterar nomes, IDs, vínculos ou DVAs. Antes do commit, compara contagens, IDs e o mapa `aluno_id → id_turma`, além de exigir `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`. Se duas turmas do mesmo ano se tornarem equivalentes após NFC e conversão Unicode para minúsculas, a migração faz rollback e informa os IDs envolvidos; não exclui, mescla, renomeia nem escolhe automaticamente qual registro prevalece. Corrija a colisão em uma cópia homologada e execute novamente.
 
+A v11 corrige a divergência deixada pela v10 em bancos atualizados, onde `nome_normalizado` podia continuar anulável. Sob `BEGIN IMMEDIATE`, ela recalcula as chaves com `TextNormalizer`, detecta colisões antes da substituição, cria tabelas com as mesmas colunas, defaults, checks e chaves estrangeiras do schema limpo, copia cada coluna explicitamente, preserva IDs, sequências de autoincremento, vínculos aluno/turma, vínculos DVA/aluno e todo o histórico da DVA. Os índices e triggers são recriados; tanto INSERT quanto UPDATE recusam chave nula, vazia ou formada apenas por whitespace Unicode. A normalização Unicode completa permanece no PHP, pois não é reproduzida de forma incompleta em SQL.
+
+O SQLite exige `foreign_keys=OFF` fora da transação para essa substituição de tabelas. O inicializador registra o estado anterior, restaura-o em `finally` mesmo sob exceção e só conclui depois de comparar os snapshots anteriores/posteriores, executar `PRAGMA foreign_key_check` e exigir `PRAGMA integrity_check=ok`. Qualquer erro, inclusive ao registrar a versão, desfaz tabelas, índices, triggers, dados e `user_version`, sem deixar `turmas_v11` ou `alunos_v11`. Datas já registradas são copiadas sem alteração. Se um schema muito antigo nunca tiver registrado `criado_em`/`atualizado_em` e contiver `NULL`, a v11 usa um único marco técnico da migração para satisfazer a estrutura obrigatória; esse valor não deve ser interpretado como data histórica do cadastro, e o backup preserva o estado original.
+
+Antes da produção, ensaie com uma cópia recente em homologação, com a mesma versão de PHP, `ext-intl` e SQLite. Interrompa escritas, execute `php bin/init-db.php` na cópia e valide:
+
+```sql
+PRAGMA user_version;       -- deve retornar 11
+PRAGMA foreign_key_check;  -- não deve retornar linhas
+PRAGMA integrity_check;    -- deve retornar ok
+PRAGMA table_info(turmas);
+PRAGMA table_info(alunos); -- nome_normalizado deve ter notnull = 1
+```
+
+Compare também contagens, IDs, `alunos.id_turma`, `dvas.id_aluno`, datas e amostras do histórico com o relatório anterior à migração. Colisões Unicode interrompem a operação antes do rebuild; resolva-as administrativamente na cópia, sem mesclar ou renomear dados reais de forma automática, e repita o ensaio. Só então abra uma janela de manutenção em produção, confirme espaço para o backup `pre-migration`, encerre processos escritores, execute a mesma versão do artefato e repita todas as verificações.
+
 Bancos locais de teste que já executaram a versão v6 defeituosa anterior a esta correção podem ter perdido os vínculos e devem ser restaurados a partir do backup `pre-migration`; o sistema não tenta reconstruí-los por adivinhação.
 
 Mantenha backups fora do servidor, criptografados e com restauração testada. Backups locais, bancos e sidecars estão no `.gitignore`.
 
-Para restaurar, coloque a aplicação em manutenção, preserve uma cópia do estado atual, remova somente sidecars `-wal`/`-shm` depois de encerrar todos os processos PHP, copie o backup validado para o `DB_PATH`, reaplique permissões e execute `PRAGMA integrity_check` antes de reabrir o serviço. Faça esse procedimento primeiro em homologação; o inicializador nunca substitui automaticamente um banco existente.
+Para rollback, mantenha a aplicação em manutenção e encerre todos os processos PHP. Preserve uma cópia do estado que falhou, confirme `PRAGMA integrity_check=ok` no backup `pre-migration`, remova somente sidecars `-wal`/`-shm` depois de não haver conexões abertas, substitua o `DB_PATH` pelo backup validado, reaplique permissões e execute `PRAGMA foreign_key_check`, `PRAGMA integrity_check` e `PRAGMA user_version` antes de reabrir o serviço. Faça esse procedimento primeiro em homologação; o inicializador nunca restaura ou substitui automaticamente um banco existente.
 
 ## Rotas explícitas
 

@@ -27,8 +27,10 @@
 - [ ] Diretório de logs restrito ao usuário de serviço.
 - [ ] Backup externo, criptografado, retido e restaurado em teste.
 - [ ] Backup preventivo de migração verificado e movido para armazenamento protegido.
-- [ ] Migração de cópia legada conferida: mapa exato `aluno_id/id_turma`, IDs e contagens de alunos/turmas/DVAs preservados, `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`.
-- [ ] Migração v10 homologada; `nome_normalizado` preenchido e eventuais colisões Unicode de turmas resolvidas manualmente antes da janela de produção.
+- [ ] Migração de cópia legada conferida: mapas exatos `aluno_id/id_turma` e `dva_id/id_aluno`, IDs, sequências, datas e contagens de alunos/turmas/DVAs preservados, `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`.
+- [ ] Migração v11 homologada com a mesma versão de PHP/SQLite e `ext-intl`; `PRAGMA user_version=11` e `nome_normalizado` com `notnull=1` em `turmas` e `alunos`.
+- [ ] Eventuais colisões Unicode de turmas resolvidas manualmente na cópia antes da janela de produção, sem mescla ou renomeação automática de dados reais.
+- [ ] Ausências legadas de timestamps revisadas: o marco técnico gerado pela v11 não foi interpretado como data histórica de cadastro.
 - [ ] Banco de teste que tenha executado a v6 antiga foi descartado ou restaurado pelo backup `pre-migration`; vínculos não foram inferidos manualmente.
 - [ ] Estratégia de preenchimento de `ano_letivo` das turmas legadas aprovada, sem inventar histórico.
 - [ ] Nenhum `.env`, SQLite, log, backup, cookie, senha ou token está versionado.
@@ -56,6 +58,8 @@
 
 - [ ] `composer check` e `composer analyse` (PHPStan nível 6, sem baseline) passam no artefato candidato.
 - [ ] Teste de migração realizado sobre uma cópia, nunca sobre o único banco real.
+- [ ] Janela de manutenção impede escritores; espaço para o backup `pre-migration` foi confirmado.
+- [ ] Rollback ensaiado: processos encerrados, backup validado, sidecars tratados somente sem conexões abertas e permissões reaplicadas.
 - [ ] Página 500 genérica confirmada sem stack trace em produção.
 - [ ] Host inválido retorna 400; HTTP retorna 308 para a URL HTTPS oficial.
 - [ ] Branch `main` protegida contra push direto e exclusão.

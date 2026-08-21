@@ -12,7 +12,7 @@ require_once __DIR__ . '/TextNormalizer.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 10;
+    private const LATEST_VERSION = 11;
 
     public static function initialize(PDO $pdo): void
     {
@@ -65,15 +65,17 @@ final class DatabaseInitializer
     private static function runMigration(PDO $pdo, int $version, string $schema): void
     {
         $rebuildsClasses = $version === 6 && self::classesRequireRebuild($pdo);
+        $rebuildsNormalizedNames = $version === 11;
+        $requiresForeignKeysOff = $rebuildsClasses || $rebuildsNormalizedNames;
         $foreignKeysBefore = (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn();
 
-        if ($rebuildsClasses) {
+        if ($requiresForeignKeysOff) {
             // SQLite ignora mudancas de foreign_keys dentro de uma transacao. A
             // desativacao ocorre antes do BEGIN IMMEDIATE e e sempre restaurada.
             $pdo->exec('PRAGMA foreign_keys = OFF');
 
             if ((int) $pdo->query('PRAGMA foreign_keys')->fetchColumn() !== 0) {
-                throw new RuntimeException('Nao foi possivel preparar a migracao segura de turmas.');
+                throw new RuntimeException('Nao foi possivel preparar a migracao estrutural segura.');
             }
         }
 
@@ -91,7 +93,7 @@ final class DatabaseInitializer
                 $pdo->exec('PRAGMA user_version = ' . $version);
             });
         } finally {
-            if ($rebuildsClasses) {
+            if ($requiresForeignKeysOff) {
                 $pdo->exec('PRAGMA foreign_keys = ' . ($foreignKeysBefore === 1 ? 'ON' : 'OFF'));
 
                 if ((int) $pdo->query('PRAGMA foreign_keys')->fetchColumn() !== $foreignKeysBefore) {
@@ -100,8 +102,8 @@ final class DatabaseInitializer
             }
         }
 
-        if ($rebuildsClasses && self::foreignKeyViolations($pdo) !== []) {
-            throw new RuntimeException('A migracao de turmas deixou relacionamentos invalidos.');
+        if ($requiresForeignKeysOff && self::foreignKeyViolations($pdo) !== []) {
+            throw new RuntimeException('A migracao estrutural deixou relacionamentos invalidos.');
         }
     }
 
@@ -118,6 +120,7 @@ final class DatabaseInitializer
             8 => self::migrateAuditAndAlerts($pdo),
             9 => self::ensureModuleTwoGuardsAndNotifications($pdo),
             10 => self::normalizeModuleTwoNames($pdo),
+            11 => self::enforceNormalizedNameSchema($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
     }
@@ -510,6 +513,305 @@ final class DatabaseInitializer
             || self::integrityCheck($pdo) !== ['ok']) {
             throw new RuntimeException('A migracao Unicode nao preservou integralmente o banco de dados.');
         }
+    }
+
+    private static function enforceNormalizedNameSchema(PDO $pdo): void
+    {
+        foreach (['turmas_v11', 'alunos_v11'] as $temporaryTable) {
+            if (self::tableExists($pdo, $temporaryTable)) {
+                throw new RuntimeException('A migracao v11 encontrou uma estrutura temporaria inesperada.');
+            }
+        }
+
+        $beforeCounts = self::moduleTwoCounts($pdo);
+        $beforeClassIds = self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id');
+        $beforeStudentIds = self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id');
+        $beforeDvaIds = self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id');
+        $beforeStudentClasses = self::studentClassRelationships($pdo);
+        $beforeDvaStudents = self::dvaStudentRelationships($pdo);
+        $beforeSequences = self::moduleTwoSequences($pdo);
+        $beforeData = self::moduleTwoDataSnapshot($pdo);
+        $migrationTimestamp = gmdate('Y-m-d H:i:s');
+
+        $classRows = [];
+        $classKeys = [];
+
+        foreach ($beforeData['classes'] as $class) {
+            $normalized = TextNormalizer::comparisonKey((string) $class['nome_turma']);
+
+            if ($normalized === '') {
+                throw new RuntimeException('A migracao v11 foi interrompida: existe uma turma com nome invalido.');
+            }
+
+            if ($class['ano_letivo'] !== null) {
+                $collisionKey = (string) $class['ano_letivo'] . "\0" . $normalized;
+
+                if (isset($classKeys[$collisionKey])) {
+                    throw new RuntimeException(sprintf(
+                        'A migracao Unicode foi interrompida: as turmas de IDs %d,%d se tornam equivalentes no mesmo ano letivo. Corrija a colisao em uma copia homologada e execute novamente.',
+                        $classKeys[$collisionKey],
+                        (int) $class['id']
+                    ));
+                }
+
+                $classKeys[$collisionKey] = (int) $class['id'];
+            }
+
+            $class['nome_normalizado'] = $normalized;
+            $class['criado_em'] ??= $migrationTimestamp;
+            $class['atualizado_em'] ??= (string) $class['criado_em'];
+            $classRows[] = $class;
+        }
+
+        $studentRows = [];
+
+        foreach ($beforeData['students'] as $student) {
+            $normalized = TextNormalizer::comparisonKey((string) $student['nome_completo']);
+
+            if ($normalized === '') {
+                throw new RuntimeException('A migracao v11 foi interrompida: existe um aluno com nome invalido.');
+            }
+
+            $student['nome_normalizado'] = $normalized;
+            $student['criado_em'] ??= $migrationTimestamp;
+            $student['atualizado_em'] ??= (string) $student['criado_em'];
+            $studentRows[] = $student;
+        }
+
+        $pdo->exec(
+            'CREATE TABLE turmas_v11 (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome_turma TEXT NOT NULL,
+                nome_normalizado TEXT NOT NULL,
+                ano_letivo INTEGER NULL,
+                ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )'
+        );
+        $pdo->exec(
+            'CREATE TABLE alunos_v11 (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome_completo TEXT NOT NULL,
+                nome_normalizado TEXT NOT NULL,
+                data_nascimento TEXT NOT NULL,
+                id_turma INTEGER NULL,
+                telefone_aluno TEXT NULL,
+                telefone_responsavel TEXT NULL,
+                ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                inativado_em TEXT NULL,
+                inativado_por INTEGER NULL,
+                FOREIGN KEY (id_turma) REFERENCES turmas(id) ON DELETE SET NULL,
+                FOREIGN KEY (inativado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+            )'
+        );
+
+        $insertClass = $pdo->prepare(
+            'INSERT INTO turmas_v11
+                (id, nome_turma, nome_normalizado, ano_letivo, ativo, criado_em, atualizado_em)
+             VALUES
+                (:id, :name, :normalized_name, :school_year, :active, :created_at, :updated_at)'
+        );
+
+        foreach ($classRows as $class) {
+            $insertClass->execute([
+                'id' => $class['id'],
+                'name' => $class['nome_turma'],
+                'normalized_name' => $class['nome_normalizado'],
+                'school_year' => $class['ano_letivo'],
+                'active' => $class['ativo'],
+                'created_at' => $class['criado_em'],
+                'updated_at' => $class['atualizado_em'],
+            ]);
+        }
+
+        $insertStudent = $pdo->prepare(
+            'INSERT INTO alunos_v11
+                (id, nome_completo, nome_normalizado, data_nascimento, id_turma,
+                 telefone_aluno, telefone_responsavel, ativo, criado_em, atualizado_em,
+                 inativado_em, inativado_por)
+             VALUES
+                (:id, :name, :normalized_name, :birth_date, :class_id,
+                 :student_phone, :guardian_phone, :active, :created_at, :updated_at,
+                 :deactivated_at, :deactivated_by)'
+        );
+
+        foreach ($studentRows as $student) {
+            $insertStudent->execute([
+                'id' => $student['id'],
+                'name' => $student['nome_completo'],
+                'normalized_name' => $student['nome_normalizado'],
+                'birth_date' => $student['data_nascimento'],
+                'class_id' => $student['id_turma'],
+                'student_phone' => $student['telefone_aluno'],
+                'guardian_phone' => $student['telefone_responsavel'],
+                'active' => $student['ativo'],
+                'created_at' => $student['criado_em'],
+                'updated_at' => $student['atualizado_em'],
+                'deactivated_at' => $student['inativado_em'],
+                'deactivated_by' => $student['inativado_por'],
+            ]);
+        }
+
+        if ((int) $pdo->query('SELECT COUNT(*) FROM turmas_v11')->fetchColumn() !== $beforeCounts['classes']
+            || (int) $pdo->query('SELECT COUNT(*) FROM alunos_v11')->fetchColumn() !== $beforeCounts['students']) {
+            throw new RuntimeException('A migracao v11 falhou na validacao das copias estruturais.');
+        }
+
+        // As tabelas novas referenciam os nomes definitivos. Com foreign_keys
+        // temporariamente OFF, as tabelas antigas podem ser substituidas sem
+        // reescrever a referencia externa de dvas para alunos.
+        $pdo->exec('DROP TABLE alunos');
+        $pdo->exec('DROP TABLE turmas');
+        $pdo->exec('ALTER TABLE turmas_v11 RENAME TO turmas');
+        $pdo->exec('ALTER TABLE alunos_v11 RENAME TO alunos');
+
+        self::restoreModuleTwoSequences($pdo, $beforeSequences);
+        self::ensureModuleTwoIndexes($pdo);
+        self::ensureModuleTwoGuardsAndNotifications($pdo);
+        self::ensureNormalizedNameGuards($pdo);
+
+        $afterData = self::moduleTwoDataSnapshot($pdo);
+
+        if (self::moduleTwoCounts($pdo) !== $beforeCounts
+            || self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id') !== $beforeClassIds
+            || self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id') !== $beforeStudentIds
+            || self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id') !== $beforeDvaIds
+            || self::studentClassRelationships($pdo) !== $beforeStudentClasses
+            || self::dvaStudentRelationships($pdo) !== $beforeDvaStudents
+            || self::moduleTwoSequences($pdo) !== $beforeSequences
+            || $afterData['classes'] !== self::withoutNormalizedNames($classRows)
+            || $afterData['students'] !== self::withoutNormalizedNames($studentRows)
+            || $afterData['dvas'] !== $beforeData['dvas']
+            || self::foreignKeyViolations($pdo) !== []
+            || self::integrityCheck($pdo) !== ['ok']) {
+            throw new RuntimeException('A migracao v11 nao preservou integralmente os dados e relacionamentos.');
+        }
+    }
+
+    private static function ensureModuleTwoIndexes(PDO $pdo): void
+    {
+        $pdo->exec(
+            'CREATE UNIQUE INDEX IF NOT EXISTS ux_turmas_nome_normalizado_ano
+             ON turmas (nome_normalizado, ano_letivo)
+             WHERE ano_letivo IS NOT NULL'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_turmas_ativo_ano ON turmas (ativo, ano_letivo DESC, nome_turma)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_nome_normalizado ON alunos (nome_normalizado)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_turma_ativo ON alunos (id_turma, ativo)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_nascimento ON alunos (data_nascimento)');
+    }
+
+    private static function ensureNormalizedNameGuards(PDO $pdo): void
+    {
+        $whitespaceOnly = "trim(NEW.nome_normalizado,
+            char(9) || char(10) || char(11) || char(12) || char(13) || char(32) ||
+            char(133) || char(160) || char(5760) || char(8192) || char(8193) ||
+            char(8194) || char(8195) || char(8196) || char(8197) || char(8198) ||
+            char(8199) || char(8200) || char(8201) || char(8202) || char(8232) ||
+            char(8233) || char(8239) || char(8287) || char(12288)
+        ) = ''";
+
+        foreach ([
+            ['trg_require_student_normalized_name_insert', 'INSERT', 'alunos', 'student_normalized_name_required'],
+            ['trg_require_student_normalized_name_update', 'UPDATE OF nome_normalizado', 'alunos', 'student_normalized_name_required'],
+            ['trg_require_class_normalized_name_insert', 'INSERT', 'turmas', 'class_normalized_name_required'],
+            ['trg_require_class_normalized_name_update', 'UPDATE OF nome_normalizado', 'turmas', 'class_normalized_name_required'],
+        ] as [$name, $operation, $table, $error]) {
+            $pdo->exec(
+                "CREATE TRIGGER IF NOT EXISTS {$name}
+                 BEFORE {$operation} ON {$table}
+                 WHEN NEW.nome_normalizado IS NULL OR {$whitespaceOnly}
+                 BEGIN SELECT RAISE(ABORT, '{$error}'); END"
+            );
+        }
+    }
+
+    /** @return array<int,int> */
+    private static function dvaStudentRelationships(PDO $pdo): array
+    {
+        $relationships = [];
+
+        foreach ($pdo->query('SELECT id, id_aluno FROM dvas ORDER BY id')->fetchAll() as $row) {
+            $relationships[(int) $row['id']] = (int) $row['id_aluno'];
+        }
+
+        return $relationships;
+    }
+
+    /** @return array<string,int> */
+    private static function moduleTwoSequences(PDO $pdo): array
+    {
+        $sequences = [];
+        $rows = $pdo->query(
+            "SELECT name, seq FROM sqlite_sequence
+             WHERE name IN ('turmas', 'alunos', 'dvas') ORDER BY name"
+        )->fetchAll();
+
+        foreach ($rows as $row) {
+            $sequences[(string) $row['name']] = (int) $row['seq'];
+        }
+
+        return $sequences;
+    }
+
+    /** @param array<string,int> $sequences */
+    private static function restoreModuleTwoSequences(PDO $pdo, array $sequences): void
+    {
+        $pdo->exec(
+            "DELETE FROM sqlite_sequence
+             WHERE name IN ('turmas', 'alunos', 'turmas_v11', 'alunos_v11')"
+        );
+        $insert = $pdo->prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (:name, :sequence)');
+
+        foreach (['turmas', 'alunos'] as $table) {
+            if (array_key_exists($table, $sequences)) {
+                $insert->execute(['name' => $table, 'sequence' => $sequences[$table]]);
+            }
+        }
+    }
+
+    /**
+     * @return array{
+     *   classes:list<array<string,mixed>>,
+     *   students:list<array<string,mixed>>,
+     *   dvas:list<array<string,mixed>>
+     * }
+     */
+    private static function moduleTwoDataSnapshot(PDO $pdo): array
+    {
+        return [
+            'classes' => $pdo->query(
+                'SELECT id, nome_turma, ano_letivo, ativo, criado_em, atualizado_em
+                 FROM turmas ORDER BY id'
+            )->fetchAll(),
+            'students' => $pdo->query(
+                'SELECT id, nome_completo, data_nascimento, id_turma, telefone_aluno,
+                        telefone_responsavel, ativo, criado_em, atualizado_em, inativado_em, inativado_por
+                 FROM alunos ORDER BY id'
+            )->fetchAll(),
+            'dvas' => $pdo->query(
+                'SELECT id, id_aluno, id_usuario_registro, data_vencimento, observacao,
+                        ativo, criado_em, atualizado_em, substituido_em
+                 FROM dvas ORDER BY id'
+            )->fetchAll(),
+        ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $rows
+     * @return list<array<string,mixed>>
+     */
+    private static function withoutNormalizedNames(array $rows): array
+    {
+        foreach ($rows as &$row) {
+            unset($row['nome_normalizado']);
+        }
+        unset($row);
+
+        return $rows;
     }
 
     /** @return list<int> */
