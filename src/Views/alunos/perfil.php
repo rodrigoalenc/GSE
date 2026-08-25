@@ -43,6 +43,9 @@ $daysRemaining = $student['dva_dias_restantes'];
     <?php if ((int) $student['ativo'] === 1): ?>
         <a class="btn-secondary" href="<?= e(url('aluno/dva/' . (int) $student['id'])) ?>"><?= $student['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a>
     <?php endif; ?>
+    <?php if ($canArchivePassive): ?>
+        <a class="btn-secondary" href="<?= e(url('aluno/arquivar/' . (int) $student['id'])) ?>">Enviar para o Arquivo Passivo</a>
+    <?php endif; ?>
     <a class="btn-secondary" href="<?= e(url('aluno')) ?>">Voltar</a>
 </div>
 
@@ -85,7 +88,7 @@ $daysRemaining = $student['dva_dias_restantes'];
 </section>
 </div>
 
-<?php if (Auth::isAdmin()): ?>
+<?php if ($canManageStudent): ?>
     <section class="relatorio status-panel">
         <h2>Administração do cadastro</h2>
         <form method="post" action="<?= e(url('aluno/status/' . (int) $student['id'])) ?>" data-confirm-status="<?= (int) $student['ativo'] === 1 ? 'Inativar este aluno? O histórico será preservado.' : 'Reativar este aluno?' ?>">

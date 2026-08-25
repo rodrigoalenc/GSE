@@ -30,6 +30,13 @@ final class TextNormalizerTest extends TestCase
         );
     }
 
+    public function testSearchKeyRemovesDiacriticsWithoutChangingComparisonKeySemantics(): void
+    {
+        $this->assertSame('jose alvares', TextNormalizer::searchKey(" JOSE\u{0301}  \u{00C1}lvares "));
+        $this->assertSame("jos\u{00E9}", TextNormalizer::comparisonKey("Jos\u{00E9}"));
+        $this->assertNotSame(TextNormalizer::comparisonKey("Jos\u{00E9}"), TextNormalizer::searchKey("Jos\u{00E9}"));
+    }
+
     public function testInvalidUtf8FailsSafely(): void
     {
         $this->expectException(RuntimeException::class);

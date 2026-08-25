@@ -132,12 +132,38 @@ CREATE TABLE IF NOT EXISTS certidoes (
 
 CREATE TABLE IF NOT EXISTS alunos_passivo (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    aluno_origem_id INTEGER NULL,
     nome_completo TEXT NOT NULL,
+    nome_normalizado TEXT NOT NULL,
     data_nascimento TEXT NULL,
     numero TEXT NULL,
+    numero_normalizado TEXT NULL,
     caixa TEXT NULL,
-    nome_sort TEXT NOT NULL
+    caixa_normalizada TEXT NULL,
+    ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+    localizacao_pendente INTEGER NOT NULL DEFAULT 0 CHECK (localizacao_pendente IN (0, 1)),
+    criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    inativado_em TEXT NULL,
+    inativado_por INTEGER NULL,
+    restaurado_em TEXT NULL,
+    restaurado_por INTEGER NULL,
+    criado_por INTEGER NULL,
+    atualizado_por INTEGER NULL,
+    FOREIGN KEY (aluno_origem_id) REFERENCES alunos(id) ON DELETE RESTRICT,
+    FOREIGN KEY (inativado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+    FOREIGN KEY (restaurado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+    FOREIGN KEY (criado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+    FOREIGN KEY (atualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_passivo_nome_normalizado ON alunos_passivo (nome_normalizado);
+CREATE INDEX IF NOT EXISTS idx_passivo_caixa_normalizada ON alunos_passivo (caixa_normalizada);
+CREATE INDEX IF NOT EXISTS idx_passivo_caixa_numero ON alunos_passivo (caixa_normalizada, numero_normalizado);
+CREATE INDEX IF NOT EXISTS idx_passivo_ativo ON alunos_passivo (ativo, nome_normalizado);
+CREATE INDEX IF NOT EXISTS idx_passivo_aluno_origem ON alunos_passivo (aluno_origem_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_passivo_aluno_origem_ativo
+    ON alunos_passivo (aluno_origem_id) WHERE aluno_origem_id IS NOT NULL AND ativo = 1;
 
 CREATE TABLE IF NOT EXISTS pedidos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

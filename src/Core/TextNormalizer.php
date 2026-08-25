@@ -32,4 +32,32 @@ final class TextNormalizer
     {
         return mb_strtolower(self::displayName($value), 'UTF-8');
     }
+
+    /**
+     * Gera uma chave destinada exclusivamente a pesquisas tolerantes a acentos.
+     * A semantica de comparisonKey() permanece inalterada para os Modulos 1 e 2.
+     */
+    public static function searchKey(string $value): string
+    {
+        $display = self::displayName($value);
+        $decomposed = Normalizer::normalize($display, Normalizer::FORM_D);
+
+        if ($decomposed === false) {
+            throw new RuntimeException('Nao foi possivel decompor o texto Unicode.');
+        }
+
+        $withoutMarks = preg_replace('/\p{Mn}+/u', '', $decomposed);
+
+        if ($withoutMarks === null) {
+            throw new RuntimeException('O texto informado nao possui uma codificacao UTF-8 valida.');
+        }
+
+        $recomposed = Normalizer::normalize($withoutMarks, Normalizer::FORM_C);
+
+        if ($recomposed === false) {
+            throw new RuntimeException('Nao foi possivel recompor o texto Unicode.');
+        }
+
+        return mb_strtolower($recomposed, 'UTF-8');
+    }
 }

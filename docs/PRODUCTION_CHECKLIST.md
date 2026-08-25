@@ -1,4 +1,4 @@
-# Checklist de Produção — GSE Módulos 1 e 2
+# Checklist de Produção — GSE Módulos 1, 2 e 3
 
 ## Plataforma
 
@@ -28,7 +28,7 @@
 - [ ] Backup externo, criptografado, retido e restaurado em teste.
 - [ ] Backup preventivo de migração verificado e movido para armazenamento protegido.
 - [ ] Migração de cópia legada conferida: mapas exatos `aluno_id/id_turma` e `dva_id/id_aluno`, IDs, sequências, datas e contagens de alunos/turmas/DVAs preservados, `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`.
-- [ ] Migração v11 homologada com a mesma versão de PHP/SQLite e `ext-intl`; `PRAGMA user_version=11` e `nome_normalizado` com `notnull=1` em `turmas` e `alunos`.
+- [ ] Migração v12 homologada com a mesma versão de PHP/SQLite e `ext-intl`; `PRAGMA user_version=12`, nomes normalizados obrigatórios em turmas/alunos e estrutura profissional de `alunos_passivo`.
 - [ ] Eventuais colisões Unicode de turmas resolvidas manualmente na cópia antes da janela de produção, sem mescla ou renomeação automática de dados reais.
 - [ ] Ausências legadas de timestamps revisadas: o marco técnico gerado pela v11 não foi interpretado como data histórica de cadastro.
 - [ ] Banco de teste que tenha executado a v6 antiga foi descartado ou restaurado pelo backup `pre-migration`; vínculos não foram inferidos manualmente.
@@ -65,3 +65,21 @@
 - [ ] Branch `main` protegida contra push direto e exclusão.
 - [ ] CI obrigatório e aprovado antes de merge, revisão por outra pessoa e resolução de comentários exigidas.
 - [ ] GitHub Security Advisories habilitado para relato privado.
+
+## Modulo 3 - Arquivo Passivo
+
+- [ ] Artefato executado com PHP 8.3, SQLite e `ext-intl` equivalentes a homologacao.
+- [ ] `PRAGMA user_version=12` e `schema_migrations` contem 1 a 12 sem lacunas.
+- [ ] Backup `pre-migration` existe fora de `public`, abre em SQLite e retorna `integrity_check=ok`.
+- [ ] Contagens, IDs, nomes, datas, numeros, caixas e `sqlite_sequence` foram comparados antes/depois.
+- [ ] Registros legados sem caixa aparecem com `localizacao_pendente=1`; nenhuma caixa foi inventada.
+- [ ] Colisoes de caixa/numero foram listadas para revisao, sem merge, exclusao ou renumeracao silenciosa.
+- [ ] `PRAGMA foreign_key_check` nao retorna linhas, `PRAGMA integrity_check` retorna `ok` e nao existe `alunos_passivo_v12`.
+- [ ] Trigger contra `DELETE` e indice unico parcial por aluno de origem foram verificados.
+- [ ] Perfis: funcionario consulta/cria/edita/exporta; administrador tambem gerencia status, CSV, enumeracao e arquivamento de aluno.
+- [ ] CSV UTF-8 de ate 2 MiB/5.000 linhas passou por previa, confirmacao unica, rollback e remocao do temporario.
+- [ ] Confirmado que a importacao comum e aditiva e nao contem `DELETE FROM alunos_passivo`.
+- [ ] Enumeracao preserva numeros existentes, usa o maximo da caixa e exige previa/confirmacao.
+- [ ] TXT usa `nosniff`, `no-store`, nome seguro e conteudo `Numero - Nome`.
+- [ ] Desktop, celular, foco visivel, menu, cards, tabela responsiva e mensagens foram homologados.
+- [ ] Auditoria inclui `passive.created`, `updated`, `deactivated`, `reactivated`, `student_archived`, importacao, enumeracao, exportacao e bloqueios.

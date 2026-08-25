@@ -10,7 +10,15 @@ O mantenedor deve confirmar o recebimento, avaliar severidade e coordenar corre�
 
 ## Escopo suportado
 
-O código atualmente suportado abrange o Módulo 1 — Autenticação e Controle de Usuários — e o Módulo 2 — Gestão de Alunos, Turmas e DVA. Models e tabelas preservados para os módulos 3, 4 e 5 não representam funcionalidades publicadas.
+O código atualmente suportado abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA — e 3 — Arquivo Passivo. Models e tabelas preservados para os Módulos 4 e 5 não representam funcionalidades publicadas.
+
+### Arquivo Passivo (Modulo 3)
+
+O Modulo 3 faz parte do escopo suportado. Alteracoes sensiveis usam POST, CSRF, autorizacao central, `BEGIN IMMEDIATE` e auditoria obrigatoria na mesma transacao. O banco bloqueia exclusao fisica de `alunos_passivo`; eliminacao definitiva por LGPD nao esta implementada e depende de politica formal da escola.
+
+Uploads CSV ficam fora de `public`, recebem nome aleatorio, limite de 2 MiB/5.000 linhas, validacao de MIME e UTF-8 e expiracao de 15 minutos. Tokens de previa sao vinculados a sessao e administrador, nao sao reutilizaveis e o temporario e removido na confirmacao ou expiracao. A importacao comum nunca executa `DELETE FROM alunos_passivo`.
+
+Antes de producao, homologue a migracao v12 em copia, valide o backup preventivo, IDs, sequencia, localizacoes pendentes, `PRAGMA foreign_key_check` e `PRAGMA integrity_check`. Trate colisoes fisicas em homologacao sem exclusao, merge ou renumeracao silenciosa.
 
 ## Dados que nunca devem ser enviados
 

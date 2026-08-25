@@ -34,7 +34,7 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(30, $routes);
+        $this->assertCount(47, $routes);
         $this->assertSame(['id' => '42'], $match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/42'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/excluirTudo'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/../1'));
@@ -46,6 +46,13 @@ final class CoreSecurityTest extends TestCase
         ));
         $this->assertTrue($studentStatus[0]['admin']);
         $this->assertSame('POST', $studentStatus[0]['method']);
+
+        $passiveStatus = array_values(array_filter(
+            $routes,
+            static fn (array $route): bool => $route['pattern'] === 'passivo/status/{id}'
+        ));
+        $this->assertTrue($passiveStatus[0]['admin']);
+        $this->assertSame('POST', $passiveStatus[0]['method']);
 
         foreach ($routes as $route) {
             $this->assertContains($route['method'], ['GET', 'POST']);

@@ -6,7 +6,8 @@ $dashboardActive = in_array($currentPath, ['dashboard', 'painel', ''], true);
 $usersActive = str_starts_with($currentPath, 'usuario');
 $auditActive = str_starts_with($currentPath, 'auditoria');
 $passwordActive = str_starts_with($currentPath, 'senha/alterar');
-$studentsActive = str_starts_with($currentPath, 'aluno');
+$passiveActive = str_starts_with($currentPath, 'passivo') || str_starts_with($currentPath, 'aluno/arquivar');
+$studentsActive = str_starts_with($currentPath, 'aluno') && !$passiveActive;
 $dvaActive = $currentPath === 'dva';
 $classesActive = str_starts_with($currentPath, 'turma');
 $mustChangePassword = (bool) ($_SESSION['must_change_password'] ?? false);
@@ -32,6 +33,9 @@ $flashClass = [
     <?php if ($studentsActive || $dvaActive || $classesActive || $dashboardActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/alunos.css')) ?>">
     <?php endif; ?>
+    <?php if ($passiveActive): ?>
+        <link rel="stylesheet" href="<?= e(url('assets/css/passivo.css')) ?>">
+    <?php endif; ?>
 </head>
 <body>
 <div class="layout-container">
@@ -56,6 +60,10 @@ $flashClass = [
                 <a href="<?= e(url('dva')) ?>" class="sidebar-link <?= $dvaActive ? 'active' : '' ?>" <?= $dvaActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#128196;</span>
                     <span class="sidebar-label">DVAs</span>
+                </a>
+                <a href="<?= e(url('passivo')) ?>" class="sidebar-link <?= $passiveActive ? 'active' : '' ?>" <?= $passiveActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#9635;</span>
+                    <span class="sidebar-label">Arquivo Passivo</span>
                 </a>
             <?php endif; ?>
 

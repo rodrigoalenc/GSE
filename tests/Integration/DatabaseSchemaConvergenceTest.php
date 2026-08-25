@@ -52,8 +52,8 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->initialize($pdo, $path);
 
-        $this->assertSame(11, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
-        $this->assertSame(11, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(12, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(12, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
         $this->assertSame(1, $this->columnNotNull($pdo, 'turmas', 'nome_normalizado'));
         $this->assertSame(1, $this->columnNotNull($pdo, 'alunos', 'nome_normalizado'));
         $this->assertSame($beforeData, $this->preservedModuleData($pdo));
@@ -75,7 +75,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->assertSame($signature, $this->moduleSchemaSignature($pdo));
         $this->assertSame($data, $this->preservedModuleData($pdo));
-        $this->assertSame(11, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(12, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
         $this->assertCount(1, $this->backups());
     }
 
@@ -108,7 +108,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->initialize($pdo, $path);
 
-        $this->assertSame(11, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(12, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame('turma á', $pdo->query('SELECT nome_normalizado FROM turmas WHERE id = 10')->fetchColumn());
         $this->assertSame('aluno áureo', $pdo->query('SELECT nome_normalizado FROM alunos WHERE id = 101')->fetchColumn());
         $this->assertSame([101 => 10], $this->relationships($pdo, 'alunos', 'id_turma'));
@@ -281,7 +281,8 @@ final class DatabaseSchemaConvergenceTest extends TestCase
     {
         $schema = file_get_contents(ROOT_PATH . '/database/schema.sql');
         $this->assertIsString($schema);
-        $schema = str_replace('nome_normalizado TEXT NOT NULL', 'nome_normalizado TEXT NULL', $schema, $count);
+        $schema = preg_replace('/nome_normalizado TEXT NOT NULL/', 'nome_normalizado TEXT NULL', $schema, 2, $count);
+        $this->assertIsString($schema);
         $this->assertSame(2, $count);
         $pdo->exec($schema);
         $this->markMigrations($pdo, 10);
@@ -307,7 +308,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
     {
         $schema = file_get_contents(ROOT_PATH . '/database/schema.sql');
         $this->assertIsString($schema);
-        $schema = preg_replace('/^\s*nome_normalizado TEXT NOT NULL,\R/m', '', $schema, -1, $count);
+        $schema = preg_replace('/^\s*nome_normalizado TEXT NOT NULL,\R/m', '', $schema, 2, $count);
         $this->assertIsString($schema);
         $this->assertSame(2, $count);
         $pdo->exec($schema);

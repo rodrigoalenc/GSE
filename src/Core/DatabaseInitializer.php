@@ -12,7 +12,7 @@ require_once __DIR__ . '/TextNormalizer.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 11;
+    private const LATEST_VERSION = 12;
 
     public static function initialize(PDO $pdo): void
     {
@@ -66,7 +66,8 @@ final class DatabaseInitializer
     {
         $rebuildsClasses = $version === 6 && self::classesRequireRebuild($pdo);
         $rebuildsNormalizedNames = $version === 11;
-        $requiresForeignKeysOff = $rebuildsClasses || $rebuildsNormalizedNames;
+        $rebuildsPassiveArchive = $version === 12 && self::passiveArchiveRequiresRebuild($pdo);
+        $requiresForeignKeysOff = $rebuildsClasses || $rebuildsNormalizedNames || $rebuildsPassiveArchive;
         $foreignKeysBefore = (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn();
 
         if ($requiresForeignKeysOff) {
@@ -121,6 +122,7 @@ final class DatabaseInitializer
             9 => self::ensureModuleTwoGuardsAndNotifications($pdo),
             10 => self::normalizeModuleTwoNames($pdo),
             11 => self::enforceNormalizedNameSchema($pdo),
+            12 => self::migratePassiveArchive($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
     }
@@ -812,6 +814,256 @@ final class DatabaseInitializer
         unset($row);
 
         return $rows;
+    }
+
+    private static function passiveArchiveRequiresRebuild(PDO $pdo): bool
+    {
+        if (!self::tableExists($pdo, 'alunos_passivo')) {
+            return false;
+        }
+
+        $required = [
+            'id', 'aluno_origem_id', 'nome_completo', 'nome_normalizado', 'data_nascimento',
+            'numero', 'numero_normalizado', 'caixa', 'caixa_normalizada', 'ativo',
+            'localizacao_pendente', 'criado_em', 'atualizado_em', 'inativado_em',
+            'inativado_por', 'restaurado_em', 'restaurado_por', 'criado_por', 'atualizado_por',
+        ];
+        $columns = array_column($pdo->query('PRAGMA table_info(alunos_passivo)')->fetchAll(), 'name');
+
+        return array_diff($required, $columns) !== [];
+    }
+
+    private static function migratePassiveArchive(PDO $pdo): void
+    {
+        if (self::tableExists($pdo, 'alunos_passivo_v12')) {
+            throw new RuntimeException('A migracao v12 encontrou uma estrutura temporaria inesperada.');
+        }
+
+        if (!self::tableExists($pdo, 'alunos_passivo')) {
+            self::createPassiveArchiveTable($pdo, 'alunos_passivo');
+            self::ensurePassiveArchiveIndexesAndGuards($pdo);
+
+            return;
+        }
+
+        if (!self::passiveArchiveRequiresRebuild($pdo)) {
+            self::normalizeExistingPassiveArchive($pdo);
+            self::ensurePassiveArchiveIndexesAndGuards($pdo);
+
+            if (self::foreignKeyViolations($pdo) !== [] || self::integrityCheck($pdo) !== ['ok']) {
+                throw new RuntimeException('A migracao v12 encontrou inconsistencias no arquivo passivo.');
+            }
+
+            return;
+        }
+
+        $legacyRows = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll();
+        $legacyIds = array_map(static fn (array $row): int => (int) $row['id'], $legacyRows);
+        $sequence = self::sequenceFor($pdo, 'alunos_passivo');
+        $timestamp = gmdate('Y-m-d H:i:s');
+
+        self::createPassiveArchiveTable($pdo, 'alunos_passivo_v12');
+        $insert = $pdo->prepare(
+            'INSERT INTO alunos_passivo_v12
+                (id, aluno_origem_id, nome_completo, nome_normalizado, data_nascimento,
+                 numero, numero_normalizado, caixa, caixa_normalizada, ativo,
+                 localizacao_pendente, criado_em, atualizado_em, inativado_em,
+                 inativado_por, restaurado_em, restaurado_por, criado_por, atualizado_por)
+             VALUES
+                (:id, :student_id, :name, :normalized_name, :birth_date,
+                 :number, :normalized_number, :box, :normalized_box, :active,
+                 :location_pending, :created_at, :updated_at, :deactivated_at,
+                 :deactivated_by, :restored_at, :restored_by, :created_by, :updated_by)'
+        );
+
+        foreach ($legacyRows as $row) {
+            $name = (string) ($row['nome_completo'] ?? '');
+            $number = array_key_exists('numero', $row) && $row['numero'] !== null ? (string) $row['numero'] : null;
+            $box = array_key_exists('caixa', $row) && $row['caixa'] !== null ? (string) $row['caixa'] : null;
+            self::assertValidUtf8($name, 'nome');
+
+            if ($number !== null) {
+                self::assertValidUtf8($number, 'numero');
+            }
+
+            if ($box !== null) {
+                self::assertValidUtf8($box, 'caixa');
+            }
+
+            $normalizedName = $name === '' ? '' : TextNormalizer::searchKey($name);
+            $normalizedNumber = $number === null || trim($number) === '' ? null : TextNormalizer::searchKey($number);
+            $normalizedBox = $box === null || trim($box) === '' ? null : TextNormalizer::searchKey($box);
+            $active = isset($row['ativo']) && (int) $row['ativo'] === 0 ? 0 : 1;
+            $locationPending = $normalizedBox === null
+                ? 1
+                : (isset($row['localizacao_pendente']) && (int) $row['localizacao_pendente'] === 1 ? 1 : 0);
+
+            $insert->execute([
+                'id' => (int) $row['id'],
+                'student_id' => self::nullablePositiveInteger($row['aluno_origem_id'] ?? null),
+                'name' => $name,
+                'normalized_name' => $normalizedName,
+                'birth_date' => self::nullableString($row['data_nascimento'] ?? null),
+                'number' => $number,
+                'normalized_number' => $normalizedNumber,
+                'box' => $box,
+                'normalized_box' => $normalizedBox,
+                'active' => $active,
+                'location_pending' => $locationPending,
+                'created_at' => self::nullableString($row['criado_em'] ?? null) ?? $timestamp,
+                'updated_at' => self::nullableString($row['atualizado_em'] ?? null)
+                    ?? self::nullableString($row['criado_em'] ?? null) ?? $timestamp,
+                'deactivated_at' => self::nullableString($row['inativado_em'] ?? null),
+                'deactivated_by' => self::nullablePositiveInteger($row['inativado_por'] ?? null),
+                'restored_at' => self::nullableString($row['restaurado_em'] ?? null),
+                'restored_by' => self::nullablePositiveInteger($row['restaurado_por'] ?? null),
+                'created_by' => self::nullablePositiveInteger($row['criado_por'] ?? null),
+                'updated_by' => self::nullablePositiveInteger($row['atualizado_por'] ?? null),
+            ]);
+        }
+
+        if ((int) $pdo->query('SELECT COUNT(*) FROM alunos_passivo_v12')->fetchColumn() !== count($legacyRows)
+            || self::integerColumn($pdo, 'SELECT id FROM alunos_passivo_v12 ORDER BY id') !== $legacyIds) {
+            throw new RuntimeException('A migracao v12 falhou na validacao da copia do arquivo passivo.');
+        }
+
+        $pdo->exec('DROP TABLE alunos_passivo');
+        $pdo->exec('ALTER TABLE alunos_passivo_v12 RENAME TO alunos_passivo');
+        self::restoreSequence($pdo, 'alunos_passivo', $sequence);
+        self::ensurePassiveArchiveIndexesAndGuards($pdo);
+
+        if ((int) $pdo->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn() !== count($legacyRows)
+            || self::integerColumn($pdo, 'SELECT id FROM alunos_passivo ORDER BY id') !== $legacyIds
+            || self::tableExists($pdo, 'alunos_passivo_v12')
+            || self::foreignKeyViolations($pdo) !== []
+            || self::integrityCheck($pdo) !== ['ok']) {
+            throw new RuntimeException('A migracao v12 nao preservou integralmente o arquivo passivo.');
+        }
+    }
+
+    private static function createPassiveArchiveTable(PDO $pdo, string $table): void
+    {
+        $pdo->exec(
+            "CREATE TABLE {$table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                aluno_origem_id INTEGER NULL,
+                nome_completo TEXT NOT NULL,
+                nome_normalizado TEXT NOT NULL,
+                data_nascimento TEXT NULL,
+                numero TEXT NULL,
+                numero_normalizado TEXT NULL,
+                caixa TEXT NULL,
+                caixa_normalizada TEXT NULL,
+                ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+                localizacao_pendente INTEGER NOT NULL DEFAULT 0 CHECK (localizacao_pendente IN (0, 1)),
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                inativado_em TEXT NULL,
+                inativado_por INTEGER NULL,
+                restaurado_em TEXT NULL,
+                restaurado_por INTEGER NULL,
+                criado_por INTEGER NULL,
+                atualizado_por INTEGER NULL,
+                FOREIGN KEY (aluno_origem_id) REFERENCES alunos(id) ON DELETE RESTRICT,
+                FOREIGN KEY (inativado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+                FOREIGN KEY (restaurado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+                FOREIGN KEY (criado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+                FOREIGN KEY (atualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+            )"
+        );
+    }
+
+    private static function normalizeExistingPassiveArchive(PDO $pdo): void
+    {
+        $update = $pdo->prepare(
+            'UPDATE alunos_passivo
+             SET nome_normalizado = :name, numero_normalizado = :number,
+                 caixa_normalizada = :box, localizacao_pendente = :pending
+             WHERE id = :id'
+        );
+
+        foreach ($pdo->query('SELECT id, nome_completo, numero, caixa, localizacao_pendente FROM alunos_passivo')->fetchAll() as $row) {
+            $name = (string) $row['nome_completo'];
+            $number = $row['numero'] === null ? null : (string) $row['numero'];
+            $box = $row['caixa'] === null ? null : (string) $row['caixa'];
+            self::assertValidUtf8($name, 'nome');
+            $normalizedBox = $box === null || trim($box) === '' ? null : TextNormalizer::searchKey($box);
+            $update->execute([
+                'name' => $name === '' ? '' : TextNormalizer::searchKey($name),
+                'number' => $number === null || trim($number) === '' ? null : TextNormalizer::searchKey($number),
+                'box' => $normalizedBox,
+                'pending' => $normalizedBox === null ? 1 : (int) $row['localizacao_pendente'],
+                'id' => (int) $row['id'],
+            ]);
+        }
+    }
+
+    private static function ensurePassiveArchiveIndexesAndGuards(PDO $pdo): void
+    {
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_nome_normalizado ON alunos_passivo (nome_normalizado)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_caixa_normalizada ON alunos_passivo (caixa_normalizada)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_caixa_numero ON alunos_passivo (caixa_normalizada, numero_normalizado)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_ativo ON alunos_passivo (ativo, nome_normalizado)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_aluno_origem ON alunos_passivo (aluno_origem_id)');
+        $pdo->exec(
+            'CREATE UNIQUE INDEX IF NOT EXISTS ux_passivo_aluno_origem_ativo
+             ON alunos_passivo (aluno_origem_id)
+             WHERE aluno_origem_id IS NOT NULL AND ativo = 1'
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_prevent_passive_delete
+             BEFORE DELETE ON alunos_passivo
+             BEGIN SELECT RAISE(ABORT, 'passive_physical_delete_forbidden'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_passive_active_insert
+             BEFORE INSERT ON alunos_passivo WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_passive_active'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_passive_active_update
+             BEFORE UPDATE OF ativo ON alunos_passivo WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_passive_active'); END"
+        );
+    }
+
+    private static function assertValidUtf8(string $value, string $field): void
+    {
+        if (preg_match('//u', $value) !== 1) {
+            throw new RuntimeException("A migracao v12 foi interrompida: o campo {$field} contem UTF-8 invalido.");
+        }
+    }
+
+    private static function nullableString(mixed $value): ?string
+    {
+        return $value === null ? null : (string) $value;
+    }
+
+    private static function nullablePositiveInteger(mixed $value): ?int
+    {
+        $integer = filter_var($value, FILTER_VALIDATE_INT);
+
+        return $integer !== false && (int) $integer > 0 ? (int) $integer : null;
+    }
+
+    private static function sequenceFor(PDO $pdo, string $table): ?int
+    {
+        $statement = $pdo->prepare('SELECT seq FROM sqlite_sequence WHERE name = :name');
+        $statement->execute(['name' => $table]);
+        $sequence = $statement->fetchColumn();
+
+        return $sequence === false ? null : (int) $sequence;
+    }
+
+    private static function restoreSequence(PDO $pdo, string $table, ?int $sequence): void
+    {
+        $delete = $pdo->prepare('DELETE FROM sqlite_sequence WHERE name IN (:name, :temporary)');
+        $delete->execute(['name' => $table, 'temporary' => $table . '_v12']);
+
+        if ($sequence !== null) {
+            $insert = $pdo->prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (:name, :sequence)');
+            $insert->execute(['name' => $table, 'sequence' => $sequence]);
+        }
     }
 
     /** @return list<int> */

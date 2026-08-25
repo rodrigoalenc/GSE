@@ -5,6 +5,7 @@ parameters:
         - src/Controllers
         - src/Mail
         - src/Services
+        - src/Model/Passivo.php
         - src/Model/Aluno.php
         - src/Model/Auditoria.php
         - src/Model/Dva.php

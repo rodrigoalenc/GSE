@@ -142,6 +142,8 @@ final class AlunoController extends Controller
             'title' => 'Perfil do Aluno',
             'student' => $profile['student'],
             'history' => $profile['dva_history'],
+            'canManageStudent' => Auth::isAdmin(),
+            'canArchivePassive' => Auth::isAdmin() && (int) $profile['student']['ativo'] === 0,
         ]);
     }
 

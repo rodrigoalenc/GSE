@@ -44,6 +44,7 @@ require_once ROOT_PATH . '/src/Model/Turma.php';
 require_once ROOT_PATH . '/src/Mail/MailTransport.php';
 require_once ROOT_PATH . '/src/Mail/PhpMailerTransport.php';
 require_once ROOT_PATH . '/src/Services/DvaNotificationService.php';
+require_once ROOT_PATH . '/src/Services/PassivoCsvService.php';
 require_once ROOT_PATH . '/src/Model/Painel.php';
 require_once ROOT_PATH . '/src/Model/Pedido.php';
 require_once ROOT_PATH . '/src/Model/Certidao.php';
