@@ -333,17 +333,17 @@ Para rollback, mantenha a aplicação em manutenção e encerre todos os process
 
 Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado recebe 403 e visitante é redirecionado ao login.
 
-## Modulo 3 - Arquivo Passivo
+## Módulo 3 — Arquivo Passivo
 
-Os Modulos 1, 2 e 3 estao implementados. Os Modulos 4 e 5 continuam fora do escopo funcional. O banco atual usa `PRAGMA user_version=12`; `schema_migrations` deve conter exatamente as versoes 1 a 12.
+Os Módulos 1, 2 e 3 estão implementados. Os Módulos 4 e 5 continuam fora do escopo funcional. O banco atual usa `PRAGMA user_version=12`; `schema_migrations` deve conter exatamente as versões 1 a 12.
 
-O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por numero, filtro, paginacao, ordenacao permitida, cadastro manual, detalhes, edicao, inativacao logica, restauracao, importacao CSV aditiva com previa, enumeracao transacional, exportacao TXT e vinculo explicito de alunos inativos. Funcionarios autenticados consultam, criam, editam e exportam. Somente administradores inativam, restauram, importam, enumeram e enviam um aluno inativo ao passivo.
+O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, inativação lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários autenticados consultam, criam, editam e exportam. Somente administradores inativam, restauram, importam, enumeram e enviam um aluno inativo ao passivo.
 
-O CSV usa `Nome;Data;Numero;Caixa`, UTF-8, no maximo 2 MiB e 5.000 linhas. Datas podem ser `YYYY-MM-DD` ou `DD/MM/YYYY`. A previa expira em 15 minutos, pertence a sessao e ao administrador e so pode ser confirmada uma vez. Linhas validas sao adicionadas em uma unica transacao; duplicidades, localizacoes ocupadas e erros sao apresentados sem apagar o acervo. A substituicao destrutiva do projeto original foi removida deliberadamente.
+O CSV usa `Nome;Data;Numero;Caixa`, UTF-8, no máximo 2 MiB e 5.000 linhas. Datas podem ser `YYYY-MM-DD` ou `DD/MM/YYYY`. A prévia expira em 15 minutos, pertence à sessão e ao administrador e só pode ser confirmada uma vez. O hash do arquivo e a análise do acervo são revalidados na confirmação. Linhas válidas são adicionadas em uma única transação; duplicidades, localizações ocupadas e erros são apresentados sem apagar o acervo. A substituição destrutiva do projeto original foi removida deliberadamente.
 
-A migracao v12 cria backup SQLite validado antes de escrever, executa `BEGIN IMMEDIATE`, copia colunas explicitamente, preserva IDs e `sqlite_sequence`, recalcula chaves de busca com `TextNormalizer::searchKey()`, marca `localizacao_pendente=1` quando a caixa legada esta ausente e recria indices, FKs e o trigger contra `DELETE`. Colisoes de caixa/numero sao preservadas para revisao; nao sao mescladas nem renumeradas. Um indice unico parcial impede dois registros ativos para o mesmo `aluno_origem_id`.
+A migração v12 cria backup SQLite validado antes de escrever, executa `BEGIN IMMEDIATE`, copia colunas explicitamente, preserva IDs e `sqlite_sequence`, recalcula chaves de busca com `TextNormalizer::searchKey()`, marca `localizacao_pendente=1` quando a caixa legada está ausente e recria índices, FKs e o trigger contra `DELETE`. Colisões de caixa/número são preservadas para revisão; não são mescladas nem renumeradas. Um índice único parcial impede dois registros ativos para o mesmo `aluno_origem_id`.
 
-Homologue a v12 em uma copia com a mesma versao de PHP, SQLite e `ext-intl`. Valide o backup em `database/backups`, compare contagens/IDs/sequencias, confirme ausencia de `alunos_passivo_v12` e execute:
+Homologue a v12 em uma cópia com a mesma versão de PHP, SQLite e `ext-intl`. Valide o backup em `database/backups`, compare contagens/IDs/sequências, confirme a ausência de `alunos_passivo_v12` e execute:
 
 ```sql
 PRAGMA user_version;       -- 12
@@ -351,11 +351,11 @@ PRAGMA foreign_key_check;  -- nenhuma linha
 PRAGMA integrity_check;    -- ok
 ```
 
-Registros com localizacao pendente permanecem consultaveis e devem ter a caixa corrigida por edicao; a migracao nunca inventa uma caixa. Consulte [docs/MODULO3_ARQUIVO_PASSIVO.md](docs/MODULO3_ARQUIVO_PASSIVO.md) e [docs/MODULO3_HOMOLOGACAO.md](docs/MODULO3_HOMOLOGACAO.md).
+Registros com localização pendente permanecem consultáveis e usam o indicador amarelo “Revisão pendente”; a caixa deve ser corrigida por edição, pois a migração nunca inventa uma localização. Consulte [docs/MODULO3_ARQUIVO_PASSIVO.md](docs/MODULO3_ARQUIVO_PASSIVO.md), [docs/MODULO3_HOMOLOGACAO.md](docs/MODULO3_HOMOLOGACAO.md) e o [roteiro de validação manual](docs/MODULO3_VALIDACAO_MANUAL.md).
 
 Rotas adicionais:
 
-| Metodo | Rota | Acesso |
+| Método | Rota | Acesso |
 |---|---|---|
 | GET | `/passivo`, `/passivo/detalhes/{id}` | autenticado |
 | GET/POST | `/passivo/criar`, `/passivo/editar/{id}` | autenticado |
@@ -378,7 +378,7 @@ composer security-check
 composer check
 ```
 
-PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migração e SQLite. `tests/http-smoke.php` inicia servidores temporários e testa o fluxo HTTP real dos dois módulos em Windows/Linux. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
+PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migração v12, limites/tokens/integridade do CSV e SQLite. `tests/http-smoke.php` inicia servidores temporários e testa o fluxo HTTP real dos três módulos em Windows/Linux, incluindo a matriz de permissões do Arquivo Passivo. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
 `composer analyse` executa PHPStan no nível 6 sobre o núcleo, controllers, Models ativos dos Módulos 1, 2 e 3, serviços, e comandos CLI. Views possuem uma verificação dedicada contra estilos, scripts e handlers inline. Não há baseline nem `ignoreErrors`. O workflow usa PHP 8.3, actions fixadas por SHA imutável e executa instalação limpa, validação estrita, auditoria, lint, PHPStan, PHPUnit e HTTP em pushes e pull requests.
 

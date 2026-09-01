@@ -836,7 +836,7 @@ final class DatabaseInitializer
     private static function migratePassiveArchive(PDO $pdo): void
     {
         if (self::tableExists($pdo, 'alunos_passivo_v12')) {
-            throw new RuntimeException('A migracao v12 encontrou uma estrutura temporaria inesperada.');
+            throw new RuntimeException('A migração v12 encontrou uma estrutura temporária inesperada.');
         }
 
         if (!self::tableExists($pdo, 'alunos_passivo')) {
@@ -851,7 +851,7 @@ final class DatabaseInitializer
             self::ensurePassiveArchiveIndexesAndGuards($pdo);
 
             if (self::foreignKeyViolations($pdo) !== [] || self::integrityCheck($pdo) !== ['ok']) {
-                throw new RuntimeException('A migracao v12 encontrou inconsistencias no arquivo passivo.');
+                throw new RuntimeException('A migração v12 encontrou inconsistências no arquivo passivo.');
             }
 
             return;
@@ -924,7 +924,7 @@ final class DatabaseInitializer
 
         if ((int) $pdo->query('SELECT COUNT(*) FROM alunos_passivo_v12')->fetchColumn() !== count($legacyRows)
             || self::integerColumn($pdo, 'SELECT id FROM alunos_passivo_v12 ORDER BY id') !== $legacyIds) {
-            throw new RuntimeException('A migracao v12 falhou na validacao da copia do arquivo passivo.');
+            throw new RuntimeException('A migração v12 falhou na validação da cópia do arquivo passivo.');
         }
 
         $pdo->exec('DROP TABLE alunos_passivo');
@@ -937,7 +937,7 @@ final class DatabaseInitializer
             || self::tableExists($pdo, 'alunos_passivo_v12')
             || self::foreignKeyViolations($pdo) !== []
             || self::integrityCheck($pdo) !== ['ok']) {
-            throw new RuntimeException('A migracao v12 nao preservou integralmente o arquivo passivo.');
+            throw new RuntimeException('A migração v12 não preservou integralmente o arquivo passivo.');
         }
     }
 
@@ -1030,7 +1030,7 @@ final class DatabaseInitializer
     private static function assertValidUtf8(string $value, string $field): void
     {
         if (preg_match('//u', $value) !== 1) {
-            throw new RuntimeException("A migracao v12 foi interrompida: o campo {$field} contem UTF-8 invalido.");
+            throw new RuntimeException("A migração v12 foi interrompida: o campo {$field} contém UTF-8 inválido.");
         }
     }
 
@@ -1106,7 +1106,7 @@ final class DatabaseInitializer
         $directory = dirname($databasePath) . DIRECTORY_SEPARATOR . 'backups';
 
         if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-            throw new RuntimeException('Nao foi possivel criar o diretorio seguro de backup da migracao.');
+            throw new RuntimeException('Não foi possível criar o diretório seguro de backup da migração.');
         }
 
         $name = pathinfo($databasePath, PATHINFO_FILENAME)
@@ -1115,13 +1115,13 @@ final class DatabaseInitializer
         $pdo->exec('VACUUM main INTO ' . $pdo->quote($backupPath));
 
         if (!is_file($backupPath) || filesize($backupPath) === 0) {
-            throw new RuntimeException('O backup preventivo da migracao nao pode ser validado.');
+            throw new RuntimeException('O backup preventivo da migração não pode ser validado.');
         }
 
         $verification = new PDO('sqlite:' . $backupPath, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
         if ($verification->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
-            throw new RuntimeException('O backup preventivo da migracao falhou na verificacao de integridade.');
+            throw new RuntimeException('O backup preventivo da migração falhou na verificação de integridade.');
         }
 
         if (DIRECTORY_SEPARATOR === '/') {

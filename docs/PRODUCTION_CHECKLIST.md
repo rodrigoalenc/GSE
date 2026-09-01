@@ -66,20 +66,20 @@
 - [ ] CI obrigatório e aprovado antes de merge, revisão por outra pessoa e resolução de comentários exigidas.
 - [ ] GitHub Security Advisories habilitado para relato privado.
 
-## Modulo 3 - Arquivo Passivo
+## Módulo 3 — Arquivo Passivo
 
-- [ ] Artefato executado com PHP 8.3, SQLite e `ext-intl` equivalentes a homologacao.
-- [ ] `PRAGMA user_version=12` e `schema_migrations` contem 1 a 12 sem lacunas.
+- [ ] Artefato executado com PHP 8.3, SQLite e `ext-intl` equivalentes à homologação.
+- [ ] `PRAGMA user_version=12` e `schema_migrations` contêm 1 a 12 sem lacunas.
 - [ ] Backup `pre-migration` existe fora de `public`, abre em SQLite e retorna `integrity_check=ok`.
-- [ ] Contagens, IDs, nomes, datas, numeros, caixas e `sqlite_sequence` foram comparados antes/depois.
+- [ ] Contagens, IDs, nomes, datas, números, caixas, relacionamentos e `sqlite_sequence` foram comparados antes/depois.
 - [ ] Registros legados sem caixa aparecem com `localizacao_pendente=1`; nenhuma caixa foi inventada.
-- [ ] Colisoes de caixa/numero foram listadas para revisao, sem merge, exclusao ou renumeracao silenciosa.
-- [ ] `PRAGMA foreign_key_check` nao retorna linhas, `PRAGMA integrity_check` retorna `ok` e nao existe `alunos_passivo_v12`.
-- [ ] Trigger contra `DELETE` e indice unico parcial por aluno de origem foram verificados.
-- [ ] Perfis: funcionario consulta/cria/edita/exporta; administrador tambem gerencia status, CSV, enumeracao e arquivamento de aluno.
-- [ ] CSV UTF-8 de ate 2 MiB/5.000 linhas passou por previa, confirmacao unica, rollback e remocao do temporario.
-- [ ] Confirmado que a importacao comum e aditiva e nao contem `DELETE FROM alunos_passivo`.
-- [ ] Enumeracao preserva numeros existentes, usa o maximo da caixa e exige previa/confirmacao.
-- [ ] TXT usa `nosniff`, `no-store`, nome seguro e conteudo `Numero - Nome`.
-- [ ] Desktop, celular, foco visivel, menu, cards, tabela responsiva e mensagens foram homologados.
-- [ ] Auditoria inclui `passive.created`, `updated`, `deactivated`, `reactivated`, `student_archived`, importacao, enumeracao, exportacao e bloqueios.
+- [ ] Colisões de caixa/número foram listadas para revisão, sem mesclagem, exclusão ou renumeração silenciosa.
+- [ ] `PRAGMA foreign_key_check` não retorna linhas, `PRAGMA integrity_check` retorna `ok` e não existe `alunos_passivo_v12`.
+- [ ] Trigger contra `DELETE` e índice único parcial por aluno de origem foram verificados.
+- [ ] Perfis: funcionário consulta/cria/edita/exporta; administrador também gerencia situação, CSV, enumeração e arquivamento de aluno.
+- [ ] CSV UTF-8 de até 2 MiB/5.000 linhas passou por prévia, confirmação única, mudança concorrente, rollback e remoção do temporário.
+- [ ] Confirmado que a importação comum é aditiva e não contém `DELETE FROM alunos_passivo`.
+- [ ] Enumeração preserva números existentes, usa o máximo da caixa e exige prévia/confirmação.
+- [ ] TXT usa `nosniff`, `no-store`, nome seguro e conteúdo `Número - Nome`.
+- [ ] Desktop, celular, foco visível, menu, cards, tabela responsiva e mensagens foram homologados conforme `MODULO3_VALIDACAO_MANUAL.md`.
+- [ ] Auditoria inclui `passive.created`, `passive.updated`, `passive.deactivated`, `passive.reactivated`, `passive.student_archived`, importação, enumeração, exportação e bloqueios.

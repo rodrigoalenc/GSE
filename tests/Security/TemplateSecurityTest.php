@@ -65,6 +65,38 @@ final class TemplateSecurityTest extends TestCase
         $this->assertStringNotContainsString('relatorio form-section', $studentForm);
     }
 
+    public function testPassivePendingStatusUsesExplicitAccessibleVisualState(): void
+    {
+        $filters = ['q' => '', 'caixa' => '', 'ativo' => '1', 'ordem' => 'nome'];
+        $summary = ['caixas' => 1, 'registros' => 3, 'pendentes' => 1, 'inativos' => 1];
+        $boxes = [];
+        $navigation = ['anterior' => null, 'proxima' => null, 'lista' => []];
+        $canAdminister = false;
+        $result = [
+            'items' => [
+                ['id' => 1, 'nome_completo' => 'Pendente', 'data_nascimento' => null, 'numero' => null, 'caixa' => null, 'ativo' => 1, 'localizacao_pendente' => 1],
+                ['id' => 2, 'nome_completo' => 'Regular', 'data_nascimento' => null, 'numero' => '2', 'caixa' => 'A', 'ativo' => 1, 'localizacao_pendente' => 0],
+                ['id' => 3, 'nome_completo' => 'Inativo', 'data_nascimento' => null, 'numero' => '3', 'caixa' => 'A', 'ativo' => 0, 'localizacao_pendente' => 1],
+            ],
+            'total' => 3,
+            'page' => 1,
+            'pages' => 1,
+        ];
+
+        ob_start();
+        require ROOT_PATH . '/src/Views/passivo/index.php';
+        $html = (string) ob_get_clean();
+        $css = (string) file_get_contents(ROOT_PATH . '/public/assets/css/passivo.css');
+
+        $this->assertStringContainsString('class="passivo-status pending">Revisão pendente</span>', $html);
+        $this->assertStringContainsString('class="passivo-status active">Ativo</span>', $html);
+        $this->assertStringContainsString('class="passivo-status inactive">Inativo</span>', $html);
+        $this->assertStringContainsString('.passivo-status.pending', $css);
+        $this->assertStringContainsString('color: #713f12', $css);
+        $this->assertStringContainsString('background: #fff7d6', $css);
+        $this->assertStringContainsString('@media (max-width: 560px)', $css);
+    }
+
     public function testBrowserDependenciesRemainLocal(): void
     {
         foreach (self::viewFiles() as [$path]) {

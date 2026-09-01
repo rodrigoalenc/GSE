@@ -82,8 +82,23 @@ final class PassivoCsvService
 
             $analysis = $this->analyze($path, $model);
 
-            if ($analysis === false || $analysis['valid_rows'] === []) {
+            if ($analysis === false) {
                 $this->lastErrorCode ??= 'empty_import';
+
+                return false;
+            }
+
+            $analysisHash = (string) ($preview['analysis_sha256'] ?? '');
+
+            if (preg_match('/^[a-f0-9]{64}$/', $analysisHash) !== 1
+                || !hash_equals($analysisHash, $this->analysisFingerprint($analysis))) {
+                $this->lastErrorCode = 'duplicate_changed';
+
+                return false;
+            }
+
+            if ($analysis['valid_rows'] === []) {
+                $this->lastErrorCode = 'empty_import';
 
                 return false;
             }
@@ -108,18 +123,18 @@ final class PassivoCsvService
     public function errorMessage(): string
     {
         return match ($this->lastErrorCode) {
-            'invalid_upload' => 'Selecione um arquivo regular enviado pelo formulario.',
+            'invalid_upload' => 'Selecione um arquivo regular enviado pelo formulário.',
             'file_too_large' => 'O CSV ultrapassa o limite de 2 MiB.',
             'too_many_rows' => 'O CSV ultrapassa o limite de 5.000 linhas de dados.',
-            'invalid_mime' => 'O conteudo enviado nao foi reconhecido como texto CSV.',
-            'invalid_utf8' => 'O CSV precisa estar codificado em UTF-8 valido.',
-            'invalid_header' => 'Use exatamente o cabecalho Nome;Data;Numero;Caixa.',
-            'empty_file' => 'O CSV esta vazio.',
-            'invalid_token' => 'A previa expirou, pertence a outra sessao ou ja foi utilizada.',
-            'preview_changed' => 'O arquivo da previa foi alterado. Envie-o novamente.',
-            'empty_import' => 'Nao existem linhas validas para importar.',
-            'location_conflict', 'duplicate_changed' => 'O acervo mudou depois da previa. Gere uma nova previa.',
-            default => 'Nao foi possivel processar o CSV com seguranca.',
+            'invalid_mime' => 'O conteúdo enviado não foi reconhecido como texto CSV.',
+            'invalid_utf8' => 'O CSV precisa estar codificado em UTF-8 válido.',
+            'invalid_header' => 'Use exatamente o cabeçalho Nome;Data;Numero;Caixa.',
+            'empty_file' => 'O CSV está vazio.',
+            'invalid_token' => 'A prévia expirou, pertence a outra sessão ou já foi utilizada.',
+            'preview_changed' => 'O arquivo da prévia foi alterado. Envie-o novamente.',
+            'empty_import' => 'Não existem linhas válidas para importar.',
+            'location_conflict', 'duplicate_changed' => 'O acervo mudou depois da prévia. Gere uma nova prévia.',
+            default => 'Não foi possível processar o CSV com segurança.',
         };
     }
 
@@ -191,6 +206,7 @@ final class PassivoCsvService
         $_SESSION['passivo_import_previews'][$token] = [
             'path' => $destination,
             'sha256' => (string) hash_file('sha256', $destination),
+            'analysis_sha256' => $this->analysisFingerprint($analysis),
             'actor_id' => $actorId,
             'expires_at' => $expiresAt,
         ];
@@ -363,7 +379,7 @@ final class PassivoCsvService
     private function validMime(string $path): bool
     {
         if (!function_exists('finfo_open')) {
-            return true;
+            return false;
         }
 
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -376,6 +392,22 @@ final class PassivoCsvService
         finfo_close($finfo);
 
         return is_string($mime) && in_array($mime, ['text/plain', 'text/csv', 'application/csv', 'application/vnd.ms-excel'], true);
+    }
+
+    /**
+     * @param array{valid_rows:list<array<string,mixed>>,errors:list<array{line:int,message:string}>,valid:int,invalid:int,duplicate:int,conflict:int} $analysis
+     */
+    private function analysisFingerprint(array $analysis): string
+    {
+        $payload = json_encode([
+            'valid_rows' => $analysis['valid_rows'],
+            'valid' => $analysis['valid'],
+            'invalid' => $analysis['invalid'],
+            'duplicate' => $analysis['duplicate'],
+            'conflict' => $analysis['conflict'],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+        return hash('sha256', $payload);
     }
 
     private function isRegularPrivateFile(string $path): bool

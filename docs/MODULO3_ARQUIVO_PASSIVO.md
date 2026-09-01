@@ -1,34 +1,36 @@
-# Modulo 3 - Arquivo Passivo
+# Módulo 3 — Arquivo Passivo
 
 ## Escopo funcional
 
-O RF004/UC004 localiza fisicamente pastas de ex-alunos por caixa e numero/posicao. O modulo inclui painel, cards de caixas, contagem, navegacao anterior/proxima, busca global sem acento, filtro, paginacao, ordenacao permitida, cadastro, detalhes, edicao, ciclo logico, CSV aditivo, enumeracao, TXT e integracao explicita com alunos inativos.
+O RF004/UC004 localiza fisicamente as pastas de ex-alunos por caixa e número/posição. O módulo inclui painel, cards de caixas, contagem, navegação anterior/próxima, busca global sem acento, filtro, paginação, ordenação permitida, cadastro, detalhes, edição, ciclo lógico, CSV aditivo, enumeração, TXT e integração explícita com alunos inativos. Os Módulos 4 e 5 permanecem fora do escopo.
 
-O aluno original nunca e excluido. O envio copia nome e nascimento, grava `aluno_origem_id`, exige caixa/confirmacao/admin e ocorre em `BEGIN IMMEDIATE`. DVA, turma e demais relacionamentos nao sao alterados. O indice `ux_passivo_aluno_origem_ativo` impede dois registros ativos do passivo para o mesmo aluno.
+O aluno original nunca é excluído. O envio copia nome e nascimento, grava `aluno_origem_id`, exige caixa, confirmação e administrador e ocorre em `BEGIN IMMEDIATE`. DVA, turma e demais relacionamentos não são alterados. O índice `ux_passivo_aluno_origem_ativo` impede dois registros ativos do passivo para o mesmo aluno.
 
-## Permissoes
+Registros ativos com `localizacao_pendente=1` exibem “Revisão pendente” em amarelo; ativos regulares usam verde e inativos usam vermelho. O texto explícito acompanha a cor em todos os casos.
 
-| Operacao | Funcionario | Administrador |
+## Permissões
+
+| Operação | Funcionário | Administrador |
 |---|---:|---:|
-| Consultar, buscar, filtrar e detalhar | sim | sim |
-| Cadastrar e editar | sim | sim |
-| Exportar TXT via POST + CSRF | sim | sim |
-| Inativar e restaurar | nao | sim |
-| Importar CSV | nao | sim |
-| Enumerar caixa | nao | sim |
-| Enviar aluno inativo ao passivo | nao | sim |
+| Consultar, pesquisar, filtrar e detalhar | permitido | permitido |
+| Cadastrar e editar | permitido | permitido |
+| Exportar TXT via POST + CSRF | permitido | permitido |
+| Inativar e restaurar | bloqueado | permitido |
+| Importar CSV | bloqueado | permitido |
+| Enumerar caixas | bloqueado | permitido |
+| Enviar aluno inativo ao passivo | bloqueado | permitido |
 
-Toda rota exige autenticacao. O Router retorna 403 para perfil insuficiente, 404 para ID inexistente, 405/`Allow` para metodo incorreto e 419 para CSRF invalido. GET nao altera estado.
+Toda rota exige autenticação. O Router retorna 403 para perfil insuficiente, 404 para ID inexistente, 405 com `Allow` para método incorreto e 419 para CSRF inválido. GET não altera estado.
 
-## Normalizacao e conflitos
+## Normalização e conflitos
 
-`TextNormalizer::searchKey()` e exclusivo para pesquisa. Ele consolida espacos, normaliza Unicode, converte para minusculas e remove marcas diacriticas. `comparisonKey()` dos Modulos 1 e 2 nao mudou. Consultas `LIKE` escapam `\\`, `%` e `_`, limitam o termo a 100 caracteres e usam parametros.
+`TextNormalizer::searchKey()` é exclusivo para pesquisa. Ele consolida espaços, normaliza Unicode, converte para minúsculas e remove marcas diacríticas. `comparisonKey()` dos Módulos 1 e 2 não mudou. Consultas `LIKE` escapam `\\`, `%` e `_`, limitam o termo a 100 caracteres e usam parâmetros.
 
-Nome, caixa e numero mantem valor de exibicao e chave normalizada. Numero e opcional; caixa e obrigatoria em novos cadastros. A aplicacao detecta caixa/numero ocupado e apresenta conflito, mas a v12 nao cria unicidade fisica sem regra escolar comprovada. Colisoes legadas permanecem intactas para revisao em homologacao.
+Nome, caixa e número mantêm o valor de exibição e a chave normalizada. Número é opcional; caixa é obrigatória em novos cadastros. A aplicação detecta caixa/número ocupado e apresenta conflito, mas a v12 não cria unicidade física sem regra escolar comprovada. Colisões legadas permanecem intactas para revisão em homologação.
 
 ## CSV
 
-Formato obrigatorio:
+Formato obrigatório:
 
 ```text
 Nome;Data;Numero;Caixa
@@ -38,28 +40,32 @@ Maria Exemplo;2000-01-31;12;CX-01
 - UTF-8, com ou sem BOM;
 - datas `YYYY-MM-DD` ou `DD/MM/YYYY`;
 - exatamente quatro colunas;
-- ate 2 MiB e 5.000 linhas;
-- MIME textual, arquivo regular recebido por upload;
-- previa com validos, invalidos, duplicados e conflitos;
-- ate 50 erros exibidos com numero da linha;
-- token aleatorio, vinculado a sessao/admin, TTL de 15 minutos e uso unico;
-- temporario aleatorio fora de `public`, com permissao restrita quando POSIX;
-- confirmacao revalida hash, arquivo e banco;
-- insercao das linhas validas em uma unica transacao;
-- auditoria contem somente contagens, nunca conteudo ou nome completo.
+- até 2 MiB e 5.000 linhas de dados;
+- MIME textual e arquivo regular recebido por upload HTTP com `is_uploaded_file()`;
+- prévia com válidos, inválidos, duplicados e conflitos;
+- até 50 erros exibidos com número da linha;
+- token aleatório de 256 bits, vinculado à sessão e ao administrador, TTL de 15 minutos e uso único;
+- temporário com nome aleatório fora de `public` e permissão restrita quando POSIX;
+- confirmação que revalida SHA-256, arquivo e a impressão digital da análise diante do banco atual;
+- inserção das linhas válidas em uma única transação;
+- rollback integral diante de falha de inserção ou auditoria obrigatória;
+- remoção do temporário após confirmação, falha ou expiração;
+- auditoria com contagens, nunca conteúdo do CSV ou nome completo.
 
-A importacao comum e aditiva. O comportamento original que executava `DELETE FROM alunos_passivo` foi removido. Substituicao completa nao esta implementada.
+A importação comum é exclusivamente aditiva. O comportamento original que executava `DELETE FROM alunos_passivo` foi removido. Substituição completa não está implementada.
 
 ## Ferramentas
 
-Enumeracao seleciona uma caixa existente, ordena registros ativos sem numero por `nome_normalizado`, inicia depois do maior numero inteiro daquela caixa, preserva todos os numeros existentes, mostra previa e revalida tudo na confirmacao. Qualquer mudanca/conflito impede a aplicacao inteira.
+A enumeração seleciona uma caixa existente, ordena registros ativos sem número por `nome_normalizado`, inicia depois do maior número inteiro daquela caixa, preserva todos os números existentes, mostra prévia e revalida tudo na confirmação. Qualquer mudança ou conflito impede a aplicação inteira.
 
-O TXT usa `Numero - Nome`, ordem numerica/normalizada deterministica, `Content-Type: text/plain; charset=UTF-8`, `nosniff`, `no-store` e nome de arquivo derivado apenas de chave segura. Valores potencialmente interpretados como formula recebem apostrofo defensivo.
+O TXT usa `Número - Nome`, ordem numérica/normalizada determinística, `Content-Type: text/plain; charset=UTF-8`, `nosniff`, `no-store` e nome de arquivo derivado apenas de chave segura. Valores potencialmente interpretados como fórmula recebem apóstrofo defensivo.
 
-## Retencao e LGPD
+## Retenção e LGPD
 
-O modulo oferece somente inativacao logica e restauracao. O trigger `trg_prevent_passive_delete` bloqueia exclusao fisica acidental. Eliminacao definitiva futura depende de base legal, politica de retencao, autorizacao e procedimento formal da escola; esta fora do Modulo 3.
+O módulo oferece somente inativação lógica e restauração. O trigger `trg_prevent_passive_delete` bloqueia exclusão física acidental. Eliminação definitiva futura depende de base legal, política de retenção, autorização e procedimento formal da escola; está fora do Módulo 3.
 
-## Auditoria
+## Auditoria e testes
 
-Operacoes transacionais gravam auditoria obrigatoria na mesma transacao. Falha de `security_audit` provoca rollback. Eventos: `passive.created`, `passive.updated`, `passive.deactivated`, `passive.reactivated`, `passive.student_archived`, `passive.import_previewed`, `passive.import_completed`, `passive.import_failed`, `passive.enumeration_previewed`, `passive.enumerated`, `passive.exported`, bloqueios de autorizacao e conflitos.
+Operações transacionais gravam auditoria obrigatória na mesma transação. Falha de `security_audit` provoca rollback. Eventos: `passive.created`, `passive.updated`, `passive.deactivated`, `passive.reactivated`, `passive.student_archived`, `passive.import_previewed`, `passive.import_completed`, `passive.import_failed`, `passive.enumeration_previewed`, `passive.enumerated`, `passive.exported`, bloqueios de autorização e conflitos.
+
+Os testes automatizados cobrem limites e MIME do CSV, UTF-8/cabeçalho/colunas, expiração e vínculo do token, uso único, alteração do temporário, mudança concorrente do banco, rollback do lote e da auditoria, matriz HTTP de permissões, métodos/CSRF/404 e garantias da migração v12. A homologação visual e a migração de uma cópia anonimizada real continuam no [roteiro manual](MODULO3_VALIDACAO_MANUAL.md).

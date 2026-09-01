@@ -53,6 +53,7 @@
 .passivo-name { color: #0c3566; font-weight: 750; }
 .passivo-status { display: inline-flex; padding: 5px 9px; border: 1px solid transparent; border-radius: 999px; font-size: .82rem; font-weight: 750; white-space: nowrap; }
 .passivo-status.active { color: #166534; background: #edf9f0; border-color: #c9ebd0; }
+.passivo-status.pending { color: #713f12; background: #fff7d6; border-color: #e8c765; }
 .passivo-status.inactive { color: #8b1e1e; background: #fff0f0; border-color: #f0cccc; }
 
 .passivo-form-shell,

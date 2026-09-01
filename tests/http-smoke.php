@@ -187,7 +187,7 @@ function hiddenValue(string $html, string $name): string
 {
     $quoted = preg_quote($name, '/');
     if (preg_match('/name="' . $quoted . '" value="([a-f0-9]{64})"/', $html, $match) !== 1) {
-        throw new RuntimeException("Campo oculto {$name} nao encontrado na resposta.");
+        throw new RuntimeException("Campo oculto {$name} não encontrado na resposta.");
     }
 
     return $match[1];
@@ -276,6 +276,8 @@ try {
 
     $guestDashboard = request('GET', $baseUrl . '/dashboard', $cookieGuest);
     checkHttp($guestDashboard['status'] === 302 && str_contains($guestDashboard['headers']['location'] ?? '', '/login'), 'Acesso sem autenticação redireciona ao login');
+    $guestPassive = request('GET', $baseUrl . '/passivo', $cookieGuest);
+    checkHttp($guestPassive['status'] === 302 && str_contains($guestPassive['headers']['location'] ?? '', '/login'), 'Visitante do Arquivo Passivo é redirecionado ao login');
 
     $login = request('GET', $baseUrl . '/login', $cookieAdmin);
     $preLoginSession = sessionCookieValue($cookieAdmin);
@@ -466,20 +468,21 @@ try {
     );
     $passiveSearch = request('GET', $baseUrl . '/passivo?q=Jose', $cookieAdmin);
     checkHttp($passiveSearch['status'] === 200 && str_contains($passiveSearch['body'], 'Jose HTTP Passivo'), 'Busca global do Arquivo Passivo');
+    checkHttp(request('GET', $baseUrl . '/passivo/detalhes/999999', $cookieAdmin)['status'] === 404, 'ID passivo inexistente retorna 404');
 
     $tools = request('GET', $baseUrl . '/passivo/ferramentas', $cookieAdmin);
     $enumerationPreview = request('POST', $baseUrl . '/passivo/ferramentas/enumerar/preview', $cookieAdmin, [
         '_csrf_token' => csrf($tools['body']),
         'caixa' => 'CX-HTTP',
     ]);
-    checkHttp($enumerationPreview['status'] === 302 && str_contains($enumerationPreview['headers']['location'] ?? '', 'preview='), 'Previa de enumeracao usa PRG');
+    checkHttp($enumerationPreview['status'] === 302 && str_contains($enumerationPreview['headers']['location'] ?? '', 'preview='), 'Prévia de enumeração usa PRG');
     $enumerationLocation = $enumerationPreview['headers']['location'] ?? '';
     $enumerationPage = request('GET', str_starts_with($enumerationLocation, 'http') ? $enumerationLocation : $baseUrl . $enumerationLocation, $cookieAdmin);
     $enumerationConfirmed = request('POST', $baseUrl . '/passivo/ferramentas/enumerar/confirmar', $cookieAdmin, [
         '_csrf_token' => csrf($enumerationPage['body']),
         'preview_token' => hiddenValue($enumerationPage['body'], 'preview_token'),
     ]);
-    checkHttp($enumerationConfirmed['status'] === 302, 'Enumeracao transacional confirmada');
+    checkHttp($enumerationConfirmed['status'] === 302, 'Enumeração transacional confirmada');
 
     $passiveEdit = request('GET', $baseUrl . '/passivo/editar/1', $cookieAdmin);
     $passiveEdited = request('POST', $baseUrl . '/passivo/editar/1', $cookieAdmin, [
@@ -489,9 +492,17 @@ try {
         'numero' => '7',
         'caixa' => 'CX-HTTP',
     ]);
-    checkHttp($passiveEdited['status'] === 302, 'Edicao PRG do Arquivo Passivo');
+    checkHttp($passiveEdited['status'] === 302, 'Edição PRG do Arquivo Passivo');
 
+    $verification = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $passiveCountBeforeArchiveGet = (int) $verification->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn();
     $archiveStudent = request('GET', $baseUrl . '/aluno/arquivar/1', $cookieAdmin);
+    $passiveCountAfterArchiveGet = (int) $verification->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn();
+    checkHttp(
+        $archiveStudent['status'] === 200 && $passiveCountAfterArchiveGet === $passiveCountBeforeArchiveGet,
+        'GET de arquivamento exibe formulário sem alterar o acervo'
+    );
+    $verification = null;
     $archivedStudent = request('POST', $baseUrl . '/aluno/arquivar/1', $cookieAdmin, [
         '_csrf_token' => csrf($archiveStudent['body']),
         'caixa' => 'CX-ALUNO',
@@ -505,25 +516,40 @@ try {
     $profileAfterArchive = request('GET', $baseUrl . '/aluno/perfil/1', $cookieAdmin);
     checkHttp(
         $profileAfterArchive['status'] === 200 && str_contains($profileAfterArchive['body'], 'Renova'),
-        'Envio ao passivo preserva aluno e historico de DVA'
+        'Envio ao passivo preserva aluno e histórico de DVA'
     );
 
     $passiveDetails = request('GET', $baseUrl . '/passivo/detalhes/1', $cookieAdmin);
     $invalidPassiveCsrf = request('POST', $baseUrl . '/passivo/status/1', $cookieAdmin, ['_csrf_token' => 'invalid', 'ativo' => '0']);
-    checkHttp($invalidPassiveCsrf['status'] === 419, 'CSRF protege inativacao do passivo');
+    checkHttp($invalidPassiveCsrf['status'] === 419, 'CSRF protege inativação do passivo');
     $passiveDeactivated = request('POST', $baseUrl . '/passivo/status/1', $cookieAdmin, [
         '_csrf_token' => csrf($passiveDetails['body']),
         'ativo' => '0',
     ]);
-    checkHttp($passiveDeactivated['status'] === 302, 'Inativacao logica do passivo');
+    checkHttp($passiveDeactivated['status'] === 302, 'Inativação lógica do passivo');
     $inactiveDetails = request('GET', $baseUrl . '/passivo/detalhes/1', $cookieAdmin);
     $passiveRestored = request('POST', $baseUrl . '/passivo/status/1', $cookieAdmin, [
         '_csrf_token' => csrf($inactiveDetails['body']),
         'ativo' => '1',
     ]);
-    checkHttp($passiveRestored['status'] === 302, 'Restauracao do passivo');
+    checkHttp($passiveRestored['status'] === 302, 'Restauração do passivo');
+
+    $formulaCreatePage = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
+    $formulaCreated = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
+        '_csrf_token' => csrf($formulaCreatePage['body']),
+        'nome_completo' => '=2+2',
+        'data_nascimento' => '',
+        'numero' => '8',
+        'caixa' => 'CX-HTTP',
+    ]);
+    checkHttp($formulaCreated['status'] === 302, 'Cadastro de valor para proteção de fórmula na exportação');
 
     $tools = request('GET', $baseUrl . '/passivo/ferramentas', $cookieAdmin);
+    $invalidExportCsrf = request('POST', $baseUrl . '/passivo/exportar', $cookieAdmin, [
+        '_csrf_token' => 'invalid',
+        'caixa' => 'CX-HTTP',
+    ]);
+    checkHttp($invalidExportCsrf['status'] === 419, 'Exportação TXT exige CSRF válido');
     $exported = request('POST', $baseUrl . '/passivo/exportar', $cookieAdmin, [
         '_csrf_token' => csrf($tools['body']),
         'caixa' => 'CX-HTTP',
@@ -531,9 +557,12 @@ try {
     checkHttp(
         $exported['status'] === 200
         && str_contains($exported['body'], '7 - Jose HTTP Passivo Editado')
+        && str_contains($exported['body'], "8 - '=2+2")
+        && str_starts_with($exported['headers']['content-type'] ?? '', 'text/plain; charset=UTF-8')
         && ($exported['headers']['x-content-type-options'] ?? '') === 'nosniff'
+        && str_contains($exported['headers']['cache-control'] ?? '', 'no-store')
         && str_contains($exported['headers']['content-disposition'] ?? '', 'listagem-caixa-cx-http.txt'),
-        'Exportacao TXT usa conteudo e headers seguros'
+        'Exportação TXT usa conteúdo e headers seguros'
     );
 
     $csvPath = $tempRoot . DIRECTORY_SEPARATOR . 'passivo-http.csv';
@@ -543,17 +572,39 @@ try {
         '_csrf_token' => csrf($importPage['body']),
         'arquivo_csv' => new CURLFile($csvPath, 'text/csv', 'passivo.csv'),
     ]);
-    checkHttp($importPreview['status'] === 302 && str_contains($importPreview['headers']['location'] ?? '', 'preview='), 'Upload CSV gera previa sem persistir');
+    checkHttp($importPreview['status'] === 302 && str_contains($importPreview['headers']['location'] ?? '', 'preview='), 'Upload CSV gera prévia sem persistir');
     $importLocation = $importPreview['headers']['location'] ?? '';
     $importConfirmationPage = request('GET', str_starts_with($importLocation, 'http') ? $importLocation : $baseUrl . $importLocation, $cookieAdmin);
     $importConfirmed = request('POST', $baseUrl . '/passivo/importar/confirmar', $cookieAdmin, [
         '_csrf_token' => csrf($importConfirmationPage['body']),
         'preview_token' => hiddenValue($importConfirmationPage['body'], 'preview_token'),
     ]);
-    checkHttp($importConfirmed['status'] === 302, 'Importacao CSV aditiva confirmada');
+    checkHttp($importConfirmed['status'] === 302, 'Importação CSV aditiva confirmada');
     $csvSearch = request('GET', $baseUrl . '/passivo?caixa=CX-CSV', $cookieAdmin);
     checkHttp($csvSearch['status'] === 200 && str_contains($csvSearch['body'], 'CSV HTTP'), 'CSV confirmado aparece no acervo');
-    checkHttp(request('GET', $baseUrl . '/passivo/status/1', $cookieAdmin)['status'] === 405, 'Passivo nao altera estado por GET');
+    $passiveStatusGet = request('GET', $baseUrl . '/passivo/status/1', $cookieAdmin);
+    checkHttp(
+        $passiveStatusGet['status'] === 405 && ($passiveStatusGet['headers']['allow'] ?? '') === 'POST',
+        'GET não altera situação e retorna 405 com Allow'
+    );
+    foreach ([
+        '/passivo/importar/preview' => 'prévia de importação',
+        '/passivo/importar/confirmar' => 'confirmação de importação',
+        '/passivo/ferramentas/enumerar/preview' => 'prévia de enumeração',
+        '/passivo/ferramentas/enumerar/confirmar' => 'confirmação de enumeração',
+        '/passivo/exportar' => 'exportação',
+    ] as $path => $operation) {
+        $getMutation = request('GET', $baseUrl . $path, $cookieAdmin);
+        checkHttp(
+            $getMutation['status'] === 405 && ($getMutation['headers']['allow'] ?? '') === 'POST',
+            "GET não executa {$operation} e retorna Allow"
+        );
+    }
+    $missingStatus = request('POST', $baseUrl . '/passivo/status/999999', $cookieAdmin, [
+        '_csrf_token' => csrf($passiveDetails['body']),
+        'ativo' => '0',
+    ]);
+    checkHttp($missingStatus['status'] === 404, 'Alteração de ID passivo inexistente retorna 404');
 
     $wrongMethod = request('POST', $baseUrl . '/dashboard', $cookieAdmin, ['_csrf_token' => csrf($dashboard['body'])]);
     checkHttp($wrongMethod['status'] === 405 && ($wrongMethod['headers']['allow'] ?? '') === 'GET', 'Método não permitido retorna 405 e Allow');
@@ -592,10 +643,77 @@ try {
     );
     checkHttp(request('GET', $baseUrl . '/turma', $cookieEmployee)['status'] === 403, 'Funcionário não gerencia turmas');
 
-    checkHttp(request('GET', $baseUrl . '/passivo', $cookieEmployee)['status'] === 200, 'Funcionario autenticado consulta Arquivo Passivo');
-    checkHttp(request('GET', $baseUrl . '/passivo/importar', $cookieEmployee)['status'] === 403, 'Funcionario nao importa CSV do passivo');
-    checkHttp(request('GET', $baseUrl . '/passivo/ferramentas', $cookieEmployee)['status'] === 403, 'Funcionario nao executa ferramentas do passivo');
-    checkHttp(request('GET', $baseUrl . '/aluno/arquivar/1', $cookieEmployee)['status'] === 403, 'Funcionario nao envia aluno ao passivo');
+    $employeePassive = request('GET', $baseUrl . '/passivo?q=HTTP&caixa=CX-HTTP&ativo=todos', $cookieEmployee);
+    checkHttp($employeePassive['status'] === 200 && str_contains($employeePassive['body'], 'Jose HTTP Passivo Editado'), 'Funcionário consulta, pesquisa e filtra o Arquivo Passivo');
+    checkHttp(request('GET', $baseUrl . '/passivo/detalhes/1', $cookieEmployee)['status'] === 200, 'Funcionário detalha registro passivo');
+
+    $employeeCreatePage = request('GET', $baseUrl . '/passivo/criar', $cookieEmployee);
+    checkHttp($employeeCreatePage['status'] === 200, 'Funcionário acessa cadastro passivo');
+    $employeeCreated = request('POST', $baseUrl . '/passivo/criar', $cookieEmployee, [
+        '_csrf_token' => csrf($employeeCreatePage['body']),
+        'nome_completo' => 'Funcionário HTTP Passivo',
+        'data_nascimento' => '2002-03-04',
+        'numero' => '1',
+        'caixa' => 'CX-FUNC',
+    ]);
+    $employeeCreatedLocation = $employeeCreated['headers']['location'] ?? '';
+    $employeePassiveId = preg_match('#/passivo/detalhes/(\d+)$#', $employeeCreatedLocation, $employeeIdMatch) === 1
+        ? (int) $employeeIdMatch[1]
+        : 0;
+    checkHttp($employeeCreated['status'] === 302 && $employeePassiveId > 0, 'Funcionário cadastra registro passivo');
+
+    $employeeEditPage = request('GET', $baseUrl . '/passivo/editar/' . $employeePassiveId, $cookieEmployee);
+    checkHttp($employeeEditPage['status'] === 200, 'Funcionário acessa edição passiva');
+    $employeeEdited = request('POST', $baseUrl . '/passivo/editar/' . $employeePassiveId, $cookieEmployee, [
+        '_csrf_token' => csrf($employeeEditPage['body']),
+        'nome_completo' => 'Funcionário HTTP Editado',
+        'data_nascimento' => '2002-03-04',
+        'numero' => '2',
+        'caixa' => 'CX-FUNC',
+    ]);
+    checkHttp($employeeEdited['status'] === 302, 'Funcionário edita registro passivo');
+
+    $employeeExport = request('POST', $baseUrl . '/passivo/exportar', $cookieEmployee, [
+        '_csrf_token' => csrf($employeePassive['body']),
+        'caixa' => 'CX-FUNC',
+    ]);
+    checkHttp(
+        $employeeExport['status'] === 200 && str_contains($employeeExport['body'], '2 - Funcionário HTTP Editado'),
+        'Funcionário exporta TXT com POST e CSRF'
+    );
+
+    $employeeCsrf = csrf($employeePassive['body']);
+    checkHttp(
+        request('POST', $baseUrl . '/passivo/status/1', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'ativo' => '0'])['status'] === 403,
+        'Funcionário não inativa registro pela URL direta'
+    );
+    checkHttp(
+        request('POST', $baseUrl . '/passivo/status/1', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'ativo' => '1'])['status'] === 403,
+        'Funcionário não restaura registro pela URL direta'
+    );
+    checkHttp(request('GET', $baseUrl . '/passivo/importar', $cookieEmployee)['status'] === 403, 'Funcionário não acessa importação CSV');
+    checkHttp(
+        request('POST', $baseUrl . '/passivo/importar/preview', $cookieEmployee, ['_csrf_token' => $employeeCsrf])['status'] === 403,
+        'Funcionário não inicia importação pela URL direta'
+    );
+    checkHttp(
+        request('POST', $baseUrl . '/passivo/importar/confirmar', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'preview_token' => str_repeat('a', 64)])['status'] === 403,
+        'Funcionário não confirma importação pela URL direta'
+    );
+    checkHttp(request('GET', $baseUrl . '/passivo/ferramentas', $cookieEmployee)['status'] === 403, 'Funcionário não acessa ferramentas do passivo');
+    checkHttp(
+        request('POST', $baseUrl . '/passivo/ferramentas/enumerar/preview', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'caixa' => 'CX-HTTP'])['status'] === 403,
+        'Funcionário não enumera caixas pela URL direta'
+    );
+    checkHttp(
+        request('POST', $baseUrl . '/passivo/ferramentas/enumerar/confirmar', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'preview_token' => str_repeat('b', 64)])['status'] === 403,
+        'Funcionário não confirma enumeração pela URL direta'
+    );
+    checkHttp(request('GET', $baseUrl . '/aluno/arquivar/1', $cookieEmployee)['status'] === 403, 'Funcionário não acessa envio de aluno ao passivo');
+    checkHttp(
+        request('POST', $baseUrl . '/aluno/arquivar/1', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'caixa' => 'X', 'confirmar' => '1'])['status'] === 403,
+        'Funcionário não envia aluno ao passivo pela URL direta'
+    );
 
     $audit = request('GET', $baseUrl . '/auditoria', $cookieAdmin);
     checkHttp(

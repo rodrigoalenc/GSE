@@ -170,7 +170,7 @@ final class Passivo extends Model
                     $this->lastErrorCode = 'location_conflict';
                     AuditLogger::recordRequired(
                         $pdo, 'passive.conflict', AuditLogger::BLOCKED, $actorId, null,
-                        'Conflito de localizacao impediu o cadastro.', 'passive_record'
+                        'Conflito de localização impediu o cadastro.', 'passive_record'
                     );
 
                     return false;
@@ -218,7 +218,7 @@ final class Passivo extends Model
                     $this->lastErrorCode = 'location_conflict';
                     AuditLogger::recordRequired(
                         $pdo, 'passive.conflict', AuditLogger::BLOCKED, $actorId, null,
-                        'Conflito de localizacao impediu a atualizacao.', 'passive_record', $id
+                        'Conflito de localização impediu a atualização.', 'passive_record', $id
                     );
 
                     return false;
@@ -353,7 +353,7 @@ final class Passivo extends Model
     {
         $this->lastErrorCode = null;
         $normalizedLocation = $this->validarDados([
-            'nome_completo' => 'Nome temporario',
+            'nome_completo' => 'Nome temporário',
             'data_nascimento' => '',
             'numero' => $location['numero'] ?? '',
             'caixa' => $location['caixa'] ?? '',
@@ -389,7 +389,7 @@ final class Passivo extends Model
                     $this->lastErrorCode = 'origin_conflict';
                     AuditLogger::recordRequired(
                         $pdo, 'passive.conflict', AuditLogger::BLOCKED, $actorId, null,
-                        'Vinculo ativo duplicado de aluno foi bloqueado.', 'student', $studentId
+                        'Vínculo ativo duplicado de aluno foi bloqueado.', 'student', $studentId
                     );
 
                     return false;
@@ -399,7 +399,7 @@ final class Passivo extends Model
                     $this->lastErrorCode = 'location_conflict';
                     AuditLogger::recordRequired(
                         $pdo, 'passive.conflict', AuditLogger::BLOCKED, $actorId, null,
-                        'Conflito de localizacao impediu o arquivamento do aluno.', 'student', $studentId
+                        'Conflito de localização impediu o arquivamento do aluno.', 'student', $studentId
                     );
 
                     return false;
@@ -529,7 +529,7 @@ final class Passivo extends Model
             if ($locationKey !== null && (isset($seenLocations[$locationKey])
                 || $this->locationConflict(self::$pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado']))) {
                 $counts['conflict']++;
-                $errors[] = ['line' => $row['line'], 'message' => 'A caixa e a posicao informadas ja estao ocupadas.'];
+                $errors[] = ['line' => $row['line'], 'message' => 'A caixa e a posição informadas já estão ocupadas.'];
                 continue;
             }
 
@@ -587,7 +587,7 @@ final class Passivo extends Model
 
                 AuditLogger::recordRequired(
                     $pdo, 'passive.import_completed', AuditLogger::SUCCESS, $actorId, null,
-                    sprintf('Importacao aditiva concluida com %d registros.', count($rows)), 'passive_import'
+                    sprintf('Importação aditiva concluída com %d registros.', count($rows)), 'passive_import'
                 );
 
                 return count($rows);
@@ -734,7 +734,7 @@ final class Passivo extends Model
 
                 AuditLogger::recordRequired(
                     $pdo, 'passive.enumerated', AuditLogger::SUCCESS, $actorId, null,
-                    sprintf('Enumeracao concluida para %d registros.', count($assignments)), 'passive_box'
+                    sprintf('Enumeração concluída para %d registros.', count($assignments)), 'passive_box'
                 );
 
                 return count($assignments);
@@ -778,20 +778,20 @@ final class Passivo extends Model
     public function validationMessage(?string $code): string
     {
         return match ($code) {
-            'invalid_utf8' => 'O texto informado nao possui UTF-8 valido.',
-            'invalid_name' => 'Informe um nome com ate 150 caracteres.',
-            'invalid_box' => 'Informe uma caixa valida com ate 50 caracteres.',
-            'invalid_number' => 'Informe uma posicao valida com ate 40 caracteres.',
+            'invalid_utf8' => 'O texto informado não possui UTF-8 válido.',
+            'invalid_name' => 'Informe um nome com até 150 caracteres.',
+            'invalid_box' => 'Informe uma caixa válida com até 50 caracteres.',
+            'invalid_number' => 'Informe uma posição válida com até 40 caracteres.',
             'invalid_birth_date' => 'Informe uma data real no formato AAAA-MM-DD.',
-            'future_birth_date' => 'A data de nascimento nao pode estar no futuro.',
-            'location_conflict' => 'A caixa e a posicao informadas ja estao ocupadas.',
-            'origin_conflict' => 'Este aluno ja possui um registro ativo no Arquivo Passivo.',
+            'future_birth_date' => 'A data de nascimento não pode estar no futuro.',
+            'location_conflict' => 'A caixa e a posição informadas já estão ocupadas.',
+            'origin_conflict' => 'Este aluno já possui um registro ativo no Arquivo Passivo.',
             'active_student' => 'Somente alunos inativos podem ser enviados ao Arquivo Passivo.',
-            'student_not_found', 'not_found' => 'O registro solicitado nao foi encontrado.',
-            'box_not_found' => 'A caixa informada nao existe ou nao possui registros ativos.',
-            'preview_changed', 'duplicate_changed' => 'O acervo mudou depois da previa. Gere uma nova previa.',
-            'empty_import' => 'A previa nao possui linhas validas para importar.',
-            default => 'Nao foi possivel concluir a operacao. Tente novamente.',
+            'student_not_found', 'not_found' => 'O registro solicitado não foi encontrado.',
+            'box_not_found' => 'A caixa informada não existe ou não possui registros ativos.',
+            'preview_changed', 'duplicate_changed' => 'O acervo mudou depois da prévia. Gere uma nova prévia.',
+            'empty_import' => 'A prévia não possui linhas válidas para importar.',
+            default => 'Não foi possível concluir a operação. Tente novamente.',
         };
     }
 

@@ -12,13 +12,13 @@ O mantenedor deve confirmar o recebimento, avaliar severidade e coordenar corre�
 
 O código atualmente suportado abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA — e 3 — Arquivo Passivo. Models e tabelas preservados para os Módulos 4 e 5 não representam funcionalidades publicadas.
 
-### Arquivo Passivo (Modulo 3)
+### Arquivo Passivo (Módulo 3)
 
-O Modulo 3 faz parte do escopo suportado. Alteracoes sensiveis usam POST, CSRF, autorizacao central, `BEGIN IMMEDIATE` e auditoria obrigatoria na mesma transacao. O banco bloqueia exclusao fisica de `alunos_passivo`; eliminacao definitiva por LGPD nao esta implementada e depende de politica formal da escola.
+O Módulo 3 faz parte do escopo suportado. Alterações sensíveis usam POST, CSRF, autorização central, `BEGIN IMMEDIATE` e auditoria obrigatória na mesma transação. O banco bloqueia exclusão física de `alunos_passivo`; eliminação definitiva por LGPD não está implementada e depende de política formal da escola.
 
-Uploads CSV ficam fora de `public`, recebem nome aleatorio, limite de 2 MiB/5.000 linhas, validacao de MIME e UTF-8 e expiracao de 15 minutos. Tokens de previa sao vinculados a sessao e administrador, nao sao reutilizaveis e o temporario e removido na confirmacao ou expiracao. A importacao comum nunca executa `DELETE FROM alunos_passivo`.
+Uploads CSV ficam fora de `public`, recebem nome aleatório, limite de 2 MiB/5.000 linhas, validação de MIME e UTF-8 e expiração de 15 minutos. Tokens de prévia são vinculados à sessão e ao administrador, não são reutilizáveis e o temporário é removido na confirmação, falha ou expiração. A confirmação revalida o SHA-256 do arquivo e a mesma análise de dados diante do estado atual do banco. A importação comum nunca executa `DELETE FROM alunos_passivo`.
 
-Antes de producao, homologue a migracao v12 em copia, valide o backup preventivo, IDs, sequencia, localizacoes pendentes, `PRAGMA foreign_key_check` e `PRAGMA integrity_check`. Trate colisoes fisicas em homologacao sem exclusao, merge ou renumeracao silenciosa.
+Antes da produção, homologue a migração v12 em cópia, valide o backup preventivo, IDs, sequência, localizações pendentes, `PRAGMA foreign_key_check` e `PRAGMA integrity_check`. Trate colisões físicas em homologação sem exclusão, mesclagem ou renumeração silenciosa.
 
 ## Dados que nunca devem ser enviados
 

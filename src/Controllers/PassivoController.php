@@ -50,7 +50,7 @@ final class PassivoController extends Controller
         $record = (new Passivo())->buscarPorId($recordId);
 
         if (!$record) {
-            render_http_error(404, 'Registro nao encontrado', 'O item solicitado nao existe no Arquivo Passivo.', 'passivo');
+            render_http_error(404, 'Registro não encontrado', 'O item solicitado não existe no Arquivo Passivo.', 'passivo');
         }
 
         $this->view('passivo/detalhes', [
@@ -67,7 +67,7 @@ final class PassivoController extends Controller
         $record = $model->buscarPorId($recordId);
 
         if (!$record) {
-            render_http_error(404, 'Registro nao encontrado', 'O item solicitado nao existe no Arquivo Passivo.', 'passivo');
+            render_http_error(404, 'Registro não encontrado', 'O item solicitado não existe no Arquivo Passivo.', 'passivo');
         }
 
         $defaultData = [
@@ -106,14 +106,14 @@ final class PassivoController extends Controller
         $active = filter_var($_POST['ativo'] ?? null, FILTER_VALIDATE_INT);
 
         if (!in_array($active, [0, 1], true)) {
-            render_http_error(422, 'Solicitacao invalida', 'A situacao informada nao e valida.', 'passivo');
+            render_http_error(422, 'Solicitação inválida', 'A situação informada não é válida.', 'passivo');
         }
 
         $model = new Passivo();
 
         if (!$model->definirAtivo($recordId, $active === 1, $this->actorId())) {
             if ($model->lastErrorCode() === 'not_found') {
-                render_http_error(404, 'Registro nao encontrado', 'O item solicitado nao existe no Arquivo Passivo.', 'passivo');
+                render_http_error(404, 'Registro não encontrado', 'O item solicitado não existe no Arquivo Passivo.', 'passivo');
             }
 
             AuditLogger::record(
@@ -121,7 +121,7 @@ final class PassivoController extends Controller
                 AuditLogger::FAILURE,
                 $this->actorId(),
                 null,
-                'Alteracao de situacao do arquivo passivo nao concluida.',
+                'Alteração de situação do arquivo passivo não concluída.',
                 'passive_record',
                 $recordId
             );
@@ -131,7 +131,7 @@ final class PassivoController extends Controller
         $this->redirectWithFlash(
             'passivo/detalhes/' . $recordId,
             'success',
-            $active === 1 ? 'Registro restaurado com sucesso.' : 'Registro inativado sem exclusao fisica.'
+            $active === 1 ? 'Registro restaurado com sucesso.' : 'Registro inativado sem exclusão física.'
         );
     }
 
@@ -165,7 +165,7 @@ final class PassivoController extends Controller
         if ($preview === false) {
             AuditLogger::record(
                 'passive.import_failed', AuditLogger::FAILURE, $this->actorId(), null,
-                'Previa de importacao recusada.', 'passive_import'
+                'Prévia de importação recusada.', 'passive_import'
             );
             $this->redirectWithFlash('passivo/importar', 'danger', $service->errorMessage());
         }
@@ -174,7 +174,7 @@ final class PassivoController extends Controller
         AuditLogger::record(
             'passive.import_previewed', AuditLogger::SUCCESS, $this->actorId(), null,
             sprintf(
-                'Previa validada: %d validos, %d invalidos, %d duplicados e %d conflitos.',
+                'Prévia validada: %d válidos, %d inválidos, %d duplicados e %d conflitos.',
                 $preview['valid'], $preview['invalid'], $preview['duplicate'], $preview['conflict']
             ),
             'passive_import'
@@ -192,7 +192,7 @@ final class PassivoController extends Controller
         if ($count === false) {
             AuditLogger::record(
                 'passive.import_failed', AuditLogger::FAILURE, $this->actorId(), null,
-                'Confirmacao de importacao nao concluida.', 'passive_import'
+                'Confirmação de importação não concluída.', 'passive_import'
             );
             $this->redirectWithFlash('passivo/importar', 'danger', $service->errorMessage());
         }
@@ -231,7 +231,7 @@ final class PassivoController extends Controller
         if ($preview === false) {
             AuditLogger::record(
                 'passive.enumeration_previewed', AuditLogger::FAILURE, $this->actorId(), null,
-                'Previa de enumeracao recusada.', 'passive_box'
+                'Prévia de enumeração recusada.', 'passive_box'
             );
             $this->redirectWithFlash('passivo/ferramentas', 'danger', $model->validationMessage($model->lastErrorCode()));
         }
@@ -245,7 +245,7 @@ final class PassivoController extends Controller
         ];
         AuditLogger::record(
             'passive.enumeration_previewed', AuditLogger::SUCCESS, $this->actorId(), null,
-            sprintf('Previa de enumeracao gerada para %d registros.', count($preview['assignments'])), 'passive_box'
+            sprintf('Prévia de enumeração gerada para %d registros.', count($preview['assignments'])), 'passive_box'
         );
         redirect('passivo/ferramentas?preview=' . $token);
     }
@@ -263,7 +263,7 @@ final class PassivoController extends Controller
         if (!is_array($preview) || (int) ($preview['actor_id'] ?? 0) !== $this->actorId()
             || (int) ($preview['expires_at'] ?? 0) < time()
             || !is_array($preview['assignments'] ?? null)) {
-            $this->redirectWithFlash('passivo/ferramentas', 'danger', 'A previa expirou ou ja foi utilizada.');
+            $this->redirectWithFlash('passivo/ferramentas', 'danger', 'A prévia expirou ou já foi utilizada.');
         }
 
         $model = new Passivo();
@@ -274,7 +274,7 @@ final class PassivoController extends Controller
         if ($count === false) {
             AuditLogger::record(
                 'passive.enumerated', AuditLogger::FAILURE, $this->actorId(), null,
-                'Enumeracao de caixa nao concluida.', 'passive_box'
+                'Enumeração de caixa não concluída.', 'passive_box'
             );
             $this->redirectWithFlash('passivo/ferramentas', 'danger', $model->validationMessage($model->lastErrorCode()));
         }
@@ -306,7 +306,7 @@ final class PassivoController extends Controller
 
         foreach ($rows as $row) {
             $number = trim((string) ($row['numero'] ?? ''));
-            echo ($number === '' ? 'Sem numero' : $number) . ' - ' . $this->safeSpreadsheetText($row['nome_completo']) . "\r\n";
+            echo ($number === '' ? 'Sem número' : $number) . ' - ' . $this->safeSpreadsheetText($row['nome_completo']) . "\r\n";
         }
 
         exit;
@@ -318,7 +318,7 @@ final class PassivoController extends Controller
         $student = (new Aluno())->buscarPorId($studentId);
 
         if (!$student) {
-            render_http_error(404, 'Aluno nao encontrado', 'O cadastro solicitado nao existe.', 'aluno');
+            render_http_error(404, 'Aluno não encontrado', 'O cadastro solicitado não existe.', 'aluno');
         }
 
         $state = $this->consumeFormState('archive_' . $studentId);
@@ -337,7 +337,7 @@ final class PassivoController extends Controller
                 $passiveId = $model->arquivarAluno($studentId, $data, $this->actorId());
 
                 if ($passiveId !== false) {
-                    $this->redirectWithFlash('passivo/detalhes/' . $passiveId, 'success', 'Aluno enviado ao Arquivo Passivo sem remover seu cadastro ou historico de DVA.');
+                    $this->redirectWithFlash('passivo/detalhes/' . $passiveId, 'success', 'Aluno enviado ao Arquivo Passivo sem remover seu cadastro ou histórico de DVA.');
                 }
 
                 $errors[] = $model->validationMessage($model->lastErrorCode());
@@ -403,7 +403,7 @@ final class PassivoController extends Controller
         $value = filter_var($id, FILTER_VALIDATE_INT);
 
         if ($value === false || (int) $value < 1) {
-            render_http_error(404, 'Registro nao encontrado', 'O identificador informado nao e valido.', 'passivo');
+            render_http_error(404, 'Registro não encontrado', 'O identificador informado não é válido.', 'passivo');
         }
 
         return (int) $value;
