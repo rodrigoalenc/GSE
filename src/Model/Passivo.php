@@ -84,14 +84,15 @@ final class Passivo extends Model
     }
 
     /** @return list<array{caixa:string,caixa_normalizada:string,total:int}> */
-    public function caixas(): array
+    public function caixas(?bool $active = true): array
     {
+        $statusCondition = $active === null ? '' : 'AND ativo = ' . ($active ? '1' : '0');
         $rows = self::$pdo->query(
-            'SELECT MIN(caixa) AS caixa, caixa_normalizada, COUNT(*) AS total
+            "SELECT MIN(caixa) AS caixa, caixa_normalizada, COUNT(*) AS total
              FROM alunos_passivo
-             WHERE ativo = 1 AND caixa_normalizada IS NOT NULL
+             WHERE caixa_normalizada IS NOT NULL {$statusCondition}
              GROUP BY caixa_normalizada
-             ORDER BY caixa_normalizada, MIN(id)'
+             ORDER BY caixa_normalizada, MIN(id)"
         )->fetchAll();
 
         return array_map(static fn (array $row): array => [
@@ -102,9 +103,9 @@ final class Passivo extends Model
     }
 
     /** @return array{anterior:?string,proxima:?string,lista:list<string>} */
-    public function navegacaoCaixas(string $caixa): array
+    public function navegacaoCaixas(string $caixa, ?bool $active = true): array
     {
-        $boxes = array_column($this->caixas(), 'caixa');
+        $boxes = array_column($this->caixas($active), 'caixa');
         $currentKey = $this->safeSearchKey($caixa);
         $index = false;
 
@@ -205,16 +206,17 @@ final class Passivo extends Model
 
         try {
             return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized, $actorId): bool {
-                $existing = $pdo->prepare('SELECT id FROM alunos_passivo WHERE id = :id');
+                $existing = $pdo->prepare('SELECT ativo FROM alunos_passivo WHERE id = :id');
                 $existing->execute(['id' => $id]);
+                $active = $existing->fetchColumn();
 
-                if ($existing->fetchColumn() === false) {
+                if ($active === false) {
                     $this->lastErrorCode = 'not_found';
 
                     return false;
                 }
 
-                if ($this->locationConflict($pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado'], $id)) {
+                if ((int) $active === 1 && $this->locationConflict($pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado'], $id)) {
                     $this->lastErrorCode = 'location_conflict';
                     AuditLogger::recordRequired(
                         $pdo, 'passive.conflict', AuditLogger::BLOCKED, $actorId, null,
@@ -764,7 +766,13 @@ final class Passivo extends Model
         $statement->execute(['box' => $boxKey['key']]);
         $rows = $statement->fetchAll();
 
-        return $rows === [] ? false : array_map(static fn (array $row): array => [
+        if ($rows === []) {
+            $this->lastErrorCode = 'box_not_found';
+
+            return false;
+        }
+
+        return array_map(static fn (array $row): array => [
             'numero' => $row['numero'] === null ? null : (string) $row['numero'],
             'nome_completo' => (string) $row['nome_completo'],
         ], $rows);

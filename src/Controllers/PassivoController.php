@@ -56,7 +56,7 @@ final class PassivoController extends Controller
         $this->view('passivo/detalhes', [
             'title' => 'Detalhes do Arquivo Passivo',
             'record' => $record,
-            'canAdminister' => Auth::isAdmin(),
+            'canRestore' => Auth::isAdmin(),
         ]);
     }
 
@@ -100,24 +100,35 @@ final class PassivoController extends Controller
         ]);
     }
 
+    public function excluir(string $id): void
+    {
+        // UC004: a exclusão lógica não aceita uma situação enviada pelo cliente.
+        $this->changeStatus($id, false);
+    }
+
     public function status(string $id): void
     {
-        $recordId = $this->validId($id);
         $active = filter_var($_POST['ativo'] ?? null, FILTER_VALIDATE_INT);
 
         if (!in_array($active, [0, 1], true)) {
             render_http_error(422, 'Solicitação inválida', 'A situação informada não é válida.', 'passivo');
         }
 
+        $this->changeStatus($id, $active === 1);
+    }
+
+    private function changeStatus(string $id, bool $active): void
+    {
+        $recordId = $this->validId($id);
         $model = new Passivo();
 
-        if (!$model->definirAtivo($recordId, $active === 1, $this->actorId())) {
+        if (!$model->definirAtivo($recordId, $active, $this->actorId())) {
             if ($model->lastErrorCode() === 'not_found') {
                 render_http_error(404, 'Registro não encontrado', 'O item solicitado não existe no Arquivo Passivo.', 'passivo');
             }
 
             AuditLogger::record(
-                $active === 1 ? 'passive.reactivated' : 'passive.deactivated',
+                $active ? 'passive.reactivated' : 'passive.deactivated',
                 AuditLogger::FAILURE,
                 $this->actorId(),
                 null,
@@ -131,7 +142,7 @@ final class PassivoController extends Controller
         $this->redirectWithFlash(
             'passivo/detalhes/' . $recordId,
             'success',
-            $active === 1 ? 'Registro restaurado com sucesso.' : 'Registro inativado sem exclusão física.'
+            $active ? 'Registro restaurado com sucesso.' : 'Registro excluído do acervo ativo. Seus dados e histórico foram preservados.'
         );
     }
 
@@ -289,7 +300,7 @@ final class PassivoController extends Controller
         $rows = $model->listarParaTxt($box);
 
         if ($rows === false) {
-            $this->redirectWithFlash('passivo/ferramentas', 'danger', $model->validationMessage($model->lastErrorCode()));
+            $this->redirectWithFlash('passivo', 'danger', $model->validationMessage($model->lastErrorCode()));
         }
 
         $safeBox = preg_replace('/[^a-z0-9_-]+/', '-', src\Core\TextNormalizer::searchKey($box)) ?? 'caixa';
@@ -367,7 +378,8 @@ final class PassivoController extends Controller
         ];
         $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1;
         $model = new Passivo();
-        $boxes = $model->caixas();
+        $activeFilter = $filters['ativo'] === '' ? null : $filters['ativo'] === '1';
+        $boxes = $model->caixas($activeFilter);
 
         $this->view('passivo/index', [
             'title' => 'Arquivo Passivo (Ex-Alunos)',
@@ -377,7 +389,7 @@ final class PassivoController extends Controller
             'boxes' => $boxes,
             'navigation' => $filters['caixa'] === ''
                 ? ['anterior' => null, 'proxima' => null, 'lista' => []]
-                : $model->navegacaoCaixas($filters['caixa']),
+                : $model->navegacaoCaixas($filters['caixa'], $activeFilter),
             'canAdminister' => Auth::isAdmin(),
         ]);
     }

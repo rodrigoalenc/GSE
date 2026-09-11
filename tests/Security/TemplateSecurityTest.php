@@ -90,7 +90,7 @@ final class TemplateSecurityTest extends TestCase
 
         $this->assertStringContainsString('class="passivo-status pending">Revisão pendente</span>', $html);
         $this->assertStringContainsString('class="passivo-status active">Ativo</span>', $html);
-        $this->assertStringContainsString('class="passivo-status inactive">Inativo</span>', $html);
+        $this->assertStringContainsString('class="passivo-status inactive">Excluído do acervo ativo</span>', $html);
         $this->assertStringContainsString('.passivo-status.pending', $css);
         $this->assertStringContainsString('color: #713f12', $css);
         $this->assertStringContainsString('background: #fff7d6', $css);

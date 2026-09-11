@@ -1,6 +1,6 @@
 <?php
 $statusClass = 'inactive';
-$statusLabel = 'Inativo';
+$statusLabel = 'Excluído do acervo ativo';
 
 if ((int) $record['ativo'] === 1) {
     $statusClass = (int) $record['localizacao_pendente'] === 1 ? 'pending' : 'active';
@@ -23,17 +23,17 @@ if ((int) $record['ativo'] === 1) {
         <div><dt>Origem</dt><dd><?php if ($record['aluno_origem_id']): ?><a href="<?= e(url('aluno/perfil/' . (int) $record['aluno_origem_id'])) ?>">Aluno #<?= e((string) $record['aluno_origem_id']) ?></a><?php else: ?>Cadastro manual<?php endif; ?></dd></div>
         <div><dt>Responsável pela atualização</dt><dd><?= e((string) ($record['atualizado_por_nome'] ?: 'Não informado')) ?></dd></div>
     </dl>
-    <div class="form-actions"><a class="btn-primary" href="<?= e(url('passivo/editar/' . (int) $record['id'])) ?>">Editar</a><a class="btn-secondary" href="<?= e(url('passivo?caixa=' . rawurlencode((string) $record['caixa']))) ?>">Voltar para a caixa</a></div>
+    <div class="form-actions"><a class="btn-primary" href="<?= e(url('passivo/editar/' . (int) $record['id'])) ?>">Editar</a><a class="btn-secondary" href="<?= e(url('passivo?caixa=' . rawurlencode((string) $record['caixa']) . '&ativo=' . (int) $record['ativo'])) ?>">Voltar para a caixa</a></div>
 </section>
 
-<?php if ($canAdminister): ?>
 <section class="relatorio passivo-admin-panel">
-    <h2>Administração do registro</h2>
-    <p>A operação preserva o registro e pode ser revertida. Exclusão física não está disponível.</p>
-    <form method="post" action="<?= e(url('passivo/status/' . (int) $record['id'])) ?>" data-confirm-status="<?= (int) $record['ativo'] === 1 ? 'Inativar este registro preservando seu histórico?' : 'Restaurar este registro no acervo ativo?' ?>">
+    <h2>Situação do registro</h2>
+    <p>A exclusão retira o registro das consultas e contagens do acervo ativo. Seus dados, vínculos e histórico ficam preservados. Um administrador pode restaurá-lo.</p>
+    <?php if ((int) $record['ativo'] === 1 || $canRestore): ?>
+    <form method="post" action="<?= e(url(((int) $record['ativo'] === 1 ? 'passivo/excluir/' : 'passivo/status/') . (int) $record['id'])) ?>" data-confirm-status="<?= (int) $record['ativo'] === 1 ? 'Excluir este registro do acervo ativo, preservando seus dados e histórico?' : 'Restaurar este registro no acervo ativo?' ?>">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="ativo" value="<?= (int) $record['ativo'] === 1 ? '0' : '1' ?>">
-        <button class="<?= (int) $record['ativo'] === 1 ? 'btn-danger' : 'btn-primary' ?>" type="submit"><?= (int) $record['ativo'] === 1 ? 'Inativar registro' : 'Restaurar registro' ?></button>
+        <button class="<?= (int) $record['ativo'] === 1 ? 'btn-danger' : 'btn-primary' ?>" type="submit"><?= (int) $record['ativo'] === 1 ? 'Excluir do acervo ativo' : 'Restaurar registro' ?></button>
     </form>
+    <?php endif; ?>
 </section>
-<?php endif; ?>

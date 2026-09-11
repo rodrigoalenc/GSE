@@ -9,6 +9,70 @@ use Tests\Support\DatabaseTestCase;
 
 final class PassivoTest extends DatabaseTestCase
 {
+    public function testLogicalDeletionScopesQueriesBoxesExportEnumerationAndConflicts(): void
+    {
+        $actor = $this->insertUsuario('Funcionario UC004', 'funcionario');
+        $model = new \Passivo();
+        $deleted = $model->cadastrar(['nome_completo' => 'Histórico', 'caixa' => 'A', 'numero' => '9'], $actor);
+        $unnumbered = $model->cadastrar(['nome_completo' => 'Sem posição', 'caixa' => 'B'], $actor);
+        $this->assertIsInt($deleted);
+        $this->assertIsInt($unnumbered);
+        $this->assertNull($model->buscarPorId($unnumbered)['numero']);
+        $this->assertTrue($model->definirAtivo($deleted, false, $actor));
+        $this->assertTrue($model->definirAtivo($unnumbered, false, $actor));
+        $this->assertSame(0, $model->paginate([])['total']);
+        $this->assertSame(2, $model->paginate(['ativo' => '0'])['total']);
+        $this->assertSame(['caixas' => 0, 'registros' => 0, 'inativos' => 2, 'pendentes' => 0], $model->resumo());
+        $this->assertSame([], $model->caixas());
+        $this->assertSame(['A', 'B'], array_column($model->caixas(false), 'caixa'));
+        $this->assertSame('B', $model->navegacaoCaixas('A', false)['proxima']);
+        $this->assertFalse($model->listarParaTxt('A'));
+        $this->assertSame('box_not_found', $model->lastErrorCode());
+        $this->assertFalse($model->previewEnumeracao('B'));
+
+        $replacement = $model->cadastrar(['nome_completo' => 'Atual', 'caixa' => 'A', 'numero' => '9'], $actor);
+        $activeUnnumbered = $model->cadastrar(['nome_completo' => 'Numerar', 'caixa' => 'B'], $actor);
+        $this->assertIsInt($replacement);
+        $this->assertIsInt($activeUnnumbered);
+        $this->assertSame([['numero' => '9', 'nome_completo' => 'Atual']], $model->listarParaTxt('A'));
+        $preview = $model->previewEnumeracao('B');
+        $this->assertIsArray($preview);
+        $this->assertSame([$activeUnnumbered], array_column($preview['assignments'], 'id'));
+        $this->assertSame(1, $model->aplicarEnumeracao('B', $preview['assignments'], $actor));
+        $this->assertNull($model->buscarPorId($unnumbered)['numero']);
+        $this->assertTrue($model->atualizar($deleted, ['nome_completo' => 'Histórico corrigido', 'caixa' => 'A', 'numero' => '9'], $actor));
+        $this->assertFalse($model->definirAtivo($deleted, true, $actor));
+        $this->assertSame('location_conflict', $model->lastErrorCode());
+        $this->assertSame(0, (int) $model->buscarPorId($deleted)['ativo']);
+        $this->assertTrue($model->atualizar($deleted, ['nome_completo' => 'Histórico corrigido', 'caixa' => 'C', 'numero' => '9'], $actor));
+        $this->assertTrue($model->definirAtivo($deleted, true, $actor));
+        $this->assertSame(3, $model->resumo()['registros']);
+        $this->assertSame(['A', 'B', 'C'], array_column($model->caixas(null), 'caixa'));
+    }
+
+    public function testAuditFailureRollsBackUpdateDeletionAndRestoration(): void
+    {
+        $actor = $this->insertUsuario('Funcionario Auditoria UC004', 'funcionario');
+        $model = new \Passivo();
+        $id = $model->cadastrar(['nome_completo' => 'Preservado', 'caixa' => 'A'], $actor);
+        $this->assertIsInt($id);
+        foreach (['passive.updated', 'passive.deactivated', 'passive.reactivated'] as $action) {
+            if ($action === 'passive.reactivated') {
+                $this->assertTrue($model->definirAtivo($id, false, $actor));
+            }
+            $before = $model->buscarPorId($id);
+            $auditCount = (int) $this->pdo->query('SELECT COUNT(*) FROM security_audit')->fetchColumn();
+            $this->pdo->exec("CREATE TRIGGER fail_uc004 BEFORE INSERT ON security_audit WHEN NEW.action = '{$action}' BEGIN SELECT RAISE(ABORT, 'forced'); END");
+            $result = $action === 'passive.updated'
+                ? $model->atualizar($id, ['nome_completo' => 'Alterado', 'caixa' => 'B'], $actor)
+                : $model->definirAtivo($id, $action === 'passive.reactivated', $actor);
+            $this->assertFalse($result);
+            $this->assertSame($before, $model->buscarPorId($id));
+            $this->assertSame($auditCount, (int) $this->pdo->query('SELECT COUNT(*) FROM security_audit')->fetchColumn());
+            $this->pdo->exec('DROP TRIGGER fail_uc004');
+        }
+    }
+
     public function testCrudSearchFiltersPaginationAndLogicalLifecycle(): void
     {
         $actor = $this->insertUsuario('Admin Passivo');
@@ -73,6 +137,14 @@ final class PassivoTest extends DatabaseTestCase
         $this->assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM dvas WHERE id_aluno = ' . $studentId)->fetchColumn());
         $this->assertFalse($model->arquivarAluno($studentId, ['caixa' => 'CX-10', 'numero' => '2'], $actor));
         $this->assertSame('origin_conflict', $model->lastErrorCode());
+
+        $this->assertTrue($model->definirAtivo($passiveId, false, $actor));
+        $replacement = $model->arquivarAluno($studentId, ['caixa' => 'CX-10', 'numero' => '2'], $actor);
+        $this->assertIsInt($replacement);
+        $this->assertFalse($model->definirAtivo($passiveId, true, $actor));
+        $this->assertSame('origin_conflict', $model->lastErrorCode());
+        $this->assertSame($studentId, (int) $model->buscarPorId($passiveId)['aluno_origem_id']);
+        $this->assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM dvas WHERE id_aluno = ' . $studentId)->fetchColumn());
 
         $this->pdo->exec('UPDATE alunos SET ativo = 1 WHERE id = ' . $studentId);
         $this->assertTrue($model->definirAtivo($passiveId, false, $actor));

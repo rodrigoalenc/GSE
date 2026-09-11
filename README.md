@@ -337,7 +337,7 @@ Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado r
 
 Os Módulos 1, 2 e 3 estão implementados. Os Módulos 4 e 5 continuam fora do escopo funcional. O banco atual usa `PRAGMA user_version=12`; `schema_migrations` deve conter exatamente as versões 1 a 12.
 
-O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, inativação lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários autenticados consultam, criam, editam e exportam. Somente administradores inativam, restauram, importam, enumeram e enviam um aluno inativo ao passivo.
+O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação como lógica e o preenchimento posterior do número ainda exigem validação acadêmica. Veja a [matriz de requisitos e evidências da revisão](docs/MODULO3_REVISAO_TCC.md).
 
 O CSV usa `Nome;Data;Numero;Caixa`, UTF-8, no máximo 2 MiB e 5.000 linhas. Datas podem ser `YYYY-MM-DD` ou `DD/MM/YYYY`. A prévia expira em 15 minutos, pertence à sessão e ao administrador e só pode ser confirmada uma vez. O hash do arquivo e a análise do acervo são revalidados na confirmação. Linhas válidas são adicionadas em uma única transação; duplicidades, localizações ocupadas e erros são apresentados sem apagar o acervo. A substituição destrutiva do projeto original foi removida deliberadamente.
 
@@ -359,6 +359,8 @@ Rotas adicionais:
 |---|---|---|
 | GET | `/passivo`, `/passivo/detalhes/{id}` | autenticado |
 | GET/POST | `/passivo/criar`, `/passivo/editar/{id}` | autenticado |
+| POST | `/passivo/excluir/{id}` | autenticado + CSRF; apenas exclusão lógica |
+| GET | `/passivo/inativos` | autenticado; consulta dos excluídos |
 | POST | `/passivo/status/{id}` | administrador + CSRF |
 | GET/POST | `/passivo/importar*`, `/passivo/ferramentas*` | administrador + CSRF em POST |
 | POST | `/passivo/exportar` | autenticado + CSRF |

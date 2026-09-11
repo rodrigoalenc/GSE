@@ -522,7 +522,7 @@ try {
     $passiveDetails = request('GET', $baseUrl . '/passivo/detalhes/1', $cookieAdmin);
     $invalidPassiveCsrf = request('POST', $baseUrl . '/passivo/status/1', $cookieAdmin, ['_csrf_token' => 'invalid', 'ativo' => '0']);
     checkHttp($invalidPassiveCsrf['status'] === 419, 'CSRF protege inativação do passivo');
-    $passiveDeactivated = request('POST', $baseUrl . '/passivo/status/1', $cookieAdmin, [
+    $passiveDeactivated = request('POST', $baseUrl . '/passivo/excluir/1', $cookieAdmin, [
         '_csrf_token' => csrf($passiveDetails['body']),
         'ativo' => '0',
     ]);
@@ -683,9 +683,57 @@ try {
     );
 
     $employeeCsrf = csrf($employeePassive['body']);
+    $verification = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $beforeDeletion = $verification->query('SELECT * FROM alunos_passivo WHERE id = ' . $employeePassiveId)->fetch(PDO::FETCH_ASSOC);
+    $employeeDetails = request('GET', $baseUrl . '/passivo/detalhes/' . $employeePassiveId, $cookieEmployee);
+    checkHttp(
+        str_contains($employeeDetails['body'], '/passivo/excluir/' . $employeePassiveId)
+        && str_contains($employeePassive['body'], '/passivo/inativos')
+        && !str_contains($employeePassive['body'], 'href="' . $baseUrl . '/passivo/importar"')
+        && !str_contains($employeePassive['body'], 'href="' . $baseUrl . '/passivo/ferramentas"'),
+        'Interface do funcionário permite excluir e consultar excluídos, mantendo ferramentas administrativas ocultas'
+    );
+    foreach (['GET', 'POST'] as $method) {
+        $guestDeletion = request($method, $baseUrl . ($method === 'GET' ? '/passivo/inativos' : '/passivo/excluir/' . $employeePassiveId), $cookieGuest);
+        checkHttp($guestDeletion['status'] === 302 && str_contains($guestDeletion['headers']['location'] ?? '', '/login'), 'Visitante bloqueado no fluxo de exclusão: ' . $method);
+    }
+    $getDeletion = request('GET', $baseUrl . '/passivo/excluir/' . $employeePassiveId, $cookieEmployee);
+    checkHttp($getDeletion['status'] === 405 && ($getDeletion['headers']['allow'] ?? '') === 'POST', 'GET não executa exclusão lógica');
+    checkHttp(request('POST', $baseUrl . '/passivo/excluir/' . $employeePassiveId, $cookieEmployee, ['_csrf_token' => 'invalid'])['status'] === 419, 'CSRF inválido bloqueia exclusão pelo funcionário');
+    checkHttp($beforeDeletion === $verification->query('SELECT * FROM alunos_passivo WHERE id = ' . $employeePassiveId)->fetch(PDO::FETCH_ASSOC), 'Visitante, GET e CSRF inválido não alteram o registro');
+    checkHttp(request('POST', $baseUrl . '/passivo/excluir/999999', $cookieEmployee, ['_csrf_token' => $employeeCsrf])['status'] === 404, 'Exclusão de ID inexistente retorna 404');
+
+    // A auditoria obrigatória deve abortar a alteração também pelo fluxo HTTP.
+    $verification->exec("CREATE TRIGGER fail_uc004_audit BEFORE INSERT ON security_audit WHEN NEW.action = 'passive.deactivated' BEGIN SELECT RAISE(ABORT, 'forced'); END");
+    $failedDeletion = request('POST', $baseUrl . '/passivo/excluir/' . $employeePassiveId, $cookieEmployee, ['_csrf_token' => $employeeCsrf]);
+    checkHttp($failedDeletion['status'] === 302 && $beforeDeletion === $verification->query('SELECT * FROM alunos_passivo WHERE id = ' . $employeePassiveId)->fetch(PDO::FETCH_ASSOC), 'Falha na auditoria desfaz integralmente a exclusão HTTP');
+    $verification->exec('DROP TRIGGER fail_uc004_audit');
+
+    $employeeDeleted = request('POST', $baseUrl . '/passivo/excluir/' . $employeePassiveId, $cookieEmployee, ['_csrf_token' => $employeeCsrf]);
+    $deletedRecord = $verification->query('SELECT * FROM alunos_passivo WHERE id = ' . $employeePassiveId)->fetch(PDO::FETCH_ASSOC);
+    checkHttp($employeeDeleted['status'] === 302 && (int) $deletedRecord['ativo'] === 0, 'Funcionário executa exclusão lógica pela URL autorizada');
+    foreach (['id', 'nome_completo', 'data_nascimento', 'numero', 'caixa', 'aluno_origem_id', 'criado_em', 'criado_por'] as $field) {
+        checkHttp($beforeDeletion[$field] === $deletedRecord[$field], 'Exclusão preserva ' . $field);
+    }
+    $deletionAudit = $verification->query("SELECT actor_user_id, resource_type, resource_id FROM security_audit WHERE action = 'passive.deactivated' AND result = 'success' AND resource_id = " . $employeePassiveId . ' ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+    $employeeActorId = (int) $verification->query("SELECT id FROM usuarios WHERE email = 'employee@example.test'")->fetchColumn();
+    checkHttp($deletionAudit !== false && (int) $deletionAudit['actor_user_id'] === $employeeActorId && (int) $deletedRecord['inativado_por'] === $employeeActorId && $deletionAudit['resource_type'] === 'passive_record', 'Auditoria identifica funcionário, ação e registro excluído');
+    $activeSearch = request('GET', $baseUrl . '/passivo?q=' . rawurlencode('Funcionário HTTP Editado'), $cookieEmployee);
+    $deletedSearch = request('GET', $baseUrl . '/passivo/inativos?caixa=CX-FUNC', $cookieEmployee);
+    checkHttp(!str_contains($activeSearch['body'], 'class="passivo-name"') && str_contains($deletedSearch['body'], 'Funcionário HTTP Editado') && str_contains($deletedSearch['body'], 'value="CX-FUNC" selected'), 'Consultas padrão excluem o registro e consulta histórica mantém a caixa selecionável');
+    $deletedDetails = request('GET', $baseUrl . '/passivo/detalhes/' . $employeePassiveId, $cookieEmployee);
+    checkHttp($deletedDetails['status'] === 200 && !str_contains($deletedDetails['body'], 'Restaurar registro'), 'Funcionário consulta dados preservados sem ação de restauração');
+    $deletedExport = request('POST', $baseUrl . '/passivo/exportar', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'caixa' => 'CX-FUNC']);
+    checkHttp($deletedExport['status'] === 302 && ($deletedExport['headers']['location'] ?? '') === $baseUrl . '/passivo', 'Exportação de caixa sem ativos retorna à consulta acessível ao funcionário');
+    $exportFeedback = request('GET', $deletedExport['headers']['location'], $cookieEmployee);
+    checkHttp($exportFeedback['status'] === 200 && str_contains($exportFeedback['body'], 'não possui registros ativos'), 'Exportação vazia explica a ausência de registros ativos');
+    // Alterar o payload da rota de exclusão nunca pode restaurar um registro.
+    request('POST', $baseUrl . '/passivo/excluir/' . $employeePassiveId, $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'ativo' => '1']);
+    checkHttp((int) $verification->query('SELECT ativo FROM alunos_passivo WHERE id = ' . $employeePassiveId)->fetchColumn() === 0, 'Payload ativo=1 não amplia permissão de exclusão para restauração');
+    $verification = null;
     checkHttp(
         request('POST', $baseUrl . '/passivo/status/1', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'ativo' => '0'])['status'] === 403,
-        'Funcionário não inativa registro pela URL direta'
+        'Rota administrativa legada de situação continua protegida; exclusão usa rota específica'
     );
     checkHttp(
         request('POST', $baseUrl . '/passivo/status/1', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'ativo' => '1'])['status'] === 403,

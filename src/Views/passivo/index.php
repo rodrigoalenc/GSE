@@ -50,8 +50,8 @@
         <?php if ($canAdminister): ?>
             <a class="btn-secondary" href="<?= e(url('passivo/ferramentas')) ?>">Ferramentas</a>
             <a class="btn-secondary" href="<?= e(url('passivo/importar')) ?>">Importar CSV</a>
-            <a class="btn-secondary" href="<?= e(url('passivo/inativos')) ?>">Ver inativos (<?= e((string) $summary['inativos']) ?>)</a>
         <?php endif; ?>
+        <a class="btn-secondary" href="<?= e(url('passivo/inativos')) ?>">Ver excluídos (<?= e((string) $summary['inativos']) ?>)</a>
     </div>
 </section>
 
@@ -63,7 +63,7 @@
     <?php else: ?>
         <div class="passivo-box-grid">
             <?php foreach ($boxes as $box): ?>
-                <a class="passivo-box-card" href="<?= e(url('passivo?caixa=' . rawurlencode($box['caixa']) . '&ordem=numero')) ?>">
+                <a class="passivo-box-card" href="<?= e(url('passivo?caixa=' . rawurlencode($box['caixa']) . '&ordem=numero&ativo=' . ($filters['ativo'] === '' ? 'todos' : $filters['ativo']))) ?>">
                     <span class="passivo-box-label">Caixa</span>
                     <strong><?= e($box['caixa']) ?></strong>
                     <small><?= e((string) $box['total']) ?> aluno(s)</small>
@@ -76,14 +76,14 @@
 
 <?php if ($filters['caixa'] !== '' && $navigation['lista'] !== []): ?>
 <nav class="passivo-box-navigation" aria-label="Navegação entre caixas">
-    <?php if ($navigation['anterior'] !== null): ?><a href="<?= e(url('passivo?caixa=' . rawurlencode($navigation['anterior']) . '&ordem=numero')) ?>">Caixa anterior</a><?php endif; ?>
-    <?php foreach ($navigation['lista'] as $box): ?><a class="<?= $box === $filters['caixa'] ? 'active' : '' ?>" <?= $box === $filters['caixa'] ? 'aria-current="page"' : '' ?> href="<?= e(url('passivo?caixa=' . rawurlencode($box) . '&ordem=numero')) ?>"><?= e($box) ?></a><?php endforeach; ?>
-    <?php if ($navigation['proxima'] !== null): ?><a href="<?= e(url('passivo?caixa=' . rawurlencode($navigation['proxima']) . '&ordem=numero')) ?>">Próxima caixa</a><?php endif; ?>
+    <?php if ($navigation['anterior'] !== null): ?><a href="<?= e(url('passivo?caixa=' . rawurlencode($navigation['anterior']) . '&ordem=numero&ativo=' . ($filters['ativo'] === '' ? 'todos' : $filters['ativo']))) ?>">Caixa anterior</a><?php endif; ?>
+    <?php foreach ($navigation['lista'] as $box): ?><a class="<?= $box === $filters['caixa'] ? 'active' : '' ?>" <?= $box === $filters['caixa'] ? 'aria-current="page"' : '' ?> href="<?= e(url('passivo?caixa=' . rawurlencode($box) . '&ordem=numero&ativo=' . ($filters['ativo'] === '' ? 'todos' : $filters['ativo']))) ?>"><?= e($box) ?></a><?php endforeach; ?>
+    <?php if ($navigation['proxima'] !== null): ?><a href="<?= e(url('passivo?caixa=' . rawurlencode($navigation['proxima']) . '&ordem=numero&ativo=' . ($filters['ativo'] === '' ? 'todos' : $filters['ativo']))) ?>">Próxima caixa</a><?php endif; ?>
 </nav>
 <?php endif; ?>
 
 <section class="relatorio" aria-labelledby="passivo-results-title">
-    <div class="section-head"><div><h2 id="passivo-results-title"><?= $filters['ativo'] === '0' ? 'Registros inativos' : ($filters['caixa'] !== '' ? 'Conteúdo da caixa ' . e($filters['caixa']) : 'Registros localizados') ?></h2><p>Ordenação determinística e paginação executadas no banco.</p></div></div>
+    <div class="section-head"><div><h2 id="passivo-results-title"><?= $filters['ativo'] === '0' ? 'Registros excluídos do acervo ativo' : ($filters['caixa'] !== '' ? 'Conteúdo da caixa ' . e($filters['caixa']) : 'Registros localizados') ?></h2><p><?= $filters['ativo'] === '0' ? 'Os dados e o histórico estão preservados. A restauração depende de um administrador.' : 'Consulte os registros ou abra os detalhes para editar e excluir do acervo ativo.' ?></p></div></div>
     <div class="table-scroll">
         <table class="tabela-filtrada passivo-table">
             <thead><tr><th>Nome</th><th>Data de nascimento</th><th>Número</th><th>Caixa</th><th>Situação</th><th>Ações</th></tr></thead>
@@ -93,7 +93,7 @@
                 <?php
                 $birthTimestamp = $record['data_nascimento'] ? strtotime((string) $record['data_nascimento']) : false;
                 $statusClass = 'inactive';
-                $statusLabel = 'Inativo';
+                $statusLabel = 'Excluído do acervo ativo';
 
                 if ((int) $record['ativo'] === 1) {
                     $statusClass = (int) $record['localizacao_pendente'] === 1 ? 'pending' : 'active';

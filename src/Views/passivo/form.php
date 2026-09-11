@@ -1,7 +1,7 @@
 <section class="page-intro">
     <p class="hero-kicker">Arquivo Passivo</p>
     <h2><?= $editing ? 'Atualizar localização física' : 'Cadastrar ex-aluno manualmente' ?></h2>
-    <p>Nome e caixa são obrigatórios. O número pode ficar vazio até a enumeração administrativa.</p>
+    <p>Nome e caixa são obrigatórios. O número pode ser preenchido depois pela edição ou pela enumeração administrativa.</p>
 </section>
 
 <?php if ($errors !== []): ?><div class="error-message" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>

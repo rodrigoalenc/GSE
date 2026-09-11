@@ -21,7 +21,7 @@ Execute cada fluxo em Chrome, Edge e Firefox, tanto em desktop quanto em uma lar
 | Busca, filtros e navegação entre caixas | [ ] / [ ] | [ ] / [ ] | [ ] / [ ] | |
 | Tabela com rolagem segura | [ ] / [ ] | [ ] / [ ] | [ ] / [ ] | |
 | Foco visível e navegação por teclado | [ ] / [ ] | [ ] / [ ] | [ ] / [ ] | |
-| Estados Ativo, Revisão pendente e Inativo | [ ] / [ ] | [ ] / [ ] | [ ] / [ ] | |
+| Estados Ativo, Revisão pendente e Excluído do acervo ativo | [ ] / [ ] | [ ] / [ ] | [ ] / [ ] | |
 
 Resultado esperado: a interface mantém a identidade azul dos Módulos 1 e 2, não corta ações ou conteúdo, permite uso por teclado e apresenta “Revisão pendente” em amarelo/laranja com texto explícito.
 
@@ -34,7 +34,8 @@ Resultado esperado: a interface mantém a identidade azul dos Módulos 1 e 2, n�
 | Importação CSV | prévia, confirmação única, limites e acervo aditivo | | |
 | Enumeração | somente registros sem número da caixa escolhida | | |
 | Exportação TXT | POST/CSRF, formato `Número - Nome` e arquivo seguro | | |
-| Inativação e restauração | mudança lógica sem exclusão física | | |
+| Exclusão lógica e restauração | funcionário exclui; administrador restaura; dados preservados | | |
+| Consulta de excluídos por caixa | filtro e navegação mantêm a situação; caixa sem ativos continua selecionável | | |
 | Envio de aluno inativo | vínculo criado e histórico de DVA preservado | | |
 
 ## Permissões
@@ -46,7 +47,8 @@ Valide com contas fictícias separadas de funcionário e administrador.
 | Consultar, pesquisar, filtrar e detalhar | permitido | permitido | |
 | Cadastrar e editar | permitido | permitido | |
 | Exportar TXT | permitido | permitido | |
-| Inativar e restaurar | 403 | permitido | |
+| Excluir logicamente e consultar excluídos | permitido | permitido | |
+| Restaurar | 403 | permitido | |
 | Importar CSV | 403 | permitido | |
 | Enumerar caixas | 403 | permitido | |
 | Enviar aluno inativo ao passivo | 403 | permitido | |

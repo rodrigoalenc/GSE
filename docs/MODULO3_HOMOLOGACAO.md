@@ -49,8 +49,9 @@ Se a aplicação não puder abrir após a migração, mantenha a manutenção, e
 
 - [ ] cards, contagens, caixa anterior/próxima, busca, filtro, página e ordem;
 - [ ] cadastro, edição, detalhes, 404, PRG, XSS e conflitos;
-- [ ] “Revisão pendente” em amarelo, “Ativo” em verde e “Inativo” em vermelho;
-- [ ] inativação e restauração sem `DELETE`;
+- [ ] “Revisão pendente” em amarelo, “Ativo” em verde e “Excluído do acervo ativo” em vermelho;
+- [ ] exclusão lógica pelo funcionário e restauração administrativa sem `DELETE`;
+- [ ] filtro e navegação por caixas dos excluídos sem retorno involuntário ao acervo ativo;
 - [ ] aluno ativo bloqueado, aluno inativo vinculado e DVA preservada;
 - [ ] CSV com BOM, datas, erros, duplicidade, conflito, rollback, TTL e uso único;
 - [ ] enumeração apenas sem número e por caixa;

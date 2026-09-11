@@ -6,7 +6,7 @@ O RF004/UC004 localiza fisicamente as pastas de ex-alunos por caixa e número/po
 
 O aluno original nunca é excluído. O envio copia nome e nascimento, grava `aluno_origem_id`, exige caixa, confirmação e administrador e ocorre em `BEGIN IMMEDIATE`. DVA, turma e demais relacionamentos não são alterados. O índice `ux_passivo_aluno_origem_ativo` impede dois registros ativos do passivo para o mesmo aluno.
 
-Registros ativos com `localizacao_pendente=1` exibem “Revisão pendente” em amarelo; ativos regulares usam verde e inativos usam vermelho. O texto explícito acompanha a cor em todos os casos.
+Registros ativos com `localizacao_pendente=1` exibem “Revisão pendente” em amarelo; ativos regulares usam verde e excluídos logicamente usam vermelho com o texto “Excluído do acervo ativo”. O texto explícito acompanha a cor em todos os casos.
 
 ## Permissões
 
@@ -15,18 +15,23 @@ Registros ativos com `localizacao_pendente=1` exibem “Revisão pendente” em 
 | Consultar, pesquisar, filtrar e detalhar | permitido | permitido |
 | Cadastrar e editar | permitido | permitido |
 | Exportar TXT via POST + CSRF | permitido | permitido |
-| Inativar e restaurar | bloqueado | permitido |
+| Excluir logicamente e consultar excluídos | permitido | permitido |
+| Restaurar | bloqueado | permitido |
 | Importar CSV | bloqueado | permitido |
 | Enumerar caixas | bloqueado | permitido |
 | Enviar aluno inativo ao passivo | bloqueado | permitido |
 
 Toda rota exige autenticação. O Router retorna 403 para perfil insuficiente, 404 para ID inexistente, 405 com `Allow` para método incorreto e 419 para CSRF inválido. GET não altera estado.
 
+`POST /passivo/excluir/{id}` executa apenas exclusão lógica, ignorando qualquer tentativa de enviar `ativo=1`. A rota legada `/passivo/status/{id}` permanece administrativa, inclusive para restauração. A permissão do UC004 não libera CSV, enumeração nem envio de aluno. A justificativa documental está na [matriz da revisão do TCC](MODULO3_REVISAO_TCC.md).
+
 ## Normalização e conflitos
 
 `TextNormalizer::searchKey()` é exclusivo para pesquisa. Ele consolida espaços, normaliza Unicode, converte para minúsculas e remove marcas diacríticas. `comparisonKey()` dos Módulos 1 e 2 não mudou. Consultas `LIKE` escapam `\\`, `%` e `_`, limitam o termo a 100 caracteres e usam parâmetros.
 
 Nome, caixa e número mantêm o valor de exibição e a chave normalizada. Número é opcional; caixa é obrigatória em novos cadastros. A aplicação detecta caixa/número ocupado e apresenta conflito, mas a v12 não cria unicidade física sem regra escolar comprovada. Colisões legadas permanecem intactas para revisão em homologação.
+
+Excluídos não ocupam posições do acervo ativo. A edição de um excluído preserva sua situação e pode corrigir seus dados sem disputar a posição ativa. A restauração revalida posição e vínculo de aluno antes de retornar ao acervo. Filtros e navegação de caixas acompanham a situação consultada; resumo, TXT e enumeração continuam considerando apenas ativos. Exportar uma caixa sem ativos retorna à consulta com mensagem explicativa, inclusive para funcionários.
 
 ## CSV
 
@@ -62,7 +67,7 @@ O TXT usa `Número - Nome`, ordem numérica/normalizada determinística, `Conten
 
 ## Retenção e LGPD
 
-O módulo oferece somente inativação lógica e restauração. O trigger `trg_prevent_passive_delete` bloqueia exclusão física acidental. Eliminação definitiva futura depende de base legal, política de retenção, autorização e procedimento formal da escola; está fora do Módulo 3.
+O módulo consolida a inativação existente como exclusão lógica (`ativo=0`), com restauração administrativa. O UC004 usa “exclusão” sem definir se é física ou lógica: esta é uma interpretação conservadora, ainda pendente de validação acadêmica. O trigger `trg_prevent_passive_delete` continua bloqueando exclusão física. Dados, vínculos e auditoria são preservados. Eliminação definitiva não foi implementada nesta revisão.
 
 ## Auditoria e testes
 
