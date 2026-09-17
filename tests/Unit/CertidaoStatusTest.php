@@ -17,4 +17,12 @@ final class CertidaoStatusTest extends TestCase
         finally { if ($before===null) { unset($_ENV['APP_TIMEZONE']); } else { $_ENV['APP_TIMEZONE']=$before; } }
         $this->expectException(\RuntimeException::class); new \CertidaoStatus(null,0);
     }
+    public function testDeadlineUsesCivilDateAndHandlesInvalidLegacyDate(): void
+    {
+        $status=new \CertidaoStatus(new \DateTimeImmutable('2026-09-16T12:00:00Z'),15);
+        $this->assertSame('Vencida há 1 dia',$status->deadline('2026-09-15'));
+        $this->assertSame('Vence hoje',$status->deadline('2026-09-16'));
+        $this->assertSame('Vence em 15 dias',$status->deadline('2026-10-01'));
+        $this->assertSame('Prazo pendente de revisão',$status->deadline('2026-02-30'));
+    }
 }

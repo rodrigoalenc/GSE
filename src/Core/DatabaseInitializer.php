@@ -12,7 +12,7 @@ require_once __DIR__ . '/TextNormalizer.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 13;
+    private const LATEST_VERSION = 14;
 
     public static function initialize(PDO $pdo): void
     {
@@ -124,8 +124,24 @@ final class DatabaseInitializer
             11 => self::enforceNormalizedNameSchema($pdo),
             12 => self::migratePassiveArchive($pdo),
             13 => self::migrateCertificates($pdo),
+            14 => self::migrateCertificateConcurrency($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
+    }
+
+    private static function migrateCertificateConcurrency(PDO $pdo): void
+    {
+        foreach (['lista_fornecedores', 'lista_tipos_certidao'] as $table) {
+            self::addColumnIfMissing($pdo, $table, 'revisao', 'INTEGER NOT NULL DEFAULT 1 CHECK (revisao >= 1)');
+        }
+        $pdo->exec('CREATE TABLE IF NOT EXISTS certidao_notification_attempts (
+            notification_date TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES usuarios(id),
+            attempts INTEGER NOT NULL DEFAULT 1, attempted_at TEXT NOT NULL,
+            PRIMARY KEY(notification_date, user_id)
+        )');
+        if (self::foreignKeyViolations($pdo) !== [] || $pdo->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
+            throw new RuntimeException('Migração v14 interrompida: integridade ou referências inválidas.');
+        }
     }
 
     private static function migrateLegacyUsers(PDO $pdo): void

@@ -12,7 +12,7 @@ try {
     $pdo = src\Core\Database::getConnection();
     src\Core\DatabaseInitializer::initialize($pdo);
     $result = (new CertidaoNotificationService($pdo, PhpMailerTransport::fromConfig()))->notify();
-    fwrite(STDOUT, sprintf("Certidões: %d aviso(s), %d destinatário(s), %d envio(s), %d já enviado(s), %d falha(s).\n", ...array_values($result)));
+    fwrite(STDOUT, sprintf("Certidões: %d aviso(s), %d destinatário(s), %d envio(s), %d ignorado(s) (entrega anterior, destinatário alterado ou trabalhador ativo), %d falha(s).\n", ...array_values($result)));
     exit($result['failed'] > 0 ? 2 : 0);
 } catch (Throwable $e) {
     TechnicalLogger::error('certidao_notification_command_failed',['exception'=>$e::class]);

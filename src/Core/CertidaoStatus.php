@@ -32,6 +32,15 @@ final class CertidaoStatus
     public function today(): string { return $this->date->format('Y-m-d'); }
     public function limit(): string { return $this->date->modify('+' . $this->days . ' days')->format('Y-m-d'); }
 
+    public function deadline(?string $value): string
+    {
+        if ($value === null || !self::validDate($value)) { return 'Prazo pendente de revisão'; }
+        $days = (int)$this->date->diff(new DateTimeImmutable($value, $this->date->getTimezone()))->format('%r%a');
+        if ($days === 0) { return 'Vence hoje'; }
+        $unit = abs($days) === 1 ? ' dia' : ' dias';
+        return $days < 0 ? 'Vencida há ' . abs($days) . $unit : 'Vence em ' . $days . $unit;
+    }
+
     public function classify(?string $value): string
     {
         if ($value === null || !self::validDate($value)) { return 'pendente'; }

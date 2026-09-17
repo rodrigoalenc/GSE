@@ -73,7 +73,7 @@ final class CertidaoTest extends DatabaseTestCase
     }
     public function testInactiveOptionsPreventNewDocumentsButPreserveHistory(): void
     {
-        $id=$this->create(); $this->model->saveOption('fornecedor',1,'Fornecedor Á',false,$this->actor);
+        $id=$this->create(); $this->model->saveOption('fornecedor',1,'Fornecedor Á',false,$this->actor,1);
         $this->model->updateMetadata($id,$this->data(),$this->actor);
         $this->assertSame('Fornecedor Á',$this->model->buscarPorId($id)['fornecedor']);
         $this->expectException(\DomainException::class); $this->create();
@@ -88,11 +88,70 @@ final class CertidaoTest extends DatabaseTestCase
     {
         $id=$this->create(); $before=$this->model->buscarPorId($id);
         $this->pdo->exec("CREATE TRIGGER fail_audit BEFORE INSERT ON security_audit BEGIN SELECT RAISE(ABORT,'forced'); END");
-        foreach ([fn()=> $this->model->transition($id,'archive',1,$this->actor),fn()=> $this->model->transition($id,'delete',1,$this->actor),fn()=> $this->model->updateMetadata($id,$this->data(),$this->actor),fn()=> $this->model->saveOption('tipo',1,'Modificado',true,$this->actor)] as $operation) {
+        foreach ([fn()=> $this->model->transition($id,'archive',1,$this->actor),fn()=> $this->model->transition($id,'delete',1,$this->actor),fn()=> $this->model->updateMetadata($id,$this->data(),$this->actor),fn()=> $this->model->saveOption('tipo',1,'Modificado',true,$this->actor,1)] as $operation) {
             try { $operation(); $this->fail('Expected audit failure'); } catch (\PDOException) {}
             $this->assertSame($before,$this->model->buscarPorId($id));
         }
         $this->assertSame('Fiscal',$this->model->options('tipo')[0]['nome']);
+        $this->assertSame(1,$this->model->options('tipo')[0]['revisao']);
+    }
+
+    public function testTwoEditorsCannotOverwriteOrReactivateStaleOptions(): void
+    {
+        $editor=$this->insertUsuario('Segundo editor','funcionario');
+        $db=$this->pdo->query('PRAGMA database_list')->fetchAll()[0]['file'];
+        $other=new \PDO('sqlite:'.$db,null,null,[\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_DEFAULT_FETCH_MODE=>\PDO::FETCH_ASSOC]);
+        foreach (['fornecedor','tipo'] as $kind) {
+            $stale=$this->model->options($kind)[0];
+            $this->model->saveOption($kind,1,'Nome recente '.$kind,false,$this->actor,$stale['revisao']);
+            $auditBefore=(int)$this->pdo->query('SELECT COUNT(*) FROM security_audit')->fetchColumn();
+            \Model::setConexao($other);
+            try {
+                $competitor=new \Certidao();
+                foreach ([$stale['revisao'],null] as $revision) {
+                    try { $competitor->saveOption($kind,1,'Nome antigo',true,$editor,$revision); $this->fail('Stale update'); }
+                    catch (\DomainException $e) { $this->assertStringContainsString('outra pessoa',$e->getMessage()); }
+                }
+                $current=$competitor->options($kind)[0];
+                $this->assertSame('Nome recente '.$kind,$current['nome']);
+                $this->assertSame(0,$current['ativo']); $this->assertSame(2,$current['revisao']);
+                $this->assertSame($auditBefore,(int)$other->query('SELECT COUNT(*) FROM security_audit')->fetchColumn());
+                $competitor->saveOption($kind,1,'Revisado '.$kind,false,$editor,$current['revisao']);
+                $this->assertSame(3,$competitor->options($kind)[0]['revisao']);
+            } finally { \Model::setConexao($this->pdo); }
+        }
+    }
+
+    public function testMatrixBoundsSuppliersAndIndependentlyPaginatesTheirDocuments(): void
+    {
+        for ($i=0;$i<23;$i++) { $this->create(); }
+        for ($supplier=2;$supplier<=7;$supplier++) {
+            $this->model->saveOption('fornecedor',null,'Fornecedor '.$supplier,true,$this->actor);
+            $this->create(null,['id_fornecedor'=>$supplier]);
+        }
+        $first=$this->model->matrix(); $second=$this->model->matrix([],2);
+        $this->assertSame(29,$first['total']); $this->assertSame(7,$first['supplierTotal']);
+        $this->assertCount(5,$first['suppliers']); $this->assertCount(2,$second['suppliers']);
+        $this->assertEmpty(array_intersect(array_column($first['suppliers'],'id'),array_column($second['suppliers'],'id')));
+        $page=$this->model->matrix(['fornecedor'=>1],1,[1=>2]);
+        $this->assertSame(23,$page['total']); $this->assertCount(10,$page['items']);
+        $last=$this->model->matrix(['fornecedor'=>1],999,[1=>999]);
+        $this->assertCount(3,$last['items']); $this->assertSame(3,$last['suppliers'][0]['page']);
+        $this->assertEmpty(array_intersect(array_column($page['items'],'id'),array_column($last['items'],'id')));
+        $this->assertSame(1,$this->model->matrix(['fornecedor'=>1],1,[1=>['bad']])['suppliers'][0]['page']);
+    }
+
+    public function testPendingFilterIncludesDatesAndMissingPdfWithinSelectedState(): void
+    {
+        foreach (['2026-09-15','2026-09-16','2026-10-01','2026-10-02'] as $date) { $this->create(null,['data_vencimento'=>$date]); }
+        $missing=$this->create(null,['data_vencimento'=>'2026-10-03']);
+        $this->pdo->exec('UPDATE certidoes SET pdf_privado=NULL WHERE id='.$missing);
+        $invalid=$this->create(); $this->pdo->exec("UPDATE certidoes SET data_vencimento='bad' WHERE id=".$invalid);
+        $archived=$this->create(); $this->model->transition($archived,'archive',1,$this->actor);
+        $this->assertSame(5,$this->model->matrix(['pendencias'=>'1'])['total']);
+        $this->assertSame(1,$this->model->matrix(['pendencias'=>'1','validade'=>'vigente'])['total']);
+        $this->assertSame(1,$this->model->matrix(['pendencias'=>'1','estado'=>'arquivada'])['total']);
+        $this->assertSame(0,$this->model->matrix(['pendencias'=>'1','ano'=>'2025'])['total']);
     }
     #[DataProvider('invalidFields')]
     public function testInvalidFieldsLeaveNoNewRecordOrPdf(array $changes): void

@@ -8,6 +8,22 @@
     justify-content:space-between;
     align-items:center;
 }
+.cert-workspace:fullscreen {
+    background:#edf3fa;
+    padding:24px;
+    overflow:auto;
+}
+.cert-workspace:fullscreen .cert-matrix-scroll { max-height:65vh; }
+.cert-card-dates { display:flex; justify-content:space-between; gap:12px; margin:16px 0 10px; font-size:.8rem; }
+.cert-card-dates dt { font-weight:400; color:#526276; }
+.cert-card-dates dd { margin:4px 0 0; font-weight:700; }
+.cert-deadline { font-weight:700; }
+.cert-card-links,.cert-column-pages { display:flex; flex-wrap:wrap; gap:16px; margin-top:14px; }
+.cert-column-total { font-size:.8rem; font-weight:400; margin:8px 0; }
+.cert-column-pages a { color:white; font-size:.85rem; padding:6px 0; }
+.cert-workspace :focus-visible { outline:3px solid #e59a22; outline-offset:3px; }
+.cert-matrix th,.cert-card { overflow-wrap:anywhere; }
+@media(max-width:600px) { .cert-workspace:fullscreen { padding:10px; } }
 .cert-overview h2 {
     color:#fff;
     font-size:1.5rem;

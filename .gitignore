@@ -19,6 +19,7 @@
 *.db-journal
 *.sqlite-journal
 *.sqlite3-journal
+*.certidao-notify.lock
 /database/backups/
 *.backup
 *.bak

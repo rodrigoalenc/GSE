@@ -46,12 +46,12 @@ final class Certidao extends Model
         return array_values(array_filter($rows, static fn (array $row): bool => $key === '' || str_contains(TextNormalizer::comparisonKey((string) $row['nome']), $key)));
     }
 
-    public function saveOption(string $kind, ?int $id, string $name, bool $active, int $actor): int
+    public function saveOption(string $kind, ?int $id, string $name, bool $active, int $actor, ?int $revision = null): int
     {
         $table = $this->table($kind);
         $name = TextNormalizer::displayName($name);
         if (mb_strlen($name) < 2 || mb_strlen($name) > 150 || preg_match('/[\p{C}]/u', $name)) { throw new DomainException('Informe um nome de 2 a 150 caracteres.'); }
-        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($kind, $table, $id, $name, $active, $actor): int {
+        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($kind, $table, $id, $name, $active, $actor, $revision): int {
             $this->actor($actor);
             $found = $id === null;
             foreach ($pdo->query('SELECT id, nome FROM ' . $table)->fetchAll() as $row) {
@@ -66,8 +66,11 @@ final class Certidao extends Model
                 $id = (int) $pdo->lastInsertId();
                 $action = 'created';
             } else {
-                $q = $pdo->prepare('UPDATE ' . $table . ' SET nome=?, ativo=?, atualizado_por=?, atualizado_em=? WHERE id=?');
-                $q->execute([...$params, $id]);
+                $q = $pdo->prepare('UPDATE ' . $table . ' SET nome=?, ativo=?, atualizado_por=?, atualizado_em=?, revisao=revisao+1 WHERE id=? AND revisao=?');
+                $q->execute([...$params, $id, $revision]);
+                if ($q->rowCount() !== 1) {
+                    throw new DomainException('Este cadastro foi alterado por outra pessoa. Sua edição foi preservada abaixo. Compare com os dados atuais antes de editar novamente.');
+                }
                 $action = $active ? 'updated' : 'deactivated';
             }
             $this->audit($actor, $kind, $id, $action);
@@ -89,6 +92,55 @@ final class Certidao extends Model
      * @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int} */
     public function paginate(array $filters = [], int $page = 1, int $perPage = 25): array
     {
+        [$from, $params] = $this->filteredQuery($filters);
+        $q = self::$pdo->prepare('SELECT COUNT(*)' . $from); $q->execute($params);
+        $total = (int) $q->fetchColumn();
+        $perPage = max(1, min(50, $perPage)); $pages = max(1, (int) ceil($total / $perPage)); $page = max(1, min($page, $pages));
+        $q = self::$pdo->prepare('SELECT c.*, f.nome AS fornecedor, t.nome AS tipo_certidao, cert_status(c.data_vencimento) AS validade' . $from . ' ORDER BY f.nome, c.data_vencimento, c.id LIMIT ' . $perPage . ' OFFSET ' . (($page-1)*$perPage));
+        $q->execute($params);
+        return ['items' => $q->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
+    }
+
+    /** Five suppliers per page, ten documents per supplier, with independent navigation.
+     * @param array<string,mixed> $filters
+     * @param array<mixed> $documentPages
+     * @return array{items:list<array<string,mixed>>,suppliers:list<array<string,mixed>>,total:int,supplierTotal:int,page:int,pages:int}
+     */
+    public function matrix(array $filters = [], int $page = 1, array $documentPages = []): array
+    {
+        [$from, $params] = $this->filteredQuery($filters);
+        // One read snapshot keeps totals, columns and documents coherent during concurrent edits.
+        self::$pdo->beginTransaction();
+        try {
+            $q = self::$pdo->prepare('SELECT COUNT(*) AS total, COUNT(DISTINCT c.id_fornecedor) AS suppliers' . $from);
+            $q->execute($params); $totals = $q->fetch(); $q->closeCursor();
+            $pages = max(1, (int) ceil((int)$totals['suppliers'] / 5));
+            $page = max(1, min($page, $pages));
+            $q = self::$pdo->prepare('SELECT f.id, f.nome, COUNT(*) AS total' . $from . ' GROUP BY f.id, f.nome ORDER BY f.nome, f.id LIMIT 5 OFFSET ' . (($page-1)*5));
+            $q->execute($params); $suppliers = $q->fetchAll();
+            $items = [];
+            foreach ($suppliers as &$supplier) {
+                $supplier['pages'] = max(1, (int)ceil((int)$supplier['total']/10));
+                $requested = $documentPages[(int)$supplier['id']] ?? 1;
+                $requested = is_scalar($requested) ? (int)$requested : 1;
+                $supplier['page'] = max(1, min($requested, $supplier['pages']));
+                $q = self::$pdo->prepare('SELECT c.*, f.nome AS fornecedor, t.nome AS tipo_certidao, cert_status(c.data_vencimento) AS validade' . $from . ' AND f.id=? ORDER BY t.nome,t.id,c.data_vencimento,c.id LIMIT 10 OFFSET ' . (($supplier['page']-1)*10));
+                $q->execute([...$params,$supplier['id']]);
+                array_push($items, ...$q->fetchAll());
+            }
+            unset($supplier);
+            self::$pdo->commit();
+            return ['items'=>$items,'suppliers'=>$suppliers,'total'=>(int)$totals['total'],'supplierTotal'=>(int)$totals['suppliers'],'page'=>$page,'pages'=>$pages];
+        } catch (Throwable $e) {
+            self::$pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /** @param array<string,mixed> $filters
+     * @return array{string,list<mixed>} */
+    private function filteredQuery(array $filters): array
+    {
         $state = in_array($filters['estado'] ?? '', ['corrente','arquivada','excluida'], true) ? $filters['estado'] : 'corrente';
         $where = [self::STATE_SQL . ' = ?'];
         $params = [$state];
@@ -103,18 +155,16 @@ final class Certidao extends Model
             if (!isset(CertidaoStatus::LABELS[(string) $filters['validade']])) { throw new DomainException('Situação inválida.'); }
             $where[] = 'cert_status(c.data_vencimento) = ?'; $params[] = $filters['validade'];
         }
+        if (($filters['pendencias'] ?? '') === '1') {
+            $where[] = "(cert_status(c.data_vencimento) IN ('vencida','vence_hoje','a_vencer','pendente') OR c.pdf_privado IS NULL OR c.pdf_privado='')";
+        }
         if (!empty($filters['busca'])) {
             $where[] = '(f.nome LIKE ? OR t.nome LIKE ? OR CAST(c.id AS TEXT) = ?)';
             $search = mb_substr((string) $filters['busca'], 0, 150);
             array_push($params, '%' . $search . '%', '%' . $search . '%', $search);
         }
         $from = ' FROM certidoes c JOIN lista_fornecedores f ON f.id=c.id_fornecedor JOIN lista_tipos_certidao t ON t.id=c.id_tipo_certidao WHERE ' . implode(' AND ', $where);
-        $q = self::$pdo->prepare('SELECT COUNT(*)' . $from); $q->execute($params);
-        $total = (int) $q->fetchColumn();
-        $perPage = max(1, min(50, $perPage)); $pages = max(1, (int) ceil($total / $perPage)); $page = max(1, min($page, $pages));
-        $q = self::$pdo->prepare('SELECT c.*, f.nome AS fornecedor, t.nome AS tipo_certidao, cert_status(c.data_vencimento) AS validade' . $from . ' ORDER BY f.nome, c.data_vencimento, c.id LIMIT ' . $perPage . ' OFFSET ' . (($page-1)*$perPage));
-        $q->execute($params);
-        return ['items' => $q->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
+        return [$from, $params];
     }
 
     /**

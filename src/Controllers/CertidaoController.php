@@ -13,8 +13,9 @@ final class CertidaoController extends Controller
     private function listing(string $state): void
     {
         $model = new Certidao(); $filters = ['estado'=>$state];
-        foreach (['fornecedor','tipo','validade','ano','busca'] as $key) { $filters[$key] = self::input($_GET, $key); }
-        try { $result = $model->paginate($filters, (int)self::input($_GET,'page')); }
+        foreach (['fornecedor','tipo','validade','ano','busca','pendencias'] as $key) { $filters[$key] = self::input($_GET, $key); }
+        $documentPages = is_array($_GET['documentos'] ?? null) ? $_GET['documentos'] : [];
+        try { $result = $model->matrix($filters, (int)self::input($_GET,'page'), $documentPages); }
         catch (DomainException $e) { render_http_error(422, 'Filtro inválido', $e->getMessage(), 'certidao'); }
         $this->view('certidoes/index', ['title'=>$state === 'corrente' ? 'Matriz de Certidões' : ($state === 'arquivada' ? 'Certidões arquivadas' : 'Certidões excluídas'), 'filters'=>$filters, 'result'=>$result, 'summary'=>$model->summary(), 'fornecedores'=>$model->options('fornecedor'), 'tipos'=>$model->options('tipo')]);
     }
@@ -91,12 +92,18 @@ final class CertidaoController extends Controller
                 $raw = self::input($_POST,'id');
                 $active = self::input($_POST,'ativo');
                 if (!in_array($active,['0','1'],true)) { throw new DomainException('Situação inválida.'); }
-                $model->saveOption(self::input($_POST,'tipo'),$raw === '' ? null : Certidao::id($raw),self::input($_POST,'nome'),$active === '1',$this->actor());
+                $model->saveOption(self::input($_POST,'tipo'),$raw === '' ? null : Certidao::id($raw),self::input($_POST,'nome'),$active === '1',$this->actor(),$raw === '' ? null : Certidao::id(self::input($_POST,'revisao')));
+                unset($_SESSION['certidao_option_draft']);
                 $this->redirectWithFlash('certidao/configurar','success','Configuração salva. Os vínculos históricos foram preservados.');
-            } catch (Throwable $e) { $this->redirectWithFlash('certidao/configurar','danger',$this->safeError($e)); }
+            } catch (Throwable $e) {
+                $_SESSION['certidao_option_draft'] = [];
+                foreach (['tipo','id','nome','ativo','revisao'] as $key) { $_SESSION['certidao_option_draft'][$key] = mb_substr(self::input($_POST,$key),0,150); }
+                $this->redirectWithFlash('certidao/configurar','danger',$this->safeError($e));
+            }
         }
         $search = mb_substr(self::input($_GET,'busca'),0,150);
-        $this->view('certidoes/configurar',['title'=>'Fornecedores e tipos','search'=>$search,'fornecedores'=>$model->options('fornecedor',$search),'tipos'=>$model->options('tipo',$search)]);
+        $draft = $_SESSION['certidao_option_draft'] ?? null;
+        $this->view('certidoes/configurar',['title'=>'Fornecedores e tipos','search'=>$search,'draft'=>$draft,'fornecedores'=>$model->options('fornecedor',$search),'tipos'=>$model->options('tipo',$search)]);
     }
 
     /** @return array<string,mixed> */

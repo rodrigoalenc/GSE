@@ -1,3 +1,30 @@
+const certWorkspace = document.getElementById('cert-workspace');
+const certFullscreen = document.getElementById('cert-fullscreen');
+if (certWorkspace && certFullscreen) {
+    const status = document.getElementById('cert-fullscreen-status');
+    certFullscreen.hidden = false;
+    certFullscreen.addEventListener('click', async () => {
+        try {
+            if (document.fullscreenElement) {
+                await document.exitFullscreen();
+            } else if (certWorkspace.requestFullscreen) {
+                await certWorkspace.requestFullscreen();
+            } else {
+                status.textContent = 'Tela cheia indisponível neste navegador.';
+            }
+        } catch (error) {
+            status.textContent = 'O navegador não permitiu a tela cheia. A consulta continua disponível.';
+        }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        const active = document.fullscreenElement === certWorkspace;
+        certFullscreen.setAttribute('aria-pressed', String(active));
+        certFullscreen.textContent = active ? 'Sair da tela cheia' : 'Tela cheia';
+        status.textContent = active ? 'Pressione Esc para sair.' : '';
+        certFullscreen.focus();
+    });
+}
+
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
         const input = document.getElementById(button.dataset.passwordToggle);

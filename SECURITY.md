@@ -10,7 +10,13 @@ O mantenedor deve confirmar o recebimento, avaliar severidade e coordenar corre�
 
 ## Escopo suportado
 
-O código atualmente suportado abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA — e 3 — Arquivo Passivo. Models e tabelas preservados para os Módulos 4 e 5 não representam funcionalidades publicadas.
+O código desta branch abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA —, 3 — Arquivo Passivo — e 4 — Certidões e Fornecedores. Models e tabelas preservados para o Módulo 5 não representam funcionalidades publicadas. Isso não constitui homologação ou publicação em produção.
+
+### Certidões e Fornecedores (Módulo 4)
+
+PDFs permanecem fora de `public`, com download autenticado e verificação de integridade. Renovação preserva o documento anterior; exclusão é lógica e distinta do arquivamento. Revisões de certidões, fornecedores e tipos impedem sobrescrita por formulários antigos, com auditoria na mesma transação. Homologue a migração v14 em cópia antes de atualizar uma instalação e mantenha todos os escritores na mesma versão do código.
+
+Notificações de certidões usam lock local exclusivo e transações curtas; o SMTP não mantém reserva de escrita SQLite. Não remova o arquivo `.certidao-notify.lock` durante operação nem execute esse mecanismo em filesystem compartilhado sem homologar a coordenação. O aceite SMTP seguido de falha de confirmação local pode causar duplicação na retentativa. Consulte os limites, pendências de SMTP/agendamento e o procedimento de backup conjunto SQLite/PDF em [docs/MODULO4_CERTIDOES.md](docs/MODULO4_CERTIDOES.md).
 
 ### Arquivo Passivo (Módulo 3)
 

@@ -29,28 +29,50 @@ final class CertidaoNotificationService
         }
         $text = "Certidões que exigem atenção em " . $dates->today() . "\n\n" . implode("\n", $lines);
         $html = '<h1>Certidões que exigem atenção</h1><pre>' . htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</pre>';
-        foreach ($recipients as $recipient) {
-            try {
-                // Hold the write reservation until transport succeeds: other workers cannot claim this recipient.
-                // A crash after SMTP acceptance but before COMMIT may still cause a duplicate retry.
-                $sent = SqliteTransaction::immediate($this->pdo, function (PDO $pdo) use ($dates, $recipient, $text, $html): bool {
-                    $q = $pdo->prepare('SELECT 1 FROM certidao_notification_deliveries WHERE notification_date=? AND user_id=?');
-                    $q->execute([$dates->today(), $recipient['id']]);
-                    if ($q->fetchColumn() !== false) { return false; }
-                    $active = $pdo->prepare("SELECT 1 FROM usuarios WHERE id=? AND ativo=1 AND tipo='administrador' AND email=?");
-                    $active->execute([$recipient['id'],$recipient['email']]);
-                    if ($active->fetchColumn() === false) { return false; }
-                    $this->transport->send((string)$recipient['email'], (string)$recipient['nome'], 'GSE: relatório diário de certidões', $html, $text);
-                    $q = $pdo->prepare('INSERT INTO certidao_notification_deliveries(notification_date,user_id,sent_at) VALUES (?,?,?)');
-                    $q->execute([$dates->today(),$recipient['id'],gmdate('Y-m-d H:i:s')]);
-                    return true;
-                });
-                $result[$sent ? 'sent' : 'skipped']++;
-            } catch (Throwable $exception) {
-                $result['failed']++;
-                TechnicalLogger::error('certidao_notification_failed', ['exception'=>$exception::class]);
+        // Local SQLite deployment: all workers use the same persistent sidecar.
+        // Never unlink it: replacing the inode could permit two lock owners.
+        $databases = $this->pdo->query('PRAGMA database_list')->fetchAll();
+        $database = (string) $databases[0]['file'];
+        if ($database === '') { throw new RuntimeException('Notificações exigem um banco SQLite em arquivo.'); }
+        $lock = fopen($database . '.certidao-notify.lock', 'c');
+        if ($lock === false) { throw new RuntimeException('Não foi possível abrir o bloqueio das notificações.'); }
+        try {
+            if (!flock($lock, LOCK_EX | LOCK_NB, $wouldBlock)) {
+                if (!$wouldBlock) { throw new RuntimeException('O armazenamento não permitiu bloquear as notificações.'); }
+                $result['skipped'] = count($recipients);
+                return $result;
             }
+            foreach ($recipients as $recipient) {
+                try {
+                    $claimed = SqliteTransaction::immediate($this->pdo, function (PDO $pdo) use ($dates, $recipient): bool {
+                        $q = $pdo->prepare('SELECT 1 FROM certidao_notification_deliveries WHERE notification_date=? AND user_id=?');
+                        $q->execute([$dates->today(), $recipient['id']]);
+                        if ($q->fetchColumn() !== false) { return false; }
+                        $active = $pdo->prepare("SELECT 1 FROM usuarios WHERE id=? AND ativo=1 AND tipo='administrador' AND email=?");
+                        $active->execute([$recipient['id'],$recipient['email']]);
+                        if ($active->fetchColumn() === false) { return false; }
+                        $q = $pdo->prepare('INSERT INTO certidao_notification_attempts(notification_date,user_id,attempted_at) VALUES (?,?,?) ON CONFLICT(notification_date,user_id) DO UPDATE SET attempts=attempts+1, attempted_at=excluded.attempted_at');
+                        $q->execute([$dates->today(),$recipient['id'],gmdate('Y-m-d H:i:s')]);
+                        return true;
+                    });
+                    if (!$claimed) { $result['skipped']++; continue; }
+                    // No database transaction spans network I/O. A crash after SMTP
+                    // acceptance and before local confirmation can duplicate a retry.
+                    $this->transport->send((string)$recipient['email'], (string)$recipient['nome'], 'GSE: relatório diário de certidões', $html, $text);
+                    SqliteTransaction::immediate($this->pdo, function (PDO $pdo) use ($dates, $recipient): void {
+                        $q = $pdo->prepare('INSERT INTO certidao_notification_deliveries(notification_date,user_id,sent_at) VALUES (?,?,?)');
+                        $q->execute([$dates->today(),$recipient['id'],gmdate('Y-m-d H:i:s')]);
+                    });
+                    $result['sent']++;
+                } catch (Throwable $exception) {
+                    $result['failed']++;
+                    TechnicalLogger::error('certidao_notification_failed', ['exception'=>$exception::class]);
+                }
+            }
+            return $result;
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
         }
-        return $result;
     }
 }

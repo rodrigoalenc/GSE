@@ -24,6 +24,10 @@ checkHttp($created['status']===302 && is_array($record),'Cadastro HTTP recebe PD
 $certId=(int)$record['id']; $privateKey=$record['pdf_privado'];
 $matrix=request('GET',$baseUrl.'/certidao',$cookieEmployee);
 checkHttp($matrix['status']===200 && str_contains($matrix['body'],'cert-matrix') && str_contains($matrix['body'],'Fornecedor HTTP Certidão'),'Matriz tem tipos e fornecedores');
+checkHttp(str_contains($matrix['body'],'Somente pendências') && str_contains($matrix['body'],'cert-fullscreen') && str_contains($matrix['body'],'Emissão') && str_contains($matrix['body'],'cert-deadline'),'Matriz apresenta filtros, tela cheia, emissão e prazo');
+$pendingMatrix=request('GET',$baseUrl.'/certidao?pendencias=1&validade=vigente',$cookieEmployee);
+checkHttp($pendingMatrix['status']===200 && str_contains($pendingMatrix['body'],'Somente pendências ativado') && str_contains($pendingMatrix['body'],'filtros preenchidos'),'Filtros combinados e totais explícitos');
+checkHttp(request('GET',$baseUrl.'/certidao?documentos[1][bad]=1',$cookieEmployee)['status']===200,'Paginação rejeita estrutura inesperada sem erro interno');
 $details=request('GET',$baseUrl.'/certidao/detalhes/'.$certId,$cookieEmployee);
 checkHttp($details['status']===200 && str_contains($details['body'],'&lt;script&gt;'),'Detalhes escapam observações');
 $pdf=request('GET',$baseUrl.'/certidao/pdf/'.$certId,$cookieEmployee);
@@ -50,6 +54,23 @@ checkHttp((int)$certDb->query('SELECT arquivado FROM certidoes WHERE id='.$newId
 request('POST',$baseUrl.'/certidao/excluir/'.$newId,$cookieEmployee,['_csrf_token'=>$certToken,'revisao'=>'2','confirmar'=>'1']);
 checkHttp($certDb->query('SELECT excluido_em FROM certidoes WHERE id='.$newId)->fetchColumn()!==null,'Funcionário exclui logicamente');
 checkHttp(request('GET',$baseUrl.'/certidao/excluidas',$cookieEmployee)['status']===200 && request('GET',$baseUrl.'/certidao/pdf/'.$newId,$cookieEmployee)['status']===200,'Exclusão preserva consulta e documento');
+// Two authenticated users loaded revision 1; administrator then deactivates it.
+$configEmployee=request('GET',$baseUrl.'/certidao/configurar',$cookieEmployee);
+$configAdmin=request('GET',$baseUrl.'/certidao/configurar',$cookieAdmin);
+checkHttp(str_contains($configEmployee['body'],'name="revisao" value="1"'),'Formulário envia revisão de fornecedor/tipo');
+foreach (['fornecedor'=>['lista_fornecedores',$supplier],'tipo'=>['lista_tipos_certidao',$type]] as $kind=>[$table,$optionId]) {
+    $adminEdit=['_csrf_token'=>csrf($configAdmin['body']),'tipo'=>$kind,'id'=>(string)$optionId,'nome'=>'Nome atual '.$kind,'ativo'=>'0','revisao'=>'1'];
+    request('POST',$baseUrl.'/certidao/configurar',$cookieAdmin,$adminEdit);
+    $staleEdit=array_replace($adminEdit,['_csrf_token'=>csrf($configEmployee['body']),'nome'=>'<Rascunho antigo> '.$kind,'ativo'=>'1']);
+    request('POST',$baseUrl.'/certidao/configurar',$cookieEmployee,$staleEdit);
+    $option=$certDb->query('SELECT * FROM '.$table.' WHERE id='.$optionId)->fetch();
+    checkHttp($option['ativo']===0 && $option['nome']==='Nome atual '.$kind && $option['revisao']===2,'Formulário antigo não sobrescreve nem reativa '.$kind);
+    $recovery=request('GET',$baseUrl.'/certidao/configurar',$cookieEmployee);
+    checkHttp(str_contains($recovery['body'],'alterado por outra pessoa') && str_contains($recovery['body'],'&lt;Rascunho antigo&gt;') && str_contains($recovery['body'],'name="revisao" value="2"'),'Conflito mostra mensagem, rascunho escapado e revisão atual de '.$kind);
+    $reviewed=array_replace($staleEdit,['nome'=>'Revisado '.$kind,'ativo'=>'0','revisao'=>'2']);
+    request('POST',$baseUrl.'/certidao/configurar',$cookieEmployee,$reviewed);
+    checkHttp((int)$certDb->query('SELECT revisao FROM '.$table.' WHERE id='.$optionId)->fetchColumn()===3,'Edição recuperada pode ser salva após revisão de '.$kind);
+}
 $employeeId=(int)$certDb->query("SELECT id FROM usuarios WHERE tipo='funcionario' AND ativo=1 LIMIT 1")->fetchColumn();
 $certDb->exec('UPDATE usuarios SET deve_alterar_senha=1 WHERE id='.$employeeId);
 $blocked=request('GET',$baseUrl.'/certidao/pdf/'.$newId,$cookieEmployee);

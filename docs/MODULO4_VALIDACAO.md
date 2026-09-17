@@ -1,5 +1,66 @@
 # Módulo 4 — evidências de validação
 
+## Revisão de 17/09/2026
+
+Repositório local `rodrigoalenc/GSE`, branch `Modulo4`, HEAD inicial `6773381`. A árvore estava limpa, sem commits locais posteriores ao considerado pela revisão. Não havia `AGENTS.md` aplicável no repositório ou diretórios pais consultados. Foram lidos README, política de segurança, documentação do módulo, scripts Composer/CI e código/testes atuais. Alterações entregues na árvore de trabalho, sem push, merge ou deploy.
+
+### Correções e evidências
+
+- **SMTP sem transação longa:** lock exclusivo no arquivo lateral do banco, transação curta para registrar tentativa, SMTP sem transação, transação curta para confirmação. Testes fazem INSERT por outra conexão durante transporte simulado e disputam o lock, verificam falha parcial/reexecução, término de processo e recuperação, e aceite simulado seguido de falha de confirmação que efetivamente duplica na retentativa. Não é entrega exatamente uma vez. Timeouts explícitos de 15 s para conexão/leitura e 30 s por comando SMTP, sem alegar limite global do lote.
+- **Edição concorrente:** v14 adiciona revisão às duas listas e tabela de tentativas. Dois editores em conexões diferentes não sobrescrevem nem reativam registros com revisão antiga/ausente. A falha de auditoria reverte também a revisão. HTTP cobre dois usuários, mensagem em português, rascunho escapado e salvamento após comparação com revisão atual.
+- **Migração:** testes v13→v14 com fornecedor inativo, IDs, sequência, entregas prévias e tipo legado preservados; aplicação repetida e rollback de DDL/versão por falha induzida. Instalação limpa e migrações antigas continuam convergindo. Nenhum banco institucional foi migrado.
+- **Matriz:** 5 fornecedores por página, até 10 documentos por coluna e navegação documental independente (máximo 50 cartões); filtros combinados, totais e limites são exercitados. Pendências incluem vencidas, vencem hoje, a vencer, vencimento inválido e referência de PDF ausente, respeitando o estado selecionado. Cartões trazem emissão, vencimento e prazo civil; tela cheia tem saída por botão/Esc e estado/foco acessíveis no código.
+- **Regras preservadas:** funcionário mantém as operações UC005; a renovação arquiva apenas a selecionada e preserva PDF/histórico. Exclusão lógica e arquivo continuam distintos, vencidas continuam correntes, downloads são privados/autenticados e rotas mantêm CSRF. Suítes dos módulos anteriores continuam presentes.
+
+### Referência acadêmica e inspeção visual
+
+Foi lido `Documentação/Documentação GSE.pdf`, 34 páginas, SHA-256 `523acefd883acbf91363e0e4b0ed051b5e59d502c5a25f09c4e24458f5f9faf8`. A página 29 foi renderizada com Poppler e inspecionada; não houve alteração do PDF. Não foi encontrado o arquivo separado chamado TCC_2 e não se presume equivalência entre versões.
+
+| Referência | Observação no PDF local/original | Tratamento nesta revisão |
+|---|---|---|
+| Figura 16 | Matriz com tipos nas linhas, fornecedores nas colunas, cartões de datas/prazo, ações e identidade azul | Orientação preservada; emissão/prazo, pendências e tela cheia acrescentados; paginação limitada por fornecedor/documentos |
+| Figura 17 | Formulário com fornecedor, tipo, emissão, vencimento, PDF e observação | Campos e formulário atuais preservados, com validação no servidor e PDF privado |
+| Figura 18 | Configuração em duas listas, fornecedores e tipos | Duas listas preservadas, com revisão oculta e recuperação explícita do conflito |
+
+Também foi consultado [ProjetoGSE](https://github.com/rodrigoraa/ProjetoGSE), com inspeção do código da cópia local no commit `f0bb641b2d1a074bddd598e52f3e733872d230db`. A comparação relaciona as imagens de referência ao código atual; **não é uma comparação entre screenshots de duas aplicações renderizadas**.
+
+Navegador: seleção para URL local retornou `No browser is available`; após consultar o diagnóstico da habilidade de navegador, a descoberta retornou `[]`. Assim, **não foram realizados testes visuais desktop/celular nem geradas screenshots da aplicação**. Evidência local da referência: `.local-qa/academic-29.png` (ignorado, reproduzível renderizando p. 29 do PDF versionado). Sintaxe JavaScript foi verificada com `node --check public/assets/js/app.js`. HTTP/HTML e revisão de CSS não comprovam responsividade, foco ou funcionamento real de fullscreen.
+
+### Execuções da revisão
+
+Ambiente: Windows, PHP 8.4.13, PHPUnit 12.5.33, `PHP_INI_SCAN_DIR=E:\Projetos\GSE\.local-qa`, com `intl` e `fileinfo` habilitados localmente. Sem alteração do `php.ini` global ou e-mail real.
+
+A primeira execução completa chegou a 178 testes e encontrou falha no novo auxiliar de encerramento de processo por ausência do autoload do PHPUnit. O auxiliar foi corrigido; esse resultado intermediário não constitui aprovação.
+
+| Comando/verificação | Resultado final observado |
+|---|---|
+| `composer validate-project` (via `composer check`) | Composer válido em modo estrito |
+| `composer lint` (via `composer check`) | 121 arquivos PHP com sintaxe válida |
+| `composer analyse` (via `composer check`) | PHPStan nível 6 sem erros |
+| `composer test` (via `composer check`) | **178 testes, 1.267 asserções, sem falhas/erros, 1 ignorado** |
+| `composer http-test` (via `composer check`) | **156 verificações aprovadas** |
+| `php vendor/phpunit/phpunit/phpunit --filter CertidaoNotificationTest` | **5 testes, 32 asserções aprovadas**, após reforçar o teste com dois processos simultâneos e gravação enquanto o filho simula SMTP |
+| `composer audit --locked` | Nenhum aviso de vulnerabilidade encontrado na consulta autorizada ao Packagist |
+| `node --check public/assets/js/app.js` | Sintaxe JavaScript válida |
+| `git diff --check` | Sem erros de whitespace |
+| Diff e SHA-256 do PDF acadêmico | Nenhuma alteração; hash acima mantido |
+
+`composer check` executou todas as etapas funcionais, mas encerrou com código 100 na auditoria por bloqueio de rede do sandbox. Apenas a etapa de auditoria foi repetida com acesso de rede autorizado e cache em `.local-qa/composer-cache`, concluindo com código 0. Portanto, não se registra uma execução única de `composer check` com código 0. O reforço final do teste de notificação foi validado pela execução focal acima; não houve mudança no código de produção após a suíte completa.
+
+O teste ignorado continua sendo `SqliteProtectionTest::testLinuxDatabaseAndSidecarsReceiveRestrictivePermissions` (modos POSIX, indisponíveis no Windows). CI Linux/PHP 8.3 não foi disparado. Logs locais ignorados pelo Git: `.local-qa/revisao-check.log` (execução intermediária) e `.local-qa/revisao-check-final.log` (suíte funcional aprovada, erro de rede na auditoria). A auditoria autorizada e o teste focal retornaram seus resultados diretamente no terminal da sessão.
+
+### Pendências de homologação e operação
+
+1. SMTP institucional real: TLS, autenticação, aceitação, comportamento dos timeouts e entrega; definir tratamento operacional da possível duplicação após aceite sem confirmação.
+2. Agendador/cron: conta de serviço, fuso, execução diária, retentativas no mesmo dia e monitoramento de ausência/falha. Homologar `flock` no filesystem local Windows/Linux; manter arquivo de lock estável e todos os escritores na versão nova. NFS/SMB e coordenação entre hosts não foram implementados.
+3. Migração v14 e arquivos legados: ensaio em cópia institucional, backup consistente de SQLite + PDFs, restore e inventário. Foram usados apenas dados sintéticos.
+4. Navegador desktop/celular: testar 1440×900 e 390×844, filtros combinados, rolagem sem estourar a página, colunas extensas, navegação independente, Tab/Shift+Tab/Enter/Esc, foco e saída de fullscreen, conflitos e downloads autenticados. Validar com leitor de tela e navegador móvel suportado.
+5. Aceite acadêmico: confirmar a versão TCC_2 e interpretação da exclusão lógica. A comparação com o PDF disponível e testes aprovados não estabelecem conformidade integral.
+
+## Registro histórico da implementação de 16/09/2026
+
+Os resultados e limitações a seguir pertencem à entrega anterior; as evidências da revisão acima atualizam a disponibilidade do PDF e a arquitetura de notificações.
+
 Execução local em 16/09/2026, Windows, PHP 8.4.13 e PHPUnit 12.5.33. Base `61930860554535af1915622b8eb273a155917c72`; branch `Modulo4`. Todos os bancos, PDFs e usuários de teste são sintéticos e temporários. Nenhum e-mail real foi enviado.
 
 Commit da implementação: `7e3c47a` — `feat(modulo4): implementa certidoes e fornecedores com PDFs privados e auditoria`. A documentação de entrega está em commit local subsequente. Nenhum commit foi enviado ao remoto.

@@ -4,11 +4,11 @@ Implementado sobre `61930860554535af1915622b8eb273a155917c72` (Modulo3), continu
 
 ## Fontes e limites da conclusão
 
-A especificação de execução é `Prompt_Codex_Modulo4_GSE.md`, fornecida pelo usuário. O arquivo `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` não estava disponível pelo caminho/anexo indicado. As referências acadêmicas abaixo correspondem **às transcrições do prompt**, não a uma leitura ou autenticação do PDF. O PDF versionado `Documentação/Documentação GSE.pdf` não foi tratado como o mesmo documento. Nenhum TCC foi alterado.
+A implementação inicial usou as transcrições de `Prompt_Codex_Modulo4_GSE.md`. Na revisão de 17/09/2026, o PDF versionado `Documentação/Documentação GSE.pdf` (34 páginas) foi lido; a página 29 foi renderizada e as Figuras 16–18 foram inspecionadas. Também foram conferidos RF005–RF007 (p. 15) e UC005 (p. 22). Não foi encontrado um arquivo separado `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf`, portanto não se afirma que sejam a mesma versão. Nenhum documento acadêmico foi alterado.
 
 Referência de implementação: [ProjetoGSE no commit consultado](https://github.com/rodrigoraa/ProjetoGSE/tree/f0bb641b2d1a074bddd598e52f3e733872d230db), especialmente controller, model, quatro formulários/consultas, matriz, CSS, script de PDF, cron e teste de certidões. A organização foi adaptada à arquitetura atual: azul `#16508f`, sidebar, resumo superior, ações rápidas, filtros, tipos nas linhas, fornecedores nas colunas e múltiplos cartões por célula. Não foram transplantados exclusão física, destinatários genéricos, acesso público ou código inline do legado.
 
-**Não há declaração de conformidade acadêmica integral.** A exclusão lógica depende de validação acadêmica; comparação com as Figuras 16–18 do PDF integral e homologação visual desktop/celular continuam pendentes. O runtime de navegador respondeu `No browser is available`; a lista de navegadores estava vazia. Não foram produzidas screenshots nem alegada homologação por meio dos testes HTTP.
+**Não há declaração de conformidade acadêmica integral.** A exclusão lógica depende de validação acadêmica, assim como a correspondência com a versão TCC_2 indicada. A comparação estrutural com as figuras do PDF local foi feita; a homologação da interface renderizada desktop/celular continua pendente. Na revisão, o navegador voltou a responder `No browser is available` e a descoberta retornou `[]`. Não foram produzidas screenshots da aplicação nem alegada homologação visual por meio dos testes HTTP.
 
 ## Rastreabilidade
 
@@ -25,12 +25,12 @@ Referência de implementação: [ProjetoGSE no commit consultado](https://github
 | RF006, p. 15 | Exigência | `CertidaoNotificationService`, relatório diário para administradores ativos com e-mail válido | Transporte falso: conteúdo, falha parcial, repetição e concorrência | Código testado; SMTP/agendamento dependem da implantação |
 | RF007 | Exigência | Auditoria obrigatória na mesma transação; autor, recurso, resultado e UTC | Rollback de cadastro/renovação/edição/arquivo/exclusão/configuração | Implementado |
 | NF001–NF005 | Exigência | MVC PHP/JS/SQLite, Bootstrap local, CSS externo, sessão e senha existentes | PHPStan, lint, HTTP e testes anteriores | Implementado; visual responsivo pendente |
-| Figuras 16–18, p. 29 | Referência visual | Matriz, cadastro e configuração | Organização do código original consultada | Comparação com PDF e screenshots pendentes |
+| Figuras 16–18, p. 29 do PDF local | Referência visual | Matriz, cadastro e configuração | Página renderizada e código original consultados | Comparação estrutural realizada; navegador indisponível |
 | 15 dias de aviso | Decisão de implementação | `CERTIDAO_WARNING_DAYS`, regra compartilhada | Fronteiras de datas e fuso | Testado; não é prazo imposto pelo TCC |
 | Configuração por funcionário | Decisão de implementação | Fornecedores/tipos acessíveis a funcionário e administrador | HTTP e autorização de domínio | Implementado conforme orientação do prompt |
 | Exclusão e inativação conservadoras | Decisão de implementação | Nenhum DELETE de documentos/opções, referências preservadas | Histórico após inativação e exclusão | Implementado |
 | PDFs privados, 10 MiB, validação e compensação | Melhoria técnica | `CertidaoStorage` | MIME, assinatura, nomes, tamanho, origem HTTP e corrupção | Testado nos cenários documentados |
-| Migração preservadora | Melhoria técnica | Migração v13 aditiva, backup validado e diagnóstico CLI | Migração/convergência/rollback/integridade | Testado com dados sintéticos |
+| Migração preservadora | Melhoria técnica | Migrações v13 e v14 aditivas, backup validado e diagnóstico CLI | Migração/convergência/rollback/integridade | Testado com dados sintéticos |
 
 Contratos, compras, estoque, pedidos e relatórios gerais do Módulo 5 estão fora desta entrega. A abstração de DVA e suas preferências de e-mail foram preservadas.
 
@@ -46,13 +46,19 @@ Contratos, compras, estoque, pedidos e relatórios gerais do Módulo 5 estão fo
 
 O `Router` aplica autenticação e CSRF a todas as rotas. Conta inativa, expiração de sessão e troca obrigatória de senha usam a infraestrutura existente, inclusive no PDF. Não há rota de restauração/desarquivamento ou purga. Cada mudança usa POST e confirmação quando altera o ciclo de vida; formulários seguem PRG. `revisao` rejeita atualização ou renovação baseada em dados antigos.
 
-Matriz: até 25 documentos por página, no máximo 25 fornecedores e 25 tipos presentes nesse conjunto. A interface informa total filtrado, documentos e fornecedores da página e páginas seguintes. Vários documentos na mesma célula são permitidos; documentos do mesmo fornecedor podem continuar em outras páginas. O resumo superior é global, apenas de correntes, independentemente dos filtros. Ano em branco ou `todos` inclui todos os anos. Vencimento não arquiva automaticamente.
+Matriz: até **5 fornecedores por página e 10 documentos por fornecedor**, no máximo 50 cartões por resposta. Cada coluna tem total e navegação própria; mudar a página documental de um fornecedor preserva a seleção documental das demais colunas. Os tipos continuam nas linhas. Uma transação somente de leitura mantém totais e itens no mesmo snapshot e termina antes da renderização. Células vazias dizem “Sem documento nesta página”, sem afirmar inexistência no acervo. Filtros redefinem as páginas; links de paginação preservam os filtros. O resumo superior é global, apenas de correntes. Ano em branco ou `todos` inclui todos os anos. Vencimento não arquiva automaticamente.
+
+“Somente pendências” combina com os demais filtros e inclui vencidas, vencem hoje, a vencer no limite inclusivo configurado, data de vencimento inválida ou referência de PDF privado ausente. Não determina tipos obrigatórios faltantes, não verifica arquivo físico/hash e não corresponde exatamente ao relatório SMTP (que cobre vencimentos válidos de correntes). A definição e o limite de data aparecem junto ao filtro. Cartões mostram emissão, vencimento, prazo em dias e ações autenticadas de PDF/renovação. Tela cheia usa a API do navegador, com botão de saída, Esc, estado acessível e retorno do foco; recusa ou ausência da API exibe mensagem sem impedir a consulta. Filtros e paginação funcionam sem JavaScript.
+
+Fornecedores/tipos enviam `revisao` oculta. A atualização usa `WHERE id=? AND revisao=?`, incrementa a revisão e grava auditoria na mesma transação curta; revisão ausente ou antiga não altera o cadastro. O conflito conserva um rascunho escapado do nome/situação pretendidos na sessão. O usuário compara com o cadastro atual e aplica sua edição ao formulário atualizado; não há substituição automática da revisão nem reativação silenciosa. O rascunho permanece até salvar uma configuração.
 
 Nomes são comparados em NFC, com espaços normalizados e caixa Unicode. A grafia de exibição é preservada em NFC. Nomes equivalentes já existentes não são mesclados; o inventário os identifica e o cadastro rejeita nova duplicidade. Para resolver uma colisão legada, revisar e renomear explicitamente um registro; os IDs e vínculos permanecem. Uma opção inativa não pode ser usada em novo documento ou renovação, mas pode permanecer na correção de um documento já vinculado.
 
-## Migração v13 e banco
+## Migrações v13/v14 e banco
 
 `DatabaseInitializer` mantém as migrações 1–12 e acrescenta v13. Em instalação antiga sem tabelas de certidões, v13 também cria as tabelas legadas vazias antes da extensão. A instalação limpa aplica as mesmas migrações e converge na estrutura final.
+
+A revisão acrescenta a próxima migração, **v14**, sem reescrever v13: adiciona `revisao INTEGER NOT NULL DEFAULT 1 CHECK (revisao >= 1)` às duas listas e cria `certidao_notification_attempts` (data civil, usuário, quantidade e horário da última tentativa). IDs, nomes, situação inativa, vínculos, auditoria e entregas já confirmadas são preservados. O inicializador continua fazendo backup validado antes de migrar instalações existentes; DDL, versão e verificações de integridade são transacionais. Estado esperado: `PRAGMA user_version=14`, versões 1–14 em `schema_migrations`. Aplicar em cópia institucional e validar restauração antes de migrar produção; nenhum banco real foi migrado nesta revisão. Código antigo não deve continuar escrevendo listas após a atualização, pois não participa da validação de revisão.
 
 - Listas: `ativo`, `atualizado_por`, `atualizado_em`.
 - Certidões: `anterior_id`, `excluido_em`, autoria/horários, `revisao`, `pdf_privado`, `pdf_nome`, `pdf_bytes`, `pdf_sha256`.
@@ -122,7 +128,11 @@ O backup deve ser um diretório novo, privado e absoluto. O comando valida admin
 
 Todos os administradores ativos com e-mail válido recebem o relatório, independentemente de `recebe_alertas_dva`. Inclui correntes vencidas, que vencem hoje e até o limite inclusivo de `CERTIDAO_WARNING_DAYS` (padrão 15). Datas civis usam `APP_TIMEZONE`; interface, filtros e mensagens usam `CertidaoStatus`. Não inclui PDFs nem observações. Sem pendências não envia mensagem vazia. Com pendências e nenhum destinatário válido retorna falha/código 2.
 
-Cada envio mantém uma reserva de escrita SQLite até o transporte ter sucesso e o registro diário ser confirmado. Trabalhadores concorrentes não enviam a mesma entrega confirmada; falhas podem ser retentadas. Isso pode bloquear outras escritas durante o timeout SMTP, devendo ser agendado fora do pico e monitorado. Se o SMTP aceitar e o processo cair antes do COMMIT, uma repetição pode duplicar a mensagem; não se promete entrega exatamente uma vez.
+O processo adquire `flock(LOCK_EX | LOCK_NB)` em `<arquivo SQLite>.certidao-notify.lock`, separado dos locks do banco. O caminho vem do banco efetivamente aberto (`PRAGMA database_list`). Todos os trabalhadores desta instalação local usam o mesmo arquivo; um concorrente sai sem enviar enquanto o proprietário opera. **Não apagar/substituir o arquivo de lock durante operação.** O sistema operacional libera o lock quando o processo termina; não há lease que expire durante SMTP nem recuperação manual de um “enviando” permanente. Exige filesystem local e locks confiáveis no Windows/Linux, acesso pela conta do serviço e proteção do diretório do banco; não é coordenação para NFS/SMB/múltiplos hosts ou aliases por hard links.
+
+Uma transação curta verifica entrega diária/destinatário ativo e registra a tentativa. O SMTP roda **fora de qualquer transação**. Outra transação curta confirma `certidao_notification_deliveries`. A chave continua sendo data civil + ID do destinatário: entregas confirmadas são ignoradas, falhas parciais só repetem as não confirmadas. Tentativas sem entrega correspondente permitem diagnosticar e retomar falhas; não contêm corpo ou credenciais. O CLI distingue envios, ignorados (entrega anterior, destinatário alterado ou trabalhador ativo) e falhas. Retentar no mesmo dia pelo agendador; a data seguinte produz um novo relatório diário.
+
+O transporte compartilhado define `PHPMailer::Timeout=15` segundos e `SMTP::Timelimit=30` segundos. São limites de conexão/leitura e comando, **não um prazo global de 30 segundos para todo o relatório**; várias etapas/destinatários podem somar mais tempo. Esses limites também se aplicam ao transporte usado por DVA, sem alterar destinatários ou opt-in. **Se o SMTP aceitar e a confirmação local falhar ou o processo cair, uma repetição pode duplicar a mensagem; não se promete entrega exatamente uma vez.** Esse cenário é testado explicitamente.
 
 Linux, exemplo diário às 07:00 no fuso do servidor:
 
@@ -134,7 +144,7 @@ Windows, Agendador de Tarefas: gatilho diário às 07:00; programa `C:\Windows\p
 
 ## Verificação e demonstração
 
-Resultados da entrega: consultar [MODULO4_VALIDACAO.md](MODULO4_VALIDACAO.md). Testes antigos que fixavam v12 foram atualizados para v13; a quantidade de rotas passa de 48 para 63. O teste legado de certidão, que aceitava data inválida, sobrescrita documental e exclusão física, foi substituído por testes do contrato novo. Não foram adicionados baseline ou exclusões de análise estática.
+Resultados da entrega e revisão: consultar [MODULO4_VALIDACAO.md](MODULO4_VALIDACAO.md). Expectativas de versão final passaram para v14; continuam 63 rotas. Os testes dos módulos anteriores foram preservados, atualizando apenas expectativas de versão final do schema. Não foram adicionados baseline ou exclusões de análise estática.
 
 Para demonstrar em banco **novo e sintético** no PowerShell, sem reutilizar `.env` de produção (a leitura de `.env` tem precedência no projeto):
 

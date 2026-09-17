@@ -11,7 +11,7 @@ O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticaçã
 
 ## Módulo 4 — instalação e operação
 
-Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MODULO4_CERTIDOES.md) e [resultados de validação](docs/MODULO4_VALIDACAO.md). A migração atual é **v13**, aplicada pelo inicializador com backup validado antes de atualizar banco existente. A homologação visual desktop/celular e a interpretação acadêmica da exclusão lógica continuam pendentes; não se declara conformidade integral com o TCC.
+Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MODULO4_CERTIDOES.md) e [resultados de validação](docs/MODULO4_VALIDACAO.md). A migração atual é **v14**, aplicada pelo inicializador com backup validado antes de atualizar banco existente. Ela protege a revisão de fornecedores/tipos e registra tentativas de notificação. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. A homologação visual desktop/celular e a interpretação acadêmica da exclusão lógica continuam pendentes; não se declara conformidade integral com o TCC.
 
 - Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
 - PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
@@ -276,7 +276,7 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões individuais de 1 a 12. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renova??o e exclus?o l?gica das certid?es e controle di?rio de entregas.
+`schema_migrations` controla versões individuais de 1 a 14. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação.
 
 | Versão | Alteração |
 |---|---|
@@ -288,6 +288,9 @@ O banco permanece fora de `public/`; em produção essa regra é validada e uma 
 | 9 | idempotência de notificações e triggers de integridade |
 | 10 | chaves de nomes em NFC/minúsculas, busca Unicode e unicidade de turmas por nome normalizado/ano |
 | 11 | reconstrução transacional de `turmas` e `alunos`, `nome_normalizado NOT NULL` e guards equivalentes de INSERT/UPDATE |
+| 12 | Arquivo Passivo, preservação de legado e exclusão lógica |
+| 13 | Certidões, PDFs privados, autoria, histórico e entregas diárias |
+| 14 | Revisão de fornecedores/tipos e tentativas de notificação |
 
 Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
 
@@ -347,7 +350,7 @@ Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado r
 
 ## Módulo 3 — Arquivo Passivo
 
-Os Módulos 1, 2 e 3 estão implementados. Os Módulos 4 e 5 continuam fora do escopo funcional. O banco atual usa `PRAGMA user_version=12`; `schema_migrations` deve conter exatamente as versões 1 a 12.
+O Arquivo Passivo corresponde à entrega original do Módulo 3 na v12. Nesta branch, os Módulos 1–4 estão implementados e o banco atual usa `PRAGMA user_version=14`, com versões 1–14 em `schema_migrations`. O Módulo 5 permanece fora do escopo.
 
 O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação como lógica e o preenchimento posterior do número ainda exigem validação acadêmica. Veja a [matriz de requisitos e evidências da revisão](docs/MODULO3_REVISAO_TCC.md).
 
@@ -358,7 +361,7 @@ A migração v12 cria backup SQLite validado antes de escrever, executa `BEGIN I
 Homologue a v12 em uma cópia com a mesma versão de PHP, SQLite e `ext-intl`. Valide o backup em `database/backups`, compare contagens/IDs/sequências, confirme a ausência de `alunos_passivo_v12` e execute:
 
 ```sql
-PRAGMA user_version;       -- 13 nesta branch (12 na entrega original do M?dulo 3)
+PRAGMA user_version;       -- 14 nesta branch (12 na entrega original do Módulo 3)
 PRAGMA foreign_key_check;  -- nenhuma linha
 PRAGMA integrity_check;    -- ok
 ```
@@ -420,8 +423,8 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 - disponibilidade distribuída exigiria rate limiting e sessões em armazenamento compartilhado;
 - alterações futuras do logo ou da identidade institucional dependem de aprovação da escola;
 - notificações dependem de um SMTP institucional configurado e de agendamento externo;
-- certidões, fornecedores, contratos, estoque, pedidos e relatórios gerais continuam fora do escopo funcional como Módulos 4 e 5.
+- contratos, estoque, pedidos e relatórios gerais continuam fora do escopo funcional como Módulo 5.
 
-O dashboard combina indicadores do Módulo 1 com dados operacionais limitados do Módulo 2. Não antecipa indicadores dos Módulos 3, 4 ou 5.
+O dashboard inclui os indicadores e atalhos implementados pelos Módulos 1–4; não antecipa as funcionalidades do Módulo 5.
 
 Antes de implantar, conclua [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) e leia [SECURITY.md](SECURITY.md).

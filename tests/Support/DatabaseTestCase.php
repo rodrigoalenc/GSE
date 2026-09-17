@@ -28,7 +28,7 @@ abstract class DatabaseTestCase extends TestCase
             @unlink($this->databaseFile);
         }
 
-        foreach ([$this->databaseFile . '-wal', $this->databaseFile . '-shm'] as $sqliteSidecar) {
+        foreach ([$this->databaseFile . '-wal', $this->databaseFile . '-shm', $this->databaseFile . '.certidao-notify.lock'] as $sqliteSidecar) {
             if ($sqliteSidecar !== '' && is_file($sqliteSidecar)) {
                 @unlink($sqliteSidecar);
             }

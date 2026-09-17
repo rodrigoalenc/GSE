@@ -67,6 +67,9 @@ final class PhpMailerTransport implements MailTransport
 
         $mail = new PHPMailer(true);
         $mail->isSMTP();
+        // Explicit connection/read and SMTP command limits, in seconds.
+        $mail->Timeout = 15;
+        $mail->getSMTPInstance()->Timelimit = 30;
         $mail->Host = $this->config['host'];
         $mail->Port = $this->config['port'];
         $mail->SMTPAuth = $this->config['username'] !== '';
