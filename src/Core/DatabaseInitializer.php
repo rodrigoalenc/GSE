@@ -12,7 +12,7 @@ require_once __DIR__ . '/TextNormalizer.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 12;
+    private const LATEST_VERSION = 13;
 
     public static function initialize(PDO $pdo): void
     {
@@ -123,6 +123,7 @@ final class DatabaseInitializer
             10 => self::normalizeModuleTwoNames($pdo),
             11 => self::enforceNormalizedNameSchema($pdo),
             12 => self::migratePassiveArchive($pdo),
+            13 => self::migrateCertificates($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
     }
@@ -142,6 +143,50 @@ final class DatabaseInitializer
         $pdo->exec('UPDATE usuarios SET session_version = 1 WHERE session_version IS NULL OR session_version < 1');
         $pdo->exec('UPDATE usuarios SET deve_alterar_senha = 0 WHERE deve_alterar_senha IS NULL OR deve_alterar_senha NOT IN (0, 1)');
         $pdo->exec("UPDATE usuarios SET atualizado_em = COALESCE(atualizado_em, criado_em, CURRENT_TIMESTAMP)");
+    }
+
+    private static function migrateCertificates(PDO $pdo): void
+    {
+        // Early module installations may not contain the legacy certificate tables yet.
+        $pdo->exec('CREATE TABLE IF NOT EXISTS lista_fornecedores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL UNIQUE)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS lista_tipos_certidao (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL UNIQUE)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS certidoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, id_fornecedor INTEGER NOT NULL,
+            id_tipo_certidao INTEGER NOT NULL, data_emissao TEXT NOT NULL,
+            data_vencimento TEXT NOT NULL, observacao TEXT NULL, arquivo_pdf TEXT NULL,
+            arquivado INTEGER DEFAULT 0, status INTEGER DEFAULT 1,
+            FOREIGN KEY(id_fornecedor) REFERENCES lista_fornecedores(id),
+            FOREIGN KEY(id_tipo_certidao) REFERENCES lista_tipos_certidao(id)
+        )');
+        foreach (['lista_fornecedores', 'lista_tipos_certidao'] as $table) {
+            self::addColumnIfMissing($pdo, $table, 'ativo', 'INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0,1))');
+            self::addColumnIfMissing($pdo, $table, 'atualizado_por', 'INTEGER REFERENCES usuarios(id)');
+            self::addColumnIfMissing($pdo, $table, 'atualizado_em', 'TEXT');
+        }
+        foreach ([
+            'anterior_id' => 'INTEGER REFERENCES certidoes(id)',
+            'excluido_em' => 'TEXT',
+            'criado_por' => 'INTEGER REFERENCES usuarios(id)',
+            'atualizado_por' => 'INTEGER REFERENCES usuarios(id)',
+            'criado_em' => 'TEXT',
+            'atualizado_em' => 'TEXT',
+            'pdf_privado' => 'TEXT',
+            'pdf_nome' => 'TEXT',
+            'pdf_bytes' => 'INTEGER',
+            'pdf_sha256' => 'TEXT',
+            'revisao' => 'INTEGER NOT NULL DEFAULT 1',
+        ] as $column => $definition) {
+            self::addColumnIfMissing($pdo, 'certidoes', $column, $definition);
+        }
+        $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS ux_certidoes_anterior ON certidoes(anterior_id) WHERE anterior_id IS NOT NULL');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_certidoes_matriz ON certidoes(excluido_em, arquivado, status, id_fornecedor, id_tipo_certidao, data_vencimento)');
+        $pdo->exec("CREATE TABLE IF NOT EXISTS certidao_notification_deliveries (
+            notification_date TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES usuarios(id),
+            sent_at TEXT NOT NULL, PRIMARY KEY(notification_date, user_id)
+        )");
+        if (self::foreignKeyViolations($pdo) !== [] || $pdo->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
+            throw new RuntimeException('Migração v13 interrompida: integridade ou referências inválidas.');
+        }
     }
 
     private static function ensureCaseInsensitiveEmailUniqueness(PDO $pdo): void

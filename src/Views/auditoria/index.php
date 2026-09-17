@@ -23,6 +23,9 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
             <label for="resource_type">Tipo de recurso</label>
             <select id="resource_type" name="resource_type">
                 <option value="">Todos</option>
+                <?php foreach (['certidao'=>'Certidão','fornecedor'=>'Fornecedor','tipo'=>'Tipo de certidão'] as $key=>$label): ?>
+                    <option value="<?= e($key) ?>" <?= $filters['resource_type'] === $key ? 'selected' : '' ?>><?= e($label) ?></option>
+                <?php endforeach; ?>
                 <option value="student" <?= $filters['resource_type'] === 'student' ? 'selected' : '' ?>>Aluno</option>
                 <option value="dva" <?= $filters['resource_type'] === 'dva' ? 'selected' : '' ?>>DVA</option>
                 <option value="class" <?= $filters['resource_type'] === 'class' ? 'selected' : '' ?>>Turma</option>

@@ -9,6 +9,7 @@ $passwordActive = str_starts_with($currentPath, 'senha/alterar');
 $passiveActive = str_starts_with($currentPath, 'passivo') || str_starts_with($currentPath, 'aluno/arquivar');
 $studentsActive = str_starts_with($currentPath, 'aluno') && !$passiveActive;
 $dvaActive = $currentPath === 'dva';
+$certActive = str_starts_with($currentPath, 'certidao');
 $classesActive = str_starts_with($currentPath, 'turma');
 $mustChangePassword = (bool) ($_SESSION['must_change_password'] ?? false);
 $flashClass = [
@@ -27,6 +28,9 @@ $flashClass = [
     <link rel="icon" type="image/png" href="<?= e(url('assets/image/logo_escola.png')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/painel.css')) ?>">
+    <?php if ($certActive): ?>
+        <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css')) ?>">
+    <?php endif; ?>
     <?php if ($usersActive || $auditActive || $passwordActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/usuarios.css')) ?>">
     <?php endif; ?>
@@ -49,6 +53,9 @@ $flashClass = [
 
         <nav>
             <?php if (!$mustChangePassword): ?>
+                <a href="<?= e(url('certidao')) ?>" class="sidebar-link <?= $certActive ? 'active' : '' ?>" <?= $certActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#128203;</span><span class="sidebar-label">Certidões e Fornecedores</span>
+                </a>
                 <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#8962;</span>
                     <span class="sidebar-label">Painel Geral</span>

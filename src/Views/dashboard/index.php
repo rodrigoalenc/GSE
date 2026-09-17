@@ -18,6 +18,13 @@
     </div>
 </section>
 
+<section class="relatorio">
+    <div class="section-head"><div><h2>Certidões e fornecedores</h2><p>Documentos correntes, incluindo vencidos.</p></div><a class="btn-secondary" href="<?= e(url('certidao')) ?>">Abrir matriz</a></div>
+    <div class="security-metrics">
+        <?php foreach ($certidoes as $key => $count): ?><a href="<?= e(url('certidao?validade=' . $key)) ?>"><strong><?= (int)$count ?></strong> <?= e(CertidaoStatus::LABELS[$key]) ?></a><?php endforeach; ?>
+    </div>
+</section>
+
 <section class="dashboard-grid">
     <article class="relatorio birthday-panel" aria-labelledby="birthday-title">
         <div class="section-head"><div><h2 id="birthday-title">Aniversariantes</h2><p>Datas importantes do mês.</p></div></div>

@@ -246,6 +246,8 @@ $baseEnvironment = array_merge(getenv(), [
     'APP_URL' => '',
     'APP_ALLOWED_HOSTS' => '',
     'DB_PATH' => $database,
+    'CERTIDAO_STORAGE_PATH' => $tempRoot . DIRECTORY_SEPARATOR . 'certidoes',
+    'CERTIDAO_MAIL_ENABLED' => 'false',
     'LOG_PATH' => $tempRoot . DIRECTORY_SEPARATOR . 'technical.log',
     'FORCE_HTTPS' => 'false',
     'TRUSTED_PROXIES' => '',
@@ -772,6 +774,7 @@ try {
         && str_contains($audit['body'], 'passive.import_completed'),
         'Auditoria administrativa inclui recursos do Módulo 2'
     );
+    require __DIR__ . '/http-certidoes.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');
     $adminDashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);

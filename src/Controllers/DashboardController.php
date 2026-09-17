@@ -18,9 +18,11 @@ final class DashboardController extends Controller
         $statusService = new DvaStatus();
         $painel = new Painel();
         $alunos = new Aluno();
+        require_once ROOT_PATH . '/src/Model/Certidao.php';
 
         $this->view('dashboard/index', [
             'title' => 'Painel de Controle',
+            'certidoes' => (new Certidao())->summary(),
             'usuario' => $usuario,
             'estatisticas' => $estatisticas,
             'moduloDois' => $painel->resumo($statusService),

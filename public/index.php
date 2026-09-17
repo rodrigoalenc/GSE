@@ -64,6 +64,11 @@ define('BASE_URL', RequestContext::baseUrl());
 
 if (PHP_SAPI === 'cli-server') {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '';
+    $decodedStaticPath = str_replace('\\', '/', rawurldecode($path));
+    if (preg_match('#^/uploads/certidoes(?:/|$)#i', $decodedStaticPath) === 1
+        || str_contains($decodedStaticPath, '..')) {
+        render_http_error(404, 'Documento indisponível', 'Utilize o acesso autenticado às certidões.');
+    }
     $staticFile = realpath(__DIR__ . $path);
     $publicRoot = realpath(__DIR__);
 
