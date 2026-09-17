@@ -69,7 +69,7 @@
 ## Módulo 3 — Arquivo Passivo
 
 - [ ] Artefato executado com PHP 8.3, SQLite e `ext-intl` equivalentes à homologação.
-- [ ] `PRAGMA user_version=12` e `schema_migrations` contêm 1 a 12 sem lacunas.
+- [ ] `PRAGMA user_version=13` e `schema_migrations` contêm 1 a 13 sem lacunas (v12 foi a entrega original do Módulo 3).
 - [ ] Backup `pre-migration` existe fora de `public`, abre em SQLite e retorna `integrity_check=ok`.
 - [ ] Contagens, IDs, nomes, datas, números, caixas, relacionamentos e `sqlite_sequence` foram comparados antes/depois.
 - [ ] Registros legados sem caixa aparecem com `localizacao_pendente=1`; nenhuma caixa foi inventada.
@@ -83,3 +83,20 @@
 - [ ] TXT usa `nosniff`, `no-store`, nome seguro e conteúdo `Número - Nome`.
 - [ ] Desktop, celular, foco visível, menu, cards, tabela responsiva e mensagens foram homologados conforme `MODULO3_VALIDACAO_MANUAL.md`.
 - [ ] Auditoria inclui `passive.created`, `passive.updated`, `passive.deactivated`, `passive.reactivated`, `passive.student_archived`, importação, enumeração, exportação e bloqueios.
+
+## Módulo 4 — Certidões e Fornecedores
+
+- [ ] Ler [MODULO4_CERTIDOES.md](MODULO4_CERTIDOES.md), confrontar as transcrições com o PDF integral e validar academicamente a exclusão lógica.
+- [ ] Homologar desktop/celular, foco, teclado, rolagem da matriz e registrar screenshots; etapa pendente nesta entrega.
+- [ ] Habilitar `fileinfo` e `intl` no PHP CLI e servidor; alinhar limites HTTP/PHP/PDF.
+- [ ] Definir diretório privado absoluto, ACL/permissões e capacidade de disco; verificar que nenhum alias do servidor publica o armazenamento.
+- [ ] Bloquear `/uploads/certidoes/` e todos os diretórios legados equivalentes antes de abrir o serviço.
+- [ ] Fazer backup consistente de SQLite e PDFs, validar hashes e ensaiar restauração conjunta offline.
+- [ ] Executar inventário cadastral/arquivos; revisar datas inválidas, flags ambíguas, nomes equivalentes e documentos ausentes, sem apagar registros.
+- [ ] Simular e revisar a migração CLI; aplicar apenas offline com backup novo, administrador ativo e originais preservados.
+- [ ] Conferir auditoria de fornecedor/tipo/certidão e acesso aos PDFs por funcionário/admin/visitante.
+- [ ] Confirmar `CERTIDAO_WARNING_DAYS`, `APP_TIMEZONE` e e-mails dos administradores ativos.
+- [ ] Homologar SMTP e habilitar `MAIL_ENABLED`/`CERTIDAO_MAIL_ENABLED` em produção; registrar tarefa diária e monitoramento dos códigos de falha.
+- [ ] Manter agendamento DVA independente; não transportar sua preferência individual para os destinatários de certidões.
+- [ ] Programar SMTP fora do pico: o envio mantém reserva de escrita SQLite; documentar possível duplicação após queda entre aceite SMTP e COMMIT.
+- [ ] Reexecutar testes no ambiente de implantação; nenhum banco/PDF real foi utilizado nos testes desta entrega.

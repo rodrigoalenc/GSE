@@ -1,4 +1,4 @@
-# GSE — Módulos 1, 2 e 3
+# GSE — Módulos 1 a 4
 
 Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 
@@ -7,7 +7,19 @@ Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 - UC001 — cadastrar, consultar, editar e inativar alunos, turmas e DVAs;
 - RF006 — alertas consolidados de DVA por e-mail, quando habilitados.
 
-O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA) e 3 (Arquivo Passivo) estão publicados. Certidões, fornecedores, contratos, estoque, pedidos e relatórios gerais permanecem fora do escopo como Módulos 4 e 5; seus Models e tabelas preservados não representam funcionalidades publicadas.
+O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA) e 3 (Arquivo Passivo) são preservados. A branch `Modulo4` acrescenta Certidões e Fornecedores (UC005): matriz, configurações, PDFs privados, renovação com histórico, arquivamento, exclusão lógica auditada e relatório diário aos administradores. Contratos, estoque, pedidos e relatórios gerais continuam reservados ao Módulo 5.
+
+## Módulo 4 — instalação e operação
+
+Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MODULO4_CERTIDOES.md) e [resultados de validação](docs/MODULO4_VALIDACAO.md). A migração atual é **v13**, aplicada pelo inicializador com backup validado antes de atualizar banco existente. A homologação visual desktop/celular e a interpretação acadêmica da exclusão lógica continuam pendentes; não se declara conformidade integral com o TCC.
+
+- Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
+- PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
+- Avisos: `CERTIDAO_WARNING_DAYS=15`; `php bin/notify-certidoes.php` só envia em produção com `MAIL_ENABLED=true` e `CERTIDAO_MAIL_ENABLED=true`, após configurar SMTP e agendamento. Não depende do opt-in de DVA.
+- Inventário conservador: `php bin/certidoes-maintenance.php`. Migração de arquivos legados: `php bin/migrate-certidao-pdfs.php --source=CAMINHO_ABSOLUTO` simula, sem mover/apagar originais.
+- Backup operacional cobre **SQLite e PDFs**. Bloqueie os diretórios públicos legados no servidor antes da implantação.
+
+As seções históricas de validação dos Módulos 1–3 abaixo descrevem suas entregas; os resultados atuais constam no documento do Módulo 4.
 
 ## Arquitetura de segurança
 
@@ -264,7 +276,7 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões individuais de 1 a 12. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados.
+`schema_migrations` controla versões individuais de 1 a 12. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renova??o e exclus?o l?gica das certid?es e controle di?rio de entregas.
 
 | Versão | Alteração |
 |---|---|
@@ -346,7 +358,7 @@ A migração v12 cria backup SQLite validado antes de escrever, executa `BEGIN I
 Homologue a v12 em uma cópia com a mesma versão de PHP, SQLite e `ext-intl`. Valide o backup em `database/backups`, compare contagens/IDs/sequências, confirme a ausência de `alunos_passivo_v12` e execute:
 
 ```sql
-PRAGMA user_version;       -- 12
+PRAGMA user_version;       -- 13 nesta branch (12 na entrega original do M?dulo 3)
 PRAGMA foreign_key_check;  -- nenhuma linha
 PRAGMA integrity_check;    -- ok
 ```
