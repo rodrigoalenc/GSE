@@ -1,0 +1,13 @@
+.relatorio details{border:1px solid #d5e0ec;border-radius:8px;padding:.75rem 1rem;margin:.75rem 0;background:#f7fbff}
+.relatorio details summary{cursor:pointer;color:#155185;font-weight:700}
+.relatorio details form{display:flex;flex-wrap:wrap;align-items:end;gap:.75rem;margin-top:1rem}
+.relatorio details form label{display:flex;flex-direction:column;gap:.3rem;min-width:9rem;flex:1;font-weight:600;color:#244560}
+.relatorio details input,.relatorio details select{border:1px solid #adbecf;border-radius:6px;padding:.55rem;max-width:100%;background:#fff}
+.relatorio details input:focus,.relatorio details select:focus,.relatorio details summary:focus-visible{outline:3px solid #72a9d6;outline-offset:2px}
+.relatorio .table-scroll{overflow-x:auto;max-width:100%}
+.relatorio .table{min-width:720px}
+.relatorio .table td{vertical-align:top}
+.relatorio form>label:has(input[type=checkbox]){display:inline-flex;align-items:center;gap:.5rem;min-width:auto}
+.relatorio .warning-message{padding:1rem;border-left:4px solid #d59a1d;background:#fff6dc}
+@media(max-width:700px){.relatorio details form{display:block}.relatorio details form label{margin:.5rem 0}.relatorio details form button{margin:.5rem 0}}
+@media print{.sidebar,.relatorio form,.relatorio nav,.relatorio button,.relatorio details,.relatorio .section-head a{display:none!important}.main-content-wrapper{margin:0!important}.relatorio{box-shadow:none!important;border:0!important}}

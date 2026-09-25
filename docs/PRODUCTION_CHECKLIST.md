@@ -1,4 +1,14 @@
-# Checklist de Produção — GSE Módulos 1, 2 e 3
+# Checklist de Produção — GSE Módulos 1 a 5
+
+## Módulo 5 — bloqueios antes da implantação
+
+- [ ] TCC original conferido literalmente contra a matriz em `docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md`.
+- [ ] Migração v15 ensaiada em cópia da v14 com todos os escritores parados; IDs, valores `REAL` de origem, quantidades, folhas e sequências conferidos, `foreign_key_check` vazio e `integrity_check=ok`.
+- [ ] Backup e restauração conjunta de SQLite, PDFs privados e código anterior ensaiados; nenhum saldo físico foi inferido de quantidade contratual legada.
+- [ ] Valores e quantidades legados pendentes conciliados por administrador contra documentos, com trilha de auditoria; divergências não foram ajustadas automaticamente.
+- [ ] Teste de duas saídas concorrentes e carga máxima de exportação concluídos no ambiente candidato.
+- [ ] Telas de contratos, estoque e relatórios homologadas visualmente em desktop e celular; PDF com várias páginas e CSV aberto no Excel conferidos.
+- [ ] Dependências instaladas do `composer.lock` revisado e `composer audit --locked` sem avisos no dia da implantação.
 
 ## Plataforma
 

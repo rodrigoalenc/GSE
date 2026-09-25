@@ -7,6 +7,8 @@ parameters:
         - src/Services
         - src/Model/Passivo.php
         - src/Model/Certidao.php
+        - src/Model/Contrato.php
+        - src/Model/RelatorioAlunos.php
         - src/Model/Aluno.php
         - src/Model/Auditoria.php
         - src/Model/Dva.php

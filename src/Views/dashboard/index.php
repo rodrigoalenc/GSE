@@ -18,6 +18,8 @@
     </div>
 </section>
 
+<section class="relatorio"><div class="section-head"><div><h2>Contratos e estoque</h2><p>Contagens de contratos ativos e seus produtos; alertas incluem saldo igual ao mínimo.</p></div><a href="<?= e(url('estoque')) ?>">Abrir estoque</a></div><div class="security-metrics"><a href="<?= e(url('contrato')) ?>"><strong><?= (int)$moduleFive['contratos'] ?></strong> contratos ativos</a><a href="<?= e(url('estoque')) ?>"><strong><?= (int)$moduleFive['produtos'] ?></strong> produtos ativos</a><a href="<?= e(url('estoque')) ?>"><strong><?= (int)$moduleFive['alertas'] ?></strong> alertas de estoque</a></div></section>
+
 <section class="relatorio">
     <div class="section-head"><div><h2>Certidões e fornecedores</h2><p>Documentos correntes, incluindo vencidos.</p></div><a class="btn-secondary" href="<?= e(url('certidao')) ?>">Abrir matriz</a></div>
     <div class="security-metrics">

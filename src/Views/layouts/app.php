@@ -10,6 +10,9 @@ $passiveActive = str_starts_with($currentPath, 'passivo') || str_starts_with($cu
 $studentsActive = str_starts_with($currentPath, 'aluno') && !$passiveActive;
 $dvaActive = $currentPath === 'dva';
 $certActive = str_starts_with($currentPath, 'certidao');
+$contractActive = str_starts_with($currentPath, 'contrato');
+$stockActive = str_starts_with($currentPath, 'estoque');
+$reportActive = str_starts_with($currentPath, 'relatorio');
 $classesActive = str_starts_with($currentPath, 'turma');
 $mustChangePassword = (bool) ($_SESSION['must_change_password'] ?? false);
 $flashClass = [
@@ -28,6 +31,7 @@ $flashClass = [
     <link rel="icon" type="image/png" href="<?= e(url('assets/image/logo_escola.png')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/painel.css')) ?>">
+    <?php if ($contractActive || $stockActive || $reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/modulo5.css')) ?>"><?php endif; ?>
     <?php if ($certActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css')) ?>">
     <?php endif; ?>
@@ -56,6 +60,9 @@ $flashClass = [
                 <a href="<?= e(url('certidao')) ?>" class="sidebar-link <?= $certActive ? 'active' : '' ?>" <?= $certActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#128203;</span><span class="sidebar-label">Certidões e Fornecedores</span>
                 </a>
+                <a href="<?= e(url('contrato')) ?>" class="sidebar-link <?= $contractActive ? 'active' : '' ?>" <?= $contractActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128230;</span><span class="sidebar-label">Contratos e Estoque</span></a>
+                <a href="<?= e(url('estoque')) ?>" class="sidebar-link <?= $stockActive ? 'active' : '' ?>" <?= $stockActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#9635;</span><span class="sidebar-label">Estoque</span></a>
+                <a href="<?= e(url('relatorio')) ?>" class="sidebar-link <?= $reportActive ? 'active' : '' ?>" <?= $reportActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128202;</span><span class="sidebar-label">Relatórios</span></a>
                 <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#8962;</span>
                     <span class="sidebar-label">Painel Geral</span>

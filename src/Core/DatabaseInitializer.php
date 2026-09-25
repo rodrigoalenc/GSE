@@ -12,7 +12,7 @@ require_once __DIR__ . '/TextNormalizer.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 14;
+    private const LATEST_VERSION = 15;
 
     public static function initialize(PDO $pdo): void
     {
@@ -125,6 +125,7 @@ final class DatabaseInitializer
             12 => self::migratePassiveArchive($pdo),
             13 => self::migrateCertificates($pdo),
             14 => self::migrateCertificateConcurrency($pdo),
+            15 => self::migrateContractsAndStock($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
     }
@@ -141,6 +142,55 @@ final class DatabaseInitializer
         )');
         if (self::foreignKeyViolations($pdo) !== [] || $pdo->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
             throw new RuntimeException('Migração v14 interrompida: integridade ou referências inválidas.');
+        }
+    }
+
+    private static function migrateContractsAndStock(PDO $pdo): void
+    {
+        $pdo->exec('CREATE TABLE IF NOT EXISTS pedidos (id INTEGER PRIMARY KEY AUTOINCREMENT, titulo TEXT NOT NULL, valor_total REAL NOT NULL DEFAULT 0, qtd_paginas INTEGER NOT NULL DEFAULT 1, criado_em TEXT DEFAULT CURRENT_TIMESTAMP)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS pedido_paginas (id INTEGER PRIMARY KEY AUTOINCREMENT, id_pedido INTEGER NOT NULL REFERENCES pedidos(id), numero_pagina INTEGER NOT NULL, valor_pagina REAL NOT NULL DEFAULT 0, observacao TEXT, data_faturamento TEXT, UNIQUE(id_pedido,numero_pagina))');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS pedido_produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, id_pedido INTEGER NOT NULL REFERENCES pedidos(id), numero_pagina INTEGER NOT NULL, nome_produto TEXT NOT NULL, marca TEXT, unidade TEXT NOT NULL, quantidade REAL NOT NULL, valor_unitario REAL NOT NULL, valor_total REAL NOT NULL)');
+        foreach (['id_fornecedor' => 'INTEGER REFERENCES lista_fornecedores(id)',
+                  'valor_centavos' => 'INTEGER', 'revisao' => 'INTEGER NOT NULL DEFAULT 1',
+                  'excluido_em' => 'TEXT', 'excluido_por' => 'INTEGER REFERENCES usuarios(id)'] as $name => $definition) {
+            self::addColumnIfMissing($pdo, 'pedidos', $name, $definition);
+        }
+        foreach (['valor_centavos' => 'INTEGER', 'revisao' => 'INTEGER NOT NULL DEFAULT 1',
+                  'excluido_em' => 'TEXT', 'excluido_por' => 'INTEGER REFERENCES usuarios(id)'] as $name => $definition) {
+            self::addColumnIfMissing($pdo, 'pedido_paginas', $name, $definition);
+        }
+        foreach (['preco_centavos' => 'INTEGER', 'total_centavos' => 'INTEGER',
+                  'quantidade_contratada' => 'INTEGER', 'estoque_minimo' => 'INTEGER',
+                  'estoque_maximo' => 'INTEGER', 'estoque_inicializado' => 'INTEGER NOT NULL DEFAULT 0',
+                  'revisao' => 'INTEGER NOT NULL DEFAULT 1', 'excluido_em' => 'TEXT',
+                  'excluido_por' => 'INTEGER REFERENCES usuarios(id)'] as $name => $definition) {
+            self::addColumnIfMissing($pdo, 'pedido_produtos', $name, $definition);
+        }
+        $pdo->exec("CREATE TABLE IF NOT EXISTS estoque_movimentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produto_id INTEGER NOT NULL REFERENCES pedido_produtos(id) ON DELETE RESTRICT,
+            tipo TEXT NOT NULL CHECK(tipo IN ('abertura','entrada','saida','estorno')),
+            quantidade INTEGER NOT NULL CHECK(quantidade <> 0),
+            motivo TEXT NOT NULL,
+            usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+            criado_em TEXT NOT NULL,
+            idempotencia TEXT NOT NULL UNIQUE,
+            movimento_original_id INTEGER UNIQUE REFERENCES estoque_movimentos(id)
+        )");
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_estoque_produto ON estoque_movimentos(produto_id,id)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS modulo5_operacoes (idempotencia TEXT PRIMARY KEY, tipo TEXT NOT NULL, recurso_id INTEGER NOT NULL, usuario_id INTEGER NOT NULL REFERENCES usuarios(id), criado_em TEXT NOT NULL)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_pedidos_ativos ON pedidos(excluido_em,id)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS modulo5_valores_legados (
+            tabela TEXT NOT NULL CHECK(tabela IN (\'pedidos\',\'pedido_paginas\',\'pedido_produtos\')),
+            registro_id INTEGER NOT NULL, campo TEXT NOT NULL, valor_original TEXT,
+            PRIMARY KEY(tabela,registro_id,campo)
+        )');
+        $pdo->exec("INSERT OR IGNORE INTO modulo5_valores_legados SELECT 'pedidos',id,'valor_total',CAST(valor_total AS TEXT) FROM pedidos");
+        $pdo->exec("INSERT OR IGNORE INTO modulo5_valores_legados SELECT 'pedido_paginas',id,'valor_pagina',CAST(valor_pagina AS TEXT) FROM pedido_paginas");
+        $pdo->exec("INSERT OR IGNORE INTO modulo5_valores_legados SELECT 'pedido_produtos',id,'valor_unitario',CAST(valor_unitario AS TEXT) FROM pedido_produtos");
+        $pdo->exec("INSERT OR IGNORE INTO modulo5_valores_legados SELECT 'pedido_produtos',id,'valor_total',CAST(valor_total AS TEXT) FROM pedido_produtos");
+        if (self::foreignKeyViolations($pdo) !== [] || $pdo->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
+            throw new RuntimeException('Migração v15 interrompida: integridade ou referências inválidas.');
         }
     }
 

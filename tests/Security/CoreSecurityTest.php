@@ -34,7 +34,7 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(63, $routes);
+        $this->assertCount(83, $routes);
         $this->assertSame(['id' => '42'], $match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/42'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/excluirTudo'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/../1'));
@@ -53,6 +53,18 @@ final class CoreSecurityTest extends TestCase
         ));
         $this->assertTrue($passiveStatus[0]['admin']);
         $this->assertSame('POST', $passiveStatus[0]['method']);
+
+        foreach (['contrato','estoque','relatorio','relatorio/csv','relatorio/pdf','contrato/imprimir/{id}'] as $path) {
+            $found = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === $path && $route['method'] === 'GET'));
+            $this->assertCount(1, $found);
+            $this->assertTrue($found[0]['auth']);
+        }
+        foreach (['contrato/conciliar/{id}' => true, 'contrato/movimentar/{id}' => false, 'contrato/excluir/{id}' => false] as $path => $adminOnly) {
+            $found = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === $path && $route['method'] === 'POST'));
+            $this->assertCount(1, $found);
+            $this->assertTrue($found[0]['auth']);
+            $this->assertSame($adminOnly, $found[0]['admin']);
+        }
 
         foreach ($routes as $route) {
             $this->assertContains($route['method'], ['GET', 'POST']);

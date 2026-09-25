@@ -1,0 +1,4 @@
+<section class="relatorio"><p><a href="<?= e(url('contrato')) ?>">Contratos</a></p><p>Movimentos confirmados permanecem no histórico. Saídas e estornos aparecem com quantidade negativa.</p>
+<div class="table-scroll"><table class="table"><thead><tr><th>ID</th><th>Data UTC</th><th>Tipo</th><th>Quantidade</th><th>Motivo</th><th>Usuário</th><th>Original</th></tr></thead><tbody>
+<?php foreach ($movements as $move): ?><tr><td><?= (int)$move['id'] ?></td><td><?= e($move['criado_em']) ?></td><td><?= e($move['tipo']) ?></td><td><?= (int)$move['quantidade'] ?></td><td><?= e($move['motivo']) ?></td><td><?= e($move['usuario']) ?></td><td><?= e($move['movimento_original_id'] ?? '') ?></td></tr><?php endforeach; ?>
+</tbody></table></div><?php if ($movements===[]): ?><p>Nenhum movimento registrado.</p><?php endif; ?><button type="button" data-print-page class="btn btn-secondary">Imprimir histórico</button></section>

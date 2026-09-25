@@ -19,10 +19,17 @@ final class DashboardController extends Controller
         $painel = new Painel();
         $alunos = new Aluno();
         require_once ROOT_PATH . '/src/Model/Certidao.php';
+        $pdo = Model::getConexao();
+        $moduleFive = [
+            'contratos' => (int)$pdo->query('SELECT COUNT(*) FROM pedidos WHERE excluido_em IS NULL')->fetchColumn(),
+            'produtos' => (int)$pdo->query('SELECT COUNT(*) FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido WHERE p.excluido_em IS NULL AND i.excluido_em IS NULL')->fetchColumn(),
+            'alertas' => (int)$pdo->query('SELECT COUNT(*) FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido WHERE p.excluido_em IS NULL AND i.excluido_em IS NULL AND i.estoque_inicializado=1 AND COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0)<=i.estoque_minimo')->fetchColumn(),
+        ];
 
         $this->view('dashboard/index', [
             'title' => 'Painel de Controle',
             'certidoes' => (new Certidao())->summary(),
+            'moduleFive' => $moduleFive,
             'usuario' => $usuario,
             'estatisticas' => $estatisticas,
             'moduloDois' => $painel->resumo($statusService),

@@ -10,7 +10,11 @@ O mantenedor deve confirmar o recebimento, avaliar severidade e coordenar corre�
 
 ## Escopo suportado
 
-O código desta branch abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA —, 3 — Arquivo Passivo — e 4 — Certidões e Fornecedores. Models e tabelas preservados para o Módulo 5 não representam funcionalidades publicadas. Isso não constitui homologação ou publicação em produção.
+O código desta branch abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA —, 3 — Arquivo Passivo —, 4 — Certidões e Fornecedores — e os fluxos do Módulo 5 descritos em [docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md](docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md). Isso não constitui homologação ou publicação em produção.
+
+### Contratos, estoque e relatórios (Módulo 5)
+
+Rotas novas exigem sessão autenticada; estornos, conciliação legada e correção de faturamento exigem administrador. POST usa CSRF, transação e auditoria obrigatória. Movimentos são imutáveis, saldo é derivado do histórico, e a exclusão lógica não elimina registros. O PDF de relatórios usa Dompdf via Composer com rede e PHP executável desabilitados e HTML escapado; CSV neutraliza fórmulas. Ambos os downloads usam `private, no-store`. Confira as pendências de concorrência, acervo real e validação visual em [docs/MODULO5_VALIDACAO.md](docs/MODULO5_VALIDACAO.md).
 
 ### Certidões e Fornecedores (Módulo 4)
 

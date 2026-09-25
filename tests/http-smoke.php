@@ -338,6 +338,25 @@ try {
         'Dashboard integra os Módulos 1 e 2'
     );
 
+    foreach (['contrato','estoque','relatorio','relatorio/csv','relatorio/pdf'] as $moduleFivePath) {
+        $guest = request('GET', $baseUrl . '/' . $moduleFivePath, $cookieGuest);
+        checkHttp($guest['status'] === 302 && str_contains($guest['headers']['location'] ?? '', '/login'), 'Visitante bloqueado em ' . $moduleFivePath);
+    }
+    $contractForm = request('GET', $baseUrl . '/contrato/criar', $cookieAdmin);
+    checkHttp($contractForm['status'] === 200, 'Formulário de contrato autenticado');
+    $contractCreated = request('POST', $baseUrl . '/contrato/criar', $cookieAdmin, [
+        '_csrf_token' => csrf($contractForm['body']), 'titulo' => 'Contrato HTTP', 'valor' => '100,00', 'fornecedor' => '',
+    ]);
+    preg_match('#/contrato/detalhes/([0-9]+)#', $contractCreated['headers']['location'] ?? '', $contractMatch);
+    checkHttp($contractCreated['status'] === 302 && isset($contractMatch[1]), 'Cadastro HTTP de contrato');
+    $contractId = (int)$contractMatch[1];
+    $contractDetails = request('GET', $baseUrl . '/contrato/detalhes/' . $contractId, $cookieAdmin);
+    checkHttp($contractDetails['status'] === 200 && str_contains($contractDetails['body'], 'Contrato HTTP'), 'Detalhes HTTP de contrato');
+    $reportPdf = request('GET', $baseUrl . '/relatorio/pdf', $cookieAdmin);
+    checkHttp($reportPdf['status'] === 200 && str_starts_with($reportPdf['body'], '%PDF-'), 'PDF de relatório válido');
+    $reportCsv = request('GET', $baseUrl . '/relatorio/csv', $cookieAdmin);
+    checkHttp($reportCsv['status'] === 200 && str_starts_with($reportCsv['body'], "\xEF\xBB\xBF"), 'CSV de relatório com BOM UTF-8');
+
     $createPage = request('GET', $baseUrl . '/usuario/criar', $cookieAdmin);
     $employeeTemporaryPassword = 'Inicial funcionário HTTP 2026';
     $createdUser = request('POST', $baseUrl . '/usuario/criar', $cookieAdmin, [

@@ -25,7 +25,7 @@ final class CertidaoMigrationTest extends DatabaseTestCase
         DatabaseInitializer::initialize($pdo); DatabaseInitializer::initialize($pdo);
         $this->assertSame($before,$pdo->query('SELECT id,id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,arquivo_pdf,arquivado,status FROM certidoes')->fetchAll());
         $this->assertSame(90,(int)$pdo->query("SELECT seq FROM sqlite_sequence WHERE name='certidoes'")->fetchColumn());
-        $this->assertSame(14,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(15,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([],$pdo->query('PRAGMA foreign_key_check')->fetchAll()); $this->assertSame('ok',$pdo->query('PRAGMA integrity_check')->fetchColumn());
         foreach (['certidoes','lista_fornecedores','lista_tipos_certidao','certidao_notification_deliveries'] as $table) { $this->assertSame($this->pdo->query('PRAGMA table_info('.$table.')')->fetchAll(),$pdo->query('PRAGMA table_info('.$table.')')->fetchAll()); }
     }
@@ -61,7 +61,7 @@ final class CertidaoMigrationTest extends DatabaseTestCase
         $this->assertSame($before[0],$supplier);
         $this->assertSame(1,(int)$pdo->query('SELECT revisao FROM lista_tipos_certidao WHERE id=8')->fetchColumn());
         $this->assertSame($delivered,$pdo->query('SELECT * FROM certidao_notification_deliveries')->fetchAll());
-        $this->assertSame(14,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(15,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(40,(int)$pdo->query("SELECT seq FROM sqlite_sequence WHERE name='lista_fornecedores'")->fetchColumn());
         $this->assertSame([],$pdo->query('PRAGMA foreign_key_check')->fetchAll());
         $this->assertSame('ok',$pdo->query('PRAGMA integrity_check')->fetchColumn());

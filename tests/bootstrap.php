@@ -47,6 +47,8 @@ require_once ROOT_PATH . '/src/Services/DvaNotificationService.php';
 require_once ROOT_PATH . '/src/Services/PassivoCsvService.php';
 require_once ROOT_PATH . '/src/Model/Painel.php';
 require_once ROOT_PATH . '/src/Model/Pedido.php';
+require_once ROOT_PATH . '/src/Model/Contrato.php';
+require_once ROOT_PATH . '/src/Model/RelatorioAlunos.php';
 require_once ROOT_PATH . '/src/Model/Certidao.php';
 require_once ROOT_PATH . '/src/Model/Passivo.php';
 require_once ROOT_PATH . '/src/Model/Relatorio.php';
