@@ -2,7 +2,7 @@
 
 ## Fontes e alcance
 
-Esta implementação parte da branch `Modulo5` em `f413a59fed7bac6af22a4cdcfb1e0d9f9f557518`. O original `rodrigoraa/ProjetoGSE` foi consultado no commit `f0bb641b2d1a074bddd598e52f3e733872d230db`, nas telas, modelos, controllers e CSS de contratos e relatórios. O PDF acadêmico `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` não estava disponível no ambiente. A matriz abaixo usa **somente as referências transcritas** no prompt recebido; a conferência literal do PDF, inclusive hash `d459c6cec1bddf7225fdbfe4062ffc4c5f3ff540fff22eb61d2ca6ddd51e1afe`, permanece pendente. O PDF versionado em `Documentação/` é outra edição.
+Esta revisão parte da branch `Modulo5` em `7fb9cd4a5df2b7a18f3a3e5981aebb9e345a6a64`. A árvore pública do [projeto original](https://github.com/rodrigoraa/ProjetoGSE) foi localizada, mas o conteúdo das views e dos CSS no commit `f0bb641b2d1a074bddd598e52f3e733872d230db` não pôde ser aberto ou clonado neste ambiente. A aproximação visual foi feita a partir dos requisitos recebidos e da identidade azul já existente no projeto; comparação visual fiel com o original continua pendente. O PDF acadêmico `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` não foi anexado junto ao texto e não estava disponível no repositório. A matriz abaixo usa **somente as referências transcritas** no pedido; RF007/RF008 (p. impressa 15), requisitos não funcionais (p. 16), UC006/tabela 9/figura 7 (p. 23), UC007/tabela 10/figura 8 (p. 24), tabela 11 (p. 28) e figuras 19, 20 e 22 (p. 29–30) aguardam conferência literal. O PDF versionado em `Documentação/` não foi tratado como equivalente.
 
 | Fonte transcrita | Exigência ou interpretação | Implementação | Evidência | Situação |
 |---|---|---|---|---|
@@ -14,9 +14,29 @@ Esta implementação parte da branch `Modulo5` em `f413a59fed7bac6af22a4cdcfb1e0
 
 O vínculo com fornecedor reutiliza `lista_fornecedores` do Módulo 4, por integração com a entrevista; não é um campo explicitamente listado no UC006. Duplicação de folha, faturamento documental e impressão seguem recursos do original, adaptados ao desenho atual. A exclusão lógica, os limites financeiros e de estoque e as permissões detalhadas abaixo são **decisões técnicas**, não citações do TCC.
 
+### Separação das fontes
+
+- **Exigências expressas do TCC:** apenas as referências de RF, UC, tabela e figuras transcritas no pedido acima podem ser identificadas; o texto do PDF não foi conferido. Não há declaração de conformidade literal.
+- **Comportamentos preservados do original:** fluxo de contratos com fornecedor, notas, itens, faturamento documental, duplicação e impressão, conforme recursos descritos no pedido e na implementação anterior. A aparência exata do original ainda exige comparação com seus arquivos reais.
+- **Decisões técnicas adicionais:** abertura explícita do estoque, revisão administrativa de zero antigo ambíguo, centavos, exclusão lógica, idempotência, auditoria obrigatória, controle de revisão, proteção de downloads e limites de exportação.
+
+### Revisão funcional desta entrega
+
+O cadastro oferece folhas e múltiplos produtos na mesma tela. A prévia calcula itens e saldo contratual; o servidor valida nome, marca, unidade, quantidades, preços, teto do contrato e limites de 20 folhas e 100 produtos. Contrato, notas, produtos e auditoria são gravados na mesma transação. Nenhum item cadastrado produz entrada física de estoque. O endpoint antigo de cadastro simples continua aceito para clientes já integrados.
+
+A lista consulta ativos ou excluídos com busca e paginação, e informa data e responsável da exclusão. Os indicadores ativos cobrem toda a busca, não só a página. Contratos e notas excluídos não entram nos indicadores; o valor soma apenas contratos com valor em centavos já conferido e mostra quantos ainda precisam de conciliação. A página histórica permite ver contrato, notas, produtos, movimentos e impressão sem formulários de alteração.
+
+Salvar limites sem saldo de abertura mantém `estoque_inicializado=0`. A abertura exige saldo explícito, inclusive `0`, chave de operação única, revisão corrente, transação e auditoria; legado exige administrador. Movimentos permanecem bloqueados antes da abertura. Registros antigos com `estoque_inicializado=1`, nenhum movimento e nenhuma operação de abertura registrada são **ambíguos**: podem ser zero legítimo ou a inicialização incorreta da versão anterior. Nenhum deles é redefinido automaticamente. A tela os sinaliza, bloqueia novas movimentações e oferece ao administrador confirmação auditada do zero após conferência documental e contagem física, com motivo. Se o saldo real não for zero, não confirme: registre a ocorrência e faça reconciliação supervisionada antes de movimentar. A operação não inventa movimento nem reescreve saldos.
+
+A unidade do produto fica imutável após o primeiro movimento, mesmo quando o saldo volta a zero. Para usar outra unidade, cadastre outro produto. O histórico mostra contrato, folha, produto, unidade, sinal e tipo do movimento, responsável, motivo, vínculo de estorno e data/hora no fuso configurado. A regra evita atribuir unidade nova a movimentos antigos sem registro próprio de unidade. Movimentos anteriores a esta correção não registravam a unidade em cada linha: se a unidade de um produto já tiver sido alterada no passado, o sistema não consegue reconstruir seu valor antigo e exige conferência documental antes de interpretar esse histórico.
+
+As telas atualizadas usam cabeçalho, métricas, filtros e botões em azul compatíveis com a identidade atual, abas de folhas com navegação por teclado e tabela com rolagem horizontal em telas estreitas. A aproximação visual permanece **não homologada** porque não houve acesso ao conteúdo dos arquivos originais nem navegador funcional. A ausência de JavaScript mantém as folhas visíveis em sequência e o formulário básico utilizável.
+
 ## Dados, valores e migração
 
 A migração v15 amplia `pedidos`, `pedido_paginas` e `pedido_produtos` sem renomear IDs e sem criar um segundo acervo. Ela cria `estoque_movimentos` e `modulo5_valores_legados`. Valores `REAL` legados ficam preservados como texto nesta última tabela. Campos em centavos permanecem nulos até conciliação explícita pelo administrador; nenhuma quantidade antiga vira saldo físico. A tela sinaliza o estado pendente. A conciliação de item exige quantidade inteira e preço confirmado; a de contrato exige itens conciliados e valor suficiente. A operação é auditada. Uma quantidade legada fracionária exige decisão documental antes da conciliação; não há truncamento automático.
+
+Esta revisão não altera o esquema nem exige nova migração: usa a tabela `modulo5_operacoes` já criada pela v15. A v15 trata apenas as tabelas internas `pedidos`, `pedido_paginas` e `pedido_produtos`; ela **não importa automaticamente** `contratos` ou `contrato_folhas` de uma instalação independente do projeto original. Uma importação entre projetos requer mapeamento e validação próprios antes de uso institucional.
 
 Dinheiro novo usa centavos inteiros, sem arredondamento implícito: o formulário aceita até duas casas com vírgula, sem separador de milhar. Quantidades são **inteiras** na unidade cadastrada (`un`, `resma`, `caixa` etc.). Quantidade contratada/distribuída é documental. Saldo físico vem exclusivamente da soma de movimentos. Mínimo é o ponto de reposição inclusivo (`saldo <= mínimo`); máximo é o teto físico permitido. Saldo zero é mostrado separadamente. O valor contratado não muda com saídas de estoque. A alocação nova não pode ultrapassar o valor contratado. Folhas parcialmente preenchidas são permitidas.
 

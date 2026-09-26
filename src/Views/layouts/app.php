@@ -57,16 +57,15 @@ $flashClass = [
 
         <nav>
             <?php if (!$mustChangePassword): ?>
+                <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#8962;</span><span class="sidebar-label">Painel Geral</span>
+                </a>
                 <a href="<?= e(url('certidao')) ?>" class="sidebar-link <?= $certActive ? 'active' : '' ?>" <?= $certActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#128203;</span><span class="sidebar-label">Certidões e Fornecedores</span>
                 </a>
-                <a href="<?= e(url('contrato')) ?>" class="sidebar-link <?= $contractActive ? 'active' : '' ?>" <?= $contractActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128230;</span><span class="sidebar-label">Contratos e Estoque</span></a>
+                <a href="<?= e(url('contrato')) ?>" class="sidebar-link <?= $contractActive ? 'active' : '' ?>" <?= $contractActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128230;</span><span class="sidebar-label">Contratos e Notas</span></a>
                 <a href="<?= e(url('estoque')) ?>" class="sidebar-link <?= $stockActive ? 'active' : '' ?>" <?= $stockActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#9635;</span><span class="sidebar-label">Estoque</span></a>
                 <a href="<?= e(url('relatorio')) ?>" class="sidebar-link <?= $reportActive ? 'active' : '' ?>" <?= $reportActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128202;</span><span class="sidebar-label">Relatórios</span></a>
-                <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#8962;</span>
-                    <span class="sidebar-label">Painel Geral</span>
-                </a>
                 <a href="<?= e(url('aluno')) ?>" class="sidebar-link <?= $studentsActive ? 'active' : '' ?>" <?= $studentsActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#127891;</span>
                     <span class="sidebar-label">Gestão de Alunos</span>

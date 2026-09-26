@@ -32,20 +32,38 @@ final class Contrato extends Model
     }
 
     /** @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int} */
-    public function list(string $search = '', int $page = 1): array
+    public function list(string $search = '', int $page = 1, string $status = 'ativos'): array
     {
+        if (!in_array($status, ['ativos', 'excluidos'], true)) { throw new DomainException('Filtro de contratos inválido.'); }
         $page = max(1, $page);
         $term = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr(trim($search), 0, 100)) . '%';
-        $where = 'WHERE p.excluido_em IS NULL AND p.titulo LIKE ? ESCAPE \'\\\'';
+        $where = 'WHERE p.excluido_em IS ' . ($status === 'ativos' ? 'NULL' : 'NOT NULL') . ' AND p.titulo LIKE ? ESCAPE \'\\\'';
         $count = self::$pdo->prepare('SELECT COUNT(*) FROM pedidos p ' . $where);
         $count->execute([$term]);
         $total = (int) $count->fetchColumn();
         $page = min($page, max(1, (int) ceil($total / 20)));
-        $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor ' . $where . ' ORDER BY p.id DESC LIMIT 20 OFFSET ?');
+        $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor, u.nome AS excluido_por_nome, '
+            . '(SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL) AS notas, '
+            . '(SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL AND pg.data_faturamento IS NOT NULL) AS notas_faturadas '
+            . 'FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor '
+            . 'LEFT JOIN usuarios u ON u.id=p.excluido_por ' . $where . ' ORDER BY p.id DESC LIMIT 20 OFFSET ?');
         $query->bindValue(1, $term);
         $query->bindValue(2, ($page - 1) * 20, PDO::PARAM_INT);
         $query->execute();
         return ['items' => $query->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => max(1, (int) ceil($total / 20))];
+    }
+
+    /** @return array<string,mixed> */
+    public function summary(string $search = ''): array
+    {
+        $term = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr(trim($search), 0, 100)) . '%';
+        $query = self::$pdo->prepare("SELECT COUNT(*) AS contratos, COALESCE(SUM(p.valor_centavos),0) AS valor_centavos,
+            SUM(CASE WHEN p.valor_centavos IS NULL THEN 1 ELSE 0 END) AS valores_pendentes,
+            COALESCE(SUM((SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL)),0) AS notas,
+            COALESCE(SUM((SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL AND pg.data_faturamento IS NOT NULL)),0) AS faturadas
+            FROM pedidos p WHERE p.excluido_em IS NULL AND p.titulo LIKE ? ESCAPE '\\'");
+        $query->execute([$term]);
+        return $query->fetch();
     }
 
     /** @return list<array<string,mixed>> */
@@ -57,7 +75,7 @@ final class Contrato extends Model
     /** @return array<string,mixed> */
     public function find(int $id): array
     {
-        $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor WHERE p.id=?');
+        $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor, u.nome AS excluido_por_nome FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor LEFT JOIN usuarios u ON u.id=p.excluido_por WHERE p.id=?');
         $query->execute([$id]);
         return $query->fetch() ?: throw new DomainException('Contrato não encontrado.');
     }
@@ -73,7 +91,7 @@ final class Contrato extends Model
     /** @return list<array<string,mixed>> */
     public function items(int $contractId): array
     {
-        $query = self::$pdo->prepare("SELECT i.*, COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, EXISTS(SELECT 1 FROM modulo5_valores_legados v WHERE v.tabela='pedido_produtos' AND v.registro_id=i.id) AS legado FROM pedido_produtos i WHERE i.id_pedido=? ORDER BY i.numero_pagina,i.id");
+        $query = self::$pdo->prepare("SELECT i.*, COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, EXISTS(SELECT 1 FROM modulo5_valores_legados v WHERE v.tabela='pedido_produtos' AND v.registro_id=i.id) AS legado, CASE WHEN i.estoque_inicializado=1 AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id) AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id AND o.tipo IN ('abertura_estoque','abertura_zero_conferida')) THEN 1 ELSE 0 END AS abertura_sem_comprovacao FROM pedido_produtos i WHERE i.id_pedido=? ORDER BY i.numero_pagina,i.id");
         $query->execute([$contractId]);
         return $query->fetchAll();
     }
@@ -81,9 +99,17 @@ final class Contrato extends Model
     /** @return list<array<string,mixed>> */
     public function movements(int $itemId): array
     {
-        $query = self::$pdo->prepare('SELECT m.*,u.nome AS usuario FROM estoque_movimentos m JOIN usuarios u ON u.id=m.usuario_id WHERE m.produto_id=? ORDER BY m.id DESC');
+        $query = self::$pdo->prepare('SELECT m.*,u.nome AS usuario,i.nome_produto,i.unidade,i.numero_pagina,p.id AS contrato_id,p.titulo AS contrato_titulo FROM estoque_movimentos m JOIN usuarios u ON u.id=m.usuario_id JOIN pedido_produtos i ON i.id=m.produto_id JOIN pedidos p ON p.id=i.id_pedido WHERE m.produto_id=? ORDER BY m.id DESC');
         $query->execute([$itemId]);
         return $query->fetchAll();
+    }
+
+    /** @return array<string,mixed> */
+    public function itemForHistory(int $itemId): array
+    {
+        $query = self::$pdo->prepare('SELECT i.*,p.titulo AS contrato_titulo FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido WHERE i.id=?');
+        $query->execute([$itemId]);
+        return $query->fetch() ?: throw new DomainException('Produto não encontrado.');
     }
 
     /** @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int} */
@@ -93,7 +119,7 @@ final class Contrato extends Model
         $from=" FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido WHERE p.excluido_em IS NULL AND i.excluido_em IS NULL AND (i.nome_produto LIKE ? ESCAPE '\\' OR p.titulo LIKE ? ESCAPE '\\')";
         $count=self::$pdo->prepare('SELECT COUNT(*)'.$from); $count->execute([$term,$term]); $total=(int)$count->fetchColumn();
         $pages=max(1,(int)ceil($total/20)); $page=max(1,min($page,$pages));
-        $q=self::$pdo->prepare('SELECT i.*,p.titulo,COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo'.$from.' ORDER BY i.id DESC LIMIT 20 OFFSET ?');
+        $q=self::$pdo->prepare("SELECT i.*,p.titulo,COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, CASE WHEN i.estoque_inicializado=1 AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id) AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id AND o.tipo IN ('abertura_estoque','abertura_zero_conferida')) THEN 1 ELSE 0 END AS abertura_sem_comprovacao".$from.' ORDER BY i.id DESC LIMIT 20 OFFSET ?');
         $q->bindValue(1,$term); $q->bindValue(2,$term); $q->bindValue(3,($page-1)*20,PDO::PARAM_INT); $q->execute();
         return ['items'=>$q->fetchAll(),'total'=>$total,'page'=>$page,'pages'=>$pages];
     }
@@ -106,6 +132,64 @@ final class Contrato extends Model
             $query->execute([$title,$cents/100,$cents,1,$supplierId]);
             $id = (int) $pdo->lastInsertId();
             $pdo->prepare('INSERT INTO pedido_paginas(id_pedido,numero_pagina,valor_pagina,valor_centavos,observacao) VALUES(?,1,0,0,\'\')')->execute([$id]);
+            $this->audit($pdo,'created','contrato',$id,$actor);
+            return $id;
+        });
+    }
+
+    /** @param array<mixed> $sheets */
+    public function createDetailed(string $title, string $money, string $supplier, array $sheets, int $actor): int
+    {
+        $title = $this->title($title);
+        $cents = self::cents($money);
+        $supplierId = $this->supplier($supplier, null);
+        if ($sheets === [] || count($sheets) > 20) { throw new DomainException('Informe de 1 a 20 folhas.'); }
+        $validated = [];
+        $allocated = 0;
+        $itemCount = 0;
+        foreach ($sheets as $sheet) {
+            if (!is_array($sheet)) { throw new DomainException('Folha inválida.'); }
+            $note = $sheet['observacao'] ?? '';
+            $products = $sheet['produtos'] ?? [];
+            if (!is_string($note) || mb_strlen($note) > 2000 || !is_array($products)) { throw new DomainException('Dados da folha inválidos.'); }
+            $normalized = [];
+            foreach ($products as $product) {
+                if (!is_array($product)) { throw new DomainException('Produto inválido.'); }
+                foreach (['nome','marca','unidade','quantidade','preco'] as $field) {
+                    if (!is_string($product[$field] ?? null)) { throw new DomainException('Campo de produto inválido: '.$field); }
+                }
+                $name = $this->title($product['nome']);
+                $brand = trim($product['marca']);
+                $unit = trim($product['unidade']);
+                if ($unit === '' || mb_strlen($unit)>30 || mb_strlen($brand)>100 || preg_match('/[\p{C}]/u',$unit.$brand)) {
+                    throw new DomainException('Unidade ou marca inválida.');
+                }
+                $quantity = self::integer($product['quantidade'],1,1000000);
+                $price = self::cents($product['preco']);
+                if ($price > intdiv(PHP_INT_MAX,$quantity)) { throw new DomainException('Total fora do limite.'); }
+                $total = $quantity*$price;
+                if ($allocated > PHP_INT_MAX-$total) { throw new DomainException('Total fora do limite.'); }
+                $allocated += $total;
+                $normalized[] = [$name,$brand,$unit,$quantity,$price,$total];
+                if (++$itemCount > 100) { throw new DomainException('Limite de 100 produtos por contrato.'); }
+            }
+            $validated[] = [trim($note),$normalized];
+        }
+        if ($allocated > $cents) { throw new DomainException('Itens ultrapassam o valor contratado.'); }
+        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($title,$cents,$supplierId,$validated,$actor): int {
+            $pdo->prepare('INSERT INTO pedidos(titulo,valor_total,valor_centavos,qtd_paginas,id_fornecedor) VALUES(?,?,?,?,?)')
+                ->execute([$title,$cents/100,$cents,count($validated),$supplierId]);
+            $id = (int)$pdo->lastInsertId();
+            $insertSheet = $pdo->prepare('INSERT INTO pedido_paginas(id_pedido,numero_pagina,valor_pagina,valor_centavos,observacao) VALUES(?,?,?,?,?)');
+            $insertItem = $pdo->prepare('INSERT INTO pedido_produtos(id_pedido,numero_pagina,nome_produto,marca,unidade,quantidade,valor_unitario,valor_total,quantidade_contratada,preco_centavos,total_centavos) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+            foreach ($validated as $index => [$note,$products]) {
+                $number = $index+1;
+                $sheetTotal = array_sum(array_column($products,5));
+                $insertSheet->execute([$id,$number,$sheetTotal/100,$sheetTotal,$note]);
+                foreach ($products as [$name,$brand,$unit,$quantity,$price,$total]) {
+                    $insertItem->execute([$id,$number,$name,$brand,$unit,$quantity,$price/100,$total/100,$quantity,$price,$total]);
+                }
+            }
             $this->audit($pdo,'created','contrato',$id,$actor);
             return $id;
         });
@@ -226,7 +310,11 @@ final class Contrato extends Model
             if ($price > intdiv(PHP_INT_MAX,$quantity)) { throw new DomainException('Total fora do limite.'); }
             $total=$quantity*$price;
             $this->ensureAllocation($contractId,$total-(int)$old['total_centavos']);
-            if ($unit !== $old['unidade'] && $this->balance($itemId)!==0) { throw new DomainException('Unidade não pode mudar com saldo físico.'); }
+            if ($unit !== $old['unidade']) {
+                $movement = $pdo->prepare('SELECT 1 FROM estoque_movimentos WHERE produto_id=? LIMIT 1');
+                $movement->execute([$itemId]);
+                if ($movement->fetchColumn()) { throw new DomainException('Unidade não pode mudar após movimentações. Cadastre outro produto para usar outra unidade.'); }
+            }
             $q=$pdo->prepare('UPDATE pedido_produtos SET nome_produto=?,marca=?,unidade=?,quantidade=?,valor_unitario=?,valor_total=?,quantidade_contratada=?,preco_centavos=?,total_centavos=?,revisao=revisao+1 WHERE id=? AND revisao=?');
             $q->execute([$name,$brand,$unit,$quantity,$price/100,$total/100,$quantity,$price,$total,$itemId,$revision]);
             if ($q->rowCount()!==1) { throw new DomainException('Produto alterado por outra pessoa.'); }
@@ -275,11 +363,39 @@ final class Contrato extends Model
                 if ($q->fetchColumn()) { throw new DomainException('Abertura de item legado exige administrador.'); }
             }
             if ($opening !== null && ($opening < 0 || $opening > $maximum)) { throw new DomainException('Saldo de abertura inválido.'); }
-            $pdo->prepare('UPDATE pedido_produtos SET estoque_minimo=?,estoque_maximo=?,estoque_inicializado=1,revisao=revisao+1 WHERE id=?')->execute([$minimum,$maximum,$itemId]);
+            if ($opening !== null) {
+                if ($key === null || preg_match('/^[a-f0-9]{32}$/D',$key)!==1) { throw new DomainException('Chave de abertura inválida. Atualize o formulário.'); }
+                $pdo->prepare('INSERT INTO modulo5_operacoes(idempotencia,tipo,recurso_id,usuario_id,criado_em) VALUES(?,?,?,?,?)')->execute([$key,'abertura_estoque',$itemId,$actor,gmdate('Y-m-d H:i:s')]);
+            }
+            $pdo->prepare('UPDATE pedido_produtos SET estoque_minimo=?,estoque_maximo=?,estoque_inicializado=?,revisao=revisao+1 WHERE id=?')
+                ->execute([$minimum,$maximum,$opening === null ? (int)$item['estoque_inicializado'] : 1,$itemId]);
             if ($opening !== null && $opening > 0) {
                 $this->insertMovement($pdo,$itemId,'abertura',$opening,'Saldo de abertura conferido',$actor,$key ?? '',null);
             }
-            $this->audit($pdo,'stock_configured','produto',$itemId,$actor);
+            $this->audit($pdo,$opening === null ? 'stock_configured' : 'stock_opened','produto',$itemId,$actor);
+        });
+    }
+
+    public function confirmOldZeroOpening(int $contractId,int $itemId,int $revision,int $actor,string $reason,string $key): void
+    {
+        $reason=trim($reason);
+        if (mb_strlen($reason)<10 || mb_strlen($reason)>300 || preg_match('/[\p{C}]/u',$reason)) {
+            throw new DomainException('Descreva a conferência documental em 10 a 300 caracteres.');
+        }
+        if (preg_match('/^[a-f0-9]{32}$/D',$key)!==1) { throw new DomainException('Chave de confirmação inválida.'); }
+        SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$itemId,$revision,$actor,$reason,$key): void {
+            $item=$this->item($contractId,$itemId); $this->active($this->find($contractId));
+            if ($item['excluido_em']!==null || (int)$item['revisao']!==$revision || (int)$item['estoque_inicializado']!==1 || $this->balance($itemId)!==0) {
+                throw new DomainException('Estoque alterado. Atualize a página antes de confirmar.');
+            }
+            $q=$pdo->prepare('SELECT 1 FROM estoque_movimentos WHERE produto_id=? LIMIT 1'); $q->execute([$itemId]);
+            if ($q->fetchColumn()) { throw new DomainException('Há movimentos; esta confirmação não se aplica.'); }
+            $q=$pdo->prepare("SELECT 1 FROM modulo5_operacoes WHERE recurso_id=? AND tipo IN ('abertura_estoque','abertura_zero_conferida') LIMIT 1"); $q->execute([$itemId]);
+            if ($q->fetchColumn()) { throw new DomainException('Abertura já confirmada.'); }
+            $pdo->prepare('INSERT INTO modulo5_operacoes(idempotencia,tipo,recurso_id,usuario_id,criado_em) VALUES(?,?,?,?,?)')
+                ->execute([$key,'abertura_zero_conferida',$itemId,$actor,gmdate('Y-m-d H:i:s')]);
+            $pdo->prepare('UPDATE pedido_produtos SET revisao=revisao+1 WHERE id=?')->execute([$itemId]);
+            AuditLogger::recordRequired($pdo,'contrato.old_zero_opening_confirmed',AuditLogger::SUCCESS,$actor,null,$reason,'produto',$itemId);
         });
     }
 
@@ -288,6 +404,9 @@ final class Contrato extends Model
         SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($contractId,$itemId,$type,$quantity,$reason,$key,$actor,$revision,$originalId): void {
             $item=$this->item($contractId,$itemId); $this->active($this->find($contractId));
             if ($item['excluido_em'] !== null || (int)$item['estoque_inicializado'] !== 1) { throw new DomainException('Estoque não inicializado ou produto indisponível.'); }
+            $q=$pdo->prepare("SELECT 1 FROM estoque_movimentos WHERE produto_id=? UNION SELECT 1 FROM modulo5_operacoes WHERE recurso_id=? AND tipo IN ('abertura_estoque','abertura_zero_conferida') LIMIT 1");
+            $q->execute([$itemId,$itemId]);
+            if (!$q->fetchColumn()) { throw new DomainException('Abertura antiga sem comprovação. Peça a conferência administrativa do saldo zero.'); }
             if ((int)$item['revisao']!==$revision) { throw new DomainException('Estoque alterado por outra pessoa. Atualize a página.'); }
             if (!in_array($type,['entrada','saida','estorno'],true) || $quantity < 1 || $quantity > 1000000000) { throw new DomainException('Movimentação inválida.'); }
             $reason=trim($reason);

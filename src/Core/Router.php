@@ -27,6 +27,7 @@ final class Router
             $this->route('POST', 'contrato/faturar/{id}', 'ContratoController', 'faturar', true),
             $this->route('POST', 'contrato/produto/{id}', 'ContratoController', 'produto', true),
             $this->route('POST', 'contrato/estoque/{id}', 'ContratoController', 'estoque', true),
+            $this->route('POST', 'contrato/conferir-abertura/{id}', 'ContratoController', 'conferirAbertura', true, true),
             $this->route('POST', 'contrato/movimentar/{id}', 'ContratoController', 'movimentar', true),
             $this->route('POST', 'contrato/excluir/{id}', 'ContratoController', 'excluir', true),
             $this->route('POST', 'contrato/conciliar/{id}', 'ContratoController', 'conciliar', true, true),

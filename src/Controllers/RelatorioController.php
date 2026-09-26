@@ -47,7 +47,7 @@ final class RelatorioController extends Controller
             fputcsv($stream,[], ';','"','');
             fputcsv($stream,['Aluno','Turma','Nascimento','Vencimento DVA','Situação DVA','Situação aluno'],';','"','');
             foreach ($result['items'] as $row) {
-                fputcsv($stream,[RelatorioAlunos::csvCell($row['nome_completo']),RelatorioAlunos::csvCell($row['nome_turma'] ?? ''),$row['data_nascimento'] ?? '',$row['data_vencimento'] ?? '',DvaStatus::label($row['dva_status']),$row['ativo'] ? 'Ativo' : 'Inativo'],';','"','');
+                fputcsv($stream,[RelatorioAlunos::csvCell($row['nome_completo']),RelatorioAlunos::csvCell($row['nome_turma'] ?? ''),RelatorioAlunos::displayDate($row['data_nascimento']),RelatorioAlunos::displayDate($row['data_vencimento']),DvaStatus::label($row['dva_status']),$row['ativo'] ? 'Ativo' : 'Inativo'],';','"','');
             }
             fclose($stream); return;
         }
@@ -74,7 +74,7 @@ final class RelatorioController extends Controller
         $html.='<p>Filtros: turma '.$escape($result['filters']['turma'] ?: 'todas').' · DVA '.$escape($result['filters']['dva'] ?: 'todas').' · aluno '.$escape($result['filters']['ativo']).'</p>';
         $html.='<table><thead><tr><th>Aluno</th><th>Turma</th><th>Nascimento</th><th>Vencimento</th><th>DVA</th></tr></thead><tbody>';
         foreach ($result['items'] as $row) {
-            $html.='<tr><td>'.$escape($row['nome_completo']).'</td><td>'.$escape($row['nome_turma'] ?? 'Sem turma').'</td><td>'.$escape($row['data_nascimento'] ?? '').'</td><td>'.$escape($row['data_vencimento'] ?? '').'</td><td>'.$escape(DvaStatus::label($row['dva_status'])).'</td></tr>';
+            $html.='<tr><td>'.$escape($row['nome_completo']).'</td><td>'.$escape($row['nome_turma'] ?? 'Sem turma').'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_nascimento'])).'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_vencimento'])).'</td><td>'.$escape(DvaStatus::label($row['dva_status'])).'</td></tr>';
         }
         return $html.'</tbody></table></body></html>';
     }

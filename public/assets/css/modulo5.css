@@ -9,5 +9,19 @@
 .relatorio .table td{vertical-align:top}
 .relatorio form>label:has(input[type=checkbox]){display:inline-flex;align-items:center;gap:.5rem;min-width:auto}
 .relatorio .warning-message{padding:1rem;border-left:4px solid #d59a1d;background:#fff6dc}
+.modulo5-hero{border-top:5px solid #155185;background:linear-gradient(135deg,#f7fbff,#e9f2fa)}
+.modulo5-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:.75rem;margin:1rem 0}
+.modulo5-metrics>div{display:flex;flex-direction:column;gap:.3rem;background:#fff;border:1px solid #c9dce9;border-radius:8px;padding:1rem}
+.modulo5-metrics strong{color:#155185;font-size:1.3rem}.modulo5-metrics span,.modulo5-hint{color:#496176}
+.modulo5-filters{display:flex;flex-wrap:wrap;align-items:end;gap:.75rem;margin-bottom:1rem}
+.modulo5-filters label{flex:1;min-width:180px;font-weight:600}.modulo5-filters button{min-height:38px}
+.modulo5-tabs{display:flex;overflow-x:auto;gap:.35rem;margin:0 0 1rem;padding:.25rem;border-bottom:2px solid #155185}
+.modulo5-tabs a{flex:none;padding:.6rem 1rem;border:1px solid #bed2e2;border-radius:7px 7px 0 0;background:#f4f8fc;color:#155185;text-decoration:none;font-weight:700}
+.modulo5-tabs a[aria-selected=true]{background:#155185;color:#fff}
+.modulo5-tabs a:focus-visible,.modulo5-builder-sheet button:focus-visible,.modulo5-builder-product button:focus-visible{outline:3px solid #e4a928;outline-offset:2px}
+.modulo5-builder-sheet{margin:1rem 0;padding:1rem;border:1px solid #c9dce9;border-radius:8px;background:#f7fbff}
+.modulo5-builder-product{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));align-items:end;gap:.6rem;padding:.75rem;margin:.75rem 0;background:#fff;border:1px solid #d5e0ec;border-radius:6px}
+.modulo5-builder-sheet label,.modulo5-builder-product label{display:flex;flex-direction:column;gap:.25rem;font-weight:600}
+.modulo5-budget{margin:1rem 0;padding:.75rem;background:#e9f2fa;border-left:4px solid #155185}
 @media(max-width:700px){.relatorio details form{display:block}.relatorio details form label{margin:.5rem 0}.relatorio details form button{margin:.5rem 0}}
 @media print{.sidebar,.relatorio form,.relatorio nav,.relatorio button,.relatorio details,.relatorio .section-head a{display:none!important}.main-content-wrapper{margin:0!important}.relatorio{box-shadow:none!important;border:0!important}}

@@ -72,4 +72,11 @@ final class RelatorioAlunos extends Model
         }
         return $value;
     }
+
+    public static function displayDate(?string $value): string
+    {
+        if ($value === null || $value === '') { return ''; }
+        $date=DateTimeImmutable::createFromFormat('!Y-m-d',$value);
+        return $date!==false && $date->format('Y-m-d')===$value ? $date->format('d/m/Y') : '';
+    }
 }

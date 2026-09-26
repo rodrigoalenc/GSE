@@ -15,9 +15,37 @@ final class ContratoController extends Controller
         return $value;
     }
     private function number(string $key,int $min=1): int { return Contrato::integer($this->field($key),$min); }
+    private function routeId(string $raw): int
+    {
+        try { return Contrato::integer($raw,1); }
+        catch (DomainException) { render_http_error(404,'Registro não encontrado','Identificador inválido.','contrato'); }
+    }
+    /** @return array<string,mixed> */
+    private function existing(int $id): array
+    {
+        try { return $this->model()->find($id); }
+        catch (DomainException) { render_http_error(404,'Contrato não encontrado','O contrato solicitado não existe.','contrato'); }
+    }
     /** @param callable(): mixed $action */
     private function run(string $back,callable $action): void
     {
+        if (preg_match('#^contrato/detalhes/([1-9][0-9]*)$#',$back,$match)===1) {
+            $sheetId=filter_var($_POST['folha'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if ($sheetId===false && isset($_POST['produto'])) {
+                $productId=filter_var($_POST['produto'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if ($productId!==false) {
+                    try {
+                        $product=$this->model()->itemForHistory($productId);
+                        if ((int)$product['id_pedido']===(int)$match[1]) {
+                            foreach ($this->model()->sheets((int)$match[1]) as $sheet) {
+                                if ((int)$sheet['numero_pagina']===(int)$product['numero_pagina']) { $sheetId=(int)$sheet['id']; break; }
+                            }
+                        }
+                    } catch (DomainException) { /* O erro será apresentado pela operação. */ }
+                }
+            }
+            if ($sheetId!==false) { $back.='#folha-'.$sheetId; }
+        }
         try { $target=$action(); $this->redirectWithFlash(is_string($target) ? $target : $back,'success','Operação registrada.'); }
         catch (DomainException $e) { $this->redirectWithFlash($back,'danger',$e->getMessage()); }
         catch (PDOException $e) {
@@ -30,33 +58,53 @@ final class ContratoController extends Controller
     {
         $search=is_string($_GET['busca'] ?? null) ? $_GET['busca'] : '';
         $page=filter_var($_GET['pagina'] ?? 1,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 1;
-        $this->view('contratos/index',['title'=>'Contratos','search'=>$search,'result'=>$this->model()->list($search,$page)]);
+        $status=($_GET['situacao'] ?? 'ativos') === 'excluidos' ? 'excluidos' : 'ativos';
+        $model=$this->model();
+        $this->view('contratos/index',['title'=>'Contratos','search'=>$search,'status'=>$status,'result'=>$model->list($search,$page,$status),'summary'=>$status==='ativos' ? $model->summary($search) : null]);
     }
 
     public function criar(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET')==='POST') {
-            $this->run('contrato/criar',fn(): string => 'contrato/detalhes/'.$this->model()->create($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$this->actor()));
+            $_SESSION['contract_draft']=['titulo'=>$_POST['titulo'] ?? '', 'valor'=>$_POST['valor'] ?? '',
+                'fornecedor'=>$_POST['fornecedor'] ?? '', 'folhas'=>$_POST['folhas'] ?? []];
+            $this->run('contrato/criar',function(): string {
+                $sheets=$_POST['folhas'] ?? null;
+                if ($sheets!==null && !is_array($sheets)) { throw new DomainException('Folhas inválidas.'); }
+                $id=$sheets===null
+                    ? $this->model()->create($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$this->actor())
+                    : $this->model()->createDetailed($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$sheets,$this->actor());
+                unset($_SESSION['contract_draft']);
+                return 'contrato/detalhes/'.$id;
+            });
         }
-        $this->view('contratos/form',['title'=>'Novo contrato','record'=>null,'suppliers'=>$this->model()->suppliers()]);
+        $draft=$_SESSION['contract_draft'] ?? [];
+        unset($_SESSION['contract_draft']);
+        $this->view('contratos/form',['title'=>'Novo contrato','record'=>null,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
     }
 
     public function editar(string $id): void
     {
-        $contractId=Contrato::integer($id,1);
+        $contractId=$this->routeId($id);
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET')==='POST') {
+            $_SESSION['contract_edit_draft_'.$id]=['titulo'=>$_POST['titulo'] ?? '', 'valor'=>$_POST['valor'] ?? '', 'fornecedor'=>$_POST['fornecedor'] ?? ''];
             $this->run('contrato/editar/'.$id,function() use ($contractId,$id): string {
                 $this->model()->update($contractId,$this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$this->number('revisao'),$this->actor());
+                unset($_SESSION['contract_edit_draft_'.$id]);
                 return 'contrato/detalhes/'.$id;
             });
         }
-        $this->view('contratos/form',['title'=>'Editar contrato','record'=>$this->model()->find($contractId),'suppliers'=>$this->model()->suppliers()]);
+        $record=$this->existing($contractId);
+        if ($record['excluido_em']!==null) { render_http_error(404,'Contrato excluído','O contrato está disponível apenas para consulta.','contrato'); }
+        $draft=$_SESSION['contract_edit_draft_'.$id] ?? [];
+        unset($_SESSION['contract_edit_draft_'.$id]);
+        $this->view('contratos/form',['title'=>'Editar contrato','record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
     }
 
     public function detalhes(string $id): void
     {
-        $contractId=Contrato::integer($id,1); $model=$this->model();
-        $record=$model->find($contractId); $sheets=$model->sheets($contractId); $items=$model->items($contractId);
+        $contractId=$this->routeId($id); $model=$this->model();
+        $record=$this->existing($contractId); $sheets=$model->sheets($contractId); $items=$model->items($contractId);
         $this->view('contratos/detalhes',['title'=>'Contrato #'.$id,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin()]);
     }
 
@@ -91,7 +139,18 @@ final class ContratoController extends Controller
     {
         $this->run('contrato/detalhes/'.$id,function() use ($id): void {
             $open=$this->field('abertura');
+            if ($open!=='' && $this->field('confirmar_abertura')!=='1') { throw new DomainException('Confirme expressamente o saldo de abertura, inclusive quando for zero.'); }
+            if ($open==='' && $this->field('confirmar_abertura')==='1') { throw new DomainException('Informe o saldo de abertura confirmado.'); }
             $this->model()->configureStock(Contrato::integer($id,1),$this->number('produto'),$this->number('minimo',0),$this->number('maximo'),$this->number('revisao'),$this->actor(),$open==='' ? null : $this->number('abertura',0),$this->field('chave'),Auth::isAdmin());
+        });
+    }
+    public function conferirAbertura(string $id): void
+    {
+        $this->requireAdmin();
+        $this->run('contrato/detalhes/'.$id,function() use ($id): void {
+            if ($this->field('confirmar')!=='1') { throw new DomainException('Confirme a conferência do saldo zero.'); }
+            $this->model()->confirmOldZeroOpening(Contrato::integer($id,1),$this->number('produto'),
+                $this->number('revisao'),$this->actor(),$this->field('motivo'),$this->field('chave'));
         });
     }
     public function movimentar(string $id): void
@@ -121,15 +180,18 @@ final class ContratoController extends Controller
     }
     public function historico(string $id): void
     {
-        $item=Contrato::integer($id,1); $model=$this->model();
-        $this->view('contratos/historico',['title'=>'Histórico do produto #'.$id,'movements'=>$model->movements($item)]);
+        $item=$this->routeId($id); $model=$this->model();
+        try { $product=$model->itemForHistory($item); }
+        catch (DomainException) { render_http_error(404,'Produto não encontrado','O produto solicitado não existe.','contrato'); }
+        $this->view('contratos/historico',['title'=>'Histórico do produto #'.$id,'product'=>$product,'movements'=>$model->movements($item)]);
     }
     public function imprimir(string $id): void
     {
-        $contractId=Contrato::integer($id,1); $model=$this->model();
-        $sheet=isset($_GET['folha']) ? filter_var($_GET['folha'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false;
+        $contractId=$this->routeId($id); $model=$this->model();
+        $record=$this->existing($contractId);
+        $sheet=isset($_GET['folha']) ? filter_var($_GET['folha'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : null;
         $sheets=$model->sheets($contractId); $items=$model->items($contractId);
-        if ($sheet!==false && !in_array($sheet,array_column($sheets,'id'),false)) { render_http_error(404,'Folha indisponível','Folha não encontrada.'); }
-        $this->view('contratos/imprimir',['record'=>$model->find($contractId),'sheets'=>$sheets,'items'=>$items,'sheetId'=>$sheet ?: null],false);
+        if (isset($_GET['folha']) && ($sheet===false || !in_array($sheet,array_column($sheets,'id'),false))) { render_http_error(404,'Folha indisponível','Folha não encontrada.'); }
+        $this->view('contratos/imprimir',['record'=>$record,'sheets'=>$sheets,'items'=>$items,'sheetId'=>$sheet],false);
     }
 }

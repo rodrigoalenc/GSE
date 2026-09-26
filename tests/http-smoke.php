@@ -352,6 +352,29 @@ try {
     $contractId = (int)$contractMatch[1];
     $contractDetails = request('GET', $baseUrl . '/contrato/detalhes/' . $contractId, $cookieAdmin);
     checkHttp($contractDetails['status'] === 200 && str_contains($contractDetails['body'], 'Contrato HTTP'), 'Detalhes HTTP de contrato');
+    checkHttp(request('GET', $baseUrl . '/contrato/detalhes/999999', $cookieAdmin)['status'] === 404, 'Contrato inexistente retorna 404');
+    checkHttp(request('GET', $baseUrl . '/contrato/detalhes/invalido', $cookieAdmin)['status'] === 404, 'ID malformado retorna 404');
+    checkHttp(request('GET', $baseUrl . '/contrato/historico/999999', $cookieAdmin)['status'] === 404, 'Produto inexistente retorna 404');
+    checkHttp(request('GET', $baseUrl . '/contrato/imprimir/' . $contractId . '?folha=999999', $cookieAdmin)['status'] === 404, 'Folha de outro contrato é recusada na impressão');
+    $completeForm = request('GET', $baseUrl . '/contrato/criar', $cookieAdmin);
+    $complete = request('POST', $baseUrl . '/contrato/criar', $cookieAdmin, [
+        '_csrf_token' => csrf($completeForm['body']), 'titulo' => 'Contrato completo HTTP', 'valor' => '40,00', 'fornecedor' => '',
+        'folhas' => [
+            ['observacao' => 'Primeira', 'produtos' => [['nome' => 'Papel', 'marca' => 'Marca A', 'unidade' => 'resma', 'quantidade' => '2', 'preco' => '5,00']]],
+            ['observacao' => 'Segunda', 'produtos' => [['nome' => 'Lápis', 'marca' => '', 'unidade' => 'caixa', 'quantidade' => '1', 'preco' => '8,00']]],
+        ],
+    ]);
+    preg_match('#/contrato/detalhes/([0-9]+)#', $complete['headers']['location'] ?? '', $completeMatch);
+    checkHttp($complete['status'] === 302 && isset($completeMatch[1]), 'Cadastro HTTP de contrato com duas folhas e produtos');
+    $completeDetails = request('GET', $baseUrl . '/contrato/detalhes/' . $completeMatch[1], $cookieAdmin);
+    checkHttp($completeDetails['status'] === 200 && str_contains($completeDetails['body'], 'Folha 2') && str_contains($completeDetails['body'], 'Lápis'), 'Cadastro completo aparece nos detalhes');
+    $deletedContract = request('POST', $baseUrl . '/contrato/excluir/' . $contractId, $cookieAdmin, [
+        '_csrf_token' => csrf($contractDetails['body']), 'revisao' => '1', 'confirmar' => '1',
+    ]);
+    checkHttp($deletedContract['status'] === 302, 'Exclusão lógica HTTP de contrato');
+    $deletedList = request('GET', $baseUrl . '/contrato?situacao=excluidos&busca=Contrato%20HTTP', $cookieAdmin);
+    checkHttp($deletedList['status'] === 200 && str_contains($deletedList['body'], 'Contrato HTTP') && str_contains($deletedList['body'], 'excluído'), 'Contrato excluído localizado pela busca');
+    checkHttp(request('GET', $baseUrl . '/contrato/editar/' . $contractId, $cookieAdmin)['status'] === 404, 'Contrato excluído não oferece edição');
     $reportPdf = request('GET', $baseUrl . '/relatorio/pdf', $cookieAdmin);
     checkHttp($reportPdf['status'] === 200 && str_starts_with($reportPdf['body'], '%PDF-'), 'PDF de relatório válido');
     $reportCsv = request('GET', $baseUrl . '/relatorio/csv', $cookieAdmin);
