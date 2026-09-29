@@ -16,13 +16,13 @@ Repositório local `rodrigoalenc/GSE`, branch `Modulo4`, HEAD inicial `6773381`.
 
 Foi lido `Documentação/Documentação GSE.pdf`, 34 páginas, SHA-256 `523acefd883acbf91363e0e4b0ed051b5e59d502c5a25f09c4e24458f5f9faf8`. A página 29 foi renderizada com Poppler e inspecionada; não houve alteração do PDF. Não foi encontrado o arquivo separado chamado TCC_2 e não se presume equivalência entre versões.
 
-| Referência | Observação no PDF local/original | Tratamento nesta revisão |
+| Referência | Observação no PDF local | Tratamento nesta revisão |
 |---|---|---|
 | Figura 16 | Matriz com tipos nas linhas, fornecedores nas colunas, cartões de datas/prazo, ações e identidade azul | Orientação preservada; emissão/prazo, pendências e tela cheia acrescentados; paginação limitada por fornecedor/documentos |
 | Figura 17 | Formulário com fornecedor, tipo, emissão, vencimento, PDF e observação | Campos e formulário atuais preservados, com validação no servidor e PDF privado |
 | Figura 18 | Configuração em duas listas, fornecedores e tipos | Duas listas preservadas, com revisão oculta e recuperação explícita do conflito |
 
-Também foi consultado [ProjetoGSE](https://github.com/rodrigoraa/ProjetoGSE), com inspeção do código da cópia local no commit `f0bb641b2d1a074bddd598e52f3e733872d230db`. A comparação relaciona as imagens de referência ao código atual; **não é uma comparação entre screenshots de duas aplicações renderizadas**.
+A análise relaciona as figuras do PDF acadêmico local ao código atual; **não é uma comparação entre capturas de tela de aplicações renderizadas**.
 
 Navegador: seleção para URL local retornou `No browser is available`; após consultar o diagnóstico da habilidade de navegador, a descoberta retornou `[]`. Assim, **não foram realizados testes visuais desktop/celular nem geradas screenshots da aplicação**. Evidência local da referência: `.local-qa/academic-29.png` (ignorado, reproduzível renderizando p. 29 do PDF versionado). Sintaxe JavaScript foi verificada com `node --check public/assets/js/app.js`. HTTP/HTML e revisão de CSS não comprovam responsividade, foco ou funcionamento real de fullscreen.
 

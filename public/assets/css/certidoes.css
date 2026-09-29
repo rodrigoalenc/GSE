@@ -469,7 +469,7 @@
     .cert-form-grid,.cert-form-dates { grid-template-columns:1fr; gap:14px; }
 }
 
-/* Histórico e ações de certidões seguem as cores e a tabela do projeto original. */
+/* Histórico e ações de certidões. */
 .cert-quick-actions .btn-primary,
 .cert-form-footer .btn-primary,
 .cert-config-add .btn-primary { color:#fff; background:#16508f; border-color:#16508f; border-radius:6px; box-shadow:none; }
