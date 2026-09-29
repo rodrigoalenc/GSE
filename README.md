@@ -31,7 +31,7 @@ Componentes principais:
 
 ## Identidade visual e acessibilidade
 
-A interface recupera a identidade azul e o logo institucional da E.E. São José a partir do commit `f0bb641b2d1a074bddd598e52f3e733872d230db` do ProjetoGSE original, usado somente como referência visual. Login, dashboard, usuários, senha, auditoria, alunos, DVAs, turmas e erros compartilham a mesma paleta e hierarquia. O backend, as rotas e as proteções atuais não foram substituídos pelo código legado. A sidebar ocupa cerca de 78 px no desktop, expande para 260 px por `hover` ou `focus-within`, permanece utilizável por teclado e se adapta no mobile sem depender de hover. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`.
+A interface usa a identidade azul e o logo institucional da E.E. São José. Login, dashboard, usuários, senha, auditoria, alunos, DVAs, turmas e erros compartilham a mesma paleta e hierarquia. A sidebar ocupa cerca de 78 px no desktop, expande para 260 px por `hover` ou `focus-within`, permanece utilizável por teclado e se adapta no mobile sem depender de hover. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`.
 
 As decisões seguem as recomendações de [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) e [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) da OWASP, além das APIs nativas de senha do [manual do PHP](https://www.php.net/manual/en/book.password.php).
 
