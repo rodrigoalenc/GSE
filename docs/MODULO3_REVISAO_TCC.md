@@ -38,7 +38,7 @@ E = exigência explícita; I = interpretação de ambiguidade; A = recurso adici
 - Nenhuma migração ou alteração de schema foi necessária. Trigger contra DELETE, FKs, índices e migrações publicadas foram preservados.
 - CSV continua aditivo, limitado, com prévia, confirmação única vinculada à sessão e rollback transacional. Aluno original e DVA continuam preservados; envio de aluno ativo permanece bloqueado.
 
-A referência visual foi conferida no [ProjetoGSE original](https://github.com/rodrigoraa/ProjetoGSE), commit `f0bb641b2d1a074bddd598e52f3e733872d230db`, lendo `public/assets/css/passivo.css` e `src/Views/passivo/index.php` sob `sistema_escolar_root/sistema_escolar`. Foram preservados azul institucional, cards, sidebar, organização dos formulários e tabelas. Nenhuma rotina destrutiva foi importada.
+A interface do Arquivo Passivo usa azul institucional, cartões, sidebar e organização consistente de formulários e tabelas. A importação mantém o acervo existente e não executa substituição destrutiva.
 
 ## Verificações executadas
 
