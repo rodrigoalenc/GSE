@@ -19,10 +19,6 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
     <form action="<?= e(url('login/entrar')) ?>" method="post" class="login" aria-labelledby="login-title">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
 
-        <div class="login-brand">
-            <img src="<?= e(url('assets/image/logo_escola.png')) ?>" alt="Logotipo da E.E. São José">
-            <p>Gestão Escolar</p>
-        </div>
         <h2 id="login-title">Login</h2>
 
         <?php if ($flash): ?>

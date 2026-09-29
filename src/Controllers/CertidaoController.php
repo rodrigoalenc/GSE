@@ -15,9 +15,13 @@ final class CertidaoController extends Controller
         $model = new Certidao(); $filters = ['estado'=>$state];
         foreach (['fornecedor','tipo','validade','ano','busca','pendencias'] as $key) { $filters[$key] = self::input($_GET, $key); }
         $documentPages = is_array($_GET['documentos'] ?? null) ? $_GET['documentos'] : [];
-        try { $result = $model->matrix($filters, (int)self::input($_GET,'page'), $documentPages); }
+        try {
+            $result = $state === 'corrente'
+                ? $model->matrix($filters, (int) self::input($_GET, 'page'), $documentPages)
+                : $model->paginate($filters, (int) self::input($_GET, 'page'));
+        }
         catch (DomainException $e) { render_http_error(422, 'Filtro inválido', $e->getMessage(), 'certidao'); }
-        $this->view('certidoes/index', ['title'=>$state === 'corrente' ? 'Matriz de Certidões' : ($state === 'arquivada' ? 'Certidões arquivadas' : 'Certidões excluídas'), 'filters'=>$filters, 'result'=>$result, 'summary'=>$model->summary(), 'fornecedores'=>$model->options('fornecedor'), 'tipos'=>$model->options('tipo')]);
+        $this->view('certidoes/index', ['title'=>$state === 'corrente' ? 'Matriz de Certidões' : ($state === 'arquivada' ? 'Certidões arquivadas' : 'Certidões excluídas'), 'filters'=>$filters, 'result'=>$result, 'summary'=>$model->summary(), 'years'=>$state === 'corrente' ? [] : $model->availableYears($state), 'fornecedores'=>$model->options('fornecedor'), 'tipos'=>$model->options('tipo')]);
     }
 
     public function cadastrar(): void { $this->form('cadastrar'); }
@@ -27,7 +31,7 @@ final class CertidaoController extends Controller
     private function form(string $mode, ?string $id = null): void
     {
         $model = new Certidao(); $record = $id === null ? null : $this->record($id);
-        if ($record !== null && $record['estado'] !== 'corrente') { render_http_error(409, 'Registro indisponível', 'Somente certidões correntes podem ser editadas ou renovadas.', 'certidao'); }
+        if ($record !== null && ($record['estado'] === 'excluida' || ($mode === 'renovar' && $record['estado'] !== 'corrente'))) { render_http_error(409, 'Registro indisponível', 'Certidões excluídas não podem ser editadas; somente certidões correntes podem ser renovadas.', 'certidao'); }
         $path = 'certidao/' . $mode . ($id === null ? '' : '/' . $id);
         $state = $_SESSION['certidao_form'][$path] ?? null; unset($_SESSION['certidao_form'][$path]);
         $data = is_array($state) ? $state : ($record ?? []);
@@ -49,7 +53,7 @@ final class CertidaoController extends Controller
                 $this->redirectWithFlash($path, 'danger', $this->safeError($e));
             }
         }
-        $this->view('certidoes/form', ['title'=>match($mode) {'editar'=>'Editar certidão', 'renovar'=>'Renovar certidão', default=>'Nova certidão'}, 'mode'=>$mode,'data'=>$data,'record'=>$record,'path'=>$path,'fornecedores'=>$model->options('fornecedor'),'tipos'=>$model->options('tipo')]);
+        $this->view('certidoes/form', ['title'=>match($mode) {'editar'=>'Editar Certidão', 'renovar'=>'Renovar Certidão', default=>'Cadastrar Certidão'}, 'mode'=>$mode,'data'=>$data,'record'=>$record,'path'=>$path,'fornecedores'=>$model->options('fornecedor'),'tipos'=>$model->options('tipo')]);
     }
 
     public function detalhes(string $id): void
@@ -73,6 +77,7 @@ final class CertidaoController extends Controller
     }
 
     public function arquivar(string $id): void { $this->change($id,'archive'); }
+    public function desarquivar(string $id): void { $this->change($id,'restore'); }
     public function excluir(string $id): void { $this->change($id,'delete'); }
     private function change(string $id, string $action): void
     {
@@ -80,7 +85,11 @@ final class CertidaoController extends Controller
         try {
             if (self::input($_POST,'confirmar') !== '1') { throw new DomainException('Confirme a operação antes de continuar.'); }
             (new Certidao())->transition(Certidao::id($id),$action,Certidao::id(self::input($_POST,'revisao')),$this->actor());
-            $this->redirectWithFlash('certidao/detalhes/'.$id,'success',$action === 'delete' ? 'Certidão excluída logicamente. Documento e histórico preservados.' : 'Certidão arquivada.');
+            $this->redirectWithFlash('certidao/detalhes/'.$id,'success',match ($action) {
+                'delete' => 'Certidão excluída logicamente. Documento e histórico preservados.',
+                'restore' => 'Certidão devolvida à matriz corrente.',
+                default => 'Certidão arquivada.',
+            });
         } catch (Throwable $e) { $this->redirectWithFlash('certidao/detalhes/'.$id,'danger',$this->safeError($e)); }
     }
 
@@ -103,7 +112,7 @@ final class CertidaoController extends Controller
         }
         $search = mb_substr(self::input($_GET,'busca'),0,150);
         $draft = $_SESSION['certidao_option_draft'] ?? null;
-        $this->view('certidoes/configurar',['title'=>'Fornecedores e tipos','search'=>$search,'draft'=>$draft,'fornecedores'=>$model->options('fornecedor',$search),'tipos'=>$model->options('tipo',$search)]);
+        $this->view('certidoes/configurar',['title'=>'Configurar Opções do Sistema','search'=>$search,'draft'=>$draft,'fornecedores'=>$model->options('fornecedor',$search),'tipos'=>$model->options('tipo',$search)]);
     }
 
     /** @return array<string,mixed> */

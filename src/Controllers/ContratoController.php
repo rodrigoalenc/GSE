@@ -60,7 +60,7 @@ final class ContratoController extends Controller
         $page=filter_var($_GET['pagina'] ?? 1,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 1;
         $status=($_GET['situacao'] ?? 'ativos') === 'excluidos' ? 'excluidos' : 'ativos';
         $model=$this->model();
-        $this->view('contratos/index',['title'=>'Contratos','search'=>$search,'status'=>$status,'result'=>$model->list($search,$page,$status),'summary'=>$status==='ativos' ? $model->summary($search) : null]);
+        $this->view('contratos/index',['title'=>'Gerenciar Pedidos','search'=>$search,'status'=>$status,'result'=>$model->list($search,$page,$status),'summary'=>$status==='ativos' ? $model->summary($search) : null]);
     }
 
     public function criar(): void
@@ -80,7 +80,7 @@ final class ContratoController extends Controller
         }
         $draft=$_SESSION['contract_draft'] ?? [];
         unset($_SESSION['contract_draft']);
-        $this->view('contratos/form',['title'=>'Novo contrato','record'=>null,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
+        $this->view('contratos/form',['title'=>'Cadastrar Novo Pedido','record'=>null,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
     }
 
     public function editar(string $id): void
@@ -98,14 +98,18 @@ final class ContratoController extends Controller
         if ($record['excluido_em']!==null) { render_http_error(404,'Contrato excluído','O contrato está disponível apenas para consulta.','contrato'); }
         $draft=$_SESSION['contract_edit_draft_'.$id] ?? [];
         unset($_SESSION['contract_edit_draft_'.$id]);
-        $this->view('contratos/form',['title'=>'Editar contrato','record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
+        $this->view('contratos/form',['title'=>'Editar Pedido','record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
     }
 
     public function detalhes(string $id): void
     {
         $contractId=$this->routeId($id); $model=$this->model();
         $record=$this->existing($contractId); $sheets=$model->sheets($contractId); $items=$model->items($contractId);
-        $this->view('contratos/detalhes',['title'=>'Contrato #'.$id,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin()]);
+        try {
+            $registered = new DateTimeImmutable((string) $record['criado_em'], new DateTimeZone('UTC'));
+            $registeredText = $registered->setTimezone(new DateTimeZone(Config::string('APP_TIMEZONE', 'America/Cuiaba')))->format('d/m/Y');
+        } catch (Exception) { $registeredText = 'Data indisponível'; }
+        $this->view('contratos/detalhes',['title'=>'Detalhes do Pedido','headerMeta'=>'ID: #'.$id.' | Registrado em: '.$registeredText,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin()]);
     }
 
     public function folha(string $id): void

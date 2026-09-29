@@ -1,11 +1,14 @@
 <?php
 $queryBase = array_filter($filters, static fn (string $value): bool => $value !== '');
 ?>
-<section class="relatorio">
-    <div class="section-head">
-        <div><h2>Filtros de auditoria</h2><p>Consulte eventos imutáveis de segurança por ação, resultado, recurso e período.</p></div>
-    </div>
-    <form class="audit-filters" method="get" action="<?= e(url('auditoria')) ?>">
+<div class="audit-info-box" role="note">
+    <strong>ℹ️ Informação:</strong>
+    <span>Consulte os eventos de segurança registrados no sistema. Use os filtros para localizar ações, resultados, recursos e períodos.</span>
+</div>
+
+<section class="relatorio audit-report">
+    <div class="audit-toolbar">
+        <form class="audit-filters" method="get" action="<?= e(url('auditoria')) ?>">
         <div>
             <label for="action">Ação</label>
             <input id="action" name="action" value="<?= e($filters['action']) ?>" maxlength="80" placeholder="Ex.: student.created">
@@ -44,14 +47,9 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
             <button class="btn-primary" type="submit">Filtrar</button>
             <a class="btn-secondary" href="<?= e(url('auditoria')) ?>">Limpar</a>
         </div>
-    </form>
-</section>
-
-<section class="relatorio">
-    <div class="section-head">
-        <div><h2>Eventos registrados</h2><p>Horários apresentados em UTC para correlação operacional.</p></div>
-        <span class="result-pill"><?= e((string) $result['total']) ?> registro(s)</span>
+        </form>
     </div>
+    <p class="audit-results-meta"><?= e((string) $result['total']) ?> registro(s) · Horários em UTC.</p>
     <div class="table-scroll">
         <table class="tabela-filtrada audit-table">
             <thead>

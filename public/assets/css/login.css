@@ -30,7 +30,7 @@ body.login-container {
 form.login {
     width: 100%;
     max-width: 430px;
-    padding: 36px 40px;
+    padding: 42px 40px;
     background: var(--surface-soft);
     border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 22px;

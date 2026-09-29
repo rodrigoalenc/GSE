@@ -71,4 +71,26 @@ final class Painel extends Model
 
         return $items;
     }
+
+    /** @return array<string,list<array<string,mixed>>> */
+    public function alunosPorStatus(?DvaStatus $statusService = null): array
+    {
+        $statusService ??= new DvaStatus();
+        $grupos = array_fill_keys(DvaStatus::ALL, []);
+        $statement = self::$pdo->query(
+            'SELECT a.id, a.nome_completo, t.nome_turma, d.data_vencimento
+             FROM alunos a
+             LEFT JOIN turmas t ON t.id = a.id_turma
+             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
+             WHERE a.ativo = 1
+             ORDER BY a.nome_normalizado'
+        );
+
+        foreach ($statement->fetchAll() as $item) {
+            $status = $statusService->classify($item['data_vencimento'] ?: null);
+            $grupos[$status][] = $item;
+        }
+
+        return $grupos;
+    }
 }

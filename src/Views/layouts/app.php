@@ -10,6 +10,11 @@ $passiveActive = str_starts_with($currentPath, 'passivo') || str_starts_with($cu
 $studentsActive = str_starts_with($currentPath, 'aluno') && !$passiveActive;
 $dvaActive = $currentPath === 'dva';
 $certActive = str_starts_with($currentPath, 'certidao');
+$certHeaderClass = $certActive ? match (true) {
+    str_starts_with($currentPath, 'certidao/configurar') => 'cert-page-config',
+    str_starts_with($currentPath, 'certidao/cadastrar'), str_starts_with($currentPath, 'certidao/editar'), str_starts_with($currentPath, 'certidao/renovar') => 'cert-page-form',
+    default => 'cert-page-matrix',
+} : '';
 $contractActive = str_starts_with($currentPath, 'contrato');
 $stockActive = str_starts_with($currentPath, 'estoque');
 $reportActive = str_starts_with($currentPath, 'relatorio');
@@ -32,6 +37,7 @@ $flashClass = [
     <link rel="stylesheet" href="<?= e(url('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/painel.css')) ?>">
     <?php if ($contractActive || $stockActive || $reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/modulo5.css')) ?>"><?php endif; ?>
+    <?php if ($contractActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/contratos.css')) ?>"><?php endif; ?>
     <?php if ($certActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css')) ?>">
     <?php endif; ?>
@@ -41,6 +47,7 @@ $flashClass = [
     <?php if ($studentsActive || $dvaActive || $classesActive || $dashboardActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/alunos.css')) ?>">
     <?php endif; ?>
+    <?php if ($dashboardActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/dashboard.css')) ?>"><?php endif; ?>
     <?php if ($passiveActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/passivo.css')) ?>">
     <?php endif; ?>
@@ -58,25 +65,25 @@ $flashClass = [
         <nav>
             <?php if (!$mustChangePassword): ?>
                 <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#8962;</span><span class="sidebar-label">Painel Geral</span>
+                    <span class="sidebar-icon" aria-hidden="true">&#127968;</span><span class="sidebar-label">Painel Geral</span>
                 </a>
-                <a href="<?= e(url('certidao')) ?>" class="sidebar-link <?= $certActive ? 'active' : '' ?>" <?= $certActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#128203;</span><span class="sidebar-label">Certidões e Fornecedores</span>
-                </a>
-                <a href="<?= e(url('contrato')) ?>" class="sidebar-link <?= $contractActive ? 'active' : '' ?>" <?= $contractActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128230;</span><span class="sidebar-label">Contratos e Notas</span></a>
-                <a href="<?= e(url('estoque')) ?>" class="sidebar-link <?= $stockActive ? 'active' : '' ?>" <?= $stockActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#9635;</span><span class="sidebar-label">Estoque</span></a>
-                <a href="<?= e(url('relatorio')) ?>" class="sidebar-link <?= $reportActive ? 'active' : '' ?>" <?= $reportActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128202;</span><span class="sidebar-label">Relatórios</span></a>
                 <a href="<?= e(url('aluno')) ?>" class="sidebar-link <?= $studentsActive ? 'active' : '' ?>" <?= $studentsActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#127891;</span>
                     <span class="sidebar-label">Gestão de Alunos</span>
                 </a>
+                <a href="<?= e(url('certidao')) ?>" class="sidebar-link <?= $certActive ? 'active' : '' ?>" <?= $certActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#128196;</span><span class="sidebar-label">Certidões</span>
+                </a>
+                <a href="<?= e(url('contrato')) ?>" class="sidebar-link <?= $contractActive ? 'active' : '' ?>" <?= $contractActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128221;</span><span class="sidebar-label">Contratos</span></a>
+                <a href="<?= e(url('passivo')) ?>" class="sidebar-link <?= $passiveActive ? 'active' : '' ?>" <?= $passiveActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#128230;</span>
+                    <span class="sidebar-label">Arquivo Passivo</span>
+                </a>
+                <a href="<?= e(url('relatorio')) ?>" class="sidebar-link <?= $reportActive ? 'active' : '' ?>" <?= $reportActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128202;</span><span class="sidebar-label">Relatórios</span></a>
+                <a href="<?= e(url('estoque')) ?>" class="sidebar-link <?= $stockActive ? 'active' : '' ?>" <?= $stockActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#9635;</span><span class="sidebar-label">Estoque</span></a>
                 <a href="<?= e(url('dva')) ?>" class="sidebar-link <?= $dvaActive ? 'active' : '' ?>" <?= $dvaActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#128196;</span>
                     <span class="sidebar-label">DVAs</span>
-                </a>
-                <a href="<?= e(url('passivo')) ?>" class="sidebar-link <?= $passiveActive ? 'active' : '' ?>" <?= $passiveActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#9635;</span>
-                    <span class="sidebar-label">Arquivo Passivo</span>
                 </a>
             <?php endif; ?>
 
@@ -118,10 +125,10 @@ $flashClass = [
     </aside>
 
     <div class="main-content-wrapper">
-        <header>
+        <header class="<?= e($certHeaderClass) ?>">
             <h1><?= e($title) ?></h1>
             <div class="header-meta">
-                Data: <?= e(date('d/m/Y')) ?>
+                <?= e((string) ($headerMeta ?? 'Data: ' . date('d/m/Y'))) ?>
             </div>
         </header>
 

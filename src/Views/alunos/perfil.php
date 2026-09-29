@@ -7,85 +7,82 @@ $phone = static function (?string $value): string {
     if (strlen($digits) === 10) {
         return sprintf('(%s) %s-%s', substr($digits, 0, 2), substr($digits, 2, 4), substr($digits, 6));
     }
-    return '—';
+    return 'Não informado';
 };
 $studentPhoneValid = in_array(strlen((string) $student['telefone_aluno']), [10, 11], true);
 $guardianPhoneValid = in_array(strlen((string) $student['telefone_responsavel']), [10, 11], true);
 $dvaStatus = (string) $student['dva_status'];
 $daysRemaining = $student['dva_dias_restantes'];
+$dvaDate = $student['data_vencimento'] ? date('d/m/Y', strtotime((string) $student['data_vencimento'])) : null;
+$dvaHeading = match ($dvaStatus) {
+    DvaStatus::VENCIDA => 'DVA VENCIDA',
+    DvaStatus::VENCE_HOJE, DvaStatus::A_VENCER => 'ATENÇÃO',
+    DvaStatus::VIGENTE => 'DVA VIGENTE',
+    default => 'SEM DVA REGISTRADA',
+};
+$dvaTiming = match ($dvaStatus) {
+    DvaStatus::VENCIDA => 'Venceu há ' . abs((int) $daysRemaining) . ' dia(s) (' . $dvaDate . ').',
+    DvaStatus::VENCE_HOJE => 'Vence hoje (' . $dvaDate . ').',
+    DvaStatus::A_VENCER => 'Vence em ' . (int) $daysRemaining . ' dia(s) (' . $dvaDate . ').',
+    DvaStatus::VIGENTE => 'Vence em ' . $dvaDate . '.',
+    default => 'Este aluno não possui data de vencimento cadastrada.',
+};
+$historyTime = static function (?string $value): string {
+    if (!$value) { return '—'; }
+    try {
+        return (new DateTimeImmutable($value, new DateTimeZone('UTC')))
+            ->setTimezone(new DateTimeZone(Config::string('APP_TIMEZONE', 'America/Cuiaba')))
+            ->format('d/m/Y H:i');
+    } catch (Throwable) { return 'Data indisponível'; }
+};
 ?>
 <div class="profile-shell card-perfil">
 <section class="profile-head">
     <div>
-        <p class="hero-kicker">Perfil do aluno</p>
         <h2><?= e((string) $student['nome_completo']) ?></h2>
-        <p>Cadastro acadêmico, contatos e histórico documental.</p>
+        <p>Resumo completo do cadastro, situação da DVA e canais de contato disponíveis.</p>
     </div>
     <div class="profile-identifiers">
-        <span class="perfil-id">ID <?= e((string) $student['id']) ?></span>
+        <span class="perfil-id">ID: #<?= e((string) $student['id']) ?></span>
         <span class="badge-status <?= (int) $student['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $student['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span>
     </div>
 </section>
 
 <section class="status-box dva-status-large dva-<?= e($dvaStatus) ?>" aria-label="Situação atual da DVA">
-    <span class="dva-badge dva-<?= e($dvaStatus) ?>"><?= e(DvaStatus::label($dvaStatus)) ?></span>
-    <?php if ($student['data_vencimento']): ?>
-        <h2>Vencimento em <?= e(date('d/m/Y', strtotime((string) $student['data_vencimento']))) ?></h2>
-        <p><?= e((string) $daysRemaining) ?> dia(s) em relação à data de referência.</p>
-    <?php else: ?>
-        <h2>Nenhuma DVA registrada</h2>
-        <p>Registre a primeira DVA para iniciar o acompanhamento.</p>
-    <?php endif; ?>
+    <h2><?= e($dvaHeading) ?></h2>
+    <p><?= e($dvaTiming) ?></p>
 </section>
 
-<div class="profile-actions">
-    <a class="btn-primary" href="<?= e(url('aluno/editar/' . (int) $student['id'])) ?>">Editar dados</a>
-    <?php if ((int) $student['ativo'] === 1): ?>
-        <a class="btn-secondary" href="<?= e(url('aluno/dva/' . (int) $student['id'])) ?>"><?= $student['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a>
-    <?php endif; ?>
-    <?php if ($canArchivePassive): ?>
-        <a class="btn-secondary" href="<?= e(url('aluno/arquivar/' . (int) $student['id'])) ?>">Enviar para o Arquivo Passivo</a>
-    <?php endif; ?>
-    <a class="btn-secondary" href="<?= e(url('aluno')) ?>">Voltar</a>
-</div>
+<dl class="perfil-info-grid">
+    <div class="info-item"><dt class="info-label">Nome completo</dt><dd class="info-valor"><?= e((string) $student['nome_completo']) ?></dd></div>
+    <div class="info-item"><dt class="info-label">Turma</dt><dd class="info-valor"><?= e((string) ($student['nome_turma'] ?: 'Sem turma')) ?><?= $student['ano_letivo'] ? ' — ' . e((string) $student['ano_letivo']) : '' ?></dd></div>
+    <div class="info-item"><dt class="info-label">Data de nascimento</dt><dd class="info-valor"><?= e(date('d/m/Y', strtotime((string) $student['data_nascimento']))) ?></dd></div>
+    <div class="info-item"><dt class="info-label">Vencimento DVA</dt><dd class="info-valor"><?= $student['data_vencimento'] ? e(date('d/m/Y', strtotime((string) $student['data_vencimento']))) : '—' ?></dd></div>
+    <div class="info-item wide"><dt class="info-label">Observações DVA</dt><dd class="info-valor textual"><?= nl2br(e((string) ($student['dva_observacao'] ?: '—'))) ?></dd></div>
+</dl>
 
-<section class="profile-grid">
-    <article class="relatorio profile-card">
-        <h2>Dados pessoais</h2>
-        <dl>
-            <div><dt>Nome</dt><dd><?= e((string) $student['nome_completo']) ?></dd></div>
-            <div><dt>Nascimento</dt><dd><?= e(date('d/m/Y', strtotime((string) $student['data_nascimento']))) ?></dd></div>
-            <div><dt>Turma</dt><dd><?= e((string) ($student['nome_turma'] ?: 'Sem turma')) ?><?= $student['ano_letivo'] ? ' — ' . e((string) $student['ano_letivo']) : '' ?></dd></div>
-            <div><dt>Situação</dt><dd><span class="badge-status <?= (int) $student['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $student['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span></dd></div>
-        </dl>
-    </article>
-    <article class="relatorio profile-card contact-profile-card">
-        <h2>Contatos</h2>
-        <dl>
-            <div><dt>Aluno</dt><dd><?= e($phone($student['telefone_aluno'])) ?></dd></div>
-            <div><dt>Responsável</dt><dd><?= e($phone($student['telefone_responsavel'])) ?></dd></div>
-        </dl>
-        <div class="contact-actions">
-        <?php if ($studentPhoneValid): ?>
-            <a class="btn-whatsapp" href="<?= e('https://wa.me/55' . (string) $student['telefone_aluno']) ?>" target="_blank" rel="noopener noreferrer">WhatsApp do aluno</a>
-        <?php endif; ?>
-        <?php if ($guardianPhoneValid): ?>
-            <a class="btn-whatsapp" href="<?= e('https://wa.me/55' . (string) $student['telefone_responsavel']) ?>" target="_blank" rel="noopener noreferrer">WhatsApp do responsável</a>
-        <?php endif; ?>
+<section class="contatos-container" aria-labelledby="contatos-titulo">
+    <h2 id="contatos-titulo" class="contatos-titulo">Contatos Registrados</h2>
+    <div class="contatos-grid">
+        <div class="contato-card">
+            <span class="contato-label">Aluno</span>
+            <strong class="contato-numero"><?= e($phone($student['telefone_aluno'])) ?></strong>
+            <?php if ($studentPhoneValid): ?><a class="btn-whatsapp-full" href="<?= e('https://wa.me/55' . (string) $student['telefone_aluno']) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp do aluno">Chamar Aluno</a><?php endif; ?>
         </div>
-    </article>
-    <article class="relatorio profile-card dva-current">
-        <h2>DVA atual</h2>
-        <p><span class="dva-badge dva-<?= e((string) $student['dva_status']) ?>"><?= e(DvaStatus::label((string) $student['dva_status'])) ?></span></p>
-        <?php if ($student['data_vencimento']): ?>
-            <dl>
-                <div><dt>Vencimento</dt><dd><?= e(date('d/m/Y', strtotime((string) $student['data_vencimento']))) ?></dd></div>
-                <div><dt>Prazo</dt><dd><?= e((string) $student['dva_dias_restantes']) ?> dia(s)</dd></div>
-                <div><dt>Observação</dt><dd><?= e((string) ($student['dva_observacao'] ?: '—')) ?></dd></div>
-            </dl>
-        <?php else: ?><p>Nenhuma DVA registrada.</p><?php endif; ?>
-    </article>
+        <div class="contato-card">
+            <span class="contato-label">Responsável</span>
+            <strong class="contato-numero"><?= e($phone($student['telefone_responsavel'])) ?></strong>
+            <?php if ($guardianPhoneValid): ?><a class="btn-whatsapp-full" href="<?= e('https://wa.me/55' . (string) $student['telefone_responsavel']) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp do responsável">Chamar Responsável</a><?php endif; ?>
+        </div>
+    </div>
 </section>
+
+<div class="profile-actions perfil-actions">
+    <a class="btn-primary" href="<?= e(url('aluno/editar/' . (int) $student['id'])) ?>">Editar dados</a>
+    <?php if ((int) $student['ativo'] === 1): ?><a class="btn-secondary" href="<?= e(url('aluno/dva/' . (int) $student['id'])) ?>"><?= $student['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a><?php endif; ?>
+    <?php if ($canArchivePassive): ?><a class="btn-secondary" href="<?= e(url('aluno/arquivar/' . (int) $student['id'])) ?>">Enviar para o Arquivo Passivo</a><?php endif; ?>
+    <a class="cancelar" href="<?= e(url('aluno')) ?>">Voltar para a Lista</a>
+</div>
 </div>
 
 <?php if ($canManageStudent): ?>
@@ -103,11 +100,11 @@ $daysRemaining = $student['dva_dias_restantes'];
 <section class="relatorio">
     <h2>Histórico de DVAs</h2>
     <div class="table-scroll">
-        <table class="tabela-filtrada"><thead><tr><th>Situação</th><th>Vencimento</th><th>Registrada em UTC</th><th>Substituída em UTC</th><th>Responsável</th><th>Observação</th></tr></thead>
+        <table class="tabela-filtrada"><thead><tr><th>Situação</th><th>Vencimento</th><th>Registrada em</th><th>Substituída em</th><th>Responsável</th><th>Observação</th></tr></thead>
             <tbody>
             <?php if ($history === []): ?><tr><td colspan="6" class="empty-state">Nenhuma DVA registrada.</td></tr><?php endif; ?>
             <?php foreach ($history as $item): ?>
-                <tr><td><?= (int) $item['ativo'] === 1 ? 'Atual' : 'Arquivada' ?></td><td><?= e(date('d/m/Y', strtotime((string) $item['data_vencimento']))) ?></td><td><?= e((string) $item['criado_em']) ?></td><td><?= e((string) ($item['substituido_em'] ?: '—')) ?></td><td><?= e((string) ($item['usuario_registro'] ?: '—')) ?></td><td><?= e((string) ($item['observacao'] ?: '—')) ?></td></tr>
+                <tr><td><?= (int) $item['ativo'] === 1 ? 'Atual' : 'Arquivada' ?></td><td><?= e(date('d/m/Y', strtotime((string) $item['data_vencimento']))) ?></td><td><?= e($historyTime($item['criado_em'])) ?></td><td><?= e($historyTime($item['substituido_em'])) ?></td><td><?= e((string) ($item['usuario_registro'] ?: '—')) ?></td><td><?= e((string) ($item['observacao'] ?: '—')) ?></td></tr>
             <?php endforeach; ?>
             </tbody>
         </table>

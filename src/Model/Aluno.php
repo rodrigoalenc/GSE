@@ -380,6 +380,21 @@ final class Aluno extends Model
         return $statement->fetchAll();
     }
 
+    /** @return list<array<string,mixed>> */
+    public function aniversariantesDoMesCompleto(?DateTimeImmutable $today = null): array
+    {
+        $today ??= new DateTimeImmutable((new DvaStatus())->today());
+        $statement = self::$pdo->prepare(
+            "SELECT a.id, a.nome_completo, a.data_nascimento, t.nome_turma
+             FROM alunos a LEFT JOIN turmas t ON t.id = a.id_turma
+             WHERE a.ativo = 1 AND strftime('%m', a.data_nascimento) = :month
+             ORDER BY strftime('%d', a.data_nascimento), a.nome_normalizado"
+        );
+        $statement->execute(['month' => $today->format('m')]);
+
+        return $statement->fetchAll();
+    }
+
     /** @return array<string,mixed>|false */
     public function perfil(int $id, ?DvaStatus $statusService = null): array|false
     {

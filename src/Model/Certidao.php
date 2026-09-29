@@ -101,7 +101,16 @@ final class Certidao extends Model
         return ['items' => $q->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
     }
 
-    /** Five suppliers per page, ten documents per supplier, with independent navigation.
+    /** @return list<string> */
+    public function availableYears(string $state): array
+    {
+        if (!in_array($state, ['arquivada', 'excluida'], true)) { throw new DomainException('Situação inválida.'); }
+        $query = self::$pdo->prepare('SELECT DISTINCT substr(c.data_vencimento, 1, 4) AS ano FROM certidoes c WHERE ' . self::STATE_SQL . " = ? AND c.data_vencimento GLOB '[1-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' ORDER BY ano DESC");
+        $query->execute([$state]);
+        return array_map('strval', $query->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /** Eight suppliers per page, ten documents per supplier, with independent navigation.
      * @param array<string,mixed> $filters
      * @param array<mixed> $documentPages
      * @return array{items:list<array<string,mixed>>,suppliers:list<array<string,mixed>>,total:int,supplierTotal:int,page:int,pages:int}
@@ -114,9 +123,9 @@ final class Certidao extends Model
         try {
             $q = self::$pdo->prepare('SELECT COUNT(*) AS total, COUNT(DISTINCT c.id_fornecedor) AS suppliers' . $from);
             $q->execute($params); $totals = $q->fetch(); $q->closeCursor();
-            $pages = max(1, (int) ceil((int)$totals['suppliers'] / 5));
+            $pages = max(1, (int) ceil((int)$totals['suppliers'] / 8));
             $page = max(1, min($page, $pages));
-            $q = self::$pdo->prepare('SELECT f.id, f.nome, COUNT(*) AS total' . $from . ' GROUP BY f.id, f.nome ORDER BY f.nome, f.id LIMIT 5 OFFSET ' . (($page-1)*5));
+            $q = self::$pdo->prepare('SELECT f.id, f.nome, COUNT(*) AS total' . $from . ' GROUP BY f.id, f.nome ORDER BY f.nome, f.id LIMIT 8 OFFSET ' . (($page-1)*8));
             $q->execute($params); $suppliers = $q->fetchAll();
             $items = [];
             foreach ($suppliers as &$supplier) {
@@ -156,7 +165,7 @@ final class Certidao extends Model
             $where[] = 'cert_status(c.data_vencimento) = ?'; $params[] = $filters['validade'];
         }
         if (($filters['pendencias'] ?? '') === '1') {
-            $where[] = "(cert_status(c.data_vencimento) IN ('vencida','vence_hoje','a_vencer','pendente') OR c.pdf_privado IS NULL OR c.pdf_privado='')";
+            $where[] = "cert_status(c.data_vencimento) IN ('vencida','vence_hoje','a_vencer','pendente')";
         }
         if (!empty($filters['busca'])) {
             $where[] = '(f.nome LIKE ? OR t.nome LIKE ? OR CAST(c.id AS TEXT) = ?)';
@@ -183,21 +192,23 @@ final class Certidao extends Model
     {
         $storage ??= new CertidaoStorage();
         return $storage->locked(function () use ($data, $upload, $actor, $previous, $storage): int {
-            $pdf = $storage->receive($upload);
+            $pdf = ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE ? null : $storage->receive($upload);
             try { return $this->createStored($data, $pdf, $actor, $previous, $storage); }
-            catch (Throwable $exception) { $storage->compensate($pdf['key'], self::$pdo); throw $exception; }
+            catch (Throwable $exception) { if ($pdf !== null) { $storage->compensate($pdf['key'], self::$pdo); } throw $exception; }
         });
     }
 
     /** Internal boundary for CLI and synthetic tests. Caller holds the storage lock.
      *
      * @param array<string,mixed> $data
-     * @param array{key:string,name:string,bytes:int,hash:string} $pdf
+     * @param array{key:string,name:string,bytes:int,hash:string}|null $pdf
      */
-    public function createStored(array $data, array $pdf, int $actor, ?int $previous, CertidaoStorage $storage): int
+    public function createStored(array $data, ?array $pdf, int $actor, ?int $previous, CertidaoStorage $storage): int
     {
-        $path = $storage->path($pdf['key']);
-        if (hash_file('sha256', $path) !== $pdf['hash'] || filesize($path) !== $pdf['bytes']) { throw new DomainException('O PDF mudou durante a gravação.'); }
+        if ($pdf !== null) {
+            $path = $storage->path($pdf['key']);
+            if (hash_file('sha256', $path) !== $pdf['hash'] || filesize($path) !== $pdf['bytes']) { throw new DomainException('O PDF mudou durante a gravação.'); }
+        }
         return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($data, $pdf, $actor, $previous): int {
             $this->actor($actor); $values = $this->validate($data);
             if ($previous !== null) {
@@ -210,7 +221,7 @@ final class Certidao extends Model
             }
             $q = $pdo->prepare('INSERT INTO certidoes (id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,observacao,pdf_privado,pdf_nome,pdf_bytes,pdf_sha256,anterior_id,criado_por,atualizado_por,criado_em,atualizado_em,arquivado,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,1)');
             $now = gmdate('Y-m-d H:i:s');
-            $q->execute([...$values, $pdf['key'], $pdf['name'], $pdf['bytes'], $pdf['hash'], $previous, $actor, $actor, $now, $now]);
+            $q->execute([...$values, $pdf['key'] ?? null, $pdf['name'] ?? null, $pdf['bytes'] ?? null, $pdf['hash'] ?? null, $previous, $actor, $actor, $now, $now]);
             $id = (int) $pdo->lastInsertId(); $this->audit($actor, 'certidao', $id, $previous === null ? 'created' : 'renewed'); return $id;
         });
     }
@@ -221,9 +232,11 @@ final class Certidao extends Model
     {
         SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $data, $actor): void {
             $this->actor($actor); $old = $this->buscarPorId($id);
-            if (!$old || $old['estado'] !== 'corrente' || self::id($data['revisao'] ?? null) !== (int) $old['revisao']) { throw new DomainException('O registro mudou ou não está corrente. Atualize a página.'); }
+            if (!$old || $old['estado'] === 'excluida' || self::id($data['revisao'] ?? null) !== (int) $old['revisao']) { throw new DomainException('O registro mudou ou não permite edição. Atualize a página.'); }
             $values = $this->validate($data, $old);
-            if ($old['anterior_id'] !== null && ($values[0] !== (int) $old['id_fornecedor'] || $values[1] !== (int) $old['id_tipo_certidao'])) { throw new DomainException('A renovação deve manter fornecedor e tipo do histórico.'); }
+            $successor = $pdo->prepare('SELECT 1 FROM certidoes WHERE anterior_id=? LIMIT 1');
+            $successor->execute([$id]);
+            if (($old['anterior_id'] !== null || $successor->fetchColumn() !== false) && ($values[0] !== (int) $old['id_fornecedor'] || $values[1] !== (int) $old['id_tipo_certidao'])) { throw new DomainException('A renovação deve manter fornecedor e tipo do histórico.'); }
             $q = $pdo->prepare('UPDATE certidoes SET id_fornecedor=?,id_tipo_certidao=?,data_emissao=?,data_vencimento=?,observacao=?,atualizado_por=?,atualizado_em=?,revisao=revisao+1 WHERE id=?');
             $q->execute([...$values, $actor, gmdate('Y-m-d H:i:s'), $id]); $this->audit($actor, 'certidao', $id, 'updated');
         });
@@ -233,11 +246,17 @@ final class Certidao extends Model
     {
         SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $action, $revision, $actor): void {
             $this->actor($actor); $old = $this->buscarPorId($id);
-            if (!$old || (int) $old['revisao'] !== $revision || $old['estado'] === 'excluida' || !in_array($action, ['archive','delete'], true)
-                || ($action === 'archive' && $old['estado'] !== 'corrente')) { throw new DomainException('O registro mudou ou a ação não é permitida.'); }
-            $q = $pdo->prepare('UPDATE certidoes SET arquivado=1,status=0,excluido_em=?,atualizado_por=?,atualizado_em=?,revisao=revisao+1 WHERE id=?');
-            $now = gmdate('Y-m-d H:i:s'); $q->execute([$action === 'delete' ? $now : null, $actor, $now, $id]);
-            $this->audit($actor, 'certidao', $id, $action === 'delete' ? 'deleted' : 'archived');
+            if (!$old || (int) $old['revisao'] !== $revision || $old['estado'] === 'excluida' || !in_array($action, ['archive','restore','delete'], true)
+                || ($action === 'archive' && $old['estado'] !== 'corrente') || ($action === 'restore' && $old['estado'] !== 'arquivada')) { throw new DomainException('O registro mudou ou a ação não é permitida.'); }
+            $now = gmdate('Y-m-d H:i:s');
+            if ($action === 'restore') {
+                $q = $pdo->prepare('UPDATE certidoes SET arquivado=0,status=1,atualizado_por=?,atualizado_em=?,revisao=revisao+1 WHERE id=?');
+                $q->execute([$actor, $now, $id]);
+            } else {
+                $q = $pdo->prepare('UPDATE certidoes SET arquivado=1,status=0,excluido_em=?,atualizado_por=?,atualizado_em=?,revisao=revisao+1 WHERE id=?');
+                $q->execute([$action === 'delete' ? $now : null, $actor, $now, $id]);
+            }
+            $this->audit($actor, 'certidao', $id, match ($action) { 'restore'=>'restored', 'delete'=>'deleted', default=>'archived' });
         });
     }
 
@@ -287,7 +306,7 @@ final class Certidao extends Model
         foreach (self::$pdo->query('SELECT * FROM certidoes')->fetchAll() as $row) {
             $problems = [];
             if (!CertidaoStatus::validDate((string)$row['data_emissao']) || !CertidaoStatus::validDate((string)$row['data_vencimento']) || $row['data_vencimento'] < $row['data_emissao']) { $problems[] = 'Datas inválidas'; }
-            if (empty($row['pdf_privado'])) { $problems[] = empty($row['arquivo_pdf']) ? 'PDF pendente' : 'PDF legado requer migração privada'; }
+            if (empty($row['pdf_privado']) && !empty($row['arquivo_pdf'])) { $problems[] = 'PDF legado requer migração privada'; }
             if (!in_array([$row['arquivado'], $row['status']], [[0,1],[1,0],[null,null]], true)) { $problems[] = 'Flags legadas ambíguas preservadas'; }
             foreach ($problems as $problem) { $issues[] = ['resource'=>'certidao','id'=>(int)$row['id'],'issue'=>$problem]; }
         }

@@ -51,16 +51,19 @@ final class TemplateSecurityTest extends TestCase
     {
         $panelCss = (string) file_get_contents(ROOT_PATH . '/public/assets/css/painel.css');
         $studentsCss = (string) file_get_contents(ROOT_PATH . '/public/assets/css/alunos.css');
+        $dashboardCss = (string) file_get_contents(ROOT_PATH . '/public/assets/css/dashboard.css');
         $dashboard = (string) file_get_contents(ROOT_PATH . '/src/Views/dashboard/index.php');
         $studentForm = (string) file_get_contents(ROOT_PATH . '/src/Views/alunos/form.php');
 
         $this->assertStringContainsString('--sidebar-width: 78px', $panelCss);
         $this->assertStringContainsString('--sidebar-expanded-width: 260px', $panelCss);
-        $this->assertStringContainsString('.sidebar:focus-within', $panelCss);
+        $this->assertStringContainsString('.sidebar:has(:focus-visible)', $panelCss);
         $this->assertStringContainsString('width: 30px; height: 30px', $panelCss);
         $this->assertStringContainsString('@media (max-width: 390px)', $studentsCss);
         $this->assertStringNotContainsString('dashboard-hero', $dashboard);
-        $this->assertSame(7, substr_count($dashboard, 'class="stat-card'));
+        $this->assertSame(4, substr_count($dashboard, 'class="dashboard-number-card'));
+        $this->assertStringContainsString('grid-template-columns: repeat(4, minmax(0, 1fr))', $dashboardCss);
+        $this->assertStringContainsString('@media (max-width: 600px)', $dashboardCss);
         $this->assertStringContainsString('relatorio form-container', $studentForm);
         $this->assertStringNotContainsString('relatorio form-section', $studentForm);
     }

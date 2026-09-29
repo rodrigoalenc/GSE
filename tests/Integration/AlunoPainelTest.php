@@ -98,5 +98,32 @@ final class AlunoPainelTest extends DatabaseTestCase
         $this->assertSame(1, $summary['vencidas']);
         $this->assertCount(5, $student->aniversariantesDoDia($today));
         $this->assertLessThanOrEqual(3, count((new \Painel())->pendenciasPrioritarias(3, $status)));
+
+        $grupos = (new \Painel())->alunosPorStatus($status);
+        foreach (\DvaStatus::ALL as $situacao) {
+            $this->assertCount(1, $grupos[$situacao]);
+        }
+        $this->assertSame('Sem % DVA', $grupos[\DvaStatus::SEM_DVA][0]['nome_completo']);
+        $this->assertCount(5, $student->aniversariantesDoMesCompleto($today));
+    }
+
+    public function testAniversariantesDoMesCompletoIncluiDatasPassadasDoMes(): void
+    {
+        $classId = $this->insertTurma();
+        $actorId = $this->insertUsuario();
+        $student = new \Aluno();
+        foreach (['01', '20', '31'] as $day) {
+            $this->assertIsInt($student->cadastrar([
+                'nome_completo' => 'Aluno Dia ' . $day,
+                'data_nascimento' => '2010-08-' . $day,
+                'id_turma' => $classId,
+                'telefone_aluno' => '',
+                'telefone_responsavel' => '',
+            ], $actorId));
+        }
+
+        $birthdays = $student->aniversariantesDoMesCompleto(new DateTimeImmutable('2026-08-20'));
+        $this->assertSame(['Aluno Dia 01', 'Aluno Dia 20', 'Aluno Dia 31'], array_column($birthdays, 'nome_completo'));
+        $this->assertCount(2, $student->aniversariantesDoMes(new DateTimeImmutable('2026-08-20')));
     }
 }

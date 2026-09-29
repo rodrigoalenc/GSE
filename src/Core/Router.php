@@ -46,6 +46,7 @@ final class Router
             $this->route('GET', 'certidao/renovar/{id}', 'CertidaoController', 'renovar', true),
             $this->route('POST', 'certidao/renovar/{id}', 'CertidaoController', 'renovar', true),
             $this->route('POST', 'certidao/arquivar/{id}', 'CertidaoController', 'arquivar', true),
+            $this->route('POST', 'certidao/desarquivar/{id}', 'CertidaoController', 'desarquivar', true),
             $this->route('POST', 'certidao/excluir/{id}', 'CertidaoController', 'excluir', true),
             $this->route('GET', 'certidao/arquivadas', 'CertidaoController', 'arquivadas', true),
             $this->route('GET', 'certidao/excluidas', 'CertidaoController', 'excluidas', true),

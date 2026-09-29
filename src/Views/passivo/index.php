@@ -1,8 +1,7 @@
 <section class="passivo-hero" aria-labelledby="passivo-summary-title">
     <div>
-        <p class="hero-kicker">Acervo físico institucional</p>
-        <h2 id="passivo-summary-title">Consulta central de caixas e pastas</h2>
-        <p>Localize ex-alunos por nome, número ou caixa sem perder o histórico do cadastro.</p>
+        <h2 id="passivo-summary-title">Consulta central do acervo físico e histórico</h2>
+        <p>Use os filtros para localizar rapidamente caixas, pesquisar ex-alunos e importar ou exportar conteúdos.</p>
     </div>
     <div class="passivo-stats" aria-label="Resumo do Arquivo Passivo">
         <span><strong><?= e((string) $summary['caixas']) ?></strong> caixas</span>

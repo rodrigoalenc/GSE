@@ -1,52 +1,81 @@
-<section class="dashboard-overview" aria-labelledby="dashboard-summary">
-    <div class="section-head dashboard-heading">
-        <div>
-            <p class="hero-kicker">Visão operacional</p>
-            <h2 id="dashboard-summary">Indicadores principais</h2>
-            <p>Alunos e situações de DVA que exigem acompanhamento.</p>
+<?php
+$nomesMeses = [1 => 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+$aVencer = array_merge($alunosPorStatus[DvaStatus::VENCE_HOJE], $alunosPorStatus[DvaStatus::A_VENCER]);
+$secoesDva = [
+    ['titulo' => 'Alunos Sem DVA', 'classe' => 'sem-dva', 'alunos' => $alunosPorStatus[DvaStatus::SEM_DVA]],
+    ['titulo' => 'DVAs Vencidas', 'classe' => 'vencidas', 'alunos' => $alunosPorStatus[DvaStatus::VENCIDA]],
+    ['titulo' => 'A Vencer', 'classe' => 'a-vencer', 'alunos' => $aVencer],
+    ['titulo' => 'Vigentes', 'classe' => 'vigentes', 'alunos' => $alunosPorStatus[DvaStatus::VIGENTE]],
+];
+$certidoesAtencao = (int) ($certidoes['a_vencer'] ?? 0) + (int) ($certidoes['vence_hoje'] ?? 0);
+?>
+
+<div class="dashboard-home" data-dashboard-home>
+    <?php if ($certidoesAtencao > 0): ?>
+        <details class="dashboard-certificate-alert">
+            <summary>Atenção: certidões prestes a vencer (<?= $certidoesAtencao ?>)<span class="dashboard-chevron" aria-hidden="true"></span></summary>
+            <div class="dashboard-alert-content">
+                <p><?= (int) ($certidoes['vence_hoje'] ?? 0) ?> vence(m) hoje e <?= (int) ($certidoes['a_vencer'] ?? 0) ?> está(ão) a vencer.</p>
+                <a href="<?= e(url('certidao')) ?>">Consultar certidões</a>
+            </div>
+        </details>
+    <?php endif; ?>
+
+    <section class="dashboard-summary" aria-label="Indicadores dos alunos e DVAs">
+        <div class="dashboard-summary-grid">
+            <a class="dashboard-number-card total" href="<?= e(url('aluno?ativo=1')) ?>"><span>Total de alunos</span><strong><?= (int) $moduloDois['alunos_ativos'] ?></strong></a>
+            <a class="dashboard-number-card missing" href="<?= e(url('dva?dva=sem_dva')) ?>"><span>Sem DVA</span><strong><?= (int) $moduloDois['sem_dva'] ?></strong></a>
+            <a class="dashboard-number-card expired" href="<?= e(url('dva?dva=vencida')) ?>"><span>DVAs vencidas</span><strong><?= (int) $moduloDois['vencidas'] ?></strong></a>
+            <a class="dashboard-number-card due" href="<?= e(url('dva')) ?>"><span>A vencer</span><strong><?= (int) $moduloDois['vence_hoje'] + (int) $moduloDois['a_vencer'] ?></strong></a>
         </div>
-        <a class="btn-secondary" href="<?= e(url('dva')) ?>">Abrir central de DVAs</a>
+    </section>
+
+    <div class="dashboard-search">
+        <label for="dashboard-search-input">Pesquisar na tela</label>
+        <input id="dashboard-search-input" type="search" placeholder="Digite o nome do aluno ou aniversariante..." autocomplete="off" data-dashboard-search>
+        <p class="dashboard-search-feedback" role="status" aria-live="polite" data-dashboard-search-feedback hidden></p>
     </div>
-    <div class="stats-container dashboard-stats">
-        <a class="stat-card total stat-link" href="<?= e(url('aluno?ativo=1')) ?>"><h3>Alunos ativos</h3><span class="stat-number"><?= e((string) $moduloDois['alunos_ativos']) ?></span></a>
-        <a class="stat-card neutral stat-link" href="<?= e(url('aluno?ativo=0')) ?>"><h3>Alunos inativos</h3><span class="stat-number"><?= e((string) $moduloDois['alunos_inativos']) ?></span></a>
-        <a class="stat-card neutral stat-link" href="<?= e(url('dva?dva=sem_dva')) ?>"><h3>Sem DVA</h3><span class="stat-number"><?= e((string) $moduloDois['sem_dva']) ?></span></a>
-        <a class="stat-card danger stat-link" href="<?= e(url('dva?dva=vencida')) ?>"><h3>DVA vencida</h3><span class="stat-number"><?= e((string) $moduloDois['vencidas']) ?></span></a>
-        <a class="stat-card pending stat-link" href="<?= e(url('dva?dva=vence_hoje')) ?>"><h3>Vence hoje</h3><span class="stat-number"><?= e((string) $moduloDois['vence_hoje']) ?></span></a>
-        <a class="stat-card warning stat-link" href="<?= e(url('dva?dva=a_vencer')) ?>"><h3>A vencer</h3><span class="stat-number"><?= e((string) $moduloDois['a_vencer']) ?></span></a>
-        <a class="stat-card success stat-link" href="<?= e(url('dva?dva=vigente')) ?>"><h3>Vigente</h3><span class="stat-number"><?= e((string) $moduloDois['vigentes']) ?></span></a>
-    </div>
-</section>
 
-<section class="relatorio"><div class="section-head"><div><h2>Contratos e estoque</h2><p>Contagens de contratos ativos e seus produtos; alertas incluem saldo igual ao mínimo.</p></div><a href="<?= e(url('estoque')) ?>">Abrir estoque</a></div><div class="security-metrics"><a href="<?= e(url('contrato')) ?>"><strong><?= (int)$moduleFive['contratos'] ?></strong> contratos ativos</a><a href="<?= e(url('estoque')) ?>"><strong><?= (int)$moduleFive['produtos'] ?></strong> produtos ativos</a><a href="<?= e(url('estoque')) ?>"><strong><?= (int)$moduleFive['alertas'] ?></strong> alertas de estoque</a></div></section>
-
-<section class="relatorio">
-    <div class="section-head"><div><h2>Certidões e fornecedores</h2><p>Documentos correntes, incluindo vencidos.</p></div><a class="btn-secondary" href="<?= e(url('certidao')) ?>">Abrir matriz</a></div>
-    <div class="security-metrics">
-        <?php foreach ($certidoes as $key => $count): ?><a href="<?= e(url('certidao?validade=' . $key)) ?>"><strong><?= (int)$count ?></strong> <?= e(CertidaoStatus::LABELS[$key]) ?></a><?php endforeach; ?>
-    </div>
-</section>
-
-<section class="dashboard-grid">
-    <article class="relatorio birthday-panel" aria-labelledby="birthday-title">
-        <div class="section-head"><div><h2 id="birthday-title">Aniversariantes</h2><p>Datas importantes do mês.</p></div></div>
-        <h3>Hoje</h3>
-        <?php if ($aniversariantesHoje === []): ?><p class="empty-state">Nenhum aniversariante hoje.</p><?php else: ?><ul class="birthday-list"><?php foreach ($aniversariantesHoje as $item): ?><li><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a><small><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></small></li><?php endforeach; ?></ul><?php endif; ?>
-        <h3>Próximos do mês</h3>
-        <?php if ($aniversariantesMes === []): ?><p class="empty-state">Nenhum aniversariante restante neste mês.</p><?php else: ?><ul class="birthday-list"><?php foreach ($aniversariantesMes as $item): ?><li><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a><small><?= e(date('d/m', strtotime((string) $item['data_nascimento']))) ?> — <?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></small></li><?php endforeach; ?></ul><?php endif; ?>
-    </article>
-
-    <article class="relatorio priority-panel">
-        <div class="section-head"><div><h2>Pendências prioritárias</h2><p>Registros que exigem atenção primeiro.</p></div><a href="<?= e(url('dva')) ?>">Ver todas</a></div>
-        <?php if ($pendencias === []): ?><p class="empty-state">Nenhuma pendência de DVA.</p><?php else: ?>
-            <div class="table-scroll"><table class="tabela-filtrada"><thead><tr><th>Aluno</th><th>Turma</th><th>DVA</th></tr></thead><tbody>
-                <?php foreach ($pendencias as $item): ?><tr><td><a class="student-link" href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a></td><td><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></td><td><span class="dva-badge dva-<?= e((string) $item['dva_status']) ?>"><?= e(DvaStatus::label((string) $item['dva_status'])) ?></span></td></tr><?php endforeach; ?>
-            </tbody></table></div>
+    <section class="dashboard-birthdays" aria-labelledby="dashboard-birthdays-title" data-dashboard-section>
+        <h2 id="dashboard-birthdays-title">Aniversariantes de <?= e($nomesMeses[$mesAtual]) ?></h2>
+        <?php if ($aniversariantesMes === []): ?>
+            <p class="dashboard-empty">Nenhum aniversariante neste mês.</p>
+        <?php else: ?>
+            <div class="dashboard-birthday-grid">
+                <?php foreach ($aniversariantesMes as $item): ?>
+                    <a class="dashboard-birthday-card" href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>" data-dashboard-item>
+                        <span class="dashboard-birthday-icon" aria-hidden="true">🎂</span>
+                        <span><strong><?= e((string) $item['nome_completo']) ?></strong><small>Dia <?= e(date('d', strtotime((string) $item['data_nascimento']))) ?></small></span>
+                    </a>
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
-    </article>
-</section>
+    </section>
 
-<section class="relatorio module-one-summary">
-    <div class="section-head"><div><h2>Segurança e controle de acesso</h2><p>Resumo secundário do Módulo 1 integrado ao painel.</p></div></div>
-    <div class="security-metrics"><span><strong><?= e((string) $estatisticas['total']) ?></strong> contas cadastradas</span><span><strong><?= e((string) $estatisticas['ativos']) ?></strong> contas ativas</span><span><strong><?= e((string) $estatisticas['administradores']) ?></strong> administradores ativos</span></div>
-</section>
+    <div class="dashboard-dva-groups" aria-label="Situação das DVAs">
+        <?php foreach ($secoesDva as $secao): ?>
+            <details class="dashboard-dva-panel <?= e($secao['classe']) ?>" data-dashboard-section>
+                <summary><?= e($secao['titulo']) ?> (<?= count($secao['alunos']) ?>)<span class="dashboard-chevron" aria-hidden="true"></span></summary>
+                <div class="dashboard-dva-body">
+                    <?php if ($secao['alunos'] === []): ?>
+                        <p class="dashboard-empty">Nenhum aluno nesta situação.</p>
+                    <?php else: ?>
+                        <div class="table-scroll"><table class="dashboard-student-table">
+                            <thead><tr><th>Aluno</th><th>Turma</th><th>Vencimento</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($secao['alunos'] as $item): ?>
+                                    <tr data-dashboard-item>
+                                        <td><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a></td>
+                                        <td><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></td>
+                                        <td><?= $item['data_vencimento'] ? e(date('d/m/Y', strtotime((string) $item['data_vencimento']))) : '—' ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table></div>
+                    <?php endif; ?>
+                </div>
+            </details>
+        <?php endforeach; ?>
+    </div>
+
+</div>

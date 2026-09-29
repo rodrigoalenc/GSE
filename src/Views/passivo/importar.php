@@ -35,5 +35,3 @@
     <?php else: ?><p class="error-message">Corrija o arquivo antes de tentar importar.</p><?php endif; ?>
 </section>
 <?php endif; ?>
-
-<section class="relatorio passivo-safety-note"><h2>Comportamento removido por segurança</h2><p>A substituição completa e destrutiva do sistema original não faz parte deste módulo. Uma eliminação definitiva futura dependerá de política formal de LGPD da escola.</p></section>

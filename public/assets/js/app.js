@@ -1,7 +1,117 @@
 const certWorkspace = document.getElementById('cert-workspace');
+document.querySelectorAll('[data-cert-auto-submit]').forEach((select) => {
+    select.addEventListener('change', () => select.form.requestSubmit());
+});
+
+const certIssueDate = document.getElementById('data_emissao');
+const certPdfInput = document.querySelector('[data-pdf-input]');
+if (certPdfInput) {
+    const preview = document.querySelector('[data-pdf-preview]');
+    const name = preview.querySelector('[data-pdf-name]');
+    const meta = preview.querySelector('[data-pdf-meta]');
+    const frame = preview.querySelector('[data-pdf-frame]');
+    const open = preview.querySelector('[data-pdf-open]');
+    let previewUrl = null;
+    const clearPreview = () => {
+        frame.removeAttribute('src');
+        frame.hidden = true;
+        open.removeAttribute('href');
+        open.hidden = true;
+        preview.hidden = true;
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
+    };
+    certPdfInput.addEventListener('change', () => {
+        clearPreview();
+        const file = certPdfInput.files?.[0];
+        if (!file) return;
+        name.textContent = file.name;
+        meta.textContent = `${(file.size / 1048576).toFixed(2)} MiB`;
+        preview.hidden = false;
+        if (file.type === 'application/pdf' && /\.pdf$/i.test(file.name)) {
+            previewUrl = URL.createObjectURL(file);
+            frame.src = previewUrl;
+            frame.hidden = false;
+            open.href = previewUrl;
+            open.hidden = false;
+        } else {
+            meta.textContent += ' · Não é possível pré-visualizar este arquivo como PDF.';
+        }
+    });
+    preview.querySelector('[data-pdf-clear]').addEventListener('click', () => {
+        certPdfInput.value = '';
+        clearPreview();
+        certPdfInput.focus();
+    });
+    window.addEventListener('pagehide', clearPreview);
+}
+const certExpiryDate = document.getElementById('data_vencimento');
+const certValidityDays = document.getElementById('cert-validity-days');
+if (certIssueDate && certExpiryDate && certValidityDays) {
+    const refreshValidity = () => {
+        const issue = Date.parse(`${certIssueDate.value}T00:00:00Z`);
+        const expiry = Date.parse(`${certExpiryDate.value}T00:00:00Z`);
+        const days = Math.round((expiry - issue) / 86400000);
+        certValidityDays.value = Number.isFinite(days) ? (days < 0 ? 'Inválido' : `${days} dias`) : '...';
+        certValidityDays.classList.toggle('is-invalid', Number.isFinite(days) && days < 0);
+    };
+    certIssueDate.addEventListener('change', refreshValidity);
+    certExpiryDate.addEventListener('change', refreshValidity);
+    refreshValidity();
+}
+
+const dashboardHome = document.querySelector('[data-dashboard-home]');
+if (dashboardHome) {
+    const search = dashboardHome.querySelector('[data-dashboard-search]');
+    const feedback = dashboardHome.querySelector('[data-dashboard-search-feedback]');
+    const sections = [...dashboardHome.querySelectorAll('[data-dashboard-section]')];
+    const initialOpen = new Map(sections.filter((section) => section.tagName === 'DETAILS').map((section) => [section, section.open]));
+    const normalize = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+
+    search.addEventListener('input', () => {
+        const query = normalize(search.value.trim());
+        let matches = 0;
+
+        sections.forEach((section) => {
+            let sectionMatches = 0;
+            section.querySelectorAll('[data-dashboard-item]').forEach((item) => {
+                const name = item.querySelector('a, strong')?.textContent ?? item.textContent;
+                const found = !query || normalize(name).includes(query);
+                item.hidden = !found;
+                if (found) sectionMatches += 1;
+            });
+            if (query && sectionMatches > 0) matches += sectionMatches;
+            section.hidden = !!query && sectionMatches === 0;
+            if (section.tagName === 'DETAILS') section.open = query ? sectionMatches > 0 : initialOpen.get(section);
+        });
+
+        feedback.hidden = !query;
+        feedback.textContent = query ? (matches === 0 ? 'Nenhum aluno encontrado na tela.' : `${matches} ocorrência(s) encontrada(s) na tela.`) : '';
+    });
+}
+
 const certFullscreen = document.getElementById('cert-fullscreen');
 if (certWorkspace && certFullscreen) {
     const status = document.getElementById('cert-fullscreen-status');
+    const fullscreenBar = certWorkspace.querySelector('.cert-fullscreen-status-bar');
+    const fullscreenFilters = [...fullscreenBar.querySelectorAll('[data-cert-fullscreen-filter]')];
+    const cards = [...certWorkspace.querySelectorAll('.cert-card')];
+    fullscreenFilters.forEach((button) => button.addEventListener('click', () => {
+        const selected = button.dataset.certFullscreenFilter;
+        fullscreenFilters.forEach((filter) => {
+            const active = filter === button;
+            filter.classList.toggle('is-active', active);
+            filter.setAttribute('aria-pressed', String(active));
+        });
+        cards.forEach((card) => {
+            const validity = [...card.classList].find((value) => value.startsWith('cert-') && value !== 'cert-card');
+            card.hidden = selected !== 'all' && validity !== `cert-${selected}` && !(selected === 'a_vencer' && validity === 'cert-vence_hoje');
+        });
+        certWorkspace.querySelectorAll('.cert-matrix tbody tr').forEach((row) => {
+            row.hidden = !row.querySelector('.cert-card:not([hidden])');
+        });
+    }));
+    fullscreenBar.querySelector('[data-cert-fullscreen-exit]').addEventListener('click', () => document.exitFullscreen());
     certFullscreen.hidden = false;
     certFullscreen.addEventListener('click', async () => {
         try {
@@ -18,10 +128,13 @@ if (certWorkspace && certFullscreen) {
     });
     document.addEventListener('fullscreenchange', () => {
         const active = document.fullscreenElement === certWorkspace;
+        fullscreenBar.hidden = !active;
+        if (!active && fullscreenFilters[0]) fullscreenFilters[0].click();
         certFullscreen.setAttribute('aria-pressed', String(active));
         certFullscreen.textContent = active ? 'Sair da tela cheia' : 'Tela cheia';
         status.textContent = active ? 'Pressione Esc para sair.' : '';
-        certFullscreen.focus();
+        if (active) (fullscreenFilters[0] || fullscreenBar.querySelector('[data-cert-fullscreen-exit]')).focus();
+        else certFullscreen.focus();
     });
 }
 
@@ -55,6 +168,23 @@ document.querySelectorAll('[data-confirm-status]').forEach((form) => {
 document.querySelectorAll('[data-print-page]').forEach((button) => {
     button.addEventListener('click', () => window.print());
 });
+document.querySelectorAll('[data-contract-item-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const row = document.getElementById(button.dataset.contractItemToggle);
+        if (!row) return;
+        row.hidden = !row.hidden;
+        button.setAttribute('aria-expanded', String(!row.hidden));
+    });
+});
+document.querySelectorAll('[data-open-details]').forEach((link) => {
+    link.addEventListener('click', () => {
+        const details = document.querySelector(link.getAttribute('href'));
+        if (details?.tagName === 'DETAILS') details.open = true;
+    });
+});
+if (document.body.hasAttribute('data-auto-print')) {
+    window.addEventListener('load', () => window.print());
+}
 
 const contractBuilder = document.querySelector('[data-contract-builder]');
 if (contractBuilder) {

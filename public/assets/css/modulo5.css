@@ -10,6 +10,10 @@
 .relatorio form>label:has(input[type=checkbox]){display:inline-flex;align-items:center;gap:.5rem;min-width:auto}
 .relatorio .warning-message{padding:1rem;border-left:4px solid #d59a1d;background:#fff6dc}
 .modulo5-hero{border-top:5px solid #155185;background:linear-gradient(135deg,#f7fbff,#e9f2fa)}
+.relatorio-hero{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px;padding:24px;color:#fff;background:linear-gradient(135deg,#0c3566,#16508f);border-radius:18px}
+.relatorio-hero h2{margin:0 0 8px;color:#fff;font-size:1.25rem}.relatorio-hero p{margin:0;color:#fff;font-weight:700;line-height:1.55}
+.relatorio-hero-stats{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px}.relatorio-stat{min-width:120px;padding:12px 14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);border-radius:14px}.relatorio-stat strong{display:block;margin-bottom:4px;font-size:1.2rem}.relatorio-stat span{font-size:.85rem;font-weight:700}
+@media(max-width:700px){.relatorio-hero{flex-direction:column}.relatorio-hero-stats{justify-content:flex-start}}
 .modulo5-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:.75rem;margin:1rem 0}
 .modulo5-metrics>div{display:flex;flex-direction:column;gap:.3rem;background:#fff;border:1px solid #c9dce9;border-radius:8px;padding:1rem}
 .modulo5-metrics strong{color:#155185;font-size:1.3rem}.modulo5-metrics span,.modulo5-hint{color:#496176}

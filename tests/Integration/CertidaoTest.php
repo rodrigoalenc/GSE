@@ -36,6 +36,17 @@ final class CertidaoTest extends DatabaseTestCase
             catch (\Throwable $e) { $this->storage->compensate($pdf['key'],$this->pdo); throw $e; }
         });
     }
+    public function testPdfIsOptionalForCreationAndRenewal(): void
+    {
+        $first=$this->model->create($this->data(),[],$this->actor,null,$this->storage);
+        $this->assertNull($this->model->buscarPorId($first)['pdf_privado']);
+        $this->assertSame([],$this->model->diagnostics());
+        $next=$this->model->create($this->data(),['error'=>UPLOAD_ERR_NO_FILE],$this->actor,$first,$this->storage);
+        $this->assertSame('arquivada',$this->model->buscarPorId($first)['estado']);
+        $this->assertSame($first,$this->model->buscarPorId($next)['anterior_id']);
+        $this->assertNull($this->model->buscarPorId($next)['pdf_privado']);
+        $this->assertSame([],$this->model->diagnostics());
+    }
     public function testEmployeeLifecyclePreservesMultiplicityAndPdfHistory(): void
     {
         $first=$this->create(); $other=$this->create(); $before=$this->model->buscarPorId($first); $new=$this->create($first);
@@ -52,9 +63,27 @@ final class CertidaoTest extends DatabaseTestCase
         $this->assertFileExists($this->storage->path($pdf));
         $this->assertSame(1,$this->model->paginate(['estado'=>'arquivada'])['total']);
         $this->assertSame(1,$this->model->paginate(['estado'=>'excluida'])['total']);
+        $this->assertContains('2026',$this->model->availableYears('arquivada'));
+        $this->assertContains('2026',$this->model->availableYears('excluida'));
         $this->assertSame(1,$this->model->paginate()['total']);
         $audit=$this->pdo->query("SELECT * FROM security_audit WHERE resource_type='certidao'")->fetchAll();
         $this->assertCount(6,$audit); $this->assertNotContains('Reservada',array_column($audit,'description'));
+    }
+    public function testArchivedCertificateCanReturnToMatrixWithoutLosingPdf(): void
+    {
+        $id=$this->create(); $before=$this->model->buscarPorId($id);
+        $this->model->transition($id,'archive',1,$this->actor);
+        $this->model->updateMetadata($id,array_replace($this->data(),['revisao'=>2,'observacao'=>'Corrigida no arquivo']),$this->actor);
+        $this->assertSame('arquivada',$this->model->buscarPorId($id)['estado']);
+        $this->model->transition($id,'restore',3,$this->actor);
+        $restored=$this->model->buscarPorId($id);
+        $this->assertSame('corrente',$restored['estado']);
+        $this->assertSame('Corrigida no arquivo',$restored['observacao']);
+        $this->assertSame($before['pdf_privado'],$restored['pdf_privado']);
+        $this->assertFileExists($this->storage->path($restored['pdf_privado']));
+        $this->assertSame(1,$this->model->paginate()['total']);
+        $this->expectException(\DomainException::class);
+        $this->model->transition($id,'restore',3,$this->actor);
     }
     public function testRenewalAuditFailureRollsBackOldNewAndNewFile(): void
     {
@@ -125,13 +154,13 @@ final class CertidaoTest extends DatabaseTestCase
     public function testMatrixBoundsSuppliersAndIndependentlyPaginatesTheirDocuments(): void
     {
         for ($i=0;$i<23;$i++) { $this->create(); }
-        for ($supplier=2;$supplier<=7;$supplier++) {
+        for ($supplier=2;$supplier<=10;$supplier++) {
             $this->model->saveOption('fornecedor',null,'Fornecedor '.$supplier,true,$this->actor);
             $this->create(null,['id_fornecedor'=>$supplier]);
         }
         $first=$this->model->matrix(); $second=$this->model->matrix([],2);
-        $this->assertSame(29,$first['total']); $this->assertSame(7,$first['supplierTotal']);
-        $this->assertCount(5,$first['suppliers']); $this->assertCount(2,$second['suppliers']);
+        $this->assertSame(32,$first['total']); $this->assertSame(10,$first['supplierTotal']);
+        $this->assertCount(8,$first['suppliers']); $this->assertCount(2,$second['suppliers']);
         $this->assertEmpty(array_intersect(array_column($first['suppliers'],'id'),array_column($second['suppliers'],'id')));
         $page=$this->model->matrix(['fornecedor'=>1],1,[1=>2]);
         $this->assertSame(23,$page['total']); $this->assertCount(10,$page['items']);
@@ -141,15 +170,15 @@ final class CertidaoTest extends DatabaseTestCase
         $this->assertSame(1,$this->model->matrix(['fornecedor'=>1],1,[1=>['bad']])['suppliers'][0]['page']);
     }
 
-    public function testPendingFilterIncludesDatesAndMissingPdfWithinSelectedState(): void
+    public function testPendingFilterUsesDatesAndDoesNotRequirePdf(): void
     {
         foreach (['2026-09-15','2026-09-16','2026-10-01','2026-10-02'] as $date) { $this->create(null,['data_vencimento'=>$date]); }
         $missing=$this->create(null,['data_vencimento'=>'2026-10-03']);
         $this->pdo->exec('UPDATE certidoes SET pdf_privado=NULL WHERE id='.$missing);
         $invalid=$this->create(); $this->pdo->exec("UPDATE certidoes SET data_vencimento='bad' WHERE id=".$invalid);
         $archived=$this->create(); $this->model->transition($archived,'archive',1,$this->actor);
-        $this->assertSame(5,$this->model->matrix(['pendencias'=>'1'])['total']);
-        $this->assertSame(1,$this->model->matrix(['pendencias'=>'1','validade'=>'vigente'])['total']);
+        $this->assertSame(4,$this->model->matrix(['pendencias'=>'1'])['total']);
+        $this->assertSame(0,$this->model->matrix(['pendencias'=>'1','validade'=>'vigente'])['total']);
         $this->assertSame(1,$this->model->matrix(['pendencias'=>'1','estado'=>'arquivada'])['total']);
         $this->assertSame(0,$this->model->matrix(['pendencias'=>'1','ano'=>'2025'])['total']);
     }
@@ -174,7 +203,7 @@ final class CertidaoTest extends DatabaseTestCase
     }
     public function testUploadRequiresHttpOriginAndActorMustBeActive(): void
     {
-        foreach ([[],['error'=>UPLOAD_ERR_PARTIAL],['error'=>UPLOAD_ERR_OK,'tmp_name'=>$this->root.'/sample.pdf','name'=>'Documento.pdf']] as $upload) {
+        foreach ([['error'=>UPLOAD_ERR_PARTIAL],['error'=>UPLOAD_ERR_OK,'tmp_name'=>$this->root.'/sample.pdf','name'=>'Documento.pdf']] as $upload) {
             try { $this->model->create($this->data(),$upload,$this->actor,null,$this->storage); $this->fail('Bad upload'); } catch (\DomainException) {}
         }
         $this->pdo->exec('UPDATE usuarios SET ativo=0 WHERE id='.$this->actor);
@@ -202,7 +231,7 @@ final class CertidaoTest extends DatabaseTestCase
     {
         $this->pdo->exec("INSERT INTO certidoes(id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,arquivado,status) VALUES(1,1,'bad','2026-02-30',1,1)");
         $this->pdo->exec("INSERT INTO lista_fornecedores(nome) VALUES('FORNECEDOR Á')");
-        $this->assertCount(4,$this->model->diagnostics()); $this->assertSame(1,$this->model->paginate(['estado'=>'arquivada'])['total']);
+        $this->assertCount(3,$this->model->diagnostics()); $this->assertSame(1,$this->model->paginate(['estado'=>'arquivada'])['total']);
         $this->assertSame('bad',$this->model->buscarPorId(1)['data_emissao']);
     }
 

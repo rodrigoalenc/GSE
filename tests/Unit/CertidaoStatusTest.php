@@ -24,5 +24,10 @@ final class CertidaoStatusTest extends TestCase
         $this->assertSame('Vence hoje',$status->deadline('2026-09-16'));
         $this->assertSame('Vence em 15 dias',$status->deadline('2026-10-01'));
         $this->assertSame('Prazo pendente de revisão',$status->deadline('2026-02-30'));
+        $this->assertSame('Há 1 dia',$status->badge('2026-09-15'));
+        $this->assertSame('Hoje',$status->badge('2026-09-16'));
+        $this->assertSame('Em 15 dias',$status->badge('2026-10-01'));
+        $this->assertSame('16 dias',$status->badge('2026-10-02'));
+        $this->assertSame('Data pendente',$status->badge('2026-02-30'));
     }
 }

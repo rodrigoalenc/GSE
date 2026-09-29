@@ -7,7 +7,7 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
         <h2>Central de DVAs</h2>
         <p>Priorize vencimentos sem perder versões anteriores ou alterar o histórico.</p>
     </div>
-    <div class="hero-stats"><span><strong><?= e((string) $result['total']) ?></strong> alunos ativos</span></div>
+    <div class="hero-stats"><span><strong><?= e((string) $result['total']) ?></strong> alunos no filtro</span></div>
 </section>
 
 <section class="status-legend" aria-label="Legenda das situações da DVA">
@@ -39,7 +39,7 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
         <span class="result-pill"><?= e((string) $result['total']) ?> registro(s)</span>
     </div>
     <div class="table-scroll">
-        <table class="tabela-filtrada">
+        <table class="tabela-filtrada dva-table">
             <thead><tr><th>Aluno</th><th>Turma</th><th>Situação</th><th>Vencimento</th><th>Ação</th></tr></thead>
             <tbody>
             <?php if ($result['items'] === []): ?><tr><td colspan="5" class="empty-state">Nenhum registro encontrado para os filtros informados.</td></tr><?php endif; ?>

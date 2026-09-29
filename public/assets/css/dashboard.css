@@ -1,0 +1,183 @@
+.dashboard-home {
+    color: #0c3566;
+}
+
+.dashboard-home [hidden] {
+    display: none !important;
+}
+
+.dashboard-certificate-alert,
+.dashboard-birthdays,
+.dashboard-dva-panel {
+    background: #fff;
+    border: 1px solid #d5e3f2;
+    border-radius: 20px;
+    box-shadow: 0 12px 28px rgba(15, 36, 64, .07);
+}
+
+.dashboard-certificate-alert {
+    margin-bottom: 24px;
+    color: #805200;
+    background: #fffaf0;
+    border-color: #f5cc77;
+}
+
+.dashboard-certificate-alert summary,
+.dashboard-dva-panel summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    min-height: 74px;
+    padding: 16px 24px;
+    list-style: none;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.dashboard-certificate-alert summary::-webkit-details-marker,
+.dashboard-dva-panel summary::-webkit-details-marker {
+    display: none;
+}
+
+.dashboard-certificate-alert summary {
+    min-height: 62px;
+    padding: 14px 18px;
+}
+
+.dashboard-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    color: #0c3566;
+    background: #ebf3fc;
+    border-radius: 50%;
+}
+
+.dashboard-chevron::before { content: '▼'; font-size: .8rem; }
+details[open] > summary .dashboard-chevron::before { content: '▲'; }
+
+.dashboard-alert-content {
+    padding: 0 18px 18px;
+}
+
+.dashboard-alert-content p { margin: 0 0 8px; }
+.dashboard-alert-content a { color: #0c3566; font-weight: 700; text-decoration: underline; }
+
+.dashboard-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 22px;
+    margin-bottom: 34px;
+}
+
+.dashboard-number-card {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 120px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+    overflow: hidden;
+    padding: 24px;
+    color: #16508f;
+    background: #fff;
+    border: 1px solid #d5e3f2;
+    border-radius: 20px;
+    box-shadow: 0 12px 28px rgba(15, 36, 64, .07);
+}
+
+.dashboard-number-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 5px;
+    background: currentColor;
+    opacity: .22;
+}
+
+.dashboard-number-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); }
+.dashboard-number-card span { color: #627691; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.dashboard-number-card strong { font-size: 2.35rem; line-height: 1; }
+.dashboard-number-card.missing { color: #d9730d; }
+.dashboard-number-card.expired { color: #cf453c; }
+.dashboard-number-card.due { color: #d89a1d; }
+
+.dashboard-search { margin-bottom: 18px; }
+.dashboard-search label { display: block; margin-bottom: 6px; color: #526f91; font-size: .92rem; }
+.dashboard-search input {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 15px;
+    color: #0c3566;
+    background: #fff;
+    border: 1px solid #cbdbea;
+    border-radius: 12px;
+}
+.dashboard-search input::placeholder { color: #8a96a6; }
+.dashboard-search-feedback { margin: 8px 0 0; color: #526f91; }
+
+.dashboard-birthdays {
+    margin-bottom: 24px;
+    padding: 26px;
+    border-left: 5px solid #d94697;
+}
+.dashboard-birthdays h2 { margin: 0 0 16px; color: #0c2445; font-size: 1.08rem; }
+.dashboard-birthday-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; }
+.dashboard-birthday-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    color: #0c3566;
+    background: #fff;
+    border: 1px solid #d5e3f2;
+    border-radius: 14px;
+    box-shadow: 0 8px 18px rgba(15, 36, 64, .05);
+}
+.dashboard-birthday-card:hover { color: #0c3566; background: #f6faff; }
+.dashboard-birthday-icon { flex: 0 0 auto; font-size: 1rem; }
+.dashboard-birthday-card strong { display: block; line-height: 1.45; }
+.dashboard-birthday-card small { display: block; color: #627691; font-size: .9rem; }
+.dashboard-empty { margin: 0; padding: 18px; color: #627691; }
+
+.dashboard-dva-panel { margin-bottom: 24px; }
+.dashboard-dva-panel summary { color: #0c2445; }
+.dashboard-dva-panel.vencidas summary { color: #cf453c; }
+.dashboard-dva-panel.a-vencer summary { color: #cc8500; }
+.dashboard-dva-panel.vigentes summary { color: #168143; }
+.dashboard-dva-body { padding: 0 24px 24px; }
+.dashboard-student-table { width: 100%; border-collapse: collapse; }
+.dashboard-student-table th {
+    padding: 14px 16px;
+    color: #627691;
+    background: #f5f8fc;
+    font-size: .8rem;
+    letter-spacing: .07em;
+    text-align: left;
+    text-transform: uppercase;
+}
+.dashboard-student-table td { padding: 14px 16px; border-top: 1px solid #e2ebf4; }
+.dashboard-student-table tbody tr:nth-child(even) { background: #f9fbfe; }
+.dashboard-student-table td a { color: #0c3566; font-weight: 700; }
+.dashboard-student-table td a:hover { text-decoration: underline; }
+
+@media (max-width: 1100px) {
+    .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+    .dashboard-summary-grid { gap: 10px; }
+    .dashboard-number-card { min-height: 100px; padding: 14px 17px; border-radius: 15px; }
+    .dashboard-number-card strong { font-size: 2rem; }
+    .dashboard-birthdays { padding: 18px; }
+    .dashboard-birthday-grid { grid-template-columns: 1fr; }
+    .dashboard-dva-panel summary { padding: 14px 18px; }
+    .dashboard-dva-body { padding: 0 12px 16px; }
+    .dashboard-student-table { min-width: 550px; }
+}

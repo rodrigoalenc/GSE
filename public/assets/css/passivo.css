@@ -2,21 +2,20 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 22px;
-    padding: 28px;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding: 24px;
     color: #fff;
     background: linear-gradient(135deg, #0c3566, #16508f);
-    border-radius: 20px;
-    box-shadow: 0 18px 38px rgba(12, 53, 102, .18);
+    border-radius: 18px;
 }
 
-.passivo-hero h2 { margin: 0 0 8px; color: #fff; }
-.passivo-hero p { max-width: 700px; margin: 0; color: rgba(255, 255, 255, .86); }
+.passivo-hero h2 { margin: 0 0 8px; color: #fff; font-size: 1.25rem; }
+.passivo-hero p { max-width: 700px; margin: 0; color: #fff; font-weight: 700; line-height: 1.55; }
 .passivo-hero .hero-kicker { margin-bottom: 7px; color: #b9ddff; }
 .passivo-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
-.passivo-stats span { min-width: 120px; padding: 11px 14px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 13px; }
-.passivo-stats strong { display: block; color: #fff; font-size: 1.25rem; }
+.passivo-stats span { min-width: 120px; padding: 12px 14px; color: #fff; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.14); border-radius: 14px; font-size: .85rem; font-weight: 700; }
+.passivo-stats strong { display: block; margin-bottom: 4px; color: #fff; font-size: 1.2rem; }
 
 .passivo-toolbar { margin-bottom: 22px; }
 .passivo-filters,
@@ -81,6 +80,8 @@
 .passivo-student-summary dd { margin: 3px 0 0; font-weight: 650; overflow-wrap: anywhere; }
 .passivo-admin-panel { margin-top: 20px; }
 .passivo-admin-panel form { margin-top: 16px; }
+.passivo-admin-panel .btn-danger { padding: .65rem 1rem; color: #fff; background: #a61b2b; border: 0; border-radius: 6px; font-weight: 600; cursor: pointer; }
+.passivo-admin-panel .btn-danger:hover { background: #851522; }
 
 .passivo-preview-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
 .passivo-preview-counts span { padding: 14px; background: #f7fafe; border: 1px solid #dbe5f0; border-radius: 12px; }

@@ -41,6 +41,15 @@ final class CertidaoStatus
         return $days < 0 ? 'Vencida há ' . abs($days) . $unit : 'Vence em ' . $days . $unit;
     }
 
+    public function badge(?string $value): string
+    {
+        if ($value === null || !self::validDate($value)) { return 'Data pendente'; }
+        $days = (int) $this->date->diff(new DateTimeImmutable($value, $this->date->getTimezone()))->format('%r%a');
+        if ($days < 0) { return 'Há ' . abs($days) . (abs($days) === 1 ? ' dia' : ' dias'); }
+        if ($days === 0) { return 'Hoje'; }
+        return ($days <= $this->days ? 'Em ' : '') . $days . ($days === 1 ? ' dia' : ' dias');
+    }
+
     public function classify(?string $value): string
     {
         if ($value === null || !self::validDate($value)) { return 'pendente'; }

@@ -2,40 +2,50 @@
 $params = ['busca' => $search, 'situacao' => $status];
 $date = static function (?string $value): string {
     if (!$value) { return '—'; }
-    try { return (new DateTimeImmutable($value, new DateTimeZone('UTC')))
-        ->setTimezone(new DateTimeZone(Config::string('APP_TIMEZONE', 'America/Cuiaba')))->format('d/m/Y H:i'); }
-    catch (Exception) { return 'Data indisponível'; }
+    try {
+        return (new DateTimeImmutable($value, new DateTimeZone('UTC')))
+            ->setTimezone(new DateTimeZone(Config::string('APP_TIMEZONE', 'America/Cuiaba')))->format('d/m/Y H:i');
+    } catch (Exception) { return 'Data indisponível'; }
 };
 ?>
-<section class="relatorio modulo5-hero">
-    <div class="section-head"><div><h2>Contratos</h2><p>Consulte contratos, notas e valores registrados.</p></div><a class="btn btn-primary" href="<?= e(url('contrato/criar')) ?>">Novo contrato</a></div>
-    <?php if ($summary !== null): ?>
-    <div class="modulo5-metrics" aria-label="Resumo dos contratos ativos nesta busca">
-        <div><strong><?= (int)$summary['contratos'] ?></strong><span>Contratos ativos</span></div>
-        <div><strong><?= (int)$summary['notas'] ?></strong><span>Notas ativas</span></div>
-        <div><strong><?= e(Contrato::money((int)$summary['valor_centavos'])) ?></strong><span>Valor contratado conciliado<?= (int)$summary['valores_pendentes']>0 ? ' ('.(int)$summary['valores_pendentes'].' pendente(s))' : '' ?></span></div>
-        <div><strong><?= (int)$summary['faturadas'] ?> / <?= (int)$summary['notas'] ?></strong><span>Notas faturadas</span></div>
+<?php if ($summary !== null): ?>
+<section class="contract-overview" aria-label="Visão geral dos pedidos cadastrados">
+    <div><h2>Visão geral dos pedidos cadastrados</h2><p>Use esta tela para acompanhar os pedidos, a quantidade de notas e o valor total registrado.</p></div>
+    <div class="contract-overview-stats">
+        <span><strong><?= (int) $summary['contratos'] ?></strong>Pedidos cadastrados</span>
+        <span><strong><?= (int) $summary['notas'] ?></strong>Notas geradas</span>
+        <span><strong><?= e(Contrato::money((int) $summary['valor_centavos'])) ?></strong>Valor contratado<?= (int) $summary['valores_pendentes'] > 0 ? ' · ' . (int) $summary['valores_pendentes'] . ' pendente(s)' : '' ?></span>
+        <span><strong><?= (int) $summary['faturadas'] ?></strong>Notas faturadas</span>
     </div>
-    <p class="modulo5-hint">Indicadores consideram todos os contratos ativos encontrados na busca, em todas as páginas. O valor soma somente contratos com valor conferido; notas faturadas têm data de faturamento registrada.</p>
-    <?php endif; ?>
 </section>
-<section class="relatorio">
-    <form method="get" action="<?= e(url('contrato')) ?>" class="modulo5-filters">
-        <label for="busca">Buscar por título<input class="form-control" id="busca" name="busca" value="<?= e($search) ?>"></label>
-        <label for="situacao">Situação<select class="form-select" id="situacao" name="situacao"><option value="ativos" <?= $status==='ativos'?'selected':'' ?>>Ativos</option><option value="excluidos" <?= $status==='excluidos'?'selected':'' ?>>Excluídos</option></select></label>
-        <button class="btn btn-primary">Consultar</button>
-    </form>
-    <p><?= (int)$result['total'] ?> contrato(s) <?= $status==='ativos'?'ativo(s)':'excluído(s)' ?> nesta busca.</p>
-    <?php if ($result['items']===[]): ?><p class="empty-state">Nenhum contrato encontrado para os filtros.</p><?php else: ?>
-    <div class="table-scroll"><table class="table"><thead><tr><th>Número</th><th>Título</th><th>Fornecedor</th><th>Notas</th><th>Valor contratado</th><th>Faturamento</th><th><?= $status==='ativos'?'Registro':'Exclusão' ?></th><th>Acesso</th></tr></thead><tbody>
-    <?php foreach ($result['items'] as $row): ?><tr>
-        <td><?= (int)$row['id'] ?></td><td><?= e($row['titulo']) ?><?= $status==='excluidos'?' (excluído)':'' ?></td>
-        <td><?= e($row['fornecedor'] ?? 'Não informado') ?></td><td><?= (int)$row['notas'] ?></td>
-        <td><?= e(Contrato::money($row['valor_centavos']===null ? null : (int)$row['valor_centavos'])) ?></td>
-        <td><?= (int)$row['notas_faturadas'] ?> de <?= (int)$row['notas'] ?> nota(s)</td>
-        <td><?= $date($status==='ativos' ? $row['criado_em'] : $row['excluido_em']) ?><?php if ($status==='excluidos'): ?><br><small>Por <?= e($row['excluido_por_nome'] ?? 'Usuário indisponível') ?></small><?php endif; ?></td>
-        <td><a href="<?= e(url('contrato/detalhes/'.$row['id'].'?'.http_build_query($params+['pagina'=>$result['page']]))) ?>">Detalhes</a></td>
-    </tr><?php endforeach; ?></tbody></table></div>
-    <nav aria-label="Páginas"><?php for ($p=1;$p<=$result['pages'];$p++): ?><a class="btn btn-sm <?= $p===$result['page'] ? 'btn-primary' : 'btn-outline-primary' ?>" href="<?= e(url('contrato?'.http_build_query($params+['pagina'=>$p]))) ?>"><?= $p ?></a> <?php endfor; ?></nav>
+<?php endif; ?>
+
+<div class="contract-list-intro"><div><h2>Lista principal</h2><p>Abra os detalhes para acompanhar notas, produtos e saldo de cada pedido.</p></div><a class="btn-primary" href="<?= e(url('contrato/criar')) ?>">＋ Novo Pedido</a></div>
+
+<section class="relatorio contract-list-panel" aria-labelledby="contract-list-title">
+    <div class="contract-list-heading"><h2 id="contract-list-title"><?= $status === 'ativos' ? 'Pedidos Cadastrados' : 'Pedidos Excluídos' ?></h2>
+        <form method="get" action="<?= e(url('contrato')) ?>" class="contract-list-filters">
+            <label for="busca">Buscar pedido<input id="busca" name="busca" value="<?= e($search) ?>" placeholder="Título do pedido"></label>
+            <label for="situacao">Situação<select id="situacao" name="situacao"><option value="ativos" <?= $status === 'ativos' ? 'selected' : '' ?>>Ativos</option><option value="excluidos" <?= $status === 'excluidos' ? 'selected' : '' ?>>Excluídos</option></select></label>
+            <button class="btn-secondary" type="submit">Consultar</button>
+        </form>
+    </div>
+    <?php if ($result['items'] === []): ?><p class="empty-state">Nenhum pedido encontrado para os filtros.</p><?php else: ?>
+    <div class="table-scroll"><table class="contract-list-table"><thead><tr><th>ID</th><th>Título do pedido</th><th>Notas</th><th>Valor total</th><th>Faturamento</th><th>Média por nota</th><th><?= $status === 'ativos' ? 'Data de registro' : 'Data de exclusão' ?></th><th>Ações</th></tr></thead><tbody>
+        <?php foreach ($result['items'] as $row): ?>
+            <?php $noteCount = (int) $row['notas']; $billedCount = (int) $row['notas_faturadas']; ?>
+            <tr class="<?= $noteCount > 0 && $billedCount === $noteCount ? 'contract-row-paid' : '' ?>">
+                <td class="contract-id">#<?= (int) $row['id'] ?></td>
+                <td class="contract-title"><strong><?= e($row['titulo']) ?></strong><?php if ($row['fornecedor']): ?><small><?= e($row['fornecedor']) ?></small><?php endif; ?><?php if ($status === 'excluidos'): ?><small>Pedido excluído</small><?php endif; ?></td>
+                <td><span class="contract-pill"><?= $noteCount ?> nota(s)</span></td>
+                <td class="contract-money"><?= e(Contrato::money($row['valor_centavos'] === null ? null : (int) $row['valor_centavos'])) ?></td>
+                <td><span class="contract-pill <?= $billedCount > 0 ? 'paid' : 'pending' ?>"><?= $billedCount ?> de <?= $noteCount ?> nota(s)</span></td>
+                <td><?= $row['valor_centavos'] !== null && $noteCount > 0 ? e(Contrato::money((int) round((int) $row['valor_centavos'] / $noteCount))) : '—' ?></td>
+                <td><?= e($date($status === 'ativos' ? $row['criado_em'] : $row['excluido_em'])) ?><?php if ($status === 'excluidos'): ?><small>Por <?= e($row['excluido_por_nome'] ?? 'Usuário indisponível') ?></small><?php endif; ?></td>
+                <td><div class="contract-row-actions"><a class="btn-secondary contract-details-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '?' . http_build_query($params + ['pagina' => $result['page']]))) ?>">Ver detalhes</a><?php if ($status === 'ativos'): ?><a class="contract-delete-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '#delete-contract')) ?>">Apagar</a><?php endif; ?></div></td>
+            </tr>
+        <?php endforeach; ?>
+    </tbody></table></div>
+    <nav class="contract-pagination" aria-label="Páginas de pedidos"><?php for ($p = 1; $p <= $result['pages']; $p++): ?><a class="btn-secondary <?= $p === $result['page'] ? 'active' : '' ?>" href="<?= e(url('contrato?' . http_build_query($params + ['pagina' => $p]))) ?>"><?= $p ?></a><?php endfor; ?></nav>
     <?php endif; ?>
 </section>

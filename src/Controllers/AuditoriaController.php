@@ -19,7 +19,7 @@ final class AuditoriaController extends Controller
         $result = (new Auditoria())->paginate($filters, (int) $page);
 
         $this->view('auditoria/index', [
-            'title' => 'Auditoria de Segurança',
+            'title' => 'Logs de Auditoria',
             'filters' => $filters,
             'result' => $result,
         ]);

@@ -3,21 +3,20 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
 ?>
 <section class="page-hero">
     <div>
-        <p class="hero-kicker">Módulo 2</p>
-        <h2>Gestão de alunos com histórico preservado</h2>
-        <p>Consulte cadastros, acompanhe DVAs e mantenha os vínculos acadêmicos sem exclusão física.</p>
+        <h2>Central de cadastro e acompanhamento dos alunos</h2>
+        <p>Pesquise rapidamente por nome, revise a turma atual, abra o perfil completo e mantenha os dados de contato e DVA sempre atualizados.</p>
     </div>
     <div class="hero-stats" aria-label="Resumo da consulta">
-        <span><strong><?= e((string) $result['total']) ?></strong> resultados</span>
+        <span><strong><?= e((string) $result['total']) ?></strong> Total de alunos</span>
         <span><strong><?= e((string) $result['page']) ?></strong> página atual</span>
-        <span><strong><?= e((string) $result['pages']) ?></strong> páginas</span>
+        <span><strong><?= e((string) $result['pages']) ?></strong> total de páginas</span>
     </div>
 </section>
 
 <div class="module-toolbar quick-actions">
-    <div><h2>Ações rápidas</h2><p>Atalhos para as operações mais frequentes.</p></div>
+    <div><h2>Ações rápidas</h2><p>Cadastre novos alunos ou use a busca para localizar um registro específico.</p></div>
     <div class="toolbar-actions">
-        <a class="btn-primary" href="<?= e(url('aluno/criar')) ?>">+ Novo aluno</a>
+        <a class="btn-primary" href="<?= e(url('aluno/criar')) ?>">+ Novo Aluno</a>
         <a class="btn-secondary" href="<?= e(url('dva')) ?>">Painel de DVAs</a>
         <?php if (Auth::isAdmin()): ?>
             <a class="btn-secondary" href="<?= e(url('turma')) ?>">Gerenciar turmas</a>
@@ -69,7 +68,7 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
 
 <section class="relatorio">
     <div class="section-head">
-        <div><h2>Alunos encontrados</h2><p>Selecione um nome para abrir o perfil completo.</p></div>
+        <div><h2>Alunos Cadastrados</h2><p>Abra o perfil para detalhes completos ou entre em edição para atualizar dados rapidamente.</p></div>
         <span class="result-pill"><?= e((string) $result['total']) ?> registro(s)</span>
     </div>
     <div class="table-scroll">

@@ -1,3 +1,13 @@
+<?php
+$currentDate = $current ? date('d/m/Y', strtotime((string) $current['data_vencimento'])) : null;
+$currentTiming = match ($currentStatus) {
+    DvaStatus::VENCIDA => 'Venceu há ' . abs((int) $currentDays) . ' dia(s) (' . $currentDate . ').',
+    DvaStatus::VENCE_HOJE => 'Vence hoje (' . $currentDate . ').',
+    DvaStatus::A_VENCER => 'Vence em ' . (int) $currentDays . ' dia(s) (' . $currentDate . ').',
+    DvaStatus::VIGENTE => 'Vence em ' . $currentDate . '.',
+    default => 'O primeiro registro iniciará o histórico.',
+};
+?>
 <?php if ($errors !== []): ?>
     <div class="error-message form-shell" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div>
 <?php endif; ?>
@@ -12,8 +22,8 @@
     <div class="status-box dva-status-large dva-<?= e((string) $currentStatus) ?>">
         <span class="dva-badge dva-<?= e((string) $currentStatus) ?>"><?= e(DvaStatus::label((string) $currentStatus)) ?></span>
         <?php if ($current): ?>
-            <h2>DVA atual vence em <?= e(date('d/m/Y', strtotime((string) $current['data_vencimento']))) ?></h2>
-            <p><?= e((string) $currentDays) ?> dia(s) em relação à data de referência.</p>
+            <h2>DVA atual: <?= e(DvaStatus::label((string) $currentStatus)) ?></h2>
+            <p><?= e($currentTiming) ?></p>
         <?php else: ?>
             <h2>Sem DVA atual</h2><p>O primeiro registro iniciará o histórico.</p>
         <?php endif; ?>

@@ -331,11 +331,12 @@ try {
     $dashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);
     checkHttp(
         $dashboard['status'] === 200
-        && str_contains($dashboard['body'], 'Alunos ativos')
-        && str_contains($dashboard['body'], 'Segurança e controle de acesso')
+        && str_contains($dashboard['body'], 'Total de alunos')
+        && str_contains($dashboard['body'], 'Alunos Sem DVA')
+        && str_contains($dashboard['body'], 'assets/css/dashboard.css')
         && str_contains($dashboard['body'], 'assets/image/logo_escola.png')
         && str_contains($dashboard['body'], 'aria-current="page"'),
-        'Dashboard integra os Módulos 1 e 2'
+        'Dashboard exibe os indicadores dos alunos e DVAs'
     );
 
     foreach (['contrato','estoque','relatorio','relatorio/csv','relatorio/pdf'] as $moduleFivePath) {
@@ -367,7 +368,10 @@ try {
     preg_match('#/contrato/detalhes/([0-9]+)#', $complete['headers']['location'] ?? '', $completeMatch);
     checkHttp($complete['status'] === 302 && isset($completeMatch[1]), 'Cadastro HTTP de contrato com duas folhas e produtos');
     $completeDetails = request('GET', $baseUrl . '/contrato/detalhes/' . $completeMatch[1], $cookieAdmin);
-    checkHttp($completeDetails['status'] === 200 && str_contains($completeDetails['body'], 'Folha 2') && str_contains($completeDetails['body'], 'Lápis'), 'Cadastro completo aparece nos detalhes');
+    checkHttp($completeDetails['status'] === 200 && str_contains($completeDetails['body'], 'Nota 2') && str_contains($completeDetails['body'], 'Lápis'), 'Cadastro completo aparece nos detalhes');
+    checkHttp(str_contains($completeDetails['body'], 'contract-print-link') && str_contains($completeDetails['body'], 'billing-note-') && str_contains($completeDetails['body'], 'Faturamento'), 'Detalhes expõem impressão e faturamento por nota');
+    $printOrder = request('GET', $baseUrl . '/contrato/imprimir/' . $completeMatch[1], $cookieAdmin);
+    checkHttp($printOrder['status'] === 200 && str_contains($printOrder['body'], 'data-auto-print') && str_contains($printOrder['body'], 'Nota 1') && str_contains($printOrder['body'], 'Nota 2') && str_contains($printOrder['body'], 'R$ 18,00'), 'Impressão do pedido mostra todas as notas e o total em itens');
     $deletedContract = request('POST', $baseUrl . '/contrato/excluir/' . $contractId, $cookieAdmin, [
         '_csrf_token' => csrf($contractDetails['body']), 'revisao' => '1', 'confirmar' => '1',
     ]);

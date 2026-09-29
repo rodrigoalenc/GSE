@@ -15,7 +15,7 @@ final class AlunoController extends Controller
         $result = (new Aluno())->paginate($filters, (int) $page);
 
         $this->view('alunos/index', [
-            'title' => 'Gestão de Alunos',
+            'title' => 'Gerenciar Alunos',
             'filters' => $filters,
             'result' => $result,
             'turmas' => (new Turma())->listar(),
@@ -60,7 +60,7 @@ final class AlunoController extends Controller
         }
 
         $this->view('alunos/form', [
-            'title' => 'Cadastrar Aluno',
+            'title' => 'Cadastrar Novo Aluno',
             'data' => $data,
             'errors' => $errors,
             'editing' => false,
