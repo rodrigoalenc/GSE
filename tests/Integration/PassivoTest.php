@@ -9,6 +9,84 @@ use Tests\Support\DatabaseTestCase;
 
 final class PassivoTest extends DatabaseTestCase
 {
+    public function testBoxListAndNavigationUseNaturalOrderForNumericAndAlphanumericLabels(): void
+    {
+        $actor = $this->insertUsuario('Admin Ordem Caixas');
+        $model = new \Passivo();
+        foreach (['CX-10', '20', 'A-10', '3', '10', 'CX-2', '1', 'A-2', '2', 'A-1'] as $box) {
+            $this->assertIsInt($model->cadastrar([
+                'nome_completo' => 'Registro ficticio caixa ' . $box,
+                'caixa' => $box,
+            ], $actor));
+        }
+        foreach (['30', '4'] as $box) {
+            $id = $model->cadastrar(['nome_completo' => 'Registro inativo caixa ' . $box, 'caixa' => $box], $actor);
+            $this->assertIsInt($id);
+            $this->assertTrue($model->definirAtivo($id, false, $actor));
+        }
+
+        $expected = ['1', '2', '3', '10', '20', 'A-1', 'A-2', 'A-10', 'CX-2', 'CX-10'];
+        $this->assertSame($expected, array_column($model->caixas(), 'caixa'));
+        $this->assertSame(['4', '30'], array_column($model->caixas(false), 'caixa'));
+        $this->assertSame(
+            ['1', '2', '3', '4', '10', '20', '30', 'A-1', 'A-2', 'A-10', 'CX-2', 'CX-10'],
+            array_column($model->caixas(null), 'caixa')
+        );
+        $this->assertSame([
+            'anterior' => '1', 'proxima' => '3',
+            'lista' => ['1', '2', '3', '10', '20', 'A-1', 'A-2'],
+        ], $model->navegacaoCaixas('2'));
+        $this->assertSame('CX-10', $model->navegacaoCaixas('cx-2')['proxima']);
+        $this->assertSame('30', $model->navegacaoCaixas('4', false)['proxima']);
+        $this->assertNull($model->navegacaoCaixas('1')['anterior']);
+        $this->assertNull($model->navegacaoCaixas('CX-10')['proxima']);
+        $this->assertSame($expected, array_column($model->paginate(['ordem' => 'caixa'])['items'], 'caixa'));
+        $this->assertSame(['4', '30'], array_column($model->paginate(['ordem' => 'caixa', 'ativo' => '0'])['items'], 'caixa'));
+    }
+
+    public function testNaturalBoxOrderIsAppliedBeforePagination(): void
+    {
+        $actor = $this->insertUsuario('Admin Paginacao Caixas');
+        $model = new \Passivo();
+        foreach (range(25, 1) as $box) {
+            $this->assertIsInt($model->cadastrar([
+                'nome_completo' => 'Registro ficticio ' . (26 - $box),
+                'caixa' => (string) $box,
+            ], $actor));
+        }
+
+        $pages = [];
+        foreach ([1 => range(1, 10), 2 => range(11, 20), 3 => range(21, 25)] as $number => $expected) {
+            $page = $model->paginate(['ordem' => 'caixa'], $number, 10);
+            $this->assertSame(25, $page['total']);
+            $this->assertSame(3, $page['pages']);
+            $this->assertSame($number, $page['page']);
+            $this->assertSame(10, $page['per_page']);
+            $this->assertSame(array_map('strval', $expected), array_column($page['items'], 'caixa'));
+            $pages[] = $page['items'];
+        }
+
+        $all = array_merge(...$pages);
+        $this->assertSame(array_map('strval', range(1, 25)), array_column($all, 'caixa'));
+        $this->assertCount(25, array_unique(array_column($all, 'id')));
+        $this->assertSame(array_column($model->caixas(), 'caixa'), array_column($all, 'caixa'));
+        $this->assertSame(array_map('strval', range(21, 25)), array_column($model->paginate(['ordem' => 'caixa'], 99, 10)['items'], 'caixa'));
+    }
+
+    public function testNaturalBoxOrderPreservesLabelsLargerThanIntegerRange(): void
+    {
+        $actor = $this->insertUsuario('Admin Caixas Grandes');
+        $model = new \Passivo();
+        foreach (['100000000000000000000', '10', '2', '90000000000000000000', '1', '01', '00', '0'] as $box) {
+            $this->assertIsInt($model->cadastrar(['nome_completo' => 'Registro ficticio ' . $box, 'caixa' => $box], $actor));
+        }
+
+        $expected = ['0', '00', '01', '1', '2', '10', '90000000000000000000', '100000000000000000000'];
+        $this->assertSame($expected, array_column($model->caixas(), 'caixa'));
+        $this->assertSame($expected, array_column($model->paginate(['ordem' => 'caixa'])['items'], 'caixa'));
+        $this->assertSame('100000000000000000000', $model->navegacaoCaixas('90000000000000000000')['proxima']);
+    }
+
     public function testLogicalDeletionScopesQueriesBoxesExportEnumerationAndConflicts(): void
     {
         $actor = $this->insertUsuario('Funcionario UC004', 'funcionario');

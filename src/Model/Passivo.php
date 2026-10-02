@@ -25,6 +25,7 @@ final class Passivo extends Model
      */
     public function paginate(array $filters, int $page = 1, int $perPage = 20): array
     {
+        $this->configureBoxOrdering();
         $page = max(1, min(self::PAGE_MAX, $page));
         $perPage = max(10, min(100, $perPage));
         [$where, $params] = $this->where($filters);
@@ -37,7 +38,7 @@ final class Passivo extends Model
             'nome' => 'p.nome_normalizado ASC, p.id ASC',
             'numero' => "CASE WHEN p.numero GLOB '[0-9]*' AND p.numero NOT GLOB '*[^0-9]*' THEN 0 ELSE 1 END,
                          CAST(p.numero AS INTEGER) ASC, p.numero_normalizado ASC, p.nome_normalizado ASC, p.id ASC",
-            'caixa' => 'p.caixa_normalizada ASC, p.numero_normalizado ASC, p.nome_normalizado ASC, p.id ASC',
+            'caixa' => 'p.caixa_normalizada COLLATE PASSIVO_CAIXA ASC, p.numero_normalizado ASC, p.nome_normalizado ASC, p.id ASC',
             'recente' => 'p.criado_em DESC, p.id DESC',
         ];
         $orderKey = (string) ($filters['ordem'] ?? 'nome');
@@ -86,13 +87,14 @@ final class Passivo extends Model
     /** @return list<array{caixa:string,caixa_normalizada:string,total:int}> */
     public function caixas(?bool $active = true): array
     {
+        $this->configureBoxOrdering();
         $statusCondition = $active === null ? '' : 'AND ativo = ' . ($active ? '1' : '0');
         $rows = self::$pdo->query(
             "SELECT MIN(caixa) AS caixa, caixa_normalizada, COUNT(*) AS total
              FROM alunos_passivo
              WHERE caixa_normalizada IS NOT NULL {$statusCondition}
              GROUP BY caixa_normalizada
-             ORDER BY caixa_normalizada, MIN(id)"
+             ORDER BY caixa_normalizada COLLATE PASSIVO_CAIXA, MIN(id)"
         )->fetchAll();
 
         return array_map(static fn (array $row): array => [
@@ -100,6 +102,30 @@ final class Passivo extends Model
             'caixa_normalizada' => (string) $row['caixa_normalizada'],
             'total' => (int) $row['total'],
         ], $rows);
+    }
+
+    private function configureBoxOrdering(): void
+    {
+        self::$pdo->sqliteCreateCollation('PASSIVO_CAIXA', static function (string $left, string $right): int {
+            $leftIsNumber = preg_match('/^[0-9]+$/D', $left) === 1;
+            $rightIsNumber = preg_match('/^[0-9]+$/D', $right) === 1;
+
+            if ($leftIsNumber && $rightIsNumber) {
+                // Compare digits without integer casts, including boxes longer than int64.
+                $leftDigits = ltrim($left, '0');
+                $rightDigits = ltrim($right, '0');
+
+                return (strlen($leftDigits) <=> strlen($rightDigits))
+                    ?: strcmp($leftDigits, $rightDigits)
+                    ?: strcmp($left, $right);
+            }
+
+            if ($leftIsNumber !== $rightIsNumber) {
+                return $leftIsNumber ? -1 : 1;
+            }
+
+            return strnatcmp($left, $right) ?: strcmp($left, $right);
+        });
     }
 
     /** @return array{anterior:?string,proxima:?string,lista:list<string>} */
