@@ -34,10 +34,20 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(84, $routes);
+        $this->assertCount(85, $routes);
+        $routeKeys = array_map(static fn (array $route): string => $route['method'] . ' ' . $route['pattern'], $routes);
+        $this->assertCount(count($routes), array_unique($routeKeys), 'Cada método/caminho deve ter uma única autorização.');
         $stockReview = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === 'contrato/conferir-abertura/{id}'));
         $this->assertTrue($stockReview[0]['admin']);
         $this->assertSame('POST', $stockReview[0]['method']);
+        $this->assertTrue($stockReview[0]['auth']);
+        $unarchive = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === 'certidao/desarquivar/{id}'));
+        $this->assertCount(1, $unarchive);
+        $this->assertSame('POST', $unarchive[0]['method']);
+        $this->assertTrue($unarchive[0]['auth']);
+        $this->assertFalse($unarchive[0]['admin']);
+        $this->assertSame('CertidaoController', $unarchive[0]['controller']);
+        $this->assertSame('desarquivar', $unarchive[0]['action']);
         $this->assertSame(['id' => '42'], $match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/42'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/excluirTudo'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/../1'));
@@ -73,6 +83,17 @@ final class CoreSecurityTest extends TestCase
             $this->assertContains($route['method'], ['GET', 'POST']);
             $this->assertNotSame('', $route['controller']);
             $this->assertNotSame('', $route['action']);
+            $this->assertSame(!in_array($route['pattern'], ['', 'login', 'login/entrar'], true), $route['auth']);
+            if ($route['admin']) {
+                $this->assertTrue($route['auth']);
+            }
+            if (str_contains($route['pattern'], '{id}')) {
+                $path = str_replace('{id}', '42', $route['pattern']);
+                $this->assertSame(['id' => '42'], $match->invoke($router, $route['pattern'], $path));
+                foreach (['0', '-1', '1.2', '01', 'abc', '%31', '1/2'] as $invalid) {
+                    $this->assertNull($match->invoke($router, $route['pattern'], str_replace('{id}', $invalid, $route['pattern'])));
+                }
+            }
         }
     }
 
@@ -88,5 +109,27 @@ final class CoreSecurityTest extends TestCase
         $this->assertArrayNotHasKey('Strict-Transport-Security', $http);
         $this->assertArrayHasKey('Strict-Transport-Security', $https);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $http['X-Request-ID']);
+    }
+
+    public function testPdfPreviewPermitsLocalBlobFramesWithoutAllowingBlobScriptsOrEmbeddingTheApplication(): void
+    {
+        foreach ([false, true] as $isHttps) {
+            $headers = \SecurityHeaders::values($isHttps);
+            $directives = [];
+            foreach (explode(';', $headers['Content-Security-Policy']) as $directive) {
+                $tokens = preg_split('/\s+/', trim($directive));
+                $directives[array_shift($tokens)] = $tokens;
+            }
+
+            $this->assertSame(["'self'", 'blob:'], $directives['frame-src']);
+            $this->assertSame(["'self'"], $directives['default-src']);
+            $this->assertSame(["'self'"], $directives['script-src']);
+            $this->assertSame(["'self'"], $directives['style-src']);
+            $this->assertSame(["'self'"], $directives['base-uri']);
+            $this->assertSame(["'self'"], $directives['form-action']);
+            $this->assertSame(["'none'"], $directives['object-src']);
+            $this->assertSame(["'none'"], $directives['frame-ancestors']);
+            $this->assertSame('DENY', $headers['X-Frame-Options']);
+        }
     }
 }

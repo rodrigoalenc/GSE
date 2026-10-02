@@ -820,6 +820,7 @@ try {
         && str_contains($audit['body'], 'passive.import_completed'),
         'Auditoria administrativa inclui recursos do Módulo 2'
     );
+    require __DIR__ . '/http-contract-drafts.php';
     require __DIR__ . '/http-certidoes.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');

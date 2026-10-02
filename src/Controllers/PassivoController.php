@@ -92,7 +92,7 @@ final class PassivoController extends Controller
         }
 
         $this->view('passivo/form', [
-            'title' => 'Editar registro do Arquivo Passivo',
+            'title' => 'Editar Registro Passivo',
             'data' => $data,
             'errors' => $errors,
             'editing' => true,

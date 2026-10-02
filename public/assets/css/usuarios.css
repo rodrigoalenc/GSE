@@ -204,3 +204,33 @@
     .audit-filters { grid-template-columns: 1fr; }
     .audit-info-box { align-items: flex-start; flex-direction: column; }
 }
+
+.usuario-form-card>.relatorio { padding: 30px; border: 0; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,.05); }
+.usuario-form-card .usuario-form { max-width: 800px; }
+.usuario-form input, .usuario-form select { font-size: 1rem; line-height: normal; }
+.usuario-form input:focus, .usuario-form select:focus { border-color: #00c2ff; box-shadow: 0 0 0 4px rgba(0,194,255,.15); }
+.usuario-check-option { align-items: center; border-radius: 10px; }
+.usuario-check-option input { margin: 0; }
+.badge-perfil { padding: 2px 8px; border-radius: 10px; font-size: .75em; font-weight: bold; }
+.btn-acao { min-height: 0; padding: 5px 10px; font-size: .9em; }
+.usuario-password-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.usuario-form .usuario-check-option { display: flex; align-items: center; gap: 10px; }
+.usuario-form .usuario-check-option input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; }
+.usuario-form .form-actions { margin-top: 20px; padding-top: 0; border-top: 0; }
+.usuario-form .form-actions button { min-height: 42px; color: #000; background: #efefef; font-family: Arial, sans-serif; font-size: 13.3333px; line-height: normal; }
+.usuario-access-help { position: relative; margin-left: auto; color: var(--text-muted); font-size: .84rem; }
+.usuario-access-help summary { cursor: pointer; }
+.usuario-access-help p { position: absolute; right: 0; bottom: 100%; z-index: 5; width: min(420px,70vw); margin: 0 0 12px; padding: 16px; color: var(--text-main); background: #fff; border: 1px solid #dbe5f0; border-radius: 12px; box-shadow: var(--shadow-md); }
+@media (max-width: 640px) { .usuario-password-grid { grid-template-columns: 1fr; gap: 0; } }
+.usuario-form-card-edit>.relatorio { padding: 26px; border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.usuario-form-card-edit .usuario-form { padding: 30px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,.05); }
+.usuario-form-card-edit .usuario-form h3 { margin-top: 0; margin-bottom: 20px; padding-bottom: 10px; color: var(--primary-color); font-size: 1.17em; }
+.usuario-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.usuario-edit-grid .senha-opcional { background: #f8f9fa; }
+.usuario-edit-grid .senha-opcional>label { margin-bottom: 5px; color: #666; }
+.usuario-edit-password-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.usuario-edit-password-row input { min-width: 0; margin: 0; padding-inline: 10px; }
+.usuario-edit-password-row .usuario-confirm-label { min-width: 0; margin: 0; }
+.usuario-form-card-edit .usuario-form .form-actions { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+.usuario-form-card-edit .usuario-form .form-actions button { color: #fff; background: linear-gradient(135deg,var(--primary-color),var(--primary-dark)); }
+@media (max-width: 640px) { .usuario-edit-grid { grid-template-columns: 1fr; gap: 0; } .usuario-form-card-edit>.relatorio { padding: 20px; } }

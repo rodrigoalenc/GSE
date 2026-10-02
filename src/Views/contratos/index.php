@@ -10,17 +10,17 @@ $date = static function (?string $value): string {
 ?>
 <?php if ($summary !== null): ?>
 <section class="contract-overview" aria-label="Visão geral dos pedidos cadastrados">
-    <div><h2>Visão geral dos pedidos cadastrados</h2><p>Use esta tela para acompanhar os pedidos, a quantidade de notas e o valor total registrado.</p></div>
+    <div><h2>Visão geral dos pedidos cadastrados</h2><p>Use esta tela para acompanhar rapidamente os pedidos, a quantidade de notas e o valor total já registrado.</p></div>
     <div class="contract-overview-stats">
         <span><strong><?= (int) $summary['contratos'] ?></strong>Pedidos cadastrados</span>
         <span><strong><?= (int) $summary['notas'] ?></strong>Notas geradas</span>
-        <span><strong><?= e(Contrato::money((int) $summary['valor_centavos'])) ?></strong>Valor contratado<?= (int) $summary['valores_pendentes'] > 0 ? ' · ' . (int) $summary['valores_pendentes'] . ' pendente(s)' : '' ?></span>
+        <span><strong><?= e(Contrato::money((int) $summary['valor_centavos'])) ?></strong>Valor total<?= (int) $summary['valores_pendentes'] > 0 ? ' · ' . (int) $summary['valores_pendentes'] . ' pendente(s)' : '' ?></span>
         <span><strong><?= (int) $summary['faturadas'] ?></strong>Notas faturadas</span>
     </div>
 </section>
 <?php endif; ?>
 
-<div class="contract-list-intro"><div><h2>Lista principal</h2><p>Abra os detalhes para acompanhar notas, produtos e saldo de cada pedido.</p></div><a class="btn-primary" href="<?= e(url('contrato/criar')) ?>">＋ Novo Pedido</a></div>
+<div class="contract-list-intro"><div><h2>Lista principal</h2><p>Abra os detalhes para acompanhar notas, produtos e saldo de cada pedido.</p></div><div class="contract-list-create-action"><a class="btn-primary" href="<?= e(url('contrato/criar')) ?>">+ Novo Pedido</a></div></div>
 
 <section class="relatorio contract-list-panel" aria-labelledby="contract-list-title">
     <div class="contract-list-heading"><h2 id="contract-list-title"><?= $status === 'ativos' ? 'Pedidos Cadastrados' : 'Pedidos Excluídos' ?></h2>
@@ -36,13 +36,13 @@ $date = static function (?string $value): string {
             <?php $noteCount = (int) $row['notas']; $billedCount = (int) $row['notas_faturadas']; ?>
             <tr class="<?= $noteCount > 0 && $billedCount === $noteCount ? 'contract-row-paid' : '' ?>">
                 <td class="contract-id">#<?= (int) $row['id'] ?></td>
-                <td class="contract-title"><strong><?= e($row['titulo']) ?></strong><?php if ($row['fornecedor']): ?><small><?= e($row['fornecedor']) ?></small><?php endif; ?><?php if ($status === 'excluidos'): ?><small>Pedido excluído</small><?php endif; ?></td>
+                <td class="contract-title"><strong><?= e($row['titulo']) ?></strong><small>Pedido criado para controle financeiro e distribuição em notas.</small><?php if ($row['fornecedor']): ?><small><?= e($row['fornecedor']) ?></small><?php endif; ?><?php if ($status === 'excluidos'): ?><small>Pedido excluído</small><?php endif; ?></td>
                 <td><span class="contract-pill"><?= $noteCount ?> nota(s)</span></td>
                 <td class="contract-money"><?= e(Contrato::money($row['valor_centavos'] === null ? null : (int) $row['valor_centavos'])) ?></td>
                 <td><span class="contract-pill <?= $billedCount > 0 ? 'paid' : 'pending' ?>"><?= $billedCount ?> de <?= $noteCount ?> nota(s)</span></td>
-                <td><?= $row['valor_centavos'] !== null && $noteCount > 0 ? e(Contrato::money((int) round((int) $row['valor_centavos'] / $noteCount))) : '—' ?></td>
-                <td><?= e($date($status === 'ativos' ? $row['criado_em'] : $row['excluido_em'])) ?><?php if ($status === 'excluidos'): ?><small>Por <?= e($row['excluido_por_nome'] ?? 'Usuário indisponível') ?></small><?php endif; ?></td>
-                <td><div class="contract-row-actions"><a class="btn-secondary contract-details-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '?' . http_build_query($params + ['pagina' => $result['page']]))) ?>">Ver detalhes</a><?php if ($status === 'ativos'): ?><a class="contract-delete-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '#delete-contract')) ?>">Apagar</a><?php endif; ?></div></td>
+                <td><span class="contract-average"><?= $row['valor_centavos'] !== null && $noteCount > 0 ? e(Contrato::money((int) round((int) $row['valor_centavos'] / $noteCount))) : '—' ?></span></td>
+                <td class="contract-date"><?php $registeredParts = explode(' ', $date($status === 'ativos' ? $row['criado_em'] : $row['excluido_em']), 2); ?><?= e($registeredParts[0]) ?><?php if (isset($registeredParts[1])): ?><small><?= e($registeredParts[1]) ?></small><?php endif; ?><?php if ($status === 'excluidos'): ?><small>Por <?= e($row['excluido_por_nome'] ?? 'Usuário indisponível') ?></small><?php endif; ?></td>
+                <td><div class="contract-row-actions"><a class="btn-secondary contract-details-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '?' . http_build_query($params + ['pagina' => $result['page']]))) ?>">Ver detalhes</a><?php if ($status === 'ativos'): ?><a class="contract-delete-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '#delete-contract')) ?>">🗑️ Apagar</a><?php endif; ?></div></td>
             </tr>
         <?php endforeach; ?>
     </tbody></table></div>

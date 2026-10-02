@@ -1,6 +1,6 @@
 # Homologação e migração do Módulo 3
 
-Este documento é um roteiro pendente de homologação, não uma evidência de execução em banco real.
+Este documento é um roteiro pendente de homologação, não uma evidência de execução em banco real. A migração específica do Arquivo Passivo é v12; executar o inicializador da branch `Modulo5` aplica também as versões seguintes até v15.
 
 ## Antes da janela
 
@@ -35,7 +35,7 @@ GROUP BY caixa_normalizada, numero_normalizado
 HAVING COUNT(*) > 1;
 ```
 
-Resultado esperado: versões 1 a 12, `user_version=12`, nenhuma FK inválida, integridade `ok`, nenhuma tabela temporária e equivalência de contagem, IDs, valores, relacionamentos e sequência com o relatório anterior. Registros sem caixa devem ser preservados com `localizacao_pendente=1`. Colisões devem permanecer e entrar em lista de revisão.
+Resultado esperado na branch `Modulo5`: versões 1 a 15, `user_version=15`, nenhuma FK inválida, integridade `ok`, nenhuma tabela temporária e equivalência de contagem, IDs, valores, relacionamentos e sequência com o relatório anterior. A entrega histórica do Módulo 3 terminava em v12. Registros sem caixa devem ser preservados com `localizacao_pendente=1`. Colisões devem permanecer e entrar em lista de revisão.
 
 ## Resolver dados inconsistentes
 

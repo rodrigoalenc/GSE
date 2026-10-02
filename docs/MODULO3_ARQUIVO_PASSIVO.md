@@ -57,7 +57,7 @@ Maria Exemplo;2000-01-31;12;CX-01
 - remoção do temporário após confirmação, falha ou expiração;
 - auditoria com contagens, nunca conteúdo do CSV ou nome completo.
 
-A importação comum é exclusivamente aditiva. O comportamento original que executava `DELETE FROM alunos_passivo` foi removido. Substituição completa não está implementada.
+A importação comum é exclusivamente aditiva: adiciona registros válidos sem executar `DELETE FROM alunos_passivo` ou substituir o acervo. Substituição completa não está implementada.
 
 ## Ferramentas
 

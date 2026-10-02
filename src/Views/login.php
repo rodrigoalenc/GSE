@@ -12,7 +12,6 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login - Sistema Escolar</title>
     <link rel="icon" type="image/png" href="<?= e(url('assets/image/logo_escola.png')) ?>">
-    <link rel="stylesheet" href="<?= e(url('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/login.css')) ?>">
 </head>
 <body class="login-container">
@@ -52,6 +51,7 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
         </div>
 
         <button class="btn-login" type="submit">Entrar</button>
+        <details class="login-help"><summary>Esqueci minha senha</summary><p>Solicite ao administrador a redefinição da sua senha para recuperar o acesso.</p></details>
     </form>
 <script src="<?= e(url('assets/js/app.js')) ?>"></script>
 </body>

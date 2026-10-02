@@ -1,12 +1,14 @@
 # Revisão do Módulo 3 frente ao TCC
 
+Registro histórico da revisão do Módulo 3. Os resultados abaixo não homologam o código posterior da branch `Modulo5`; consulte [MODULO5_VALIDACAO.md](MODULO5_VALIDACAO.md) para a revisão atual.
+
 Revisão de 11/09/2026, sobre a branch `Modulo3`, base `3cc4e67d2a198d8c12975bbd5b2038398759f207`. A árvore estava limpa; `git ls-remote origin refs/heads/Modulo3` confirmou a mesma base remota. Não foi encontrado `AGENTS.md` no repositório nem nos diretórios ancestrais aplicáveis. Não houve push, merge, deploy ou acesso de escrita a banco real.
 
 ## Fonte e limites da comparação
 
 Foi lido o PDF versionado [Documentação GSE.pdf](../Documentação/Documentação%20GSE.pdf), de 34 páginas, autores Rodrigo Alencar de Araújo e Calebe Henrique dos Santos Delmatta. SHA-256: `523acefd883acbf91363e0e4b0ed051b5e59d502c5a25f09c4e24458f5f9faf8`. A numeração impressa coincide com a página do arquivo nas referências abaixo. O texto foi extraído e as figuras relevantes foram renderizadas: caso de uso geral (p. 17), UC004 completo (p. 21), classes (p. 25) e mockups (p. 30).
 
-O nome fornecido no pedido foi `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf`; esse nome não foi encontrado no repositório nem nos anexos disponíveis. Os requisitos transcritos coincidem com o PDF versionado, usado como fonte disponível. Foi solicitada confirmação de equivalência ao usuário; até esta entrega, essa identificação permanece pendente. O PDF não foi alterado.
+O arquivo `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` não foi localizado na revisão documentada. A análise abaixo usa o PDF versionado identificado pelo hash acima. A conferência literal do arquivo solicitado permanece pendente; não se presume equivalência entre as versões. O PDF não foi alterado.
 
 A Figura 5 associa o funcionário a controlar o arquivo, cadastrar, buscar, editar, excluir e organizar por caixa; a Tabela 7 exige autenticação, sem restrição administrativa. A descrição geral do funcionário (p. 17) menciona consulta do passivo, mas não diz que ela seja seu único acesso; adotou-se o UC004 específico para suas operações. O administrador mantém acesso total conforme p. 18. A Figura 9 apresenta `numero: string`, `caixa: string` e `excluir(id): bool`, sem nulabilidade, obrigatoriedade de número ou definição de exclusão física.
 

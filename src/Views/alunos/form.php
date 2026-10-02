@@ -17,18 +17,18 @@
     <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
 
     <section class="form-section form-block">
-        <div class="section-head"><div><h2>Dados pessoais</h2><p>Identificação, nascimento e vínculo com uma turma ativa.</p></div></div>
+        <div class="section-head"><div><h2>Dados Pessoais</h2></div></div>
         <div class="form-grid identity-grid<?= !$editing ? ' has-initial-dva' : '' ?>">
             <div class="field-wide">
-                <label for="nome_completo">Nome completo</label>
-                <input id="nome_completo" name="nome_completo" value="<?= e($data['nome_completo']) ?>" maxlength="150" autocomplete="name" required>
+                <label for="nome_completo">Nome Completo:</label>
+                <input id="nome_completo" name="nome_completo" value="<?= e($data['nome_completo']) ?>" maxlength="150" autocomplete="name" placeholder="Ex: Maria da Silva" required>
             </div>
             <div>
-                <label for="data_nascimento">Data de nascimento</label>
+                <label for="data_nascimento">Data de Nascimento:</label>
                 <input type="date" id="data_nascimento" name="data_nascimento" value="<?= e($data['data_nascimento']) ?>" max="<?= e(gmdate('Y-m-d')) ?>" required>
             </div>
             <div>
-                <label for="id_turma">Turma ativa</label>
+                <label for="id_turma">Turma:</label>
                 <select id="id_turma" name="id_turma" required>
                     <option value="">Selecione</option>
                     <?php foreach ($turmas as $class): ?>
@@ -39,26 +39,25 @@
                 </select>
             </div>
             <?php if (!$editing): ?>
-                <div class="box-dva"><label for="data_vencimento">Vencimento DVA</label><input type="date" id="data_vencimento" name="data_vencimento" value="<?= e($data['data_vencimento']) ?>"></div>
+                <div class="box-dva"><label for="data_vencimento">📅 Vencimento DVA:</label><input type="date" id="data_vencimento" name="data_vencimento" value="<?= e($data['data_vencimento']) ?>"></div>
             <?php endif; ?>
         </div>
     </section>
 
     <?php if (!$editing): ?>
-        <section class="form-section form-block dva-observation">
+        <details class="form-section form-block dva-observation"<?= $data['observacao'] !== '' ? ' open' : '' ?>><summary>Observações DVA (opcional)</summary>
             <label for="observacao">Observações DVA (opcional)</label>
             <textarea id="observacao" name="observacao" maxlength="1000" rows="3"><?= e($data['observacao']) ?></textarea>
             <p class="form-help">Deixe a data vazia para cadastrar o aluno sem DVA.</p>
-        </section>
+        </details>
     <?php endif; ?>
 
     <section class="form-section form-block">
-        <div class="section-head"><div><h2>Contatos</h2><p>Telefones opcionais usados somente nos fluxos autorizados.</p></div></div>
+        <div class="section-head"><div><h2>Contatos</h2></div></div>
         <div class="form-grid">
-            <div><label for="telefone_aluno">Telefone do aluno</label><input id="telefone_aluno" name="telefone_aluno" value="<?= e($data['telefone_aluno']) ?>" maxlength="30" inputmode="tel" autocomplete="tel"></div>
-            <div><label for="telefone_responsavel">Telefone do responsável</label><input id="telefone_responsavel" name="telefone_responsavel" value="<?= e($data['telefone_responsavel']) ?>" maxlength="30" inputmode="tel"></div>
+            <div><label for="telefone_aluno">📱 WhatsApp / Celular do Aluno:</label><input id="telefone_aluno" name="telefone_aluno" value="<?= e($data['telefone_aluno']) ?>" maxlength="30" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000"></div>
+            <div><label for="telefone_responsavel">👨‍👩‍👦 Telefone do Responsável:</label><input id="telefone_responsavel" name="telefone_responsavel" value="<?= e($data['telefone_responsavel']) ?>" maxlength="30" inputmode="tel" placeholder="(00) 00000-0000"></div>
         </div>
-        <p class="form-help">Informe DDD e número. Serão armazenados somente os 10 ou 11 dígitos.</p>
     </section>
 
     <?php if ($possibleDuplicate): ?>

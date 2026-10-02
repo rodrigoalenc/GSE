@@ -9,11 +9,11 @@ Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 - UC006 — contratos, folhas, produtos e movimentação de estoque;
 - UC007 — relatórios de alunos e situação da DVA.
 
-O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A homologação visual e a conferência literal do TCC ainda estão pendentes.
+O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A revisão visual de 02/10/2026 usa navegador real e dados fictícios; a conferência literal do PDF acadêmico correto e o aceite institucional continuam pendentes.
 
 ## Módulo 4 — instalação e operação
 
-Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MODULO4_CERTIDOES.md) e [resultados de validação](docs/MODULO4_VALIDACAO.md). A migração atual é **v14**, aplicada pelo inicializador com backup validado antes de atualizar banco existente. Ela protege a revisão de fornecedores/tipos e registra tentativas de notificação. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. A homologação visual desktop/celular e a interpretação acadêmica da exclusão lógica continuam pendentes; não se declara conformidade integral com o TCC.
+Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MODULO4_CERTIDOES.md) e [resultados históricos de validação](docs/MODULO4_VALIDACAO.md). A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco da branch `Modulo5` chega à **v15**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. A revisão atual exercitou matriz, formulários e tela cheia em três resoluções; o aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
 
 - Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
 - PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
@@ -21,7 +21,7 @@ Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MOD
 - Inventário conservador: `php bin/certidoes-maintenance.php`. Migração de arquivos legados: `php bin/migrate-certidao-pdfs.php --source=CAMINHO_ABSOLUTO` simula, sem mover/apagar originais.
 - Backup operacional cobre **SQLite e PDFs**. Bloqueie os diretórios públicos legados no servidor antes da implantação.
 
-As seções históricas de validação dos Módulos 1–3 abaixo descrevem suas entregas; os resultados atuais constam no documento do Módulo 4.
+Os registros de validação dos módulos anteriores descrevem suas respectivas entregas. Os resultados da revisão atual estão em [MODULO5_VALIDACAO.md](docs/MODULO5_VALIDACAO.md); aprovação histórica não valida alterações posteriores.
 
 ## Arquitetura de segurança
 
@@ -37,7 +37,7 @@ Componentes principais:
 - `TextNormalizer` gera nomes de exibição em NFC e chaves de comparação Unicode reutilizadas por alunos, turmas e migrações;
 - `AuditLogger` registra eventos de segurança em tabela separada do log técnico;
 - `DatabaseInitializer` aplica migrações versionadas, idempotentes e com backup preventivo;
-- `Aluno`, `Turma` e `Dva` concentram persistência tipada sem acessar dados HTTP ou sessão;
+- `Aluno`, `Turma`, `Dva`, `Passivo`, `Certidao` e `Contrato` concentram a persistência dos módulos;
 - `DvaStatus` centraliza datas, filtros e o semáforo usado em telas, dashboard e notificações;
 - `DvaNotificationService` usa transporte injetável, entrega consolidada e idempotência diária;
 - trigger SQLite e transação `BEGIN IMMEDIATE`, executada por um helper com rollback explícito, protegem o último administrador ativo;
@@ -45,13 +45,13 @@ Componentes principais:
 
 ## Identidade visual e acessibilidade
 
-A interface usa a identidade azul e o logo institucional da E.E. São José. Login, dashboard, usuários, senha, auditoria, alunos, DVAs, turmas e erros compartilham a mesma paleta e hierarquia. A sidebar ocupa cerca de 78 px no desktop, expande para 260 px por `hover` ou `focus-within`, permanece utilizável por teclado e se adapta no mobile sem depender de hover. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`.
+A interface usa a identidade azul e o logo institucional da E.E. São José. Login, painel, usuários, senha, auditoria, alunos, DVAs, turmas, passivo, certidões, contratos, estoque, relatórios e erros compartilham a organização visual do GSE. A sidebar expande por `hover` ou `focus-within` no desktop e dispõe de apresentação móvel. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`. A inspeção do código e os testes HTTP não substituem a validação visual e de acessibilidade no navegador.
 
 As decisões seguem as recomendações de [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) e [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) da OWASP, além das APIs nativas de senha do [manual do PHP](https://www.php.net/manual/en/book.password.php).
 
 ## Módulo 5 — contratos, estoque e relatórios
 
-A branch `Modulo5` acrescenta contratos e folhas com valores em centavos, produtos vinculados ao estoque físico, entradas/saídas e histórico auditado. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). A migração atual é **v15**. Consulte [escopo e operação](docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md) e [validação e pendências](docs/MODULO5_VALIDACAO.md) antes de atualizar um acervo.
+A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produtos, faturamento documental, duplicação e impressão. O estoque físico possui limites, abertura confirmada, entradas/saídas, estorno administrativo e histórico auditado; a quantidade contratada permanece distinta do saldo físico. Estoque antigo marcado como aberto sem comprovação exige conferência administrativa atual, com contagem, unidade, justificativa documental, revisão e operação transacional. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). A migração atual é **v15**. Consulte [escopo e operação](docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md) e [validação e pendências](docs/MODULO5_VALIDACAO.md) antes de atualizar um acervo.
 
 Para desenvolver, instale dependências com `composer install`, habilite `intl`, `fileinfo`, `mbstring` e `pdo_sqlite`, e execute `composer check`. Dompdf 3.1.6 é gerenciado pelo Composer. Não aplique migração em dados institucionais sem backup e ensaio de restauração conjunto de SQLite e PDFs privados.
 
@@ -59,7 +59,7 @@ Para desenvolver, instale dependências com `composer install`, habilite `intl`,
 
 - PHP 8.3 ou superior;
 - Composer 2;
-- extensões `pdo`, `pdo_sqlite`, `intl`, `mbstring`, `session`, `filter` e `hash`;
+- extensões `pdo`, `pdo_sqlite`, `intl`, `fileinfo`, `mbstring`, `session`, `filter` e `hash`, além das exigidas pelas dependências do Composer;
 - extensão `curl` apenas para o teste HTTP automatizado.
 
 ```bash
@@ -284,7 +284,7 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões individuais de 1 a 14. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação.
+`schema_migrations` controla versões individuais de 1 a 15. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação. A v15 acrescenta contratos/notas/produtos, valores em centavos, limites e movimentos de estoque, registro de operações e preservação dos valores legados.
 
 | Versão | Alteração |
 |---|---|
@@ -299,6 +299,7 @@ O banco permanece fora de `public/`; em produção essa regra é validada e uma 
 | 12 | Arquivo Passivo, preservação de legado e exclusão lógica |
 | 13 | Certidões, PDFs privados, autoria, histórico e entregas diárias |
 | 14 | Revisão de fornecedores/tipos e tentativas de notificação |
+| 15 | Contratos/notas/produtos, estoque auditado, operações idempotentes e valores legados preservados |
 
 Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
 
@@ -313,7 +314,7 @@ O SQLite exige `foreign_keys=OFF` fora da transação para essa substituição d
 Antes da produção, ensaie com uma cópia recente em homologação, com a mesma versão de PHP, `ext-intl` e SQLite. Interrompa escritas, execute `php bin/init-db.php` na cópia e valide:
 
 ```sql
-PRAGMA user_version;       -- deve retornar 12
+PRAGMA user_version;       -- deve retornar 15 na branch Modulo5
 PRAGMA foreign_key_check;  -- não deve retornar linhas
 PRAGMA integrity_check;    -- deve retornar ok
 PRAGMA table_info(turmas);
@@ -358,7 +359,7 @@ Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado r
 
 ## Módulo 3 — Arquivo Passivo
 
-O Arquivo Passivo corresponde à entrega original do Módulo 3 na v12. Nesta branch, os Módulos 1–4 estão implementados e o banco atual usa `PRAGMA user_version=14`, com versões 1–14 em `schema_migrations`. O Módulo 5 permanece fora do escopo.
+O Arquivo Passivo corresponde à entrega original do Módulo 3 na v12. Nesta branch, os Módulos 1–5 estão implementados e o banco atual usa `PRAGMA user_version=15`, com versões 1–15 em `schema_migrations`.
 
 O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação como lógica e o preenchimento posterior do número ainda exigem validação acadêmica. Veja a [matriz de requisitos e evidências da revisão](docs/MODULO3_REVISAO_TCC.md).
 
@@ -369,7 +370,7 @@ A migração v12 cria backup SQLite validado antes de escrever, executa `BEGIN I
 Homologue a v12 em uma cópia com a mesma versão de PHP, SQLite e `ext-intl`. Valide o backup em `database/backups`, compare contagens/IDs/sequências, confirme a ausência de `alunos_passivo_v12` e execute:
 
 ```sql
-PRAGMA user_version;       -- 14 nesta branch (12 na entrega original do Módulo 3)
+PRAGMA user_version;       -- 15 nesta branch (12 na entrega original do Módulo 3)
 PRAGMA foreign_key_check;  -- nenhuma linha
 PRAGMA integrity_check;    -- ok
 ```
@@ -403,9 +404,9 @@ composer security-check
 composer check
 ```
 
-PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migração v12, limites/tokens/integridade do CSV e SQLite. `tests/http-smoke.php` inicia servidores temporários e testa o fluxo HTTP real dos três módulos em Windows/Linux, incluindo a matriz de permissões do Arquivo Passivo. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
+PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v15, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
-`composer analyse` executa PHPStan no nível 6 sobre o núcleo, controllers, Models ativos dos Módulos 1, 2 e 3, serviços, e comandos CLI. Views possuem uma verificação dedicada contra estilos, scripts e handlers inline. Não há baseline nem `ignoreErrors`. O workflow usa PHP 8.3, actions fixadas por SHA imutável e executa instalação limpa, validação estrita, auditoria, lint, PHPStan, PHPUnit e HTTP em pushes e pull requests.
+`composer analyse` executa PHPStan no nível 6 sobre o núcleo, controllers, Models ativos dos cinco módulos, serviços e comandos CLI. Views possuem uma verificação dedicada contra estilos, scripts e handlers inline. Não há baseline nem `ignoreErrors`. O workflow usa PHP 8.3, actions fixadas por SHA imutável e executa instalação limpa, validação estrita, auditoria, lint, PHPStan, PHPUnit e HTTP em pushes e pull requests.
 
 ## Roteiro de demonstração
 
@@ -431,8 +432,10 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 - disponibilidade distribuída exigiria rate limiting e sessões em armazenamento compartilhado;
 - alterações futuras do logo ou da identidade institucional dependem de aprovação da escola;
 - notificações dependem de um SMTP institucional configurado e de agendamento externo;
-- contratos, estoque, pedidos e relatórios gerais continuam fora do escopo funcional como Módulo 5.
+- agenda e etiquetas não integram o escopo atual;
+- a leitura literal de `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` permanece pendente; o PDF versionado não é presumido equivalente;
+- a leitura do PDF correto, o aceite institucional e a validação de usabilidade com os usuários permanecem pendentes conforme o relatório da revisão atual.
 
-O dashboard inclui os indicadores e atalhos implementados pelos Módulos 1–4; não antecipa as funcionalidades do Módulo 5.
+O painel apresenta indicadores e grupos de alunos por situação da DVA. O menu principal oferece acesso aos módulos implementados, incluindo contratos, estoque e relatórios.
 
 Antes de implantar, conclua [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) e leia [SECURITY.md](SECURITY.md).

@@ -1,5 +1,7 @@
 # Módulo 4 — evidências de validação
 
+Registro histórico das execuções de 16 e 17/09/2026. Estes resultados não comprovam o código posterior da branch `Modulo5`; consulte [MODULO5_VALIDACAO.md](MODULO5_VALIDACAO.md) para os resultados atuais.
+
 ## Revisão de 17/09/2026
 
 Repositório local `rodrigoalenc/GSE`, branch `Modulo4`, HEAD inicial `6773381`. A árvore estava limpa, sem commits locais posteriores ao considerado pela revisão. Não havia `AGENTS.md` aplicável no repositório ou diretórios pais consultados. Foram lidos README, política de segurança, documentação do módulo, scripts Composer/CI e código/testes atuais. Alterações entregues na árvore de trabalho, sem push, merge ou deploy.
@@ -24,7 +26,7 @@ Foi lido `Documentação/Documentação GSE.pdf`, 34 páginas, SHA-256 `523acefd
 
 A análise relaciona as figuras do PDF acadêmico local ao código atual; **não é uma comparação entre capturas de tela de aplicações renderizadas**.
 
-Navegador: seleção para URL local retornou `No browser is available`; após consultar o diagnóstico da habilidade de navegador, a descoberta retornou `[]`. Assim, **não foram realizados testes visuais desktop/celular nem geradas screenshots da aplicação**. Evidência local da referência: `.local-qa/academic-29.png` (ignorado, reproduzível renderizando p. 29 do PDF versionado). Sintaxe JavaScript foi verificada com `node --check public/assets/js/app.js`. HTTP/HTML e revisão de CSS não comprovam responsividade, foco ou funcionamento real de fullscreen.
+Navegador: seleção para URL local retornou `No browser is available`; após consultar o diagnóstico da habilidade de navegador, a descoberta retornou `[]`. Assim, **não foram realizados testes visuais desktop/celular nem geradas screenshots da aplicação**. Página acadêmica renderizada localmente: `.local-qa/academic-29.png` (ignorado, reproduzível renderizando p. 29 do PDF versionado). Sintaxe JavaScript foi verificada com `node --check public/assets/js/app.js`. HTTP/HTML e revisão de CSS não comprovam responsividade, foco ou funcionamento real de fullscreen.
 
 ### Execuções da revisão
 

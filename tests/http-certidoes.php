@@ -4,7 +4,7 @@ declare(strict_types=1);
 // Included by http-smoke.php; uses its isolated database, server and authenticated sessions.
 $certPage=request('GET',$baseUrl.'/certidao/cadastrar',$cookieEmployee);
 checkHttp($certPage['status']===200,'Funcionário acessa cadastro de certidões');
-checkHttp(str_contains($certPage['body'],'Anexar PDF (opcional)') && str_contains($certPage['body'],'data-pdf-preview') && !preg_match('/name="arquivo_pdf"[^>]*\brequired\b/', $certPage['body']),'Cadastro apresenta PDF opcional e prévia');
+checkHttp(preg_match('/Anexar PDF \(opcional\)/iu',$certPage['body'])===1 && str_contains($certPage['body'],'data-pdf-preview') && !preg_match('/name="arquivo_pdf"[^>]*\brequired\b/', $certPage['body']),'Cadastro apresenta PDF opcional e prévia');
 $certToken=csrf($certPage['body']);
 foreach (['fornecedor'=>'Fornecedor HTTP Certidão','tipo'=>'Fiscal HTTP Certidão'] as $kind=>$name) {
     $saved=request('POST',$baseUrl.'/certidao/configurar',$cookieEmployee,['_csrf_token'=>$certToken,'tipo'=>$kind,'nome'=>$name,'ativo'=>'1']);
@@ -30,7 +30,10 @@ $certId=(int)$record['id']; $privateKey=$record['pdf_privado'];
 checkHttp(str_contains(request('GET',$baseUrl.'/certidao/editar/'.$certId,$cookieEmployee)['body'],'Consulte o PDF atual desta certidão.'),'Edição com PDF oferece acesso ao documento atual');
 $matrix=request('GET',$baseUrl.'/certidao',$cookieEmployee);
 checkHttp($matrix['status']===200 && str_contains($matrix['body'],'cert-matrix') && str_contains($matrix['body'],'Fornecedor HTTP Certidão'),'Matriz tem tipos e fornecedores');
-checkHttp(str_contains($matrix['body'],'Certidões correntes') && str_contains($matrix['body'],'/certidao/excluidas'),'Matriz mostra resumo corrente e acesso às excluídas');
+$currentCertCount=(int)$certDb->query('SELECT COUNT(*) FROM certidoes WHERE COALESCE(arquivado,0)<>1 AND COALESCE(status,1)<>0 AND excluido_em IS NULL')->fetchColumn();
+checkHttp(str_contains($matrix['body'],'aria-label="Certidões correntes"')
+    && preg_match('/<strong>'.$currentCertCount.'<\/strong>\s*<span>Certidões<\/span>/u',$matrix['body'])===1
+    && str_contains($matrix['body'],'/certidao/excluidas'),'Matriz mostra contagem corrente correta e acesso às excluídas');
 checkHttp(str_contains($matrix['body'],'cert-fullscreen-status-bar') && str_contains($matrix['body'],'data-cert-fullscreen-filter="vigente"') && str_contains($matrix['body'],'cert-fullscreen-exit-btn'),'Tela cheia oferece filtros e saída próprios');
 checkHttp(str_contains($matrix['body'],'Somente pendências') && str_contains($matrix['body'],'cert-fullscreen') && str_contains($matrix['body'],'Emissão') && str_contains($matrix['body'],'cert-deadline'),'Matriz apresenta filtros, tela cheia, emissão e prazo');
 $pendingMatrix=request('GET',$baseUrl.'/certidao?pendencias=1&validade=vigente',$cookieEmployee);

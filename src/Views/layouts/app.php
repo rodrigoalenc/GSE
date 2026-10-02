@@ -38,6 +38,7 @@ $flashClass = [
     <link rel="stylesheet" href="<?= e(url('assets/css/painel.css')) ?>">
     <?php if ($contractActive || $stockActive || $reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/modulo5.css')) ?>"><?php endif; ?>
     <?php if ($contractActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/contratos.css')) ?>"><?php endif; ?>
+    <?php if ($reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/relatorios.css')) ?>"><?php endif; ?>
     <?php if ($certActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css')) ?>">
     <?php endif; ?>
@@ -114,7 +115,7 @@ $flashClass = [
             <div class="sidebar-user">
                 <span class="sidebar-footer-icon" aria-hidden="true">&#128100;</span>
                 <div class="sidebar-footer-label">Olá, <strong><?= e((string) ($_SESSION['usuario_nome'] ?? 'Usuário')) ?></strong>
-                    <small class="sidebar-user-role"><?= e(nome_perfil((string) ($_SESSION['usuario_tipo'] ?? ''))) ?></small>
+                    <small class="sidebar-user-role visually-hidden"><?= e(nome_perfil((string) ($_SESSION['usuario_tipo'] ?? ''))) ?></small>
                 </div>
             </div>
             <form class="logout-form" method="post" action="<?= e(url('login/sair')) ?>">
@@ -126,10 +127,12 @@ $flashClass = [
 
     <div class="main-content-wrapper">
         <header class="<?= e($certHeaderClass) ?>">
-            <h1><?= e($title) ?></h1>
+            <h1><?= e($reportActive ? '📊 Gerador de Relatórios' : (str_starts_with($currentPath, 'usuario/editar/') ? '✏️ ' . $title : $title)) ?></h1>
+            <?php if (isset($headerMeta) || $dashboardActive || $currentPath === 'passivo'): ?>
             <div class="header-meta">
-                <?= e((string) ($headerMeta ?? 'Data: ' . date('d/m/Y'))) ?>
+                <?= e((string) ($headerMeta ?? ($currentPath === 'passivo' ? '' : 'Data: ') . date('d/m/Y'))) ?>
             </div>
+            <?php endif; ?>
         </header>
 
         <main>

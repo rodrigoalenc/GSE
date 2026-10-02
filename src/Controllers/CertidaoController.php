@@ -21,7 +21,7 @@ final class CertidaoController extends Controller
                 : $model->paginate($filters, (int) self::input($_GET, 'page'));
         }
         catch (DomainException $e) { render_http_error(422, 'Filtro inválido', $e->getMessage(), 'certidao'); }
-        $this->view('certidoes/index', ['title'=>$state === 'corrente' ? 'Matriz de Certidões' : ($state === 'arquivada' ? 'Certidões arquivadas' : 'Certidões excluídas'), 'filters'=>$filters, 'result'=>$result, 'summary'=>$model->summary(), 'years'=>$state === 'corrente' ? [] : $model->availableYears($state), 'fornecedores'=>$model->options('fornecedor'), 'tipos'=>$model->options('tipo')]);
+        $this->view('certidoes/index', ['title'=>$state === 'corrente' ? 'Matriz de Certidões' : ($state === 'arquivada' ? 'Certidões Arquivadas' : 'Certidões Excluídas'), 'filters'=>$filters, 'result'=>$result, 'summary'=>$model->summary(), 'years'=>$state === 'corrente' ? [] : $model->availableYears($state), 'fornecedores'=>$model->options('fornecedor'), 'tipos'=>$model->options('tipo')]);
     }
 
     public function cadastrar(): void { $this->form('cadastrar'); }

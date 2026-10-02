@@ -23,6 +23,7 @@
         "analyse": "@php vendor/phpstan/phpstan/phpstan.phar analyse --memory-limit=1G --no-progress",
         "test": "phpunit",
         "http-test": "@php tests/http-smoke.php",
+        "browser-test": "node tests/browser-contract-tabs.mjs",
         "maintenance": "@php bin/maintenance.php",
         "notify-dva": "@php bin/notify-dva.php",
         "security-check": "@composer audit --locked",

@@ -38,7 +38,7 @@
 - [ ] Backup externo, criptografado, retido e restaurado em teste.
 - [ ] Backup preventivo de migração verificado e movido para armazenamento protegido.
 - [ ] Migração de cópia legada conferida: mapas exatos `aluno_id/id_turma` e `dva_id/id_aluno`, IDs, sequências, datas e contagens de alunos/turmas/DVAs preservados, `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`.
-- [ ] Migração v12 homologada com a mesma versão de PHP/SQLite e `ext-intl`; `PRAGMA user_version=12`, nomes normalizados obrigatórios em turmas/alunos e estrutura profissional de `alunos_passivo`.
+- [ ] Inicializador atual homologado em cópia com a mesma versão de PHP/SQLite e `ext-intl`; `PRAGMA user_version=15`, versões 1–15 sem lacunas, nomes normalizados e estrutura de `alunos_passivo` preservados. A v12 é a etapa histórica do Arquivo Passivo.
 - [ ] Eventuais colisões Unicode de turmas resolvidas manualmente na cópia antes da janela de produção, sem mescla ou renomeação automática de dados reais.
 - [ ] Ausências legadas de timestamps revisadas: o marco técnico gerado pela v11 não foi interpretado como data histórica de cadastro.
 - [ ] Banco de teste que tenha executado a v6 antiga foi descartado ou restaurado pelo backup `pre-migration`; vínculos não foram inferidos manualmente.
@@ -79,7 +79,7 @@
 ## Módulo 3 — Arquivo Passivo
 
 - [ ] Artefato executado com PHP 8.3, SQLite e `ext-intl` equivalentes à homologação.
-- [ ] `PRAGMA user_version=13` e `schema_migrations` contêm 1 a 13 sem lacunas (v12 foi a entrega original do Módulo 3).
+- [ ] Na branch atual, `PRAGMA user_version=15` e `schema_migrations` contêm 1 a 15 sem lacunas; a v12 corresponde à entrega histórica do Módulo 3.
 - [ ] Backup `pre-migration` existe fora de `public`, abre em SQLite e retorna `integrity_check=ok`.
 - [ ] Contagens, IDs, nomes, datas, números, caixas, relacionamentos e `sqlite_sequence` foram comparados antes/depois.
 - [ ] Registros legados sem caixa aparecem com `localizacao_pendente=1`; nenhuma caixa foi inventada.

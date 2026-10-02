@@ -20,13 +20,13 @@ $statusUrl = static fn (string $validade): string => url($route . '?' . http_bui
 $activeSuppliers = count(array_filter($fornecedores, static fn (array $option): bool => (int) $option['ativo'] === 1));
 $activeTypes = count(array_filter($tipos, static fn (array $option): bool => (int) $option['ativo'] === 1));
 $overviewTitle = match ($state) { 'arquivada' => 'Histórico completo das certidões movimentadas', 'excluida' => 'Certidões excluídas', default => 'Painel central das certidões' };
-$overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arquivados por ano e mantenha o histórico sem perder rastreabilidade.', 'excluida' => 'Consulte os registros excluídos e seus documentos preservados.', default => 'Acompanhe rapidamente os documentos ativos, filtre por fornecedor e destaque o que precisa de renovação ou atenção imediata.' };
+$overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arquivados por ano, recupere itens para a lista principal e mantenha o histórico limpo sem perder rastreabilidade.', 'excluida' => 'Consulte os registros excluídos e seus documentos preservados.', default => 'Acompanhe rapidamente os documentos ativos, filtre por fornecedor e destaque o que precisa de renovação ou atenção imediata.' };
 ?>
 
-<section class="cert-overview" aria-label="Resumo das certidões">
+<section class="cert-overview cert-overview-<?= e($state) ?>" aria-label="Resumo das certidões">
     <div><h2><?= e($overviewTitle) ?></h2><p><?= e($overviewDescription) ?></p></div>
-    <?php if ($state === 'corrente'): ?><div class="cert-stats"><span><strong><?= array_sum($summary) ?></strong>Certidões correntes</span><span><strong><?= $activeSuppliers ?></strong>Fornecedores ativos</span><span><strong><?= $activeTypes ?></strong>Tipos ativos</span></div>
-    <?php else: ?><div class="cert-stats"><span><strong><?= (int) $result['total'] ?></strong>Registros no filtro</span><span><strong><?= $filters['ano'] === '' || $filters['ano'] === 'todos' ? 'Todos' : e($filters['ano']) ?></strong>Ano selecionado</span><span><strong><?= count($years) ?></strong>Anos disponíveis</span></div><?php endif; ?>
+    <?php if ($state === 'corrente'): ?><div class="cert-stats" role="group" aria-label="Certidões correntes"><div class="cert-stat"><strong><?= array_sum($summary) ?></strong><span>Certidões</span></div><div class="cert-stat"><strong><?= $activeSuppliers ?></strong><span>Fornecedores</span></div><div class="cert-stat"><strong><?= $activeTypes ?></strong><span>Tipos</span></div></div>
+    <?php else: ?><div class="cert-stats" role="group" aria-label="Registros no filtro"><div class="cert-stat"><strong><?= (int) $result['total'] ?></strong><span>registros no filtro</span></div><div class="cert-stat"><strong><?= $filters['ano'] === '' || $filters['ano'] === 'todos' ? 'Todos' : e($filters['ano']) ?></strong><span>ano selecionado</span></div><div class="cert-stat"><strong><?= count($years) ?></strong><span>anos disponíveis</span></div></div><?php endif; ?>
 </section>
 
 <section id="cert-workspace" class="cert-workspace" aria-label="Consulta de certidões">
@@ -39,23 +39,8 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
         <?php endif; ?>
         <button type="button" class="cert-fullscreen-exit-btn" data-cert-fullscreen-exit>Sair da tela cheia</button>
     </div>
-    <div class="cert-panel cert-toolbar">
-        <div class="cert-toolbar-heading">
-            <div><h2><?= $state === 'corrente' ? 'Ações rápidas' : 'Filtro do histórico' ?></h2><p><?= $state === 'corrente' ? 'Cadastre, configure ou consulte o histórico sem sair do módulo.' : 'Selecione um ano específico ou veja todo o acervo.' ?></p></div>
-            <nav class="cert-quick-actions" aria-label="Ações das certidões">
-                <a class="btn-primary" href="<?= e(url('certidao/cadastrar')) ?>">＋ Nova Certidão</a>
-                <a class="btn-secondary" href="<?= e(url('certidao/configurar')) ?>">⚙ Tipos/Fornecedores</a>
-                <a class="btn-secondary" href="<?= e(url('certidao/arquivadas')) ?>">▣ Arquivadas</a>
-                <a class="btn-secondary" href="<?= e(url('certidao/excluidas')) ?>">Excluídas</a>
-                <?php if ($state !== 'corrente'): ?><a class="btn-secondary" href="<?= e(url('certidao')) ?>">Matriz</a><?php endif; ?>
-            </nav>
-        </div>
+    <?php ob_start(); ?>
         <div class="cert-toolbar-controls">
-            <?php if ($state !== 'corrente'): ?><form method="get" action="<?= e(url($route)) ?>" class="cert-year-filter">
-                <?php foreach (['fornecedor', 'tipo', 'validade', 'busca', 'pendencias'] as $field): ?><?php if ($filters[$field] !== ''): ?><input type="hidden" name="<?= e($field) ?>" value="<?= e($filters[$field]) ?>"><?php endif; ?><?php endforeach; ?>
-                <label for="cert-year">Ano do histórico:</label><select id="cert-year" name="ano" data-cert-auto-submit><option value="todos" <?= $filters['ano'] === '' || $filters['ano'] === 'todos' ? 'selected' : '' ?>>Todos os Anos</option><?php foreach ($years as $year): ?><option value="<?= e($year) ?>" <?= $filters['ano'] === $year ? 'selected' : '' ?>><?= e($year) ?></option><?php endforeach; ?></select>
-                <button class="visually-hidden" type="submit">Aplicar ano</button>
-            </form><?php endif; ?>
             <nav class="cert-status-filters" aria-label="Filtrar por validade">
                 <a class="cert-filter-chip all <?= $filters['validade'] === '' ? 'active' : '' ?>" href="<?= e($statusUrl('')) ?>">Todas</a>
                 <a class="cert-filter-chip expired <?= $filters['validade'] === 'vencida' ? 'active' : '' ?>" href="<?= e($statusUrl('vencida')) ?>">Vencida</a>
@@ -66,18 +51,41 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
                 <?php foreach (['tipo', 'validade', 'ano', 'busca', 'pendencias'] as $field): ?>
                     <?php if ($filters[$field] !== ''): ?><input type="hidden" name="<?= e($field) ?>" value="<?= e($filters[$field]) ?>"><?php endif; ?>
                 <?php endforeach; ?>
-                <label class="visually-hidden" for="fornecedor">Fornecedor</label>
+                <label for="fornecedor"><i class="cert-icon cert-icon-truck" aria-hidden="true"></i><span class="visually-hidden">Fornecedor</span></label>
                 <select id="fornecedor" name="fornecedor" data-cert-auto-submit><option value="">Todos os Fornecedores</option><?php foreach ($fornecedores as $option): ?><option value="<?= (int) $option['id'] ?>" <?= (string) $option['id'] === $filters['fornecedor'] ? 'selected' : '' ?>><?= e($option['nome']) ?></option><?php endforeach; ?></select>
                 <button class="visually-hidden" type="submit">Aplicar fornecedor</button>
             </form>
             <div class="cert-fullscreen-controls">
-                <button type="button" class="btn-secondary" id="cert-fullscreen" aria-pressed="false" aria-controls="cert-workspace" hidden>⛶ Tela cheia</button>
+                <button type="button" class="btn-secondary" id="cert-fullscreen" aria-pressed="false" aria-controls="cert-workspace" hidden><i class="cert-icon cert-icon-expand" aria-hidden="true"></i> Tela cheia</button>
                 <span id="cert-fullscreen-status" role="status"></span>
             </div>
-            <a class="cert-pending-link <?= $filters['pendencias'] === '1' ? 'active' : '' ?>" href="<?= e(url($route . '?' . http_build_query(array_merge($filters, ['pendencias' => $filters['pendencias'] === '1' ? '' : '1', 'page' => 1])))) ?>">⚠ Somente pendências</a>
+            <a class="cert-pending-link <?= $filters['pendencias'] === '1' ? 'active' : '' ?>" href="<?= e(url($route . '?' . http_build_query(array_merge($filters, ['pendencias' => $filters['pendencias'] === '1' ? '' : '1', 'page' => 1])))) ?>"><i class="cert-icon cert-icon-warning" aria-hidden="true"></i> Somente pendências</a>
         </div>
-        <details class="cert-advanced-filters">
+    <?php $mainControls = ob_get_clean(); ?>
+    <div class="cert-panel cert-toolbar <?= $state !== 'corrente' ? 'cert-toolbar-history' : '' ?>">
+        <div class="cert-toolbar-heading">
+            <div><h2><?= $state === 'corrente' ? 'Ações rápidas' : 'Filtro do histórico' ?></h2><p><?= $state === 'corrente' ? 'Cadastre, configure ou consulte o histórico sem sair do módulo.' : 'Selecione um ano específico ou veja todo o acervo arquivado.' ?></p></div>
+            <?php if ($state !== 'corrente'): ?><form method="get" action="<?= e(url($route)) ?>" class="cert-year-filter">
+                <?php foreach (['fornecedor', 'tipo', 'validade', 'busca', 'pendencias'] as $field): ?><?php if ($filters[$field] !== ''): ?><input type="hidden" name="<?= e($field) ?>" value="<?= e($filters[$field]) ?>"><?php endif; ?><?php endforeach; ?>
+                <label for="cert-year"><i class="cert-icon cert-icon-calendar" aria-hidden="true"></i> Ano do Histórico:</label><select id="cert-year" name="ano" data-cert-auto-submit><option value="todos" <?= $filters['ano'] === '' || $filters['ano'] === 'todos' ? 'selected' : '' ?>>Todos os Anos</option><?php foreach ($years as $year): ?><option value="<?= e($year) ?>" <?= $filters['ano'] === $year ? 'selected' : '' ?>><?= e($year) ?></option><?php endforeach; ?></select>
+                <button class="visually-hidden" type="submit">Aplicar ano</button>
+            </form><?php endif; ?>
+            <nav class="cert-quick-actions" aria-label="Ações das certidões">
+                <?php if ($state === 'corrente'): ?>
+                <a class="btn-primary" href="<?= e(url('certidao/cadastrar')) ?>"><i class="cert-icon cert-icon-plus" aria-hidden="true"></i> Nova Certidão</a>
+                <a class="btn-secondary" href="<?= e(url('certidao/configurar')) ?>"><i class="cert-icon cert-icon-gear" aria-hidden="true"></i> Tipos/Fornecedores</a>
+                <a class="btn-secondary" href="<?= e(url('certidao/arquivadas')) ?>"><i class="cert-icon cert-icon-folder" aria-hidden="true"></i> Arquivadas</a>
+                <?php else: ?><a class="btn-secondary" href="<?= e(url('certidao')) ?>"><i class="cert-icon cert-icon-arrow-left" aria-hidden="true"></i> Voltar para Vigentes</a><?php endif; ?>
+            </nav>
+        </div>
+        <?php if ($state === 'corrente'): ?><?= $mainControls ?><?php endif; ?>
+    </div>
+
+    <div class="cert-meta"><p><?= $state === 'corrente' ? 'Visualizando' : 'Exibindo' ?> <strong><?= (int) $result['total'] ?></strong> <?= $state === 'corrente' ? 'registros distribuídos entre fornecedores e tipos ativos.' : 'certidões no histórico atual.' ?></p><span><?php if ($state === 'corrente'): ?><?= count($result['items']) ?> cartões visíveis<?php else: ?><?= $filters['ano'] === '' || $filters['ano'] === 'todos' ? 'Visão completa do arquivo' : 'Filtro: ' . e($filters['ano']) ?><?php endif; ?></span></div>
+    <?php ob_start(); ?>
+        <details class="cert-advanced-filters <?= $state !== 'corrente' ? 'cert-history-options' : '' ?>">
             <summary>Mais filtros e opções de consulta</summary>
+            <?php if ($state !== 'corrente'): ?><?= $mainControls ?><?php endif; ?>
             <form method="get" action="<?= e(url($route)) ?>" class="cert-filters">
                 <div><label for="busca">Buscar fornecedor, tipo ou nº</label><input id="busca" name="busca" maxlength="150" value="<?= e($filters['busca']) ?>"></div>
                 <div><label for="tipo">Tipo de certidão</label><select id="tipo" name="tipo"><option value="">Todos</option><?php foreach ($tipos as $option): ?><option value="<?= (int) $option['id'] ?>" <?= (string) $option['id'] === $filters['tipo'] ? 'selected' : '' ?>><?= e($option['nome']) ?></option><?php endforeach; ?></select></div>
@@ -89,17 +97,16 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
             </form>
             <p id="pending-help" class="cert-muted">Pendências: vencidas, vencem hoje, a vencer até <?= e($displayDate($dates->limit())) ?> ou com data de vencimento inválida. Combina com os outros filtros. O PDF é opcional.</p>
             <p class="cert-muted">Consulta: <?= e($title) ?> · <?= $filters['pendencias'] === '1' ? 'Somente pendências ativado' : 'Pendências e regulares' ?> · <?= count(array_filter(array_diff_key($filters, ['estado' => true]), static fn ($v) => $v !== '')) ?> filtros preenchidos.</p>
+            <nav class="cert-actions" aria-label="Outras consultas"><a href="<?= e(url('certidao/excluidas')) ?>">Certidões excluídas</a><?php if ($state !== 'corrente'): ?><a href="<?= e(url('certidao/cadastrar')) ?>">Nova certidão</a><a href="<?= e(url('certidao/configurar')) ?>">Fornecedores e tipos</a><a href="<?= e(url('certidao/arquivadas')) ?>">Arquivo histórico</a><?php endif; ?></nav>
         </details>
-    </div>
-
-    <div class="cert-meta"><p>Visualizando <strong><?= (int) $result['total'] ?></strong> <?= $state === 'corrente' ? 'registros distribuídos entre fornecedores e tipos.' : 'registros no histórico selecionado.' ?></p><span><?= count($result['items']) ?> <?= $state === 'corrente' ? 'cartões visíveis' : 'registros nesta página' ?></span></div>
-    <?php if ($result['items'] === []): ?>
+    <?php $advancedFilters = ob_get_clean(); ?>
+    <?php if ($result['items'] === [] && $state === 'corrente'): ?>
         <section class="cert-panel empty-state"><h2>Nenhuma certidão encontrada</h2><p><?= $state === 'corrente' ? 'Revise os filtros ou cadastre uma nova certidão.' : 'Revise os filtros ou consulte a matriz de certidões correntes.' ?></p></section>
     <?php elseif ($state !== 'corrente'): ?>
         <div class="cert-archive-scroll" role="region" aria-label="<?= $state === 'arquivada' ? 'Tabela de certidões arquivadas' : 'Tabela de certidões excluídas' ?>" tabindex="0">
             <table class="cert-archive-table">
                 <thead><tr><th scope="col">Fornecedor</th><th scope="col">Tipo de Certidão</th><th scope="col">Emissão</th><th scope="col">Vencimento</th><th scope="col">Documento</th><th scope="col">Ações</th></tr></thead>
-                <tbody><?php foreach ($result['items'] as $item): ?><tr>
+                <tbody><?php if ($result['items'] === []): ?><tr><td colspan="6" class="cert-archive-empty"><h2 class="visually-hidden">Nenhuma certidão encontrada</h2><p><?= $state === 'arquivada' ? 'Nenhuma certidão arquivada encontrada para o filtro selecionado.' : 'Nenhuma certidão excluída encontrada para o filtro selecionado.' ?></p></td></tr><?php endif; ?><?php foreach ($result['items'] as $item): ?><tr>
                     <td class="cert-archive-supplier"><?= e($item['fornecedor']) ?></td>
                     <td class="cert-archive-type"><?= e($item['tipo_certidao']) ?></td>
                     <td><span class="cert-archive-date"><?= e($displayFullDate($item['data_emissao'])) ?></span></td>
@@ -127,12 +134,12 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
                             <article class="cert-card cert-<?= e($item['validade']) ?>" aria-label="<?= e($name . ' de ' . $supplier) ?>">
                                 <div class="cert-card-head"><span class="cert-deadline" title="<?= e($dates->deadline($item['data_vencimento'])) ?>"><?= e($dates->badge($item['data_vencimento'])) ?></span></div>
                                 <dl class="cert-card-dates"><div><dt>Emissão</dt><dd><?= e($displayDate($item['data_emissao'])) ?></dd></div><div><dt>Validade</dt><dd><?= e($displayDate($item['data_vencimento'])) ?></dd></div></dl>
-                                <?php if (empty($item['pdf_privado'])): ?><p class="cert-pdf-note <?= !empty($item['arquivo_pdf']) ? 'legacy' : '' ?>"><?= !empty($item['arquivo_pdf']) ? 'PDF legado para revisão' : 'Sem PDF anexado' ?></p><?php endif; ?>
+                                <?php if (empty($item['pdf_privado']) && !empty($item['arquivo_pdf'])): ?><p class="cert-pdf-note legacy">PDF legado para revisão</p><?php endif; ?>
                                 <div class="cert-card-links">
-                                    <?php if ($state === 'corrente'): ?><a class="cert-link-renew" href="<?= e(url('certidao/renovar/' . (int) $item['id'])) ?>" aria-label="Renovar certidão <?= (int) $item['id'] ?>" title="Renovar">⟳</a><a class="cert-link-archive" href="<?= e(url('certidao/detalhes/' . (int) $item['id'] . '#cert-arquivar')) ?>" aria-label="Arquivar certidão <?= (int) $item['id'] ?>" title="Arquivar">▣</a><?php endif; ?>
-                                    <?php if (!empty($item['pdf_privado'])): ?><a class="cert-link-pdf" href="<?= e(url('certidao/pdf/' . (int) $item['id'])) ?>" aria-label="Baixar PDF da certidão <?= (int) $item['id'] ?>" title="Baixar PDF">PDF</a><?php endif; ?>
-                                    <?php if ($state === 'corrente'): ?><a class="cert-link-edit" href="<?= e(url('certidao/editar/' . (int) $item['id'])) ?>" aria-label="Editar certidão <?= (int) $item['id'] ?>" title="Editar">✎</a><?php endif; ?>
-                                    <?php if ($state !== 'excluida'): ?><a class="cert-link-delete" href="<?= e(url('certidao/detalhes/' . (int) $item['id'] . '#cert-excluir')) ?>" aria-label="Ver opções para excluir certidão <?= (int) $item['id'] ?>" title="Excluir">×</a><?php else: ?><a href="<?= e(url('certidao/detalhes/' . (int) $item['id'])) ?>" aria-label="Ver detalhes da certidão <?= (int) $item['id'] ?>" title="Detalhes">◉</a><?php endif; ?>
+                                    <?php if ($state === 'corrente'): ?><a class="cert-link-renew" href="<?= e(url('certidao/renovar/' . (int) $item['id'])) ?>" aria-label="Renovar certidão <?= (int) $item['id'] ?>" title="Renovar"><i class="cert-icon cert-icon-renew" aria-hidden="true"></i></a><a class="cert-link-archive" href="<?= e(url('certidao/detalhes/' . (int) $item['id'] . '#cert-arquivar')) ?>" aria-label="Arquivar certidão <?= (int) $item['id'] ?>" title="Arquivar"><i class="cert-icon cert-icon-archive" aria-hidden="true"></i></a><?php endif; ?>
+                                    <?php if (!empty($item['pdf_privado'])): ?><a class="cert-link-pdf" href="<?= e(url('certidao/pdf/' . (int) $item['id'])) ?>" aria-label="Baixar PDF da certidão <?= (int) $item['id'] ?>" title="Baixar PDF"><i class="cert-icon cert-icon-pdf" aria-hidden="true"></i></a><?php else: ?><span class="cert-link-pdf cert-disabled" role="img" aria-label="<?= !empty($item['arquivo_pdf']) ? 'PDF legado para revisão' : 'Sem PDF anexado' ?>" title="<?= !empty($item['arquivo_pdf']) ? 'PDF legado para revisão' : 'Sem PDF anexado' ?>"><i class="cert-icon cert-icon-pdf" aria-hidden="true"></i></span><?php endif; ?>
+                                    <?php if ($state === 'corrente'): ?><a class="cert-link-edit" href="<?= e(url('certidao/editar/' . (int) $item['id'])) ?>" aria-label="Editar certidão <?= (int) $item['id'] ?>" title="Editar"><i class="cert-icon cert-icon-edit" aria-hidden="true"></i></a><?php endif; ?>
+                                    <?php if ($state !== 'excluida'): ?><a class="cert-link-delete" href="<?= e(url('certidao/detalhes/' . (int) $item['id'] . '#cert-excluir')) ?>" aria-label="Ver opções para excluir certidão <?= (int) $item['id'] ?>" title="Excluir"><i class="cert-icon cert-icon-trash" aria-hidden="true"></i></a><?php else: ?><a href="<?= e(url('certidao/detalhes/' . (int) $item['id'])) ?>" aria-label="Ver detalhes da certidão <?= (int) $item['id'] ?>" title="Detalhes"><i class="cert-icon cert-icon-eye" aria-hidden="true"></i></a><?php endif; ?>
                                 </div>
                             </article>
                         <?php endforeach; ?>
@@ -140,6 +147,7 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
             </table>
         </div>
     <?php endif; ?>
+    <?= $advancedFilters ?>
     <nav class="cert-pagination" aria-label="<?= $state === 'corrente' ? 'Páginas de fornecedores' : 'Páginas do histórico' ?>">
         <?php if ($result['page'] > 1): ?><a class="btn-secondary" href="<?= e(url($route . '?' . http_build_query(array_merge($filters, ['page' => $result['page'] - 1])))) ?>">← Anterior</a><?php endif; ?>
         <?php if ($result['page'] < $result['pages']): ?><a class="btn-secondary" href="<?= e(url($route . '?' . http_build_query(array_merge($filters, ['page' => $result['page'] + 1])))) ?>">Próxima →</a><?php endif; ?>

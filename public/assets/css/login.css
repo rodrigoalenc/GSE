@@ -164,9 +164,11 @@ form.login .btn-login:hover {
     to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 480px) {
-    form.login { padding: 34px 24px; }
-}
+.login-help { margin-top: 15px; text-align: center; }
+.login-help summary { list-style: none; color: #666; font-size: .9em; cursor: pointer; }
+.login-help summary::-webkit-details-marker { display: none; }
+.login-help p { margin: 12px 0 0; color: var(--text-muted); font-size: .9em; }
+form.login :focus-visible { outline: 3px solid #f4c95d; outline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
     form.login { animation: none; }

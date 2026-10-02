@@ -93,6 +93,9 @@ if (dashboardHome) {
 const certFullscreen = document.getElementById('cert-fullscreen');
 if (certWorkspace && certFullscreen) {
     const status = document.getElementById('cert-fullscreen-status');
+    const fullscreenIcon = certFullscreen.querySelector('.cert-icon');
+    const fullscreenLabel = document.createTextNode(' Tela cheia');
+    certFullscreen.replaceChildren(...(fullscreenIcon ? [fullscreenIcon] : []), fullscreenLabel);
     const fullscreenBar = certWorkspace.querySelector('.cert-fullscreen-status-bar');
     const fullscreenFilters = [...fullscreenBar.querySelectorAll('[data-cert-fullscreen-filter]')];
     const cards = [...certWorkspace.querySelectorAll('.cert-card')];
@@ -131,7 +134,7 @@ if (certWorkspace && certFullscreen) {
         fullscreenBar.hidden = !active;
         if (!active && fullscreenFilters[0]) fullscreenFilters[0].click();
         certFullscreen.setAttribute('aria-pressed', String(active));
-        certFullscreen.textContent = active ? 'Sair da tela cheia' : 'Tela cheia';
+        fullscreenLabel.data = active ? ' Sair da tela cheia' : ' Tela cheia';
         status.textContent = active ? 'Pressione Esc para sair.' : '';
         if (active) (fullscreenFilters[0] || fullscreenBar.querySelector('[data-cert-fullscreen-exit]')).focus();
         else certFullscreen.focus();
@@ -176,10 +179,46 @@ document.querySelectorAll('[data-contract-item-toggle]').forEach((button) => {
         button.setAttribute('aria-expanded', String(!row.hidden));
     });
 });
+// IDs are looked up directly: a malformed URL fragment must never become a CSS selector.
+const fragmentTarget = (fragment) => {
+    if (!fragment || !fragment.startsWith('#')) return null;
+    try { return document.getElementById(decodeURIComponent(fragment.slice(1))); }
+    catch { return null; }
+};
+const revealFragmentTarget = (target, focus = false) => {
+    if (!target) return;
+    for (let ancestor = target; ancestor; ancestor = ancestor.parentElement) {
+        if (ancestor.tagName === 'DETAILS') ancestor.open = true;
+        if (ancestor.matches('.contract-item-expanded')) {
+            ancestor.hidden = false;
+            document.querySelectorAll('[data-contract-item-toggle]').forEach((button) => {
+                if (button.dataset.contractItemToggle === ancestor.id) button.setAttribute('aria-expanded', 'true');
+            });
+        }
+    }
+    if (focus) (target.querySelector('input:not([type="hidden"]), select, textarea') || target.querySelector('button, summary'))?.focus({preventScroll: true});
+};
 document.querySelectorAll('[data-open-details]').forEach((link) => {
-    link.addEventListener('click', () => {
-        const details = document.querySelector(link.getAttribute('href'));
-        if (details?.tagName === 'DETAILS') details.open = true;
+    link.addEventListener('click', (event) => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        const target = fragmentTarget(link.getAttribute('href'));
+        revealFragmentTarget(target);
+        // The default anchor action moves focus to the fragment. Focus the input afterwards.
+        requestAnimationFrame(() => revealFragmentTarget(target, true));
+    });
+});
+document.querySelectorAll('[data-close-details]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const details = document.getElementById(button.dataset.closeDetails);
+        if (!details || details.tagName !== 'DETAILS') return;
+        details.open = false;
+        const panel = details.closest('[role="tabpanel"]');
+        if (fragmentTarget(location.hash) && details.contains(fragmentTarget(location.hash))) {
+            history.replaceState(history.state, '', panel ? `#${panel.id}` : location.pathname + location.search);
+        }
+        const opener = [...document.querySelectorAll('[data-open-details]')]
+            .find((link) => fragmentTarget(link.getAttribute('href')) === details);
+        opener?.focus({preventScroll: true});
     });
 });
 if (document.body.hasAttribute('data-auto-print')) {
@@ -246,8 +285,9 @@ if (contractBuilder) {
 
 const contractTabs = document.querySelector('[data-contract-tabs]');
 if (contractTabs) {
-    const tabs = [...contractTabs.querySelectorAll('a')];
-    const panels = tabs.map((tab) => document.querySelector(tab.getAttribute('href')));
+    const tabs = [...contractTabs.querySelectorAll('a')].filter((tab) => fragmentTarget(tab.getAttribute('href')));
+    const panels = tabs.map((tab) => fragmentTarget(tab.getAttribute('href')));
+    let selectedIndex = 0;
     contractTabs.setAttribute('role', 'tablist');
     tabs.forEach((tab, index) => {
         tab.setAttribute('role', 'tab');
@@ -257,6 +297,8 @@ if (contractTabs) {
         tab.id = `contract-tab-${index}`;
     });
     const select = (index, focus = false) => {
+        if (index < 0 || index >= tabs.length) return;
+        selectedIndex = index;
         tabs.forEach((tab, current) => {
             tab.setAttribute('aria-selected', String(current === index));
             tab.tabIndex = current === index ? 0 : -1;
@@ -264,9 +306,32 @@ if (contractTabs) {
         });
         if (focus) tabs[index].focus();
     };
-    const fromHash = () => Math.max(0, tabs.findIndex((tab) => tab.getAttribute('href') === location.hash));
-    select(fromHash());
+    const fromHash = () => {
+        if (!location.hash) return 0;
+        const target = fragmentTarget(location.hash);
+        return target ? panels.findIndex((panel) => panel === target || panel.contains(target)) : -1;
+    };
+    const followHash = (scroll = true) => {
+        const index = fromHash();
+        if (index >= 0) {
+            const target = fragmentTarget(location.hash);
+            select(index);
+            revealFragmentTarget(target);
+            if (scroll) target?.scrollIntoView({block: 'start'});
+        }
+    };
+    select(0);
+    followHash();
+    // Select the ancestor before the browser scrolls to a form in a previously hidden note.
+    document.addEventListener('click', (event) => {
+        const link = event.target.closest('a[href^="#"]');
+        if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        const target = fragmentTarget(link.getAttribute('href'));
+        const index = target ? panels.findIndex((panel) => panel === target || panel.contains(target)) : -1;
+        if (index >= 0) { select(index); revealFragmentTarget(target); }
+    });
     contractTabs.addEventListener('click', (event) => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
         const index = tabs.indexOf(event.target.closest('a'));
         if (index >= 0) select(index);
     });
@@ -278,7 +343,19 @@ if (contractTabs) {
             : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
         if (next >= 0) { event.preventDefault(); location.hash = tabs[next].getAttribute('href'); select(next, true); }
     });
-    window.addEventListener('hashchange', () => select(fromHash()));
-    window.addEventListener('beforeprint', () => panels.forEach((panel) => { panel.hidden = false; }));
-    window.addEventListener('afterprint', () => select(fromHash()));
+    window.addEventListener('hashchange', () => followHash());
+    window.addEventListener('pageshow', () => followHash());
+    let printIndex = 0;
+    let printScroll = 0;
+    window.addEventListener('beforeprint', () => { printIndex = selectedIndex; printScroll = window.scrollY; panels.forEach((panel) => { panel.hidden = false; }); });
+    window.addEventListener('afterprint', () => { select(printIndex); followHash(false); window.scrollTo(0, printScroll); });
+}
+
+const reportGenerator = document.querySelector('[data-report-generator]');
+if (reportGenerator) {
+    reportGenerator.addEventListener('submit', (event) => {
+        if (event.submitter?.hasAttribute('data-report-csv')) return;
+        const format = reportGenerator.querySelector('[name="formato"]:checked')?.value;
+        reportGenerator.action = format === 'csv' ? reportGenerator.dataset.csvUrl : reportGenerator.dataset.pdfUrl;
+    });
 }

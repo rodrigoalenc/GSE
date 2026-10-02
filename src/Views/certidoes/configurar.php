@@ -1,4 +1,4 @@
-<section class="cert-config-intro"><div><h2>Organize os catálogos usados nas certidões</h2><p>Use esta tela para manter a lista de fornecedores e os tipos de certidão atualizados. As alterações feitas aqui já aparecem nos formulários de cadastro e edição.</p></div><span>◈ Alterações com feedback imediato</span></section>
+<section class="cert-config-intro"><div><h2>Organize os catálogos usados nas certidões</h2><p>Use esta tela para manter a lista de fornecedores e os tipos de certidão atualizados. As alterações feitas aqui já aparecem nos formulários de cadastro e edição.</p></div><span><i class="cert-icon cert-icon-shield" aria-hidden="true"></i> Alterações com feedback imediato</span></section>
 <?php if (is_array($draft)): ?>
 <section class="cert-panel" aria-labelledby="draft-title"><h2 id="draft-title">Sua edição não salva</h2>
 <p>Copie o nome abaixo e compare com o cadastro atual. Abra a opção correspondente e escolha novamente a situação antes de salvar. Este rascunho permanece disponível até salvar uma configuração.</p>
@@ -6,16 +6,15 @@
 <label for="draft-name">Nome digitado (selecione para copiar)</label><input id="draft-name" readonly value="<?= e($draft['nome']) ?>">
 </section>
 <?php endif; ?>
-<details class="cert-config-search"><summary>Pesquisar nos catálogos</summary><form class="cert-filters" method="get"><div><label for="busca">Pesquisar nomes</label><input id="busca" name="busca" maxlength="150" value="<?= e($search) ?>"></div><button type="submit" class="btn-primary">Pesquisar</button></form></details>
 <div class="cert-config-grid">
-<?php foreach (['fornecedor'=>['Lista de Fornecedores',$fornecedores,'Cadastre e mantenha os nomes usados para vincular cada certidão ao respectivo fornecedor.'],'tipo'=>['Tipos de Certidão',$tipos,'Mantenha a nomenclatura dos documentos padronizada para evitar cadastros duplicados.']] as $kind=>[$label,$options,$description]): ?>
-    <section class="cert-panel cert-config-panel"><div class="cert-config-panel-heading"><h2><?= e($label) ?></h2><p><?= e($description) ?></p></div>
+<?php foreach (['fornecedor'=>['Lista de Fornecedores',$fornecedores,'Cadastre e mantenha os nomes usados para vincular cada certidão ao respectivo fornecedor.'],'tipo'=>['Tipos de Certidão',$tipos,'Mantenha a nomenclatura dos documentos padronizada para evitar cadastros duplicados ou nomes divergentes.']] as $kind=>[$label,$options,$description]): ?>
+    <section class="cert-panel cert-config-panel"><div class="cert-config-panel-heading"><h2><i class="cert-icon <?= $kind === 'fornecedor' ? 'cert-icon-truck' : 'cert-icon-certificate' ?>" aria-hidden="true"></i> <?= e($label) ?></h2><p><?= e($description) ?></p></div>
         <form class="cert-option" method="post" action="<?= e(url('certidao/configurar')) ?>">
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="tipo" value="<?= e($kind) ?>"><input type="hidden" name="ativo" value="1">
-            <label class="visually-hidden" for="novo-<?= e($kind) ?>">Novo nome</label><div class="cert-config-add"><input id="novo-<?= e($kind) ?>" name="nome" minlength="2" maxlength="150" required placeholder="Adicionar novo (Ex: <?= $kind === 'fornecedor' ? 'GRB' : 'CND FEDERAL' ?>)"><button type="submit" class="btn-primary" aria-label="Adicionar <?= e($kind) ?>">＋</button></div>
+            <label class="visually-hidden" for="novo-<?= e($kind) ?>">Novo nome</label><div class="cert-config-add"><input id="novo-<?= e($kind) ?>" name="nome" minlength="2" maxlength="150" required placeholder="Adicionar novo (Ex: <?= $kind === 'fornecedor' ? 'GRB' : 'CND FEDERAL' ?>)"><button type="submit" class="btn-primary" aria-label="Adicionar <?= e($kind) ?>"><i class="cert-icon cert-icon-plus" aria-hidden="true"></i></button></div>
         </form>
         <?php if ($options === []): ?><p class="cert-config-empty">Nenhum<?= $kind === 'fornecedor' ? ' fornecedor registrado.' : ' tipo de certidão registrado.' ?></p><?php endif; ?>
-        <?php foreach ($options as $option): ?><details class="cert-option cert-config-item"><summary><?= e($option['nome']) ?><?= (int)$option['ativo'] === 0 ? ' · Inativo' : '' ?><span aria-hidden="true">✎</span></summary>
+        <?php foreach ($options as $option): ?><details class="cert-option cert-config-item"><summary><span class="cert-config-item-name"><?= e($option['nome']) ?><?= (int)$option['ativo'] === 0 ? ' · Inativo' : '' ?></span><span class="cert-config-item-actions" aria-hidden="true"><i class="cert-icon cert-icon-edit"></i><i class="cert-icon cert-icon-power"></i></span></summary>
             <form method="post" action="<?= e(url('certidao/configurar')) ?>">
                 <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="tipo" value="<?= e($kind) ?>"><input type="hidden" name="id" value="<?= (int)$option['id'] ?>">
                 <label for="nome-<?= e($kind) ?>-<?= (int)$option['id'] ?>">Nome</label><input id="nome-<?= e($kind) ?>-<?= (int)$option['id'] ?>" name="nome" minlength="2" maxlength="150" required value="<?= e($option['nome']) ?>">
@@ -27,4 +26,5 @@
     </section>
 <?php endforeach; ?>
 </div>
-<div class="cert-config-footer"><a href="<?= e(url('certidao')) ?>">← Voltar para a Tela Inicial</a></div>
+<div class="cert-config-footer"><a href="<?= e(url('certidao')) ?>"><i class="cert-icon cert-icon-arrow-left" aria-hidden="true"></i> Voltar para a Tela Inicial</a></div>
+<details class="cert-config-search"><summary>Pesquisar nos catálogos</summary><form class="cert-filters" method="get"><div><label for="busca">Pesquisar nomes</label><input id="busca" name="busca" maxlength="150" value="<?= e($search) ?>"></div><button type="submit" class="btn-primary">Pesquisar</button></form></details>

@@ -1,0 +1,109 @@
+{
+  "aplicacao": "GSE",
+  "data": "2026-10-02",
+  "dados_ficticios": true,
+  "evidencias": [
+    {
+      "arquivo": "login-390.png",
+      "largura": 390,
+      "altura": 844,
+      "sha256": "49888cfbb9017d6d1b5516c73e53522a2a7613b74c029a97f9b8dafed43c167a"
+    },
+    {
+      "arquivo": "painel-1366.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "b310fa0cf3b3f3b0188b6e45ddc2f1f39afae06479b00cb0b502a239135415a5"
+    },
+    {
+      "arquivo": "alunos-1366.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "cbaa8691480a41bb7687bd4715008399a3bd0e5c090828ec124b37e42743faa9"
+    },
+    {
+      "arquivo": "aluno-cadastro-390.png",
+      "largura": 390,
+      "altura": 844,
+      "sha256": "a71ef46491bfe75d172ca4dc229e0fa5f17d3794980b4de290d34db2b5bd08ff"
+    },
+    {
+      "arquivo": "passivo-1366.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "6b4b06953679797bb010785a8981f5e505b9a25c6a9f78ec0e4ab689b3ea2e5d"
+    },
+    {
+      "arquivo": "certidoes-1920.png",
+      "largura": 1920,
+      "altura": 1080,
+      "sha256": "fc4d777ef4070642ebdf4b47815a2630cc21b8959cd1a621e4657dcdd37c2f9e"
+    },
+    {
+      "arquivo": "certidoes-config-1366.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "11686598357f4738950b98cc801f8db8af8754eae7eea766f7e4516f32c63f47"
+    },
+    {
+      "arquivo": "contratos-1366.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "3074397e9d27ccb2ee82c6fa4102bc9407b4c44f0b53ea0b53beace0ad130bf7"
+    },
+    {
+      "arquivo": "contrato-nota2-1366.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "d460ed7241a85d9a5999c6ecd4e5afe603f94f2e51de08ce3f2b1bd15b453f29"
+    },
+    {
+      "arquivo": "contrato-produto2-1920.png",
+      "largura": 1920,
+      "altura": 1080,
+      "sha256": "aac57a559d4d97e655272914f193bd66405072132bd2138614bb828cf9f64aa9"
+    },
+    {
+      "arquivo": "relatorios-1366.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "dda593c2f033616363e6b5d081ee40def017b6b130641baf20955bd639283edd"
+    },
+    {
+      "arquivo": "nota2-validacao.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "3beccb33c73188ba2f58e47024b5d5229753b4a29f668a246c33281021dc792b"
+    },
+    {
+      "arquivo": "abertura-legada.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "f10119d58bf3e2bdb44a890600aa7208f287de6e4e2d220ba78a8e977d0da7e7"
+    },
+    {
+      "arquivo": "impressao-pedido.png",
+      "largura": 775,
+      "altura": 1095,
+      "sha256": "60f4ee1aa804fb9ad8794f9b41a351fb06ad56b9e47485eecfa20abe1b632060"
+    },
+    {
+      "arquivo": "impressao-nota.png",
+      "largura": 775,
+      "altura": 1095,
+      "sha256": "5781ca5fab0c14812a5c26c682a32bd2cbe4c1b2a1336f62d3f8c45b84b815d9"
+    },
+    {
+      "arquivo": "impressao-80-itens-pagina-3.png",
+      "largura": 775,
+      "altura": 1095,
+      "sha256": "1685c879e39ed6e5cd8396068f61c9c0fafaae24d9a04d06f4a67649f188f038"
+    },
+    {
+      "arquivo": "impressao-80-itens-pagina-5.png",
+      "largura": 775,
+      "altura": 1095,
+      "sha256": "d2b33ec8c2c4b106daeb50d35c1cd328cb14d89a91c8a90f4e3832a44134de19"
+    }
+  ]
+}

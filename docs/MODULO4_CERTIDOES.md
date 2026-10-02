@@ -1,6 +1,6 @@
 # Módulo 4 — Certidões e Fornecedores
 
-Implementado sobre `61930860554535af1915622b8eb273a155917c72` (Modulo3), continuando a branch existente `Modulo4`. Consulta remota realizada em 16/09/2026: ambas as branches apontavam para essa base. Não houve push, merge ou deploy.
+Implementado sobre `61930860554535af1915622b8eb273a155917c72` (Modulo3), continuando a branch existente `Modulo4`. Consulta remota realizada em 16/09/2026: ambas as branches apontavam para essa base. Não houve push, merge ou deploy. As execuções de setembro registradas aqui são históricas; o estado atual da branch `Modulo5` usa v15 e está documentado em [MODULO5_VALIDACAO.md](MODULO5_VALIDACAO.md).
 
 ## Fontes e limites da conclusão
 
@@ -25,14 +25,14 @@ A interface usa azul `#16508f`, sidebar, resumo superior, ações rápidas, filt
 | RF006, p. 15 | Exigência | `CertidaoNotificationService`, relatório diário para administradores ativos com e-mail válido | Transporte falso: conteúdo, falha parcial, repetição e concorrência | Código testado; SMTP/agendamento dependem da implantação |
 | RF007 | Exigência | Auditoria obrigatória na mesma transação; autor, recurso, resultado e UTC | Rollback de cadastro/renovação/edição/arquivo/exclusão/configuração | Implementado |
 | NF001–NF005 | Exigência | MVC PHP/JS/SQLite, Bootstrap local, CSS externo, sessão e senha existentes | PHPStan, lint, HTTP e testes anteriores | Implementado; visual responsivo pendente |
-| Figuras 16–18, p. 29 do PDF local | Referência visual | Matriz, cadastro e configuração | Página renderizada e código original consultados | Comparação estrutural realizada; navegador indisponível |
+| Figuras 16–18, p. 29 do PDF local | Figuras acadêmicas | Matriz, cadastro e configuração | Página acadêmica renderizada e estrutura dos templates do GSE inspecionada | Inspeção estrutural realizada; homologação visual pendente |
 | 15 dias de aviso | Decisão de implementação | `CERTIDAO_WARNING_DAYS`, regra compartilhada | Fronteiras de datas e fuso | Testado; não é prazo imposto pelo TCC |
 | Configuração por funcionário | Decisão de implementação | Fornecedores/tipos acessíveis a funcionário e administrador | HTTP e autorização de domínio | Implementado conforme orientação do prompt |
 | Exclusão e inativação conservadoras | Decisão de implementação | Nenhum DELETE de documentos/opções, referências preservadas | Histórico após inativação e exclusão | Implementado |
 | PDFs privados, 10 MiB, validação e compensação | Melhoria técnica | `CertidaoStorage` | MIME, assinatura, nomes, tamanho, origem HTTP e corrupção | Testado nos cenários documentados |
 | Migração preservadora | Melhoria técnica | Migrações v13 e v14 aditivas, backup validado e diagnóstico CLI | Migração/convergência/rollback/integridade | Testado com dados sintéticos |
 
-Contratos, compras, estoque, pedidos e relatórios gerais do Módulo 5 estão fora desta entrega. A abstração de DVA e suas preferências de e-mail foram preservadas.
+O escopo específico deste documento é o Módulo 4. Contratos, notas, estoque e relatórios de alunos/DVA estão implementados na branch `Modulo5` e descritos na documentação desse módulo. A abstração de DVA e suas preferências de e-mail foram preservadas.
 
 ## Operação e permissões
 
@@ -58,7 +58,7 @@ Nomes são comparados em NFC, com espaços normalizados e caixa Unicode. A grafi
 
 `DatabaseInitializer` mantém as migrações 1–12 e acrescenta v13. Em instalação antiga sem tabelas de certidões, v13 também cria as tabelas legadas vazias antes da extensão. A instalação limpa aplica as mesmas migrações e converge na estrutura final.
 
-A revisão acrescenta a próxima migração, **v14**, sem reescrever v13: adiciona `revisao INTEGER NOT NULL DEFAULT 1 CHECK (revisao >= 1)` às duas listas e cria `certidao_notification_attempts` (data civil, usuário, quantidade e horário da última tentativa). IDs, nomes, situação inativa, vínculos, auditoria e entregas já confirmadas são preservados. O inicializador continua fazendo backup validado antes de migrar instalações existentes; DDL, versão e verificações de integridade são transacionais. Estado esperado: `PRAGMA user_version=14`, versões 1–14 em `schema_migrations`. Aplicar em cópia institucional e validar restauração antes de migrar produção; nenhum banco real foi migrado nesta revisão. Código antigo não deve continuar escrevendo listas após a atualização, pois não participa da validação de revisão.
+A revisão de setembro acrescentou a migração **v14**, sem reescrever v13: adiciona `revisao INTEGER NOT NULL DEFAULT 1 CHECK (revisao >= 1)` às duas listas e cria `certidao_notification_attempts` (data civil, usuário, quantidade e horário da última tentativa). IDs, nomes, situação inativa, vínculos, auditoria e entregas já confirmadas são preservados. O inicializador continua fazendo backup validado antes de migrar instalações existentes; DDL, versão e verificações de integridade são transacionais. A entrega do Módulo 4 terminava em `PRAGMA user_version=14`, versões 1–14 em `schema_migrations`; o inicializador atual da branch `Modulo5` aplica até v15, com versões 1–15. Aplicar em cópia institucional e validar restauração antes de migrar produção; nenhum banco real foi migrado nesta revisão. Código antigo não deve continuar escrevendo listas após a atualização, pois não participa da validação de revisão.
 
 - Listas: `ativo`, `atualizado_por`, `atualizado_em`.
 - Certidões: `anterior_id`, `excluido_em`, autoria/horários, `revisao`, `pdf_privado`, `pdf_nome`, `pdf_bytes`, `pdf_sha256`.
@@ -144,7 +144,7 @@ Windows, Agendador de Tarefas: gatilho diário às 07:00; programa `C:\Windows\p
 
 ## Verificação e demonstração
 
-Resultados da entrega e revisão: consultar [MODULO4_VALIDACAO.md](MODULO4_VALIDACAO.md). Expectativas de versão final passaram para v14; continuam 63 rotas. Os testes dos módulos anteriores foram preservados, atualizando apenas expectativas de versão final do schema. Não foram adicionados baseline ou exclusões de análise estática.
+Resultados históricos da entrega e revisão: consultar [MODULO4_VALIDACAO.md](MODULO4_VALIDACAO.md). Na entrega do Módulo 4, as expectativas de versão final passaram para v14 e havia 63 rotas. A branch `Modulo5` usa v15 e 85 rotas explícitas, incluindo desarquivamento de certidão autenticado, com revisão, confirmação e auditoria. Os resultados atuais estão em [MODULO5_VALIDACAO.md](MODULO5_VALIDACAO.md). Os testes dos módulos anteriores foram preservados; não foram adicionados baseline ou exclusões de análise estática.
 
 Para demonstrar em banco **novo e sintético** no PowerShell, sem reutilizar `.env` de produção (a leitura de `.env` tem precedência no projeto):
 
