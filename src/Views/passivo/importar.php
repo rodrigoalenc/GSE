@@ -5,7 +5,8 @@
 </section>
 
 <section class="relatorio passivo-form-shell">
-    <div class="section-head"><div><h2>1. Validar arquivo</h2><p>Limites: <?= e((string) intdiv($maxFileSize, 1024)) ?> KiB e <?= e((string) $maxRows) ?> linhas.</p></div></div>
+    <div class="section-head"><div><h2>1. Validar arquivo</h2><p>Limites: <?= e((string) intdiv($maxFileSize, 1024)) ?> KiB e <?= e((string) $maxRows) ?> linhas.</p></div><a class="btn-secondary" href="<?= e(url('assets/modelos/arquivo-passivo.csv')) ?>" download="modelo-arquivo-passivo.csv">Baixar modelo CSV</a></div>
+    <p class="passivo-form-tip">Preencha o modelo a partir da segunda linha e mantenha o cabeçalho. Salve como CSV UTF-8 separado por ponto e vírgula (;). Nome e Caixa são obrigatórios; Data (nascimento) e Numero podem ficar vazios.</p>
     <form class="passivo-form" method="post" enctype="multipart/form-data" action="<?= e(url('passivo/importar/preview')) ?>">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <label for="arquivo-csv">Arquivo CSV UTF-8</label>

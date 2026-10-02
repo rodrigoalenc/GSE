@@ -613,9 +613,22 @@ try {
         'Exportação TXT usa conteúdo e headers seguros'
     );
 
-    $csvPath = $tempRoot . DIRECTORY_SEPARATOR . 'passivo-http.csv';
-    file_put_contents($csvPath, "Nome;Data;Numero;Caixa\nCSV HTTP;2001-02-03;1;CX-CSV\n");
     $importPage = request('GET', $baseUrl . '/passivo/importar', $cookieAdmin);
+    checkHttp(
+        $importPage['status'] === 200
+        && str_contains($importPage['body'], 'href="' . $baseUrl . '/assets/modelos/arquivo-passivo.csv"')
+        && str_contains($importPage['body'], 'download="modelo-arquivo-passivo.csv"'),
+        'Importação oferece download do modelo CSV'
+    );
+    $importTemplate = request('GET', $baseUrl . '/assets/modelos/arquivo-passivo.csv', $cookieAdmin);
+    checkHttp(
+        $importTemplate['status'] === 200
+        && str_starts_with($importTemplate['body'], "\xEF\xBB\xBF")
+        && trim(substr($importTemplate['body'], 3)) === 'Nome;Data;Numero;Caixa',
+        'Modelo baixado usa UTF-8 com BOM, quatro colunas e nenhum registro de exemplo'
+    );
+    $csvPath = $tempRoot . DIRECTORY_SEPARATOR . 'passivo-http.csv';
+    file_put_contents($csvPath, $importTemplate['body'] . "CSV HTTP;2001-02-03;1;CX-CSV\r\n");
     $importPreview = requestMultipart($baseUrl . '/passivo/importar/preview', $cookieAdmin, [
         '_csrf_token' => csrf($importPage['body']),
         'arquivo_csv' => new CURLFile($csvPath, 'text/csv', 'passivo.csv'),

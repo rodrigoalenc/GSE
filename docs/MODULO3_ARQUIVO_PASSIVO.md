@@ -35,6 +35,8 @@ Excluídos não ocupam posições do acervo ativo. A edição de um excluído pr
 
 ## CSV
 
+A tela **Arquivo Passivo → Importar CSV** oferece **Baixar modelo CSV**. O arquivo contém somente o cabeçalho abaixo, em UTF-8 com BOM, sem registros de exemplo. Preencha a partir da segunda linha, preserve as quatro colunas e salve em CSV UTF-8 separado por ponto e vírgula. Nome e Caixa são obrigatórios; Data de nascimento e Numero são opcionais.
+
 Formato obrigatório:
 
 ```text
@@ -73,4 +75,4 @@ O módulo consolida a inativação existente como exclusão lógica (`ativo=0`),
 
 Operações transacionais gravam auditoria obrigatória na mesma transação. Falha de `security_audit` provoca rollback. Eventos: `passive.created`, `passive.updated`, `passive.deactivated`, `passive.reactivated`, `passive.student_archived`, `passive.import_previewed`, `passive.import_completed`, `passive.import_failed`, `passive.enumeration_previewed`, `passive.enumerated`, `passive.exported`, bloqueios de autorização e conflitos.
 
-Os testes automatizados cobrem limites e MIME do CSV, UTF-8/cabeçalho/colunas, expiração e vínculo do token, uso único, alteração do temporário, mudança concorrente do banco, rollback do lote e da auditoria, matriz HTTP de permissões, métodos/CSRF/404 e garantias da migração v12. A homologação visual e a migração de uma cópia anonimizada real continuam no [roteiro manual](MODULO3_VALIDACAO_MANUAL.md).
+Os testes automatizados cobrem o download do modelo e sua importação após preenchimento, limites e MIME do CSV, UTF-8/cabeçalho/colunas, expiração e vínculo do token, uso único, alteração do temporário, mudança concorrente do banco, rollback do lote e da auditoria, matriz HTTP de permissões, métodos/CSRF/404 e garantias da migração v12. A homologação visual e a migração de uma cópia anonimizada real continuam no [roteiro manual](MODULO3_VALIDACAO_MANUAL.md).

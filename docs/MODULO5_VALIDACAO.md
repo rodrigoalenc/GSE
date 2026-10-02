@@ -11,12 +11,14 @@ Branch `Modulo5`, estado inicial `755d28d2c3a69844e3413ff4ea49eefc6bb4b4c2`, ár
 | `composer lint` | 141 arquivos PHP sem erro de sintaxe |
 | `composer analyse` | Zero erros |
 | `composer test` | 243 testes, 2.132 asserções, 1 ignorado |
-| `composer http-test` | 239 verificações aprovadas |
+| `composer http-test` | 241 verificações aprovadas |
 | `node --check public/assets/js/app.js` | Aprovado |
 | `node tests/browser-contract-tabs.mjs` | 45 verificações no Chrome real |
 | `git diff --check` | Sem erros de espaços |
 
 O teste ignorado verifica permissões de arquivo POSIX (`SqliteProtectionTest`); não se aplica ao Windows. O CI mantém a execução PHP/HTTP no Linux e acrescenta o teste de navegador em um job próprio. Essa configuração foi validada localmente; a execução remota deste commit depende de publicação posterior, fora desta tarefa.
+
+O complemento da importação do Arquivo Passivo acrescenta o botão **Baixar modelo CSV** e um arquivo com somente `Nome;Data;Numero;Caixa`, em UTF-8 com BOM. As duas verificações HTTP adicionais conferem o link de download e o arquivo servido; a prévia e a confirmação existentes usam uma cópia baixada e preenchida. O download nativo foi validado no Chrome, com botão sem corte horizontal nas três resoluções e sem exceções ou violações da CSP. O commit anterior `06a78ee` registrou 239 verificações HTTP; o resultado atual inclui o modelo.
 
 A falha inicial das 85 rotas foi reproduzida: o teste esperava 84. A expectativa foi corrigida e as verificações foram ampliadas para unicidade por método/caminho, autenticação, autorização administrativa, ação de desarquivamento e IDs válidos/inválidos em todas as rotas parametrizadas. Nenhuma autorização foi relaxada.
 
@@ -51,7 +53,7 @@ Esta revisão usa o esquema v15 existente e não acrescenta migração. Instala�
 | Grupo | Arquivos alterados ou adicionados |
 |---|---|
 | CI e comandos | `.github/workflows/ci.yml`, `composer.json` |
-| Navegação, apresentação e assets | `public/assets/js/app.js`; CSS de login, painel/dashboard, usuários, alunos, passivo, certidões, contratos, relatórios e impressão; fonte e licença em `public/assets/vendor/fontawesome/` |
+| Navegação, apresentação e assets | `public/assets/js/app.js`; CSS de login, painel/dashboard, usuários, alunos, passivo, certidões, contratos, relatórios e impressão; fonte e licença em `public/assets/vendor/fontawesome/`; modelo em `public/assets/modelos/arquivo-passivo.csv` |
 | Fluxos e segurança | `src/Controllers/ContratoController.php`, `CertidaoController.php`, `PassivoController.php`; `src/Model/Contrato.php`; `src/Core/ContractFormDraft.php` e `SecurityHeaders.php` |
 | Telas | Views de login/layout, usuários, alunos/perfil, passivo, certidões, contratos e relatórios |
 | Regressões | `tests/Security/CoreSecurityTest.php`, `tests/Integration/LegacyStockRecoveryTest.php`, `tests/Unit/ContractFormDraftTest.php`, `tests/browser-contract-tabs.mjs`, `tests/fixtures/stock-recovery-race.php`, `tests/http-contract-drafts.php`, `tests/http-certidoes.php` e `tests/http-smoke.php` |
