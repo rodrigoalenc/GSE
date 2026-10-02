@@ -104,6 +104,18 @@
       "largura": 775,
       "altura": 1095,
       "sha256": "d2b33ec8c2c4b106daeb50d35c1cd328cb14d89a91c8a90f4e3832a44134de19"
+    },
+    {
+      "arquivo": "unidades-pedido-1366.png",
+      "largura": 1366,
+      "altura": 768,
+      "sha256": "9015037f02ccb17247115610189ae35f9e7fe599e813a595df846fede5634d3c"
+    },
+    {
+      "arquivo": "unidades-pedido-390.png",
+      "largura": 390,
+      "altura": 844,
+      "sha256": "195a9b247701f4d94dfeed868c738ee6bc6518e4db421051d90116ec7d18fff4"
     }
   ]
 }

@@ -42,7 +42,7 @@ $draftCreatePage=request('GET',$baseUrl.'/contrato/criar',$cookieAdmin);
 $draftCreate=request('POST',$baseUrl.'/contrato/criar',$cookieAdmin,[
     '_csrf_token'=>csrf($draftCreatePage['body']),'titulo'=>'Pedido HTTP rascunhos','valor'=>'100,00','fornecedor'=>'',
     'folhas'=>array_map(static fn(int $number): array => ['observacao'=>'Nota de teste '.$number,'produtos'=>[
-        ['nome'=>'Produto '.$number,'marca'=>'Marca teste','unidade'=>'un','quantidade'=>'2','preco'=>'3,00'],
+        ['nome'=>'Produto '.$number,'marca'=>'Marca teste','unidade'=>['un','K','Litros'][$number-1],'quantidade'=>'2','preco'=>'3,00'],
     ]],[1,2,3]),
 ]);
 preg_match('#/contrato/detalhes/([0-9]+)#',$draftCreate['headers']['location'] ?? '',$draftCreatedMatch);
@@ -52,6 +52,7 @@ $draftUrl=$baseUrl.'/contrato/detalhes/'.$draftContract;
 $draftDb=new PDO('sqlite:'.$database,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
 $draftNotes=$draftDb->query('SELECT * FROM pedido_paginas WHERE id_pedido='.$draftContract.' ORDER BY numero_pagina')->fetchAll();
 $draftProducts=$draftDb->query('SELECT * FROM pedido_produtos WHERE id_pedido='.$draftContract.' ORDER BY numero_pagina')->fetchAll();
+checkHttp(array_column($draftProducts,'unidade')===['un','K','Litros'],'Cadastro preserva unidades escolhidas e unidade anterior sem conversão automática');
 $draftNote2=(int)$draftNotes[1]['id']; $draftNote3=(int)$draftNotes[2]['id'];
 $draftProduct1=(int)$draftProducts[0]['id']; $draftProduct2=(int)$draftProducts[1]['id']; $draftProduct3=(int)$draftProducts[2]['id'];
 
@@ -59,8 +60,16 @@ $draftProduct1=(int)$draftProducts[0]['id']; $draftProduct2=(int)$draftProducts[
 $draftTabA=request('GET',$draftUrl,$cookieEmployee); $draftTabB=request('GET',$draftUrl,$cookieEmployee);
 $draftAdd=contractDraftFields($draftTabA['body'],'add-product-'.$draftNote2);
 $draftBill=contractDraftFields($draftTabB['body'],'billing-note-'.$draftNote3);
+$draftUnitSelect=contractDraftElement($draftTabA['body'],'add-product-'.$draftNote2)->getElementsByTagName('select')->item(0);
+$draftUnitOptions=[];
+if ($draftUnitSelect instanceof DOMElement) {
+    foreach ($draftUnitSelect->getElementsByTagName('option') as $option) { $draftUnitOptions[]=$option->getAttribute('value'); }
+}
+checkHttp($draftUnitSelect instanceof DOMElement && $draftUnitSelect->getAttribute('name')==='unidade'
+    && $draftUnitOptions===['UN','K','Litros'] && $draftAdd['unidade']==='UN','Produto novo oferece seleção UN, K ou Litros com padrão UN');
+checkHttp(contractDraftFields($draftTabA['body'],'edit-product-'.$draftProduct1)['unidade']==='un','Edição mantém selecionada a unidade anterior do produto');
 checkHttp($draftAdd['_form_context']!==$draftBill['_form_context'],'Duas abas recebem contextos de preenchimento distintos');
-$draftAdd=array_replace($draftAdd,['nome'=>'<Rascunho A>','marca'=>'Marca A','unidade'=>'un','quantidade'=>'2','preco'=>'inválido']);
+$draftAdd=array_replace($draftAdd,['nome'=>'<Rascunho A>','marca'=>'Marca A','unidade'=>'Litros','quantidade'=>'2','preco'=>'inválido']);
 $draftBill=array_replace($draftBill,['data'=>'2026-02-30','motivo'=>'<Motivo B>','faturado'=>'1']);
 $draftFailureA=request('POST',$baseUrl.'/contrato/produto/'.$draftContract,$cookieEmployee,$draftAdd);
 $draftFailureB=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBill);
@@ -69,6 +78,7 @@ checkHttp(contractDraftElement($draftRecoveryA['body'],'add-product-'.$draftNote
     && !contractDraftElement($draftRecoveryA['body'],'add-product-'.$draftNote3)->hasAttribute('open')
     && str_ends_with($draftFailureA['headers']['location'],'#add-product-'.$draftNote2),'Erro reabre somente adicionar produto na segunda nota');
 checkHttp(contractDraftFields($draftRecoveryA['body'],'add-product-'.$draftNote2)['nome']==='<Rascunho A>'
+    && contractDraftFields($draftRecoveryA['body'],'add-product-'.$draftNote2)['unidade']==='Litros'
     && str_contains($draftRecoveryA['body'],'&lt;Rascunho A&gt;') && !str_contains($draftRecoveryA['body'],'<Rascunho A>'),'Valores de produto recuperados e escapados');
 checkHttp(str_contains($draftRecoveryA['body'],'Valor inválido.') && !str_contains($draftRecoveryA['body'],'Data de faturamento inválida.')
     && str_contains($draftRecoveryB['body'],'Data de faturamento inválida.') && !str_contains($draftRecoveryB['body'],'Rascunho A'),'Mensagens e campos recusados permanecem isolados entre operações e abas');
@@ -76,7 +86,8 @@ checkHttp(contractDraftElement($draftRecoveryB['body'],'billing-note-'.$draftNot
     && contractDraftFields($draftRecoveryB['body'],'billing-note-'.$draftNote3)['motivo']==='<Motivo B>'
     && str_contains($draftRecoveryB['body'],'2026-02-30'),'Erro de data mantém faturamento na terceira nota e mostra a data recusada');
 checkHttp(!str_contains(request('GET',$draftUrl,$cookieEmployee)['body'],'Rascunho A'),'Página normal não importa o rascunho de outra aba');
-checkHttp(contractDraftFields(request('GET',$draftFailureA['headers']['location'],$cookieEmployee)['body'],'add-product-'.$draftNote2)['nome']==='<Rascunho A>','Atualizar a página mantém a tentativa da operação correta');
+$draftRefreshed=contractDraftFields(request('GET',$draftFailureA['headers']['location'],$cookieEmployee)['body'],'add-product-'.$draftNote2);
+checkHttp($draftRefreshed['nome']==='<Rascunho A>' && $draftRefreshed['unidade']==='Litros','Atualizar a página mantém a tentativa e a unidade escolhida da operação correta');
 $draftWrongContract=request('GET',$baseUrl.'/contrato/detalhes/'.(int)$completeMatch[1].'?'.parse_url($draftFailureA['headers']['location'],PHP_URL_QUERY),$cookieEmployee);
 checkHttp(!str_contains($draftWrongContract['body'],'Rascunho A'),'Rascunho não é exibido em outro pedido');
 
@@ -139,10 +150,11 @@ $draftCurrent=contractDraftFields($draftAdminPage['body'],'edit-product-'.$draft
 $draftCurrent['nome']='Nome atual de outro operador';
 request('POST',$baseUrl.'/contrato/produto/'.$draftContract,$cookieAdmin,$draftCurrent);
 $draftStale['nome']='<Tentativa antiga não salva>';
+$draftStale['unidade']='Litros';
 $draftConflictResponse=request('POST',$baseUrl.'/contrato/produto/'.$draftContract,$cookieEmployee,$draftStale);
 $draftConflict=contractDraftRecovery($draftConflictResponse,$cookieEmployee);
 $draftReviewed=contractDraftFields($draftConflict['body'],'edit-product-'.$draftProduct1);
-checkHttp($draftReviewed['nome']==='Nome atual de outro operador' && (int)$draftReviewed['revisao']===(int)$draftStale['revisao']+1
+checkHttp($draftReviewed['nome']==='Nome atual de outro operador' && $draftReviewed['unidade']==='un' && (int)$draftReviewed['revisao']===(int)$draftStale['revisao']+1
     && str_contains($draftConflict['body'],'Tentativa não salva') && str_contains($draftConflict['body'],'&lt;Tentativa antiga não salva&gt;'),'Conflito mostra dados atuais e tentativa escapada sem reaplicar a edição antiga');
 checkHttp($draftDb->query('SELECT nome_produto FROM pedido_produtos WHERE id='.$draftProduct1)->fetchColumn()==='Nome atual de outro operador','Conflito HTTP preserva a edição do outro operador');
 $draftReviewed['nome']='Alteração expressamente revisada';
@@ -155,6 +167,11 @@ checkHttp($draftSaved['status']===302 && !str_contains($draftSaved['headers']['l
 $draftStockPage=request('GET',$draftUrl,$cookieEmployee);
 $draftOpening=array_replace(contractDraftFields($draftStockPage['body'],'stock-config-'.$draftProduct1),['minimo'=>'0','maximo'=>'20','abertura'=>'5','confirmar_abertura'=>'1']);
 request('POST',$baseUrl.'/contrato/estoque/'.$draftContract,$cookieEmployee,$draftOpening);
+$draftUnitLockedPage=request('GET',$draftUrl,$cookieEmployee);
+$draftUnitLocked=array_replace(contractDraftFields($draftUnitLockedPage['body'],'edit-product-'.$draftProduct1),['unidade'=>'K']);
+$draftUnitLockedRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/produto/'.$draftContract,$cookieEmployee,$draftUnitLocked),$cookieEmployee);
+checkHttp(str_contains($draftUnitLockedRecovery['body'],'Unidade não pode mudar após movimentações.')
+    && $draftDb->query('SELECT unidade FROM pedido_produtos WHERE id='.$draftProduct1)->fetchColumn()==='un','Seleção diferente não altera unidade de produto com movimento histórico');
 $draftMovePage=request('GET',$draftUrl,$cookieEmployee);
 $draftMove=array_replace(contractDraftFields($draftMovePage['body'],'move-stock-'.$draftProduct1),['tipo'=>'saida','quantidade'=>'6','motivo'=>'<Destino recusado>']);
 $draftMoveRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/movimentar/'.$draftContract,$cookieEmployee,$draftMove),$cookieEmployee);

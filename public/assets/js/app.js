@@ -225,6 +225,14 @@ if (document.body.hasAttribute('data-auto-print')) {
     window.addEventListener('load', () => window.print());
 }
 
+document.addEventListener('change', (event) => {
+    const select = event.target;
+    if (!(select instanceof HTMLSelectElement) || !select.matches('[data-contract-unit]') || select.value === '') return;
+    select.removeAttribute('aria-invalid');
+    select.querySelectorAll('[data-unit-invalid]').forEach((option) => option.remove());
+    select.closest('label')?.querySelectorAll('[data-unit-warning]').forEach((warning) => warning.remove());
+});
+
 const contractBuilder = document.querySelector('[data-contract-builder]');
 if (contractBuilder) {
     const sheetContainer = contractBuilder.querySelector('[data-contract-sheets]');
@@ -237,7 +245,7 @@ if (contractBuilder) {
             sheet.querySelector('[data-sheet-number]').textContent = String(sheetIndex + 1);
             sheet.querySelector('textarea').name = `folhas[${sheetIndex}][observacao]`;
             sheet.querySelectorAll('[data-contract-product]').forEach((product, productIndex) => {
-                product.querySelectorAll('input').forEach((input) => {
+                product.querySelectorAll('input, select').forEach((input) => {
                     const field = input.name.match(/\[(nome|marca|unidade|quantidade|preco)\]$/)?.[1];
                     if (field) input.name = `folhas[${sheetIndex}][produtos][${productIndex}][${field}]`;
                 });
@@ -254,6 +262,15 @@ if (contractBuilder) {
         contractBuilder.querySelector('[data-items-total]').textContent = money(total);
         contractBuilder.querySelector('[data-budget-left]').textContent = money(cents(document.querySelector('#valor').value) - total);
     };
+    const resetProductFields = (element) => {
+        element.querySelectorAll('input, textarea').forEach((input) => { input.value = ''; });
+        element.querySelectorAll('[data-contract-unit]').forEach((select) => {
+            select.querySelectorAll('[data-unit-invalid]').forEach((option) => option.remove());
+            select.removeAttribute('aria-invalid');
+            select.value = 'UN';
+        });
+        element.querySelectorAll('[data-unit-warning]').forEach((warning) => warning.remove());
+    };
     contractBuilder.addEventListener('click', (event) => {
         const button = event.target.closest('button');
         if (!button || !contractBuilder.contains(button)) return;
@@ -262,7 +279,7 @@ if (contractBuilder) {
             if (sheetContainer.querySelectorAll('[data-contract-sheet]').length >= 20) return;
             const copy = sheetContainer.querySelector('[data-contract-sheet]').cloneNode(true);
             copy.querySelectorAll('[data-contract-product]').forEach((product, index) => { if (index > 0) product.remove(); });
-            copy.querySelectorAll('input, textarea').forEach((input) => { input.value = input.name.endsWith('[unidade]') ? 'un' : ''; });
+            resetProductFields(copy);
             sheetContainer.append(copy);
             copy.querySelector('textarea').focus();
         } else if (button.matches('[data-remove-sheet]') && sheetContainer.querySelectorAll('[data-contract-sheet]').length > 1) {
@@ -270,7 +287,7 @@ if (contractBuilder) {
         } else if (button.matches('[data-add-product]')) {
             if (contractBuilder.querySelectorAll('[data-contract-product]').length >= 100) return;
             const copy = sheet.querySelector('[data-contract-product]').cloneNode(true);
-            copy.querySelectorAll('input').forEach((input) => { input.value = input.name.endsWith('[unidade]') ? 'un' : ''; });
+            resetProductFields(copy);
             sheet.querySelector('[data-contract-products]').append(copy);
             copy.querySelector('input').focus();
         } else if (button.matches('[data-remove-product]') && sheet.querySelectorAll('[data-contract-product]').length > 1) {

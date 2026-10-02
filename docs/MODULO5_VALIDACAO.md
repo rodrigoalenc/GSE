@@ -8,17 +8,19 @@ Branch `Modulo5`, estado inicial `755d28d2c3a69844e3413ff4ea49eefc6bb4b4c2`, ár
 |---|---|
 | `composer validate --strict` | Aprovado |
 | `composer audit --locked` | Sem avisos de vulnerabilidade; consulta direta ao Packagist concluída |
-| `composer lint` | 141 arquivos PHP sem erro de sintaxe |
+| `composer lint` | 142 arquivos PHP sem erro de sintaxe |
 | `composer analyse` | Zero erros |
-| `composer test` | 243 testes, 2.132 asserções, 1 ignorado |
-| `composer http-test` | 241 verificações aprovadas |
+| `composer test` | 244 testes, 2.138 asserções, 1 ignorado |
+| `composer http-test` | 246 verificações aprovadas |
 | `node --check public/assets/js/app.js` | Aprovado |
-| `node tests/browser-contract-tabs.mjs` | 45 verificações no Chrome real |
+| `node tests/browser-contract-tabs.mjs` | 56 verificações no Chrome real |
 | `git diff --check` | Sem erros de espaços |
 
 O teste ignorado verifica permissões de arquivo POSIX (`SqliteProtectionTest`); não se aplica ao Windows. O CI mantém a execução PHP/HTTP no Linux e acrescenta o teste de navegador em um job próprio. Essa configuração foi validada localmente; a execução remota deste commit depende de publicação posterior, fora desta tarefa.
 
 O complemento da importação do Arquivo Passivo acrescenta o botão **Baixar modelo CSV** e um arquivo com somente `Nome;Data;Numero;Caixa`, em UTF-8 com BOM. As duas verificações HTTP adicionais conferem o link de download e o arquivo servido; a prévia e a confirmação existentes usam uma cópia baixada e preenchida. O download nativo foi validado no Chrome, com botão sem corte horizontal nas três resoluções e sem exceções ou violações da CSP. O commit anterior `06a78ee` registrou 239 verificações HTTP; o resultado atual inclui o modelo.
+
+O complemento dos pedidos usa seleção de unidade **UN, K ou Litros**. A regressão de navegador passou em 56 verificações, incluindo escolha por teclado, clonagem com UN, remoção/reindexação e `FormData` submetido com nomes únicos. Na aplicação autenticada, 25 verificações adicionais em 1366×768 e 390×844 confirmaram os controles reais, retenção após erro/atualização e unidades anteriores preservadas. O HTTP também verifica seleção, gravação, conflito e bloqueio de alteração após movimento. Não houve nova migração nem mudança da validação das unidades históricas.
 
 A falha inicial das 85 rotas foi reproduzida: o teste esperava 84. A expectativa foi corrigida e as verificações foram ampliadas para unicidade por método/caminho, autenticação, autorização administrativa, ação de desarquivamento e IDs válidos/inválidos em todas as rotas parametrizadas. Nenhuma autorização foi relaxada.
 
@@ -55,9 +57,9 @@ Esta revisão usa o esquema v15 existente e não acrescenta migração. Instala�
 | CI e comandos | `.github/workflows/ci.yml`, `composer.json` |
 | Navegação, apresentação e assets | `public/assets/js/app.js`; CSS de login, painel/dashboard, usuários, alunos, passivo, certidões, contratos, relatórios e impressão; fonte e licença em `public/assets/vendor/fontawesome/`; modelo em `public/assets/modelos/arquivo-passivo.csv` |
 | Fluxos e segurança | `src/Controllers/ContratoController.php`, `CertidaoController.php`, `PassivoController.php`; `src/Model/Contrato.php`; `src/Core/ContractFormDraft.php` e `SecurityHeaders.php` |
-| Telas | Views de login/layout, usuários, alunos/perfil, passivo, certidões, contratos e relatórios |
+| Telas | Views de login/layout, usuários, alunos/perfil, passivo, certidões, contratos e relatórios; seleção compartilhada em `src/Views/contratos/unit-select.php` |
 | Regressões | `tests/Security/CoreSecurityTest.php`, `tests/Integration/LegacyStockRecoveryTest.php`, `tests/Unit/ContractFormDraftTest.php`, `tests/browser-contract-tabs.mjs`, `tests/fixtures/stock-recovery-race.php`, `tests/http-contract-drafts.php`, `tests/http-certidoes.php` e `tests/http-smoke.php` |
-| Entrega e evidências | README; documentos de módulos 3, 4 e 5 revisados; `docs/PRODUCTION_CHECKLIST.md`, `docs/REVISAO_VISUAL.md`; 17 PNGs e manifesto com dimensões/SHA-256 em `docs/evidencias/2026-10-02/` |
+| Entrega e evidências | README; documentos de módulos 3, 4 e 5 revisados; `docs/PRODUCTION_CHECKLIST.md`, `docs/REVISAO_VISUAL.md`; 19 PNGs e manifesto com dimensões/SHA-256 em `docs/evidencias/2026-10-02/` |
 
 As capturas usam dados fictícios. Bases, configurações, perfis do navegador e artefatos auxiliares de QA não integram o commit. A relação exata de caminhos pode ser consultada em `git show --stat` no commit desta revisão.
 

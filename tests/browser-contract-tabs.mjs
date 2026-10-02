@@ -94,7 +94,20 @@ async function run() {
         <details id="add-product-${id}"><summary>Produto</summary><input name="nome"><button data-close-details="add-product-${id}">Fechar</button></details>
         <details id="billing-note-${id}"><summary>Faturamento</summary><input name="data"></details>
         <table><tbody><tr id="item-actions-${id}" class="contract-item-expanded" hidden><td><details id="move-item-${id}"><summary>Movimento</summary><input name="quantidade"></details></td></tr></tbody></table>
-        <button data-contract-item-toggle="item-actions-${id}" aria-expanded="false">Editar</button></section>`).join('')}</html>`;
+        <button data-contract-item-toggle="item-actions-${id}" aria-expanded="false">Editar</button></section>`).join('')}
+        <form id="contract-create"><label>Orçamento<input id="valor" name="valor" value="1000,00"></label>
+        <div data-contract-builder><div data-contract-sheets><div data-contract-sheet>
+        <h4>Nota <span data-sheet-number>1</span></h4><label>Observações<textarea name="folhas[0][observacao]"></textarea></label>
+        <button type="button" data-remove-sheet>Remover nota</button><div data-contract-products><div data-contract-product>
+        <label>Produto<input name="folhas[0][produtos][0][nome]" required></label>
+        <label>Marca<input name="folhas[0][produtos][0][marca]"></label>
+        <label>Unidade<select name="folhas[0][produtos][0][unidade]" data-contract-unit required><option value="UN" selected>UN</option><option value="K">K</option><option value="Litros">Litros</option></select></label>
+        <label>Quantidade<input name="folhas[0][produtos][0][quantidade]" type="number" min="1" required></label>
+        <label>Preço<input name="folhas[0][produtos][0][preco]" required></label>
+        <button type="button" data-remove-product>Remover produto</button></div></div>
+        <button type="button" data-add-product>Adicionar produto</button></div></div>
+        <button type="button" data-add-sheet>Adicionar nota</button><strong data-items-total></strong><strong data-budget-left></strong></div>
+        <button type="submit" data-submit-contract>Salvar pedido</button></form></html>`;
     const server = createServer((request, response) => { response.setHeader('Content-Type', request.url === '/app.js' ? 'text/javascript; charset=utf-8':'text/html; charset=utf-8'); response.end(request.url === '/app.js' ? appScript : html); });
     await new Promise(done=>server.listen(0,'127.0.0.1',done));
     const base = `http://127.0.0.1:${server.address().port}/`;
@@ -175,8 +188,71 @@ async function run() {
         check(await state(),selected(2),'After printing selected note is restored');
         await page.evaluate(`location.hash='#invalid'; window.dispatchEvent(new Event('beforeprint')); window.dispatchEvent(new Event('afterprint'))`);
         check(await state(),selected(2),'Print with invalid hash retains note');
+
+        const builder = '#contract-create';
+        const sheet = (index) => `${builder} [data-contract-sheet]:nth-child(${index + 1})`;
+        const product = (sheetIndex, productIndex) => `${sheet(sheetIndex)} [data-contract-product]:nth-child(${productIndex + 1})`;
+        const key = async (name, keyCode) => {
+            const event = {key:name,code:name,windowsVirtualKeyCode:keyCode,nativeVirtualKeyCode:keyCode};
+            await page.command('Input.dispatchKeyEvent',{type:'keyDown',...event});
+            await page.command('Input.dispatchKeyEvent',{type:'keyUp',...event});
+        };
+        const chooseUnit = async (selector, unit) => {
+            await page.click(`${selector} select`);
+            await key('Home',36);
+            for (let index=0; index<(unit==='Litros' ? 2 : 1); index++) await key('ArrowDown',40);
+            await key('Enter',13);
+            await page.until(`document.querySelector(${JSON.stringify(selector+' select')}).value===${JSON.stringify(unit)}`);
+        };
+        const fillProduct = async (selector, name) => {
+            for (const [field,value] of [['nome',name],['quantidade','1'],['preco','2,00']]) {
+                await page.click(`${selector} input[name$="[${field}]"]`);
+                await page.command('Input.insertText',{text:value});
+            }
+        };
+        await page.evaluate(`(() => { window.contractSubmissions=[]; document.getElementById('contract-create').addEventListener('submit',event=>{event.preventDefault(); window.contractSubmissions.push([...new FormData(event.currentTarget)]);}); })()`);
+        check(await page.evaluate(`[...document.querySelector('${builder} select').options].map(option=>option.value)`),['UN','K','Litros'],'New products offer the requested unit choices');
+        await fillProduct(product(0,0),'Produto inicial');
+        await chooseUnit(product(0,0),'Litros');
+        check(await page.evaluate(`document.querySelector('${product(0,0)} select').value`),'Litros','Keyboard selects Litros');
+        await page.click(`${sheet(0)} [data-add-product]`);
+        check(await page.evaluate(`document.querySelector('${product(0,1)} select').value`),'UN','A new product starts with UN after cloning a Litros product');
+        await fillProduct(product(0,1),'Produto em K');
+        await chooseUnit(product(0,1),'K');
+        await page.click(`${builder} [data-add-sheet]`);
+        check(await page.evaluate(`document.querySelector('${product(1,0)} select').value`),'UN','A new note starts with UN after cloning a filled note');
+        await fillProduct(product(1,0),'Segunda nota');
+        await chooseUnit(product(1,0),'Litros');
+        await page.click(`${builder} [data-add-sheet]`);
+        check(await page.evaluate(`document.querySelector('${product(2,0)} select').value`),'UN','Another new note starts with UN');
+        await fillProduct(product(2,0),'Terceira nota');
+        await chooseUnit(product(2,0),'K');
+        let submissions=0;
+        const submittedProducts = async () => {
+            await page.click(`${builder} [data-submit-contract]`);
+            await page.until(`window.contractSubmissions.length===${++submissions}`);
+            check(await page.evaluate(`(() => { const entries=window.contractSubmissions.at(-1); return new Set(entries.map(([name])=>name)).size===entries.length; })()`),true,'Submitted fields have unique names');
+            return page.evaluate(`window.contractSubmissions.at(-1).filter(([name])=>/\\[(nome|unidade)\\]$/.test(name))`);
+        };
+        check(await submittedProducts(),[
+            ['folhas[0][produtos][0][nome]','Produto inicial'],['folhas[0][produtos][0][unidade]','Litros'],
+            ['folhas[0][produtos][1][nome]','Produto em K'],['folhas[0][produtos][1][unidade]','K'],
+            ['folhas[1][produtos][0][nome]','Segunda nota'],['folhas[1][produtos][0][unidade]','Litros'],
+            ['folhas[2][produtos][0][nome]','Terceira nota'],['folhas[2][produtos][0][unidade]','K'],
+        ],'Submission assigns each chosen unit to its product and note');
+        await page.click(`${product(0,0)} [data-remove-product]`);
+        check(await submittedProducts(),[
+            ['folhas[0][produtos][0][nome]','Produto em K'],['folhas[0][produtos][0][unidade]','K'],
+            ['folhas[1][produtos][0][nome]','Segunda nota'],['folhas[1][produtos][0][unidade]','Litros'],
+            ['folhas[2][produtos][0][nome]','Terceira nota'],['folhas[2][produtos][0][unidade]','K'],
+        ],'Removing the first product preserves the surviving selection and submitted index');
+        await page.click(`${sheet(0)} [data-remove-sheet]`);
+        check(await submittedProducts(),[
+            ['folhas[0][produtos][0][nome]','Segunda nota'],['folhas[0][produtos][0][unidade]','Litros'],
+            ['folhas[1][produtos][0][nome]','Terceira nota'],['folhas[1][produtos][0][unidade]','K'],
+        ],'Removing the first note preserves the surviving selections and submitted indexes');
         check(browser.errors,[],'No browser JavaScript exceptions');
-        console.log(`Browser contract navigation: ${checks} checks passed (real Chrome clicks, history, keyboard, visibility and print lifecycle).`);
+        console.log(`Browser contract navigation and builder: ${checks} checks passed (real Chrome clicks, history, keyboard, visibility, print lifecycle and submitted unit choices).`);
     } finally { await browser?.cleanup(); await new Promise(done=>server.close(done)); }
 }
 
