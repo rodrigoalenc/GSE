@@ -57,7 +57,15 @@ jobs:
         with:
           node-version: '24'
 
+      - name: PHP para a aplicação fictícia do navegador
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: '8.3'
+          extensions: intl, mbstring, pdo_sqlite
+          coverage: none
+
       - name: Sintaxe e navegação no Chrome isolado
         run: |
           node --check public/assets/js/app.js
           node tests/browser-contract-tabs.mjs
+          node tests/browser-passivo-batch.mjs

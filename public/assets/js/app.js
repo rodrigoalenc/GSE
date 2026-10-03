@@ -376,3 +376,115 @@ if (reportGenerator) {
         reportGenerator.action = format === 'csv' ? reportGenerator.dataset.csvUrl : reportGenerator.dataset.pdfUrl;
     });
 }
+
+const studentSelectionKey = (scope) => `gse.passivo-lote.v1:${scope}`;
+document.querySelectorAll('[data-student-selection-reset]').forEach((marker) => {
+    try { sessionStorage.removeItem(studentSelectionKey(marker.dataset.selectionScope)); } catch (_) { /* A seleção também pode funcionar apenas na página atual. */ }
+});
+
+const studentArchiveSelection = document.querySelector('[data-student-archive-selection]');
+if (studentArchiveSelection) {
+    const limit = Math.min(200, Math.max(1, Number(studentArchiveSelection.dataset.selectionLimit) || 200));
+    const storageKey = studentSelectionKey(studentArchiveSelection.dataset.selectionScope);
+    const checkboxes = [...document.querySelectorAll('[data-student-selection-id]')];
+    const available = checkboxes.filter((checkbox) => !checkbox.hasAttribute('data-student-selection-unavailable'));
+    const summary = studentArchiveSelection.querySelector('[data-student-selection-summary]');
+    const submit = studentArchiveSelection.querySelector('[data-student-selection-submit]');
+    const selectPage = studentArchiveSelection.querySelector('[data-student-select-page]');
+    const clear = studentArchiveSelection.querySelector('[data-student-clear-selection]');
+    const offPage = studentArchiveSelection.querySelector('[data-student-offpage-selection]');
+    const validId = (id) => typeof id === 'string' && /^[1-9][0-9]{0,18}$/.test(id);
+    let storageAvailable = true;
+    let stored = [];
+    try {
+        const parsed = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
+        if (Array.isArray(parsed) && parsed.length <= limit) stored = parsed.filter(validId);
+    } catch (_) { storageAvailable = false; }
+    const selected = new Set(stored);
+    checkboxes.filter((checkbox) => checkbox.hasAttribute('data-student-selection-unavailable')).forEach((checkbox) => selected.delete(checkbox.value));
+    let notice = '';
+    summary.tabIndex = -1;
+    const save = () => {
+        try {
+            if (selected.size) sessionStorage.setItem(storageKey, JSON.stringify([...selected]));
+            else sessionStorage.removeItem(storageKey);
+        } catch (_) { storageAvailable = false; }
+    };
+    const refresh = () => {
+        let visibleSelected = 0;
+        checkboxes.forEach((checkbox) => {
+            const unavailable = checkbox.hasAttribute('data-student-selection-unavailable');
+            checkbox.checked = !unavailable && selected.has(checkbox.value);
+            checkbox.disabled = unavailable || (selected.size >= limit && !checkbox.checked);
+            checkbox.closest('tr')?.classList.toggle('student-row-selected', checkbox.checked);
+            if (checkbox.checked) visibleSelected += 1;
+        });
+        const pageIds = new Set(checkboxes.map((checkbox) => checkbox.value));
+        const fragment = document.createDocumentFragment();
+        selected.forEach((id) => {
+            if (pageIds.has(id)) return;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'alunos[]';
+            input.value = id;
+            fragment.append(input);
+        });
+        offPage.replaceChildren(fragment);
+        save();
+        const outside = selected.size - visibleSelected;
+        summary.textContent = `${selected.size} de ${limit} aluno(s) selecionado(s)${outside ? `; ${outside} fora desta página` : ''}. ${storageAvailable ? 'A seleção acompanha páginas e filtros.' : 'O navegador não permite guardar a seleção; continue nesta página.'}${notice ? ` ${notice}` : ''}`;
+        submit.disabled = selected.size === 0;
+        clear.disabled = selected.size === 0;
+        const wholePageSelected = available.length > 0 && available.every((checkbox) => selected.has(checkbox.value));
+        selectPage.textContent = wholePageSelected ? 'Desmarcar esta página' : 'Selecionar esta página';
+        selectPage.setAttribute('aria-pressed', String(wholePageSelected));
+        selectPage.disabled = available.length === 0;
+    };
+    available.forEach((checkbox) => checkbox.addEventListener('change', () => {
+        notice = '';
+        if (checkbox.checked && selected.size < limit && validId(checkbox.value)) selected.add(checkbox.value);
+        else selected.delete(checkbox.value);
+        refresh();
+    }));
+    selectPage.hidden = false;
+    clear.hidden = false;
+    selectPage.addEventListener('click', () => {
+        notice = '';
+        if (available.every((checkbox) => selected.has(checkbox.value))) available.forEach((checkbox) => selected.delete(checkbox.value));
+        else available.forEach((checkbox) => {
+            if (selected.has(checkbox.value)) return;
+            if (selected.size < limit && validId(checkbox.value)) selected.add(checkbox.value);
+            else notice = `Limite de ${limit} alunos atingido. Desmarque alunos para incluir outros.`;
+        });
+        refresh();
+    });
+    clear.addEventListener('click', () => { selected.clear(); notice = ''; refresh(); });
+    studentArchiveSelection.addEventListener('submit', (event) => {
+        refresh();
+        if (selected.size === 0) { event.preventDefault(); summary.focus(); }
+    });
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted && storageAvailable) {
+            try {
+                const parsed = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
+                selected.clear();
+                if (Array.isArray(parsed) && parsed.length <= limit) parsed.filter(validId).forEach((id) => selected.add(id));
+                checkboxes.filter((checkbox) => checkbox.hasAttribute('data-student-selection-unavailable')).forEach((checkbox) => selected.delete(checkbox.value));
+            } catch (_) { storageAvailable = false; }
+        }
+        refresh();
+    });
+    refresh();
+}
+
+document.querySelectorAll('[data-archive-batch-box]').forEach((form) => {
+    const mode = form.querySelector('[data-archive-box-mode]');
+    const fields = [...form.querySelectorAll('[data-archive-box-field]')];
+    const refreshBox = () => fields.forEach((field) => {
+        const chosen = field.dataset.archiveBoxField === mode.value;
+        field.hidden = !chosen;
+        field.querySelectorAll('input, select').forEach((input) => { input.disabled = !chosen; input.required = chosen; });
+    });
+    mode.addEventListener('change', refreshBox);
+    refreshBox();
+});

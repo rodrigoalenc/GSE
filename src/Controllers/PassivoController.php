@@ -366,6 +366,135 @@ final class PassivoController extends Controller
         ]);
     }
 
+    public function selecionarLote(): void
+    {
+        $model = new Passivo();
+        $ids = is_array($_POST['alunos'] ?? null) ? $_POST['alunos'] : [];
+        $students = $model->alunosParaArquivar($ids);
+        if ($students === false) {
+            $this->redirectWithFlash('aluno', 'danger', $model->validationMessage($model->lastErrorCode()));
+        }
+        $this->expireArchiveBatches();
+        while (count($_SESSION['passivo_archive_batches']) >= 5) {
+            array_shift($_SESSION['passivo_archive_batches']);
+        }
+        $token = bin2hex(random_bytes(32));
+        $_SESSION['passivo_archive_batches'][$token] = [
+            'actor_id' => $this->actorId(),
+            'ids' => array_map(static fn (array $student): int => (int) $student['id'], $students),
+            'created_at' => time(),
+            'data' => ['tipo_caixa' => 'existente', 'caixa_existente' => '', 'caixa_nova' => ''],
+            'errors' => [],
+        ];
+        redirect('aluno/arquivar-lote?selecao=' . $token);
+    }
+
+    public function arquivarLote(): void
+    {
+        $token = $this->archiveBatchToken();
+        $batch = $_SESSION['passivo_archive_batches'][$token];
+        $model = new Passivo();
+        $students = $model->alunosParaArquivar($batch['ids']);
+        if ($students === false) {
+            unset($_SESSION['passivo_archive_batches'][$token]);
+            $this->redirectWithFlash('aluno', 'danger', $model->validationMessage($model->lastErrorCode()));
+        }
+        $this->view('passivo/arquivar-lote', [
+            'title' => 'Enviar alunos ao Arquivo Passivo',
+            'students' => $students,
+            'boxes' => $model->caixas(null),
+            'selectionToken' => $token,
+            'data' => $batch['data'],
+            'errors' => $batch['errors'],
+            'preview' => $batch['preview'] ?? false,
+            'previewToken' => $batch['preview_token'] ?? null,
+        ]);
+    }
+
+    public function previewLote(): void
+    {
+        $token = $this->archiveBatchToken();
+        $batch = &$_SESSION['passivo_archive_batches'][$token];
+        unset($batch['preview'], $batch['preview_token']);
+        $data = [
+            'tipo_caixa' => $this->archiveField('tipo_caixa', 20),
+            'caixa_existente' => $this->archiveField('caixa_existente', Passivo::BOX_MAX_LENGTH + 1),
+            'caixa_nova' => $this->archiveField('caixa_nova', Passivo::BOX_MAX_LENGTH + 1),
+        ];
+        $batch['data'] = $data;
+        $box = $data['tipo_caixa'] === 'nova' ? $data['caixa_nova'] : $data['caixa_existente'];
+        $model = new Passivo();
+        $plan = $model->previewArquivamentoLote($batch['ids'], $box, $data['tipo_caixa']);
+        $batch['errors'] = [];
+        if ($plan === false) {
+            $batch['errors'][] = $model->validationMessage($model->lastErrorCode());
+        } else {
+            $batch['preview'] = $plan;
+            $batch['preview_token'] = bin2hex(random_bytes(32));
+        }
+        redirect('aluno/arquivar-lote?selecao=' . $token);
+    }
+
+    public function confirmarLote(): void
+    {
+        $token = $this->archiveBatchToken();
+        $batch = &$_SESSION['passivo_archive_batches'][$token];
+        $postedToken = $this->archiveField('preview_token', 65);
+        if (!is_array($batch['preview'] ?? null)
+            || !is_string($batch['preview_token'] ?? null)
+            || !hash_equals($batch['preview_token'], $postedToken)) {
+            $batch['errors'] = ['A prévia não está disponível. Confira a caixa e gere uma nova prévia.'];
+            redirect('aluno/arquivar-lote?selecao=' . $token);
+        }
+        if ($this->archiveField('confirmar', 2) !== '1') {
+            $batch['errors'] = ['Confirme que os alunos saíram da escola e que as pastas serão colocadas na caixa indicada.'];
+            redirect('aluno/arquivar-lote?selecao=' . $token);
+        }
+        $plan = $batch['preview'];
+        $model = new Passivo();
+        $result = $model->arquivarAlunosLote($batch['ids'], (string) $plan['caixa'],
+            (string) $plan['tipo_caixa'], (string) $plan['fingerprint'], $this->actorId());
+        if ($result === false) {
+            $batch['errors'] = [$model->validationMessage($model->lastErrorCode())];
+            unset($batch['preview'], $batch['preview_token']);
+            redirect('aluno/arquivar-lote?selecao=' . $token);
+        }
+        unset($_SESSION['passivo_archive_batches'][$token]);
+        $_SESSION['passivo_batch_selection_reset'] = true;
+        $this->redirectWithFlash('passivo?' . http_build_query(['caixa' => $result['caixa'], 'ordem' => 'numero']), 'success',
+            sprintf('%d alunos enviados à caixa %s. Os cadastros e históricos de DVA foram preservados.', $result['total'], $result['caixa']));
+    }
+
+    private function archiveField(string $name, int $maximum): string
+    {
+        $value = $_POST[$name] ?? '';
+        return is_string($value) ? mb_substr($value, 0, $maximum, 'UTF-8') : '';
+    }
+
+    private function expireArchiveBatches(): void
+    {
+        if (!is_array($_SESSION['passivo_archive_batches'] ?? null)) {
+            $_SESSION['passivo_archive_batches'] = [];
+        }
+        foreach ($_SESSION['passivo_archive_batches'] as $token => $batch) {
+            if (!is_array($batch) || (int) ($batch['created_at'] ?? 0) < time() - 1800) {
+                unset($_SESSION['passivo_archive_batches'][$token]);
+            }
+        }
+    }
+
+    private function archiveBatchToken(): string
+    {
+        $this->expireArchiveBatches();
+        $token = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' ? ($_POST['selecao'] ?? '') : ($_GET['selecao'] ?? '');
+        if (!is_string($token) || preg_match('/^[a-f0-9]{64}$/D', $token) !== 1
+            || !isset($_SESSION['passivo_archive_batches'][$token])
+            || (int) ($_SESSION['passivo_archive_batches'][$token]['actor_id'] ?? 0) !== $this->actorId()) {
+            $this->redirectWithFlash('aluno', 'danger', 'A seleção expirou ou já foi enviada. Selecione os alunos novamente.');
+        }
+        return $token;
+    }
+
     private function renderIndex(?string $forcedActive): void
     {
         $active = $forcedActive ?? (string) ($_GET['ativo'] ?? '1');
@@ -381,7 +510,10 @@ final class PassivoController extends Controller
         $activeFilter = $filters['ativo'] === '' ? null : $filters['ativo'] === '1';
         $boxes = $model->caixas($activeFilter);
 
+        $resetStudentSelection = !empty($_SESSION['passivo_batch_selection_reset']);
+        unset($_SESSION['passivo_batch_selection_reset']);
         $this->view('passivo/index', [
+            'resetStudentSelection' => $resetStudentSelection,
             'title' => 'Arquivo Passivo (Ex-Alunos)',
             'filters' => $filters,
             'result' => $model->paginate($filters, (int) $page),

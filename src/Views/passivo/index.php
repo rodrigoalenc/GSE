@@ -1,3 +1,6 @@
+<?php if (!empty($resetStudentSelection)): ?>
+<span data-student-selection-reset data-selection-scope="<?= e(url('aluno') . '|' . (string) ($_SESSION['usuario_id'] ?? 0)) ?>" hidden></span>
+<?php endif; ?>
 <section class="passivo-hero" aria-labelledby="passivo-summary-title">
     <div>
         <h2 id="passivo-summary-title">Consulta central do acervo físico e histórico</h2>

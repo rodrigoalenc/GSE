@@ -151,3 +151,22 @@
 .passivo-edit-intro p { margin: 0; color: var(--text-main); font-size: 1rem; line-height: 1.55; }
 .passivo-edit-shell { margin: 0 auto; padding: 20px; }
 .passivo-edit-warning { margin-bottom: 25px; padding: 15px; color: #8d6610; background: #fff4db; border: 1px solid #ffeeba; border-radius: 14px; box-shadow: 0 10px 24px rgba(15,23,42,.04); font-size: .95rem; }
+
+.passivo-batch-intro, .passivo-batch-shell, .passivo-batch-errors { width: min(100%, 1000px); margin-right: auto; margin-left: auto; }
+.passivo-batch-shell .section-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
+.passivo-batch-shell .section-head h2, .passivo-batch-box-shell .section-head h2 { margin: 0; }
+.passivo-batch-shell .section-head p, .passivo-batch-box-shell .section-head p { margin: 6px 0 0; color: #69788c; }
+.passivo-batch-box-shell { max-width: 1000px; }
+.passivo-batch-box-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.passivo-batch-box-grid [hidden] { display: none; }
+.passivo-batch-box-grid > div:first-child { grid-column: 1 / -1; }
+.passivo-batch-box-grid small { display: block; margin-top: 7px; color: #69788c; }
+.passivo-batch-table { width: 100%; }
+.passivo-batch-table td:first-child { font-weight: 650; }
+.passivo-batch-preview-summary { margin-top: 18px; }
+.passivo-batch-confirm-form .passivo-confirm { line-height: 1.5; }
+.passivo-batch-confirm-form .passivo-confirm input { flex: 0 0 18px; width: 18px; height: 18px; padding: 0; }
+@media (max-width: 560px) {
+    .passivo-batch-box-grid { grid-template-columns: 1fr; }
+    .passivo-batch-shell .section-head > a { width: 100%; text-align: center; }
+}

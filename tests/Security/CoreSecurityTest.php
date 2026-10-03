@@ -34,9 +34,22 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(85, $routes);
+        $this->assertCount(89, $routes);
         $routeKeys = array_map(static fn (array $route): string => $route['method'] . ' ' . $route['pattern'], $routes);
         $this->assertCount(count($routes), array_unique($routeKeys), 'Cada método/caminho deve ter uma única autorização.');
+        foreach ([
+            'aluno/arquivar-lote' => 'GET',
+            'aluno/arquivar-lote/selecionar' => 'POST',
+            'aluno/arquivar-lote/preview' => 'POST',
+            'aluno/arquivar-lote/confirmar' => 'POST',
+        ] as $path => $method) {
+            $batchRoute = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === $path));
+            $this->assertCount(1, $batchRoute);
+            $this->assertSame($method, $batchRoute[0]['method']);
+            $this->assertTrue($batchRoute[0]['auth']);
+            $this->assertTrue($batchRoute[0]['admin']);
+            $this->assertSame('PassivoController', $batchRoute[0]['controller']);
+        }
         $stockReview = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === 'contrato/conferir-abertura/{id}'));
         $this->assertTrue($stockReview[0]['admin']);
         $this->assertSame('POST', $stockReview[0]['method']);

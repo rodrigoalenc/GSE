@@ -8,12 +8,12 @@ Branch `Modulo5`, estado inicial `755d28d2c3a69844e3413ff4ea49eefc6bb4b4c2`, ár
 |---|---|
 | `composer validate --strict` | Aprovado |
 | `composer audit --locked` | Sem avisos de vulnerabilidade; consulta direta ao Packagist concluída |
-| `composer lint` | 142 arquivos PHP sem erro de sintaxe |
+| `composer lint` | 146 arquivos PHP sem erro de sintaxe |
 | `composer analyse` | Zero erros |
-| `composer test` | 244 testes, 2.138 asserções, 1 ignorado |
-| `composer http-test` | 246 verificações aprovadas |
+| `composer test` | 259 testes, 2.403 asserções, 1 ignorado |
+| `composer http-test` | 290 verificações aprovadas |
 | `node --check public/assets/js/app.js` | Aprovado |
-| `node tests/browser-contract-tabs.mjs` | 56 verificações no Chrome real |
+| `composer browser-test` | 88 verificações no Chrome real: 56 de pedidos e 32 de envio ao passivo |
 | `git diff --check` | Sem erros de espaços |
 
 O teste ignorado verifica permissões de arquivo POSIX (`SqliteProtectionTest`); não se aplica ao Windows. O CI mantém a execução PHP/HTTP no Linux e acrescenta o teste de navegador em um job próprio. Essa configuração foi validada localmente; a execução remota deste commit depende de publicação posterior, fora desta tarefa.
@@ -22,7 +22,11 @@ O complemento da importação do Arquivo Passivo acrescenta o botão **Baixar mo
 
 O complemento dos pedidos usa seleção de unidade **UN, K ou Litros**. A regressão de navegador passou em 56 verificações, incluindo escolha por teclado, clonagem com UN, remoção/reindexação e `FormData` submetido com nomes únicos. Na aplicação autenticada, 25 verificações adicionais em 1366×768 e 390×844 confirmaram os controles reais, retenção após erro/atualização e unidades anteriores preservadas. O HTTP também verifica seleção, gravação, conflito e bloqueio de alteração após movimento. Não houve nova migração nem mudança da validação das unidades históricas.
 
-A falha inicial das 85 rotas foi reproduzida: o teste esperava 84. A expectativa foi corrigida e as verificações foram ampliadas para unicidade por método/caminho, autenticação, autorização administrativa, ação de desarquivamento e IDs válidos/inválidos em todas as rotas parametrizadas. Nenhuma autorização foi relaxada.
+O complemento de arquivamento de alunos foi implementado a partir de `43e2817`, que já ordena as caixas numericamente. Administradores selecionam até 200 alunos entre páginas e filtros, escolhem caixa existente ou nova, conferem uma prévia e confirmam o lote. A numeração segue o maior número inteiro já usado na caixa, inclusive em pastas inativas; números existentes permanecem iguais. Por exemplo, a caixa com última pasta 15 recebe 16 e 17 para dois alunos. Alunos ativos são inativados na confirmação, com seus cadastros, turma, contatos e DVAs preservados. A transação revalida a prévia e confirma todo o lote ou desfaz todas as alterações. Nenhuma migração foi acrescentada.
+
+Esse complemento acrescenta 11 testes de integração/140 asserções, 44 verificações HTTP e 32 verificações no Chrome em 1366×768 e 390×844, com banco temporário fictício. Foram conferidos prévia sem escrita, concorrência, rollback de auditoria, permissões/CSRF, tokens de sessão, reenvio, seleção entre páginas/filtros, caixa nova/existente, preservação das DVAs e limpeza da seleção. As cinco novas imagens estão documentadas em [REVISAO_VISUAL.md](REVISAO_VISUAL.md). `composer browser-test` e o job de navegador incluem a nova regressão; o CI remoto depende de publicação posterior.
+
+A falha inicial das 85 rotas foi reproduzida: o teste esperava 84. A expectativa foi corrigida e as verificações foram ampliadas para unicidade por método/caminho, autenticação, autorização administrativa, ação de desarquivamento e IDs válidos/inválidos em todas as rotas parametrizadas. O envio em lote acrescenta quatro rotas, totalizando 89, com verificação explícita dos métodos e da exigência de administrador. Nenhuma autorização foi relaxada.
 
 ### Regressões funcionais exercitadas
 

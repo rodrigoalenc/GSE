@@ -1,5 +1,7 @@
 <?php
 $queryBase = array_filter($filters, static fn (string $value): bool => $value !== '');
+$canArchiveBatch = Auth::isAdmin();
+$archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] ?? 0);
 ?>
 <section class="page-hero">
     <div>
@@ -71,15 +73,32 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
         <div><h2>Alunos Cadastrados</h2><p>Abra o perfil para detalhes completos ou entre em edição para atualizar dados rapidamente.</p></div>
         <span class="result-pill"><?= e((string) $result['total']) ?> registro(s)</span>
     </div>
+    <?php if ($canArchiveBatch): ?>
+        <form id="student-archive-selection" class="student-batch-toolbar" method="post" action="<?= e(url('aluno/arquivar-lote/selecionar')) ?>" data-student-archive-selection data-selection-scope="<?= e($archiveSelectionScope) ?>" data-selection-limit="200">
+            <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+            <div class="student-batch-summary">
+                <strong>Enviar alunos ao Arquivo Passivo</strong>
+                <span data-student-selection-summary role="status" aria-live="polite" aria-atomic="true">Selecione até 200 alunos para escolher a caixa e conferir a prévia.</span>
+                <noscript><small>Sem JavaScript, selecione os alunos desta página e continue.</small></noscript>
+            </div>
+            <div class="student-batch-actions">
+                <button class="btn-secondary" type="button" data-student-select-page hidden>Selecionar esta página</button>
+                <button class="btn-secondary" type="button" data-student-clear-selection hidden>Limpar seleção</button>
+                <button class="btn-primary" type="submit" data-student-selection-submit>Escolher caixa e conferir</button>
+            </div>
+            <div data-student-offpage-selection></div>
+        </form>
+    <?php endif; ?>
     <div class="table-scroll">
         <table class="tabela-filtrada student-table">
-            <thead><tr><th>Nome</th><th>Turma</th><th>Nascimento</th><th>Aluno</th><th>DVA</th><th>Vencimento</th><th>Ações</th></tr></thead>
+            <thead><tr><?php if ($canArchiveBatch): ?><th class="student-selection-cell" scope="col">Selecionar</th><?php endif; ?><th>Nome</th><th>Turma</th><th>Nascimento</th><th>Aluno</th><th>DVA</th><th>Vencimento</th><th>Ações</th></tr></thead>
             <tbody>
             <?php if ($result['items'] === []): ?>
-                <tr><td colspan="7" class="empty-state">Nenhum aluno encontrado.</td></tr>
+                <tr><td colspan="<?= $canArchiveBatch ? '8' : '7' ?>" class="empty-state">Nenhum aluno encontrado.</td></tr>
             <?php else: ?>
                 <?php foreach ($result['items'] as $item): ?>
                     <tr>
+                        <?php if ($canArchiveBatch): ?><td class="student-selection-cell"><input type="checkbox" name="alunos[]" value="<?= e((string) $item['id']) ?>" form="student-archive-selection" data-student-selection-id aria-label="Selecionar <?= e((string) $item['nome_completo']) ?> para o Arquivo Passivo" <?= (int) ($item['no_passivo'] ?? 0) === 1 ? 'disabled data-student-selection-unavailable' : '' ?>><?php if ((int) ($item['no_passivo'] ?? 0) === 1): ?><small class="student-selection-unavailable">Já no Arquivo Passivo</small><?php endif; ?></td><?php endif; ?>
                         <td class="student-name"><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a></td>
                         <td><span class="turma-badge"><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></span></td>
                         <td><?= e(date('d/m/Y', strtotime((string) $item['data_nascimento']))) ?></td>

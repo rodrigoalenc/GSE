@@ -445,3 +445,21 @@
 .student-history { padding: 0; margin-top: 12px; background: transparent; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
 .student-history>summary { color: var(--primary-dark); font-size: .95rem; font-weight: 600; cursor: pointer; }
 .student-history[open]>.table-scroll { padding: 20px; margin-top: 12px; background: #fff; border: 1px solid #dbe5f0; border-radius: 14px; }
+
+.student-batch-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 0 0 18px; padding: 16px; background: #f0f7ff; border: 1px solid #cde2f8; border-radius: 12px; }
+.student-batch-summary { flex: 1 1 300px; min-width: 0; color: #0c3566; }
+.student-batch-summary strong, .student-batch-summary span, .student-batch-summary small { display: block; }
+.student-batch-summary span { margin-top: 5px; color: #526174; font-size: .9rem; }
+.student-batch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.student-batch-actions [hidden] { display: none; }
+.student-batch-actions button:disabled { opacity: .6; cursor: not-allowed; }
+.student-table .student-selection-cell { width: 95px; text-align: center; white-space: normal; }
+.student-selection-cell input[type="checkbox"] { width: 20px; height: 20px; accent-color: #16508f; vertical-align: middle; cursor: pointer; }
+.student-selection-cell input[type="checkbox"]:focus-visible { outline: 3px solid #2c7ed6; outline-offset: 3px; }
+.student-selection-cell input[type="checkbox"]:disabled { cursor: not-allowed; }
+.student-selection-unavailable { display: block; margin-top: 5px; color: #69788c; font-size: .75rem; line-height: 1.3; }
+.student-table tr.student-row-selected td { background: #eef6ff; }
+@media (max-width: 560px) {
+    .student-batch-actions { width: 100%; }
+    .student-batch-actions button { flex: 1 1 100%; }
+}

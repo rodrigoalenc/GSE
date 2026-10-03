@@ -38,7 +38,8 @@ final class Aluno extends Model
                     a.telefone_aluno, a.telefone_responsavel, a.ativo,
                     a.criado_em, a.atualizado_em, a.inativado_em, a.inativado_por,
                     t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
-                    d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao
+                    d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao,
+                    EXISTS(SELECT 1 FROM alunos_passivo p WHERE p.aluno_origem_id = a.id AND p.ativo = 1) AS no_passivo
              FROM alunos a {$joins} {$where}
              ORDER BY a.nome_normalizado, a.id
              LIMIT :limit OFFSET :offset"

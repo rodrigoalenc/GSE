@@ -835,6 +835,7 @@ try {
     );
     require __DIR__ . '/http-contract-drafts.php';
     require __DIR__ . '/http-certidoes.php';
+    require __DIR__ . '/http-passivo-batch.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');
     $adminDashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);

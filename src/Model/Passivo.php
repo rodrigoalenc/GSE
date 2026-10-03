@@ -16,6 +16,7 @@ final class Passivo extends Model
     public const NUMBER_MAX_LENGTH = 40;
     public const SEARCH_MAX_LENGTH = 100;
     public const PAGE_MAX = 10000;
+    public const ARCHIVE_BATCH_MAX = 200;
 
     private ?string $lastErrorCode = null;
 
@@ -454,6 +455,224 @@ final class Passivo extends Model
     }
 
     /**
+     * @param array<mixed> $studentIds
+     * @return list<array<string,mixed>>|false
+     */
+    public function alunosParaArquivar(array $studentIds): array|false
+    {
+        $this->lastErrorCode = null;
+        $ids = $this->archiveStudentIds($studentIds);
+        if ($ids === false) {
+            return false;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $query = self::$pdo->prepare("SELECT a.id, a.nome_completo, a.data_nascimento, a.ativo,
+            a.id_turma, a.atualizado_em, a.inativado_em, a.inativado_por, t.nome_turma
+            FROM alunos a LEFT JOIN turmas t ON t.id = a.id_turma
+            WHERE a.id IN ({$placeholders}) ORDER BY a.nome_normalizado, a.id");
+        $query->execute($ids);
+        $students = $query->fetchAll();
+        if (count($students) !== count($ids)) {
+            $this->lastErrorCode = 'student_not_found';
+            return false;
+        }
+
+        $linked = self::$pdo->prepare("SELECT 1 FROM alunos_passivo
+            WHERE ativo = 1 AND aluno_origem_id IN ({$placeholders}) LIMIT 1");
+        $linked->execute($ids);
+        if ($linked->fetchColumn() !== false) {
+            $this->lastErrorCode = 'batch_origin_conflict';
+            return false;
+        }
+
+        return $students;
+    }
+
+    /**
+     * @param array<mixed> $studentIds
+     * @return array<string,mixed>|false
+     */
+    public function previewArquivamentoLote(array $studentIds, string $box, string $boxMode): array|false
+    {
+        $this->lastErrorCode = null;
+        try {
+            return $this->prepareArchiveBatch($studentIds, $box, $boxMode);
+        } catch (Throwable $exception) {
+            $this->databaseFailure('passive_batch_preview_failed', $exception);
+            return false;
+        }
+    }
+
+    /**
+     * @param array<mixed> $studentIds
+     * @return array{caixa:string,total:int,ids:list<int>}|false
+     */
+    public function arquivarAlunosLote(array $studentIds, string $box, string $boxMode, string $fingerprint, int $actorId): array|false
+    {
+        $this->lastErrorCode = null;
+        try {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($studentIds, $box, $boxMode, $fingerprint, $actorId): array|false {
+                $actor = $pdo->prepare("SELECT 1 FROM usuarios WHERE id = ? AND ativo = 1 AND tipo = 'administrador'");
+                $actor->execute([$actorId]);
+                if ($actor->fetchColumn() === false) {
+                    $this->lastErrorCode = 'invalid_actor';
+                    return false;
+                }
+
+                $plan = $this->prepareArchiveBatch($studentIds, $box, $boxMode);
+                if ($plan === false || !hash_equals((string) $plan['fingerprint'], $fingerprint)) {
+                    $this->lastErrorCode = 'preview_changed';
+                    return false;
+                }
+
+                // Validate the whole batch before changing any student or archive record.
+                $entries = [];
+                foreach ($plan['alunos'] as $student) {
+                    $entry = $this->validarDados([
+                        'nome_completo' => $student['nome_completo'],
+                        'data_nascimento' => $student['data_nascimento'],
+                        'caixa' => $plan['caixa'],
+                        'numero' => $student['numero'],
+                    ]);
+                    if ($entry === false) {
+                        return false;
+                    }
+                    $entries[] = [$student, $entry];
+                }
+
+                $now = gmdate('Y-m-d H:i:s');
+                $deactivate = $pdo->prepare('UPDATE alunos SET ativo = 0, atualizado_em = ?,
+                    inativado_em = ?, inativado_por = ? WHERE id = ? AND ativo = 1');
+                $created = [];
+                foreach ($entries as [$student, $entry]) {
+                    if ((int) $student['ativo'] === 1) {
+                        $deactivate->execute([$now, $now, $actorId, (int) $student['id']]);
+                        AuditLogger::recordRequired($pdo, 'student.deactivated', AuditLogger::SUCCESS, $actorId, null,
+                            'Saída da escola confirmada no envio em lote ao Arquivo Passivo.', 'student', (int) $student['id']);
+                    }
+                    $id = $this->insert($pdo, $entry, $actorId, (int) $student['id']);
+                    $created[] = $id;
+                    AuditLogger::recordRequired($pdo, 'passive.student_archived', AuditLogger::SUCCESS, $actorId, null,
+                        'Aluno vinculado ao Arquivo Passivo em lote; cadastro e DVAs preservados.', 'passive_record', $id);
+                }
+                AuditLogger::recordRequired($pdo, 'passive.batch_archived', AuditLogger::SUCCESS, $actorId, null,
+                    sprintf('Envio de %d alunos à caixa %s, posições %s a %s.', count($created), $plan['caixa'], $plan['primeiro_numero'], $plan['ultimo_numero']), 'passive_box');
+
+                return ['caixa' => (string) $plan['caixa'], 'total' => count($created), 'ids' => $created];
+            });
+        } catch (Throwable $exception) {
+            $this->databaseFailure('passive_batch_archive_failed', $exception);
+            return false;
+        }
+    }
+
+    /**
+     * @param array<mixed> $studentIds
+     * @return list<int>|false
+     */
+    private function archiveStudentIds(array $studentIds): array|false
+    {
+        if ($studentIds === [] || count($studentIds) > self::ARCHIVE_BATCH_MAX || !array_is_list($studentIds)) {
+            $this->lastErrorCode = 'invalid_selection';
+            return false;
+        }
+        $ids = [];
+        foreach ($studentIds as $id) {
+            $valid = (is_int($id) || is_string($id))
+                ? filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
+            if ($valid === false || in_array($valid, $ids, true)) {
+                $this->lastErrorCode = 'invalid_selection';
+                return false;
+            }
+            $ids[] = $valid;
+        }
+        return $ids;
+    }
+
+    /**
+     * @param array<mixed> $studentIds
+     * @return array<string,mixed>|false
+     */
+    private function prepareArchiveBatch(array $studentIds, string $box, string $boxMode): array|false
+    {
+        if (!in_array($boxMode, ['existente', 'nova'], true)) {
+            $this->lastErrorCode = 'invalid_box_mode';
+            return false;
+        }
+        $key = $this->validatedBoxKey($box);
+        if ($key === false) {
+            return false;
+        }
+        $students = $this->alunosParaArquivar($studentIds);
+        if ($students === false) {
+            return false;
+        }
+        $query = self::$pdo->prepare('SELECT id, caixa, numero, numero_normalizado, ativo, atualizado_em
+            FROM alunos_passivo WHERE caixa_normalizada = ? ORDER BY id');
+        $query->execute([$key['key']]);
+        $rows = $query->fetchAll();
+        if ($boxMode === 'nova' && $rows !== []) {
+            $this->lastErrorCode = 'box_already_exists';
+            return false;
+        }
+        if ($boxMode === 'existente' && $rows === []) {
+            $this->lastErrorCode = 'box_not_found';
+            return false;
+        }
+        // Keep the display name of an existing box, including inactive records.
+        if ($rows !== []) {
+            $key['display'] = TextNormalizer::displayName((string) $rows[0]['caixa']);
+        }
+        $maximum = '0';
+        foreach ($rows as $row) {
+            $number = trim((string) ($row['numero'] ?? ''));
+            if (preg_match('/^[0-9]+$/D', $number) === 1) {
+                $digits = ltrim($number, '0');
+                $digits = $digits === '' ? '0' : $digits;
+                if (strlen($digits) > strlen($maximum)
+                    || (strlen($digits) === strlen($maximum) && strcmp($digits, $maximum) > 0)) {
+                    $maximum = $digits;
+                }
+            }
+        }
+        $next = $this->nextArchiveNumber($maximum);
+        $first = $next;
+        $assignments = [];
+        foreach ($students as $student) {
+            if (strlen($next) > self::NUMBER_MAX_LENGTH) {
+                $this->lastErrorCode = 'number_range_overflow';
+                return false;
+            }
+            $normalized = $this->validarDados([
+                'nome_completo' => $student['nome_completo'], 'data_nascimento' => $student['data_nascimento'],
+                'caixa' => $key['display'], 'numero' => $next,
+            ]);
+            if ($normalized === false) {
+                return false;
+            }
+            $assignments[] = array_merge($student, ['numero' => $next]);
+            $next = $this->nextArchiveNumber($next);
+        }
+        $fingerprint = hash('sha256', json_encode([$key, $boxMode, $students, $rows, $assignments], JSON_THROW_ON_ERROR));
+        return ['caixa' => $key['display'], 'tipo_caixa' => $boxMode, 'alunos' => $assignments,
+            'fingerprint' => $fingerprint, 'primeiro_numero' => $first,
+            'ultimo_numero' => $assignments[count($assignments) - 1]['numero'], 'total' => count($assignments)];
+    }
+
+    private function nextArchiveNumber(string $number): string
+    {
+        for ($index = strlen($number) - 1; $index >= 0; $index--) {
+            if ($number[$index] !== '9') {
+                $number[$index] = (string) ((int) $number[$index] + 1);
+                return $number;
+            }
+            $number[$index] = '0';
+        }
+        return '1' . $number;
+    }
+
+    /**
      * @param array<string,mixed> $data
      * @return array{nome_completo:string,nome_normalizado:string,data_nascimento:?string,numero:?string,numero_normalizado:?string,caixa:string,caixa_normalizada:string}|false
      */
@@ -820,6 +1039,11 @@ final class Passivo extends Model
             'future_birth_date' => 'A data de nascimento não pode estar no futuro.',
             'location_conflict' => 'A caixa e a posição informadas já estão ocupadas.',
             'origin_conflict' => 'Este aluno já possui um registro ativo no Arquivo Passivo.',
+            'batch_origin_conflict' => 'Um ou mais alunos selecionados já estão no Arquivo Passivo. Revise a seleção.',
+            'invalid_selection' => 'Selecione de 1 a 200 alunos diferentes para enviar ao Arquivo Passivo.',
+            'invalid_box_mode' => 'Escolha uma caixa existente ou uma nova caixa.',
+            'box_already_exists' => 'Esta caixa já existe. Selecione a opção de adicionar a uma caixa existente.',
+            'number_range_overflow' => 'A numeração desta caixa excede o limite de 40 dígitos. Escolha outra caixa.',
             'active_student' => 'Somente alunos inativos podem ser enviados ao Arquivo Passivo.',
             'student_not_found', 'not_found' => 'O registro solicitado não foi encontrado.',
             'box_not_found' => 'A caixa informada não existe ou não possui registros ativos.',

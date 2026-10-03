@@ -41,6 +41,11 @@ Foram inspecionados alinhamento, dimensões, fontes, assets, rolagem, tabelas, f
 | [Pedido com 80 itens: última página](evidencias/2026-10-02/impressao-80-itens-pagina-5.png) | Últimos produtos e segunda nota sem corte |
 | [Unidade do pedido no desktop](evidencias/2026-10-02/unidades-pedido-1366.png) | Seleção de Litros após adicionar/remover produtos e notas |
 | [Unidade do pedido no celular](evidencias/2026-10-02/unidades-pedido-390.png) | Campo de escolha em 390×844, sem escrita livre |
+| [Seleção de alunos no desktop](evidencias/2026-10-02/passivo-lote-selecao-1366.png) | Checkbox por aluno e ações para envio ao Arquivo Passivo |
+| [Seleção em outra página](evidencias/2026-10-02/passivo-lote-pagina-2-1366.png) | Seleção anterior mantida ao marcar aluno na segunda página |
+| [Prévia do lote no desktop](evidencias/2026-10-02/passivo-lote-previa-1366.png) | Caixa existente e numeração após a maior pasta já usada |
+| [Prévia do lote no celular](evidencias/2026-10-02/passivo-lote-previa-390.png) | Posições, confirmação e envio em 390×844 |
+| [Seleção de alunos no celular](evidencias/2026-10-02/passivo-lote-selecao-390.png) | Alunos ativos e inativos selecionados em páginas diferentes |
 
 As imagens de relatório já registradas antes desta revisão permanecem como evidências históricas: [primeira página](evidencias/modulo5-relatorio-pagina-1.png) e [última página](evidencias/modulo5-relatorio-pagina-3.png). Elas não aprovam alterações posteriores.
 
@@ -49,6 +54,8 @@ As imagens de relatório já registradas antes desta revisão permanecem como ev
 `tests/browser-contract-tabs.mjs` executa 56 verificações com links reais no Chrome: painel ancestral, visibilidade, foco, fechamento, teclado, URLs inválidas, histórico, impressão e unidades do construtor de pedidos. A aplicação autenticada passou em 17 verificações no desktop e nas mesmas 17 no celular, com três notas, erro real de produto e abertura administrativa. O PDF de 80 produtos tem cinco páginas; a extração confirma uma ocorrência por item, e as páginas renderizadas permitem conferir margens e continuidade.
 
 O complemento de unidades passou em mais 25 verificações na aplicação autenticada: opções UN/K/Litros, escolha por teclado, padrão UN nas novas linhas/notas, remoção/reindexação, seleção preservada após erro e atualização, unidade anterior na edição e confirmação da unidade atual no estoque legado. As duas imagens de unidade registram esse complemento. As capturas iniciais de formulário de produto e conferência antecedem a troca dos campos de unidade por seletores; os demais campos e a preservação dos valores seguem verificados.
+
+O envio de alunos em lote passou em 32 verificações na aplicação autenticada, com banco fictício próprio e Chrome isolado. Foram exercitados seleção entre páginas e filtros, caixa existente e nova, prévia sem alterações, numeração após a maior pasta inclusive inativa, confirmação com inativação dos ativos, preservação integral das DVAs, bloqueio de alunos já arquivados e limpeza da seleção. As páginas cabem nas janelas de 1366×768 e 390×844; as tabelas usam rolagem local. As cinco capturas do lote registram somente alunos fictícios. O teste permanente é `tests/browser-passivo-batch.mjs`.
 
 O ensaio autenticado de certidões acrescentou 58 verificações nas três resoluções: entrada em tela cheia nativa, filtros, saída pelo controle ou Esc, retorno do foco, edição, renovação, detalhes, arquivadas e excluídas. Não houve exceções de JavaScript, IDs duplicados ou transbordamento da página nesses estados.
 
