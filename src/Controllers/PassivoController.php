@@ -21,7 +21,8 @@ final class PassivoController extends Controller
     public function criar(): void
     {
         $state = $this->consumeFormState('create');
-        $data = is_array($state['data'] ?? null) ? $state['data'] : $this->formData();
+        $data = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+            ? $this->formData() : (is_array($state['data'] ?? null) ? $state['data'] : $this->formData());
         $errors = is_array($state['errors'] ?? null) ? array_values(array_map('strval', $state['errors'])) : [];
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -73,8 +74,8 @@ final class PassivoController extends Controller
         $defaultData = [
             'nome_completo' => (string) $record['nome_completo'],
             'data_nascimento' => (string) ($record['data_nascimento'] ?? ''),
-            'numero' => (string) ($record['numero'] ?? ''),
-            'caixa' => (string) ($record['caixa'] ?? ''),
+            'numero' => src\Core\TextNormalizer::displayName((string) ($record['numero'] ?? '')),
+            'caixa' => src\Core\TextNormalizer::displayName((string) ($record['caixa'] ?? '')),
         ];
         $state = $this->consumeFormState('edit_' . $recordId);
         $data = is_array($state['data'] ?? null) ? $state['data'] : $defaultData;
@@ -97,6 +98,8 @@ final class PassivoController extends Controller
             'errors' => $errors,
             'editing' => true,
             'recordId' => $recordId,
+            'locationPending' => (int) $record['localizacao_pendente'] === 1,
+            'existingLocation' => ['caixa' => $defaultData['caixa'], 'numero' => $defaultData['numero']],
         ]);
     }
 
@@ -316,8 +319,9 @@ final class PassivoController extends Controller
         header('Pragma: no-cache');
 
         foreach ($rows as $row) {
-            $number = trim((string) ($row['numero'] ?? ''));
-            echo ($number === '' ? 'Sem número' : $number) . ' - ' . $this->safeSpreadsheetText($row['nome_completo']) . "\r\n";
+            $number = src\Core\TextNormalizer::displayName((string) ($row['numero'] ?? ''));
+            echo ($number === '' ? 'Sem número' : $number) . ' - ' . $this->safeSpreadsheetText($row['nome_completo'])
+                . ($row['localizacao_pendente'] === 1 ? ' [Localização pendente]' : '') . "\r\n";
         }
 
         exit;
@@ -337,7 +341,8 @@ final class PassivoController extends Controller
             'caixa' => mb_substr((string) ($_POST['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH + 1, 'UTF-8'),
             'numero' => mb_substr((string) ($_POST['numero'] ?? ''), 0, Passivo::NUMBER_MAX_LENGTH + 1, 'UTF-8'),
         ];
-        $data = is_array($state['data'] ?? null) ? $state['data'] : $defaultData;
+        $data = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+            ? $defaultData : (is_array($state['data'] ?? null) ? $state['data'] : $defaultData);
         $errors = is_array($state['errors'] ?? null) ? array_values(array_map('strval', $state['errors'])) : [];
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -501,6 +506,8 @@ final class PassivoController extends Controller
         $filters = [
             'q' => mb_substr((string) ($_GET['q'] ?? ''), 0, Passivo::SEARCH_MAX_LENGTH, 'UTF-8'),
             'caixa' => mb_substr((string) ($_GET['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH, 'UTF-8'),
+            'localizacao' => in_array((string) ($_GET['localizacao'] ?? ''), ['completa', 'pendente'], true)
+                ? (string) $_GET['localizacao'] : '',
             'ativo' => in_array($active, ['0', '1', 'todos'], true) ? ($active === 'todos' ? '' : $active) : '1',
             'ordem' => in_array((string) ($_GET['ordem'] ?? 'nome'), ['nome', 'numero', 'caixa', 'recente'], true)
                 ? (string) ($_GET['ordem'] ?? 'nome') : 'nome',

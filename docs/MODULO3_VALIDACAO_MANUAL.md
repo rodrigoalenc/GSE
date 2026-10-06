@@ -1,5 +1,7 @@
 # Validação manual pendente — Módulo 3
 
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
 Este roteiro deve ser executado antes da implantação. Ele não registra homologação já concluída.
 
 ## Registro da execução

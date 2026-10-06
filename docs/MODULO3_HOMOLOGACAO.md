@@ -1,6 +1,8 @@
 # Homologação e migração do Módulo 3
 
-Este documento é um roteiro pendente de homologação, não uma evidência de execução em banco real. A migração específica do Arquivo Passivo é v12; executar o inicializador da branch `Modulo5` aplica também as versões seguintes até v15.
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
+Este documento é um roteiro pendente de homologação, não uma evidência de execução em banco real. A migração específica do Arquivo Passivo é v12; executar o inicializador da branch `Modulo5` aplica também as versões seguintes até v16.
 
 ## Antes da janela
 
@@ -35,7 +37,7 @@ GROUP BY caixa_normalizada, numero_normalizado
 HAVING COUNT(*) > 1;
 ```
 
-Resultado esperado na branch `Modulo5`: versões 1 a 15, `user_version=15`, nenhuma FK inválida, integridade `ok`, nenhuma tabela temporária e equivalência de contagem, IDs, valores, relacionamentos e sequência com o relatório anterior. A entrega histórica do Módulo 3 terminava em v12. Registros sem caixa devem ser preservados com `localizacao_pendente=1`. Colisões devem permanecer e entrar em lista de revisão.
+Resultado esperado na branch `Modulo5`: versões 1 a 16, `user_version=16`, nenhuma FK inválida, integridade `ok`, nenhuma tabela temporária e equivalência de contagem, IDs, valores, relacionamentos e sequência com o relatório anterior. A entrega histórica do Módulo 3 terminava em v12. Registros sem caixa ou posição devem ser preservados com `localizacao_pendente=1`. Colisões devem permanecer e entrar em lista de revisão.
 
 ## Resolver dados inconsistentes
 

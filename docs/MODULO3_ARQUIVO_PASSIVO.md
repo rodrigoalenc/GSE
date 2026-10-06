@@ -1,14 +1,16 @@
 # Módulo 3 — Arquivo Passivo
 
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
 ## Escopo funcional
 
-O RF004/UC004 localiza fisicamente as pastas de ex-alunos por caixa e número/posição. O módulo inclui painel, cards de caixas, contagem, navegação anterior/próxima, busca global sem acento, filtro, paginação, ordenação permitida, cadastro, detalhes, edição, ciclo lógico, CSV aditivo, enumeração, TXT e integração explícita com alunos inativos. Os Módulos 4 e 5 permanecem fora do escopo.
+O RF004/UC004 localiza fisicamente as pastas de ex-alunos por caixa e número/posição. O módulo inclui painel, cards de caixas, contagem, navegação anterior/próxima, busca global sem acento, filtro, paginação, ordenação permitida, cadastro, detalhes, edição, ciclo lógico, CSV aditivo, enumeração, TXT e integração explícita com alunos inativos. Este documento descreve o Módulo 3; a entrega integrada contém também os Módulos 4 e 5.
 
-O aluno original nunca é excluído. O envio copia nome e nascimento, grava `aluno_origem_id`, exige caixa, confirmação e administrador e ocorre em `BEGIN IMMEDIATE`. DVA, turma e demais relacionamentos não são alterados. O índice `ux_passivo_aluno_origem_ativo` impede dois registros ativos do passivo para o mesmo aluno.
+O aluno original nunca é excluído. O envio copia nome e nascimento, grava `aluno_origem_id`, exige caixa, posição, confirmação e administrador e ocorre em `BEGIN IMMEDIATE`. DVA, turma e demais relacionamentos não são alterados. O índice `ux_passivo_aluno_origem_ativo` impede dois registros ativos do passivo para o mesmo aluno.
 
 O envio em lote permite selecionar alunos ativos ou inativos que saíram da escola. Na confirmação, alunos ainda ativos são inativados na mesma transação do arquivamento; cadastros, contatos, turma e todo o histórico de DVA são preservados. O envio individual anterior continua disponível para alunos já inativos.
 
-Registros ativos com `localizacao_pendente=1` exibem “Revisão pendente” em amarelo; ativos regulares usam verde e excluídos logicamente usam vermelho com o texto “Excluído do acervo ativo”. O texto explícito acompanha a cor em todos os casos.
+Registros ativos com `localizacao_pendente=1` exibem “Localização pendente” em amarelo; ativos regulares usam verde e excluídos logicamente usam vermelho com o texto “Excluído do acervo ativo”. O texto explícito acompanha a cor em todos os casos.
 
 ## Permissões
 
@@ -32,7 +34,7 @@ Toda rota exige autenticação. O Router retorna 403 para perfil insuficiente, 4
 
 `TextNormalizer::searchKey()` é exclusivo para pesquisa. Ele consolida espaços, normaliza Unicode, converte para minúsculas e remove marcas diacríticas. `comparisonKey()` dos Módulos 1 e 2 não mudou. Consultas `LIKE` escapam `\\`, `%` e `_`, limitam o termo a 100 caracteres e usam parâmetros.
 
-Nome, caixa e número mantêm o valor de exibição e a chave normalizada. Número é opcional; caixa é obrigatória em novos cadastros. A aplicação detecta caixa/número ocupado e apresenta conflito, mas a v12 não cria unicidade física sem regra escolar comprovada. Colisões legadas permanecem intactas para revisão em homologação.
+Nome, caixa e número mantêm o valor de exibição e a chave normalizada. Caixa e número/posição são obrigatórios nos novos cadastros, na importação e no arquivamento individual. No lote, a posição é calculada na prévia após o maior número histórico da caixa. Somente registros históricos incompletos podem conservar campos vazios; editar seus demais dados não inventa localização. Preencher ambos os campos atualiza a pendência, valida conflito e registra autoria. A aplicação detecta caixa/número ocupado e apresenta conflito, mas a v12 não cria unicidade física sem regra escolar comprovada. Colisões legadas permanecem intactas para revisão em homologação.
 
 Excluídos não ocupam posições do acervo ativo. A edição de um excluído preserva sua situação e pode corrigir seus dados sem disputar a posição ativa. A restauração revalida posição e vínculo de aluno antes de retornar ao acervo. Filtros e navegação de caixas acompanham a situação consultada; resumo, TXT e enumeração continuam considerando apenas ativos. Exportar uma caixa sem ativos retorna à consulta com mensagem explicativa, inclusive para funcionários.
 
@@ -79,9 +81,9 @@ Seleção e prévia usam tokens aleatórios vinculados à sessão e ao administr
 
 ### Enumeração e exportação
 
-A enumeração seleciona uma caixa existente, ordena registros ativos sem número por `nome_normalizado`, inicia depois do maior número inteiro daquela caixa, preserva todos os números existentes, mostra prévia e revalida tudo na confirmação. Qualquer mudança ou conflito impede a aplicação inteira.
+A enumeração seleciona uma caixa existente, ordena registros ativos sem número por `nome_normalizado`, inicia depois do maior número inteiro daquela caixa, inclusive em pastas excluídas e acima do limite de inteiro nativo, preserva todos os números existentes, mostra prévia e revalida tudo na confirmação. Qualquer mudança ou conflito impede a aplicação inteira.
 
-O TXT usa `Número - Nome`, ordem numérica/normalizada determinística, `Content-Type: text/plain; charset=UTF-8`, `nosniff`, `no-store` e nome de arquivo derivado apenas de chave segura. Valores potencialmente interpretados como fórmula recebem apóstrofo defensivo.
+O TXT identifica registros pendentes como `[Localização pendente]` e usa `Número - Nome`, ordem numérica/normalizada determinística, `Content-Type: text/plain; charset=UTF-8`, `nosniff`, `no-store` e nome de arquivo derivado apenas de chave segura. Valores potencialmente interpretados como fórmula recebem apóstrofo defensivo.
 
 ## Retenção e LGPD
 

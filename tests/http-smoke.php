@@ -503,11 +503,24 @@ try {
         'Painel do Arquivo Passivo autenticado'
     );
     $passiveCreate = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
+    checkHttp(preg_match('/<input[^>]+id="numero"[^>]+required/', $passiveCreate['body']) === 1, 'Interface exige posição física no cadastro passivo');
+    $incompletePassive = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
+        '_csrf_token' => csrf($passiveCreate['body']), 'nome_completo' => 'Cadastro sem posição',
+        'data_nascimento' => '2000-01-01', 'numero' => '', 'caixa' => 'CX-HTTP',
+    ]);
+    $retainedPassive = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
+    $verification = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    checkHttp($incompletePassive['status'] === 302
+        && str_ends_with($incompletePassive['headers']['location'] ?? '', '/passivo/criar')
+        && str_contains($retainedPassive['body'], 'Informe uma posição válida')
+        && str_contains($retainedPassive['body'], 'value="Cadastro sem posição"')
+        && (int) $verification->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn() === 0,
+        'Servidor rejeita localização incompleta, conserva formulário por PRG e não grava');
     $passiveCreated = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
         '_csrf_token' => csrf($passiveCreate['body']),
         'nome_completo' => 'Jose HTTP Passivo',
         'data_nascimento' => '2000-01-01',
-        'numero' => '',
+        'numero' => '1',
         'caixa' => 'CX-HTTP',
     ]);
     checkHttp(
@@ -517,6 +530,26 @@ try {
     $passiveSearch = request('GET', $baseUrl . '/passivo?q=Jose', $cookieAdmin);
     checkHttp($passiveSearch['status'] === 200 && str_contains($passiveSearch['body'], 'Jose HTTP Passivo'), 'Busca global do Arquivo Passivo');
     checkHttp(request('GET', $baseUrl . '/passivo/detalhes/999999', $cookieAdmin)['status'] === 404, 'ID passivo inexistente retorna 404');
+
+    // Simula um registro histórico no banco descartável do ensaio.
+    $verification->exec('UPDATE alunos_passivo SET numero = NULL, numero_normalizado = NULL, localizacao_pendente = 1 WHERE id = 1');
+    $pendingEdit = request('GET', $baseUrl . '/passivo/editar/1', $cookieAdmin);
+    checkHttp(preg_match('/<input[^>]+id="numero"[^>]+required/', $pendingEdit['body']) !== 1
+        && str_contains($pendingEdit['body'], 'Localização pendente'), 'Interface permite editar legado sem inventar posição');
+    $pendingSaved = request('POST', $baseUrl . '/passivo/editar/1', $cookieAdmin, [
+        '_csrf_token' => csrf($pendingEdit['body']), 'nome_completo' => 'Jose HTTP Passivo',
+        'data_nascimento' => '2000-01-01', 'numero' => '', 'caixa' => 'CX-HTTP',
+    ]);
+    $pendingList = request('GET', $baseUrl . '/passivo?localizacao=pendente', $cookieAdmin);
+    $pendingExport = request('POST', $baseUrl . '/passivo/exportar', $cookieAdmin, [
+        '_csrf_token' => csrf($pendingList['body']), 'caixa' => 'CX-HTTP',
+    ]);
+    checkHttp($pendingSaved['status'] === 302
+        && $verification->query('SELECT numero FROM alunos_passivo WHERE id = 1')->fetchColumn() === null
+        && (int) $verification->query('SELECT localizacao_pendente FROM alunos_passivo WHERE id = 1')->fetchColumn() === 1
+        && str_contains($pendingList['body'], 'Jose HTTP Passivo') && str_contains($pendingList['body'], 'Localização pendente')
+        && str_contains($pendingExport['body'], '[Localização pendente]'),
+        'Edição histórica preserva posição vazia e pendência aparece em filtro e exportação');
 
     $tools = request('GET', $baseUrl . '/passivo/ferramentas', $cookieAdmin);
     $enumerationPreview = request('POST', $baseUrl . '/passivo/ferramentas/enumerar/preview', $cookieAdmin, [
@@ -531,6 +564,9 @@ try {
         'preview_token' => hiddenValue($enumerationPage['body'], 'preview_token'),
     ]);
     checkHttp($enumerationConfirmed['status'] === 302, 'Enumeração transacional confirmada');
+    checkHttp($verification->query('SELECT numero FROM alunos_passivo WHERE id = 1')->fetchColumn() === '1'
+        && (int) $verification->query('SELECT localizacao_pendente FROM alunos_passivo WHERE id = 1')->fetchColumn() === 0,
+        'Enumeração preenche posição histórica e conclui localização');
 
     $passiveEdit = request('GET', $baseUrl . '/passivo/editar/1', $cookieAdmin);
     $passiveEdited = request('POST', $baseUrl . '/passivo/editar/1', $cookieAdmin, [
@@ -550,6 +586,15 @@ try {
         $archiveStudent['status'] === 200 && $passiveCountAfterArchiveGet === $passiveCountBeforeArchiveGet,
         'GET de arquivamento exibe formulário sem alterar o acervo'
     );
+    checkHttp(preg_match('/<input[^>]+id="archive-number"[^>]+required/', $archiveStudent['body']) === 1,
+        'Interface de arquivamento individual exige posição');
+    $incompleteArchive = request('POST', $baseUrl . '/aluno/arquivar/1', $cookieAdmin, [
+        '_csrf_token' => csrf($archiveStudent['body']), 'caixa' => 'CX-ALUNO', 'numero' => '', 'confirmar' => '1',
+    ]);
+    checkHttp($incompleteArchive['status'] === 302
+        && str_ends_with($incompleteArchive['headers']['location'] ?? '', '/aluno/arquivar/1')
+        && (int) $verification->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn() === $passiveCountBeforeArchiveGet,
+        'Arquivamento individual rejeita posição vazia sem alterar acervo');
     $verification = null;
     $archivedStudent = request('POST', $baseUrl . '/aluno/arquivar/1', $cookieAdmin, [
         '_csrf_token' => csrf($archiveStudent['body']),
@@ -628,7 +673,7 @@ try {
         'Modelo baixado usa UTF-8 com BOM, quatro colunas e nenhum registro de exemplo'
     );
     $csvPath = $tempRoot . DIRECTORY_SEPARATOR . 'passivo-http.csv';
-    file_put_contents($csvPath, $importTemplate['body'] . "CSV HTTP;2001-02-03;1;CX-CSV\r\n");
+    file_put_contents($csvPath, $importTemplate['body'] . "CSV HTTP;2001-02-03;1;CX-CSV\r\nCSV sem posição;2001-02-03;;CX-CSV\r\n");
     $importPreview = requestMultipart($baseUrl . '/passivo/importar/preview', $cookieAdmin, [
         '_csrf_token' => csrf($importPage['body']),
         'arquivo_csv' => new CURLFile($csvPath, 'text/csv', 'passivo.csv'),
@@ -636,13 +681,15 @@ try {
     checkHttp($importPreview['status'] === 302 && str_contains($importPreview['headers']['location'] ?? '', 'preview='), 'Upload CSV gera prévia sem persistir');
     $importLocation = $importPreview['headers']['location'] ?? '';
     $importConfirmationPage = request('GET', str_starts_with($importLocation, 'http') ? $importLocation : $baseUrl . $importLocation, $cookieAdmin);
+    checkHttp(str_contains($importConfirmationPage['body'], 'Informe uma posição válida'), 'Prévia CSV identifica posição vazia como inválida');
     $importConfirmed = request('POST', $baseUrl . '/passivo/importar/confirmar', $cookieAdmin, [
         '_csrf_token' => csrf($importConfirmationPage['body']),
         'preview_token' => hiddenValue($importConfirmationPage['body'], 'preview_token'),
     ]);
     checkHttp($importConfirmed['status'] === 302, 'Importação CSV aditiva confirmada');
     $csvSearch = request('GET', $baseUrl . '/passivo?caixa=CX-CSV', $cookieAdmin);
-    checkHttp($csvSearch['status'] === 200 && str_contains($csvSearch['body'], 'CSV HTTP'), 'CSV confirmado aparece no acervo');
+    checkHttp($csvSearch['status'] === 200 && str_contains($csvSearch['body'], 'CSV HTTP')
+        && !str_contains($csvSearch['body'], 'CSV sem posição'), 'CSV confirmado importa completos e rejeita linha sem posição');
     $passiveStatusGet = request('GET', $baseUrl . '/passivo/status/1', $cookieAdmin);
     checkHttp(
         $passiveStatusGet['status'] === 405 && ($passiveStatusGet['headers']['allow'] ?? '') === 'POST',

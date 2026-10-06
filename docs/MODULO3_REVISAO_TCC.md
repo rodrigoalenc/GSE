@@ -1,5 +1,7 @@
 # Revisão do Módulo 3 frente ao TCC
 
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
 Registro histórico da revisão do Módulo 3. Os resultados abaixo não homologam o código posterior da branch `Modulo5`; consulte [MODULO5_VALIDACAO.md](MODULO5_VALIDACAO.md) para a revisão atual.
 
 Revisão de 11/09/2026, sobre a branch `Modulo3`, base `3cc4e67d2a198d8c12975bbd5b2038398759f207`. A árvore estava limpa; `git ls-remote origin refs/heads/Modulo3` confirmou a mesma base remota. Não foi encontrado `AGENTS.md` no repositório nem nos diretórios ancestrais aplicáveis. Não houve push, merge, deploy ou acesso de escrita a banco real.

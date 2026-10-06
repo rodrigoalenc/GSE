@@ -37,7 +37,7 @@ final class PassivoCsvTest extends DatabaseTestCase
     public function testBomPreviewAtomicConfirmationAndSingleUseToken(): void
     {
         $actor = $this->insertUsuario('Admin CSV');
-        $file = $this->csv("\xEF\xBB\xBFNome;Data;N\u{00FA}mero;Caixa\nJos\u{00E9} CSV;01/02/2000;1;CX-CSV\nAna CSV;2001-03-04;;CX-CSV\n");
+        $file = $this->csv("\xEF\xBB\xBFNome;Data;N\u{00FA}mero;Caixa\nJos\u{00E9} CSV;01/02/2000;1;CX-CSV\nAna CSV;2001-03-04;2;CX-CSV\n");
         $service = new \PassivoCsvService();
         $model = new \Passivo();
         $preview = $service->previewTrustedFile($file, $actor, $model);
@@ -100,6 +100,24 @@ final class PassivoCsvTest extends DatabaseTestCase
         $this->assertSame('invalid_header', $service->lastErrorCode());
         $this->assertFalse($service->previewTrustedFile($this->csv("Nome;Data;Numero;Caixa\nNome\xFF;2000-01-01;1;A\n"), $actor, new \Passivo()));
         $this->assertSame('invalid_utf8', $service->lastErrorCode());
+    }
+
+    public function testCsvMissingBoxOrPositionIsRejectedAndOnlyCompleteRowsAreImported(): void
+    {
+        $actor = $this->insertUsuario('Admin CSV RF004');
+        $model = new \Passivo();
+        $service = new \PassivoCsvService();
+        $preview = $service->previewTrustedFile($this->csv("Nome;Data;Numero;Caixa\nSem posição;;;A\nSem caixa;;1;\nCompleto;;1;A\n"), $actor, $model);
+        $this->assertIsArray($preview);
+        $this->assertSame(1, $preview['valid']);
+        $this->assertSame(2, $preview['invalid']);
+        $this->assertSame(0, $model->paginate([])['total']);
+        $this->assertSame(1, $service->confirm($preview['token'], $actor, $model));
+        $this->assertSame(1, $model->paginate([])['total']);
+        $this->assertSame(0, $model->resumo()['pendentes']);
+        $this->assertSame('Completo', $model->paginate([])['items'][0]['nome_completo']);
+        $this->assertSame('1', $model->paginate([])['items'][0]['numero']);
+        $this->assertSame($actor, (int) $this->pdo->query("SELECT actor_user_id FROM security_audit WHERE action = 'passive.import_completed'")->fetchColumn());
     }
 
     public function testFileSizeRowCountAndMimeLimitsAreRejected(): void

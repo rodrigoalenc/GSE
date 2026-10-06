@@ -70,7 +70,7 @@ final class TemplateSecurityTest extends TestCase
 
     public function testPassivePendingStatusUsesExplicitAccessibleVisualState(): void
     {
-        $filters = ['q' => '', 'caixa' => '', 'ativo' => '1', 'ordem' => 'nome'];
+        $filters = ['q' => '', 'caixa' => '', 'localizacao' => '', 'ativo' => '1', 'ordem' => 'nome'];
         $summary = ['caixas' => 1, 'registros' => 3, 'pendentes' => 1, 'inativos' => 1];
         $boxes = [];
         $navigation = ['anterior' => null, 'proxima' => null, 'lista' => []];
@@ -91,7 +91,7 @@ final class TemplateSecurityTest extends TestCase
         $html = (string) ob_get_clean();
         $css = (string) file_get_contents(ROOT_PATH . '/public/assets/css/passivo.css');
 
-        $this->assertStringContainsString('class="passivo-status pending">Revisão pendente</span>', $html);
+        $this->assertStringContainsString('class="passivo-status pending">Localização pendente</span>', $html);
         $this->assertStringContainsString('class="passivo-status active">Ativo</span>', $html);
         $this->assertStringContainsString('class="passivo-status inactive">Excluído do acervo ativo</span>', $html);
         $this->assertStringContainsString('.passivo-status.pending', $css);

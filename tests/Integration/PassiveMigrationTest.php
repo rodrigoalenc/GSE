@@ -45,7 +45,7 @@ final class PassiveMigrationTest extends TestCase
         DatabaseInitializer::initialize($pdo);
         DatabaseInitializer::initialize($pdo);
 
-        $this->assertSame(15, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([4, 9, 15], array_map('intval', $pdo->query('SELECT id FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_COLUMN)));
         $this->assertSame(20, (int) $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn());
         $this->assertSame('jose legado', $pdo->query('SELECT nome_normalizado FROM alunos_passivo WHERE id = 4')->fetchColumn());
@@ -75,16 +75,16 @@ final class PassiveMigrationTest extends TestCase
 
         try {
             $pdo->exec("INSERT INTO alunos_passivo
-                (aluno_origem_id, nome_completo, nome_normalizado, caixa, caixa_normalizada, ativo, localizacao_pendente)
-                VALUES (12, 'Origem duplicada', 'origem duplicada', 'B', 'b', 1, 0)");
+                (aluno_origem_id, nome_completo, nome_normalizado, caixa, caixa_normalizada, numero, numero_normalizado, ativo, localizacao_pendente)
+                VALUES (12, 'Origem duplicada', 'origem duplicada', 'B', 'b', '1', '1', 1, 0)");
             $this->fail('Dois registros ativos para a mesma origem deveriam ser bloqueados.');
         } catch (\PDOException $exception) {
             $this->assertStringContainsString('UNIQUE constraint failed', $exception->getMessage());
         }
 
         $pdo->exec("INSERT INTO alunos_passivo
-            (nome_completo, nome_normalizado, caixa, caixa_normalizada, ativo, localizacao_pendente)
-            VALUES ('Depois', 'depois', 'B', 'b', 1, 0)");
+            (nome_completo, nome_normalizado, caixa, caixa_normalizada, numero, numero_normalizado, ativo, localizacao_pendente)
+            VALUES ('Depois', 'depois', 'B', 'b', '1', '1', 1, 0)");
         $this->assertSame(21, (int) $pdo->lastInsertId());
 
         $this->expectException(\PDOException::class);
@@ -140,6 +140,85 @@ final class PassiveMigrationTest extends TestCase
         $this->assertSame([], $pdo->query("SELECT name FROM sqlite_master WHERE name = 'alunos_passivo_v12'")->fetchAll());
         $this->assertSame(1, (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn());
         $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+    }
+
+    public function testVersionSixteenMarksMissingLocationsWithoutChangingHistoricalDataAndIsIdempotent(): void
+    {
+        $pdo = $this->versionFifteenDatabase();
+        $before = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $sequence = $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn();
+        DatabaseInitializer::initialize($pdo);
+        $after = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $this->assertSame([0, 1, 1, 1, 1], array_column($after, 'localizacao_pendente'));
+        foreach ($after as $index => $row) {
+            $row['localizacao_pendente'] = $before[$index]['localizacao_pendente'];
+            $this->assertSame($before[$index], $row);
+        }
+        $this->assertSame($sequence, $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn());
+        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 16')->fetchColumn());
+        $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
+        $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
+        DatabaseInitializer::initialize($pdo);
+        $this->assertSame($after, $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
+        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+        foreach ([
+            "INSERT INTO alunos_passivo(nome_completo,nome_normalizado,caixa,caixa_normalizada) VALUES('Sem posição','sem posicao','A','a')",
+            "INSERT INTO alunos_passivo(nome_completo,nome_normalizado,numero,numero_normalizado) VALUES('Sem caixa','sem caixa','1','1')",
+            'UPDATE alunos_passivo SET localizacao_pendente = 0 WHERE id = 2',
+            'UPDATE alunos_passivo SET numero = NULL WHERE id = 1',
+        ] as $sql) {
+            try {
+                $pdo->exec($sql);
+                $this->fail('O banco deveria impedir um registro completo com localização vazia.');
+            } catch (\PDOException $exception) {
+                $this->assertStringContainsString('incomplete_passive_location', $exception->getMessage());
+            }
+        }
+        $this->assertSame($after, $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    public function testVersionSixteenFailureRollsBackIndicatorsGuardsAndVersion(): void
+    {
+        $pdo = $this->versionFifteenDatabase();
+        $before = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $pdo->exec("CREATE TRIGGER fail_passive_v16 BEFORE INSERT ON schema_migrations WHEN NEW.version = 16 BEGIN SELECT RAISE(ABORT, 'forced_v16_failure'); END");
+        try {
+            DatabaseInitializer::initialize($pdo);
+            $this->fail('A falha forçada deveria interromper a migração v16.');
+        } catch (\PDOException $exception) {
+            $this->assertStringContainsString('forced_v16_failure', $exception->getMessage());
+        }
+        $this->assertSame($before, $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
+        $this->assertSame(15, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(0, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 16')->fetchColumn());
+        $this->assertSame(0, (int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE name IN ('trg_require_passive_location_insert','trg_require_passive_location_update','idx_passivo_localizacao_pendente')")->fetchColumn());
+        $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
+        $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
+        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+    }
+
+    private function versionFifteenDatabase(): PDO
+    {
+        $pdo = new PDO('sqlite:' . $this->database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo->exec('PRAGMA foreign_keys = ON');
+        DatabaseInitializer::initialize($pdo);
+        $pdo->exec('DROP TRIGGER trg_require_passive_location_insert');
+        $pdo->exec('DROP TRIGGER trg_require_passive_location_update');
+        $pdo->exec('DROP INDEX idx_passivo_localizacao_pendente');
+        $pdo->exec('DELETE FROM schema_migrations WHERE version = 16');
+        $pdo->exec('PRAGMA user_version = 15');
+        $statement = $pdo->prepare('INSERT INTO alunos_passivo(id,nome_completo,nome_normalizado,caixa,caixa_normalizada,numero,numero_normalizado,ativo,localizacao_pendente,criado_em,atualizado_em) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+        foreach ([
+            [1, 'Completo', 'completo', 'A', 'a', '8', '8', 1, 0],
+            [2, 'Sem número', 'sem numero', 'A', 'a', null, null, 1, 0],
+            [3, 'Sem caixa', 'sem caixa', null, null, '9', '9', 0, 0],
+            [4, 'Número em branco', 'numero em branco', 'A', 'a', "\u{00A0}\u{2003}", null, 1, 0],
+            [5, 'Pendente preservado', 'pendente preservado', 'B', 'b', '1', '1', 1, 1],
+        ] as $row) {
+            $statement->execute([...$row, '2025-01-01 00:00:00', '2025-02-02 00:00:00']);
+        }
+        return $pdo;
     }
 
     private function legacyDatabase(): PDO

@@ -1,5 +1,7 @@
 # Validação do Módulo 5
 
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
 ## Revisão de 02/10/2026
 
 Branch `Modulo5`, estado inicial `755d28d2c3a69844e3413ff4ea49eefc6bb4b4c2`, árvore limpa. O head remoto consultado estava nessa mesma revisão. Os testes e demonstrações usam SQLite temporário e dados fictícios, sem migração em banco institucional. Ambiente: Windows, PHP 8.4.13, Composer, Node 24.11 e Chrome headless com perfil descartável. As extensões exigidas (`intl`, `fileinfo`, `mbstring`, `pdo_sqlite` e `curl`, entre outras) estão habilitadas; não foi usado `--ignore-platform-req`.

@@ -1,23 +1,25 @@
 <?php
 $statusClass = 'inactive';
 $statusLabel = 'Excluído do acervo ativo';
+$displayNumber = src\Core\TextNormalizer::displayName((string) ($record['numero'] ?? ''));
+$displayBox = src\Core\TextNormalizer::displayName((string) ($record['caixa'] ?? ''));
 
 if ((int) $record['ativo'] === 1) {
     $statusClass = (int) $record['localizacao_pendente'] === 1 ? 'pending' : 'active';
-    $statusLabel = (int) $record['localizacao_pendente'] === 1 ? 'Revisão pendente' : 'Ativo';
+    $statusLabel = (int) $record['localizacao_pendente'] === 1 ? 'Localização pendente' : 'Ativo';
 }
 ?>
 <section class="passivo-detail-shell">
     <div class="passivo-detail-head">
         <div><p class="hero-kicker">Arquivo Passivo</p><h2><?= e((string) $record['nome_completo']) ?></h2><p>Localização física e trilha histórica do registro.</p></div>
-        <div class="passivo-detail-badges"><span class="passivo-box-badge">Caixa <?= e((string) ($record['caixa'] ?: 'pendente')) ?></span><span class="passivo-status <?= e($statusClass) ?>"><?= e($statusLabel) ?></span></div>
+        <div class="passivo-detail-badges"><span class="passivo-box-badge">Caixa <?= e($displayBox === '' ? 'pendente' : $displayBox) ?></span><span class="passivo-status <?= e($statusClass) ?>"><?= e($statusLabel) ?></span></div>
     </div>
-    <?php if ((int) $record['localizacao_pendente'] === 1): ?><div class="warning-message" role="alert">Este dado legado precisa de revisão da localização física.</div><?php endif; ?>
+    <?php if ((int) $record['localizacao_pendente'] === 1): ?><div class="warning-message" role="alert">Localização física pendente: confira e preencha caixa e posição. Os demais dados históricos podem ser corrigidos sem inventar essa localização.</div><?php endif; ?>
     <dl class="passivo-detail-grid">
         <div><dt>Nome completo</dt><dd><?= e((string) $record['nome_completo']) ?></dd></div>
         <div><dt>Data de nascimento</dt><dd><?= $record['data_nascimento'] ? e((string) $record['data_nascimento']) : '&mdash;' ?></dd></div>
-        <div><dt>Número ou posição</dt><dd><?= e((string) ($record['numero'] ?: 'Sem número')) ?></dd></div>
-        <div><dt>Caixa</dt><dd><?= e((string) ($record['caixa'] ?: 'Pendente')) ?></dd></div>
+        <div><dt>Número ou posição</dt><dd><?= e($displayNumber === '' ? 'Sem número' : $displayNumber) ?></dd></div>
+        <div><dt>Caixa</dt><dd><?= e($displayBox === '' ? 'Pendente' : $displayBox) ?></dd></div>
         <div><dt>Criado em UTC</dt><dd><?= e((string) $record['criado_em']) ?></dd></div>
         <div><dt>Atualizado em UTC</dt><dd><?= e((string) $record['atualizado_em']) ?></dd></div>
         <div><dt>Origem</dt><dd><?php if ($record['aluno_origem_id']): ?><a href="<?= e(url('aluno/perfil/' . (int) $record['aluno_origem_id'])) ?>">Aluno #<?= e((string) $record['aluno_origem_id']) ?></a><?php else: ?>Cadastro manual<?php endif; ?></dd></div>

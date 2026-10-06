@@ -12,7 +12,7 @@ require_once __DIR__ . '/TextNormalizer.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 15;
+    private const LATEST_VERSION = 16;
 
     public static function initialize(PDO $pdo): void
     {
@@ -126,8 +126,40 @@ final class DatabaseInitializer
             13 => self::migrateCertificates($pdo),
             14 => self::migrateCertificateConcurrency($pdo),
             15 => self::migrateContractsAndStock($pdo),
+            16 => self::migratePassiveLocationCompleteness($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
+    }
+
+    private static function migratePassiveLocationCompleteness(PDO $pdo): void
+    {
+        // Corrige apenas o indicador: localização, vínculos, autoria e datas são preservados.
+        $pending = $pdo->prepare('UPDATE alunos_passivo SET localizacao_pendente = 1 WHERE id = :id AND localizacao_pendente = 0');
+        foreach ($pdo->query('SELECT id, caixa, numero, caixa_normalizada, numero_normalizado FROM alunos_passivo')->fetchAll() as $row) {
+            if (TextNormalizer::displayName((string) ($row['caixa'] ?? '')) === ''
+                || TextNormalizer::displayName((string) ($row['numero'] ?? '')) === ''
+                || trim((string) ($row['caixa_normalizada'] ?? '')) === ''
+                || trim((string) ($row['numero_normalizado'] ?? '')) === '') {
+                $pending->execute(['id' => (int) $row['id']]);
+            }
+        }
+
+        foreach (['insert' => 'INSERT', 'update' => 'UPDATE'] as $suffix => $operation) {
+            $pdo->exec(
+                "CREATE TRIGGER IF NOT EXISTS trg_require_passive_location_{$suffix}
+                 BEFORE {$operation} ON alunos_passivo
+                 WHEN NEW.localizacao_pendente = 0 AND (
+                     NEW.caixa IS NULL OR TRIM(NEW.caixa, CHAR(9, 10, 13, 32)) = ''
+                     OR NEW.numero IS NULL OR TRIM(NEW.numero, CHAR(9, 10, 13, 32)) = ''
+                     OR NEW.caixa_normalizada IS NULL OR TRIM(NEW.caixa_normalizada) = ''
+                     OR NEW.numero_normalizado IS NULL OR TRIM(NEW.numero_normalizado) = '')
+                 BEGIN SELECT RAISE(ABORT, 'incomplete_passive_location'); END"
+            );
+        }
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_localizacao_pendente ON alunos_passivo (localizacao_pendente, ativo)');
+        if (self::foreignKeyViolations($pdo) !== [] || self::integrityCheck($pdo) !== ['ok']) {
+            throw new RuntimeException('A migração v16 encontrou inconsistências no arquivo passivo.');
+        }
     }
 
     private static function migrateCertificateConcurrency(PDO $pdo): void

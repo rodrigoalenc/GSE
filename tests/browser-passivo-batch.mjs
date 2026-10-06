@@ -69,6 +69,74 @@ try {
     await fill('#senha', 'Teste ficticio seguro 2026');
     await page.click('.btn-login');
     await page.until(`location.pathname === '/dashboard'`);
+
+    // The synthetic tab fixture also runs against the authenticated PHP application.
+    const noteState = () => page.evaluate(`[...document.querySelectorAll('[role="tabpanel"]')].map(panel=>({id:panel.id,hidden:panel.hidden,visible:panel.getBoundingClientRect().height>0}))`);
+    const noteSelected = id => [1,2,3].map(number=>({id:`folha-${number}`,hidden:number!==id,visible:number===id}));
+    await go('/contrato/detalhes/1', '[data-contract-tabs]');
+    await page.until(`document.querySelectorAll('[role="tabpanel"]').length===3`);
+    check(await noteState(), noteSelected(1), 'Authenticated request starts with three notes and the first selected');
+    for (const id of [2,3]) {
+        await page.click(`[data-contract-tabs] a[href="#folha-${id}"]`);
+        await page.until(`location.hash==='#folha-${id}' && !document.getElementById('folha-${id}').hidden`);
+        for (const operation of ['add-product','billing-note']) {
+            await page.click(`#folha-${id} a[href="#${operation}-${id}"]`);
+            await page.until(`location.hash==='#${operation}-${id}' && document.getElementById('${operation}-${id}').open && document.activeElement.closest('details')?.id==='${operation}-${id}'`);
+            check(await noteState(), noteSelected(id), 'Authenticated form keeps its corresponding note visible');
+            check(await page.evaluate(`document.getElementById('${operation}-${id}').getBoundingClientRect().height>0`), true, 'Authenticated form is visible');
+            await shot(`contrato-nota-${id}-${operation}-1366`);
+        }
+    }
+    await page.click('#folha-3 a[href="#add-product-3"]');
+    await page.until(`location.hash==='#add-product-3'`);
+    const historyLength = await page.evaluate('history.length');
+    await page.click('[data-close-details="add-product-3"]');
+    check(await page.evaluate(`document.getElementById('add-product-3').open`), false, 'Authenticated close collapses the product form');
+    check(await page.evaluate('location.hash'), '#folha-3', 'Authenticated close replaces the form hash with its note');
+    check(await page.evaluate('history.length'), historyLength, 'Authenticated close replaces the history entry');
+    check(await page.evaluate('document.activeElement.getAttribute("href")'), '#add-product-3', 'Authenticated close returns focus to the product opener');
+    await page.click('#folha-3 a[href="#add-product-3"]');
+    await page.until(`document.getElementById('add-product-3').open`);
+    check(await noteState(), noteSelected(3), 'Authenticated product form reopens on note three');
+    await go('/contrato/detalhes/1#add-product-2', '#add-product-2');
+    await page.until(`document.getElementById('add-product-2').open && !document.getElementById('folha-2').hidden`);
+    check(await noteState(), noteSelected(2), 'Authenticated direct form URL selects note two');
+    await page.evaluate(`location.hash='#%E0%A4%A'`);
+    await page.until(`location.hash==='#%E0%A4%A'`);
+    check(await noteState(), noteSelected(2), 'Authenticated malformed fragment retains its note');
+    await page.evaluate(`location.hash='#missing'`);
+    await page.until(`location.hash==='#missing'`);
+    check(await noteState(), noteSelected(2), 'Authenticated unknown fragment retains its note');
+    await page.click('[data-contract-tabs] a[href="#folha-3"]');
+    await page.until(`location.hash==='#folha-3'`);
+    await page.click('#folha-3 a[href="#add-product-3"]');
+    await page.until(`location.hash==='#add-product-3'`);
+    await page.click('[data-contract-tabs] a[href="#folha-2"]');
+    await page.until(`location.hash==='#folha-2'`);
+    await page.evaluate('history.back()');
+    await page.until(`location.hash==='#add-product-3' && !document.getElementById('folha-3').hidden`);
+    check(await noteState(), noteSelected(3), 'Authenticated history back restores the internal form and note');
+    await page.evaluate('history.forward()');
+    await page.until(`location.hash==='#folha-2' && !document.getElementById('folha-2').hidden`);
+    check(await noteState(), noteSelected(2), 'Authenticated history forward restores note two');
+    await page.click('[data-contract-tabs] a[href="#folha-3"]', 2);
+    check(await noteState(), noteSelected(2), 'Authenticated Ctrl click keeps the current note');
+    await page.evaluate(`document.querySelector('[role="tab"][aria-selected="true"]').focus()`);
+    for (const [key,id] of [['ArrowRight',3],['Home',1],['End',3],['ArrowLeft',2]]) {
+        await page.command('Input.dispatchKeyEvent', {type:'keyDown',key,code:key});
+        await page.command('Input.dispatchKeyEvent', {type:'keyUp',key,code:key});
+        await page.until(`location.hash==='#folha-${id}' && !document.getElementById('folha-${id}').hidden`);
+        check(await noteState(), noteSelected(id), 'Authenticated keyboard selects the note');
+        check(await page.evaluate('document.activeElement.getAttribute("aria-selected")'), 'true', 'Authenticated keyboard keeps focus on the selected tab');
+    }
+    await page.command('Page.printToPDF', {printBackground:true});
+    check(await noteState(), noteSelected(2), 'Authenticated browser printing restores the selected note');
+    await go('/contrato/imprimir/1?folha=2', '.print-toolbar');
+    check(await page.evaluate(`document.querySelector('.print-toolbar a').getAttribute('href').endsWith('#folha-2')`), true, 'Authenticated single-note print returns to its selected note');
+    await page.click('.print-toolbar a');
+    await page.until(`location.pathname==='/contrato/detalhes/1' && location.hash==='#folha-2' && document.readyState==='complete' && document.querySelectorAll('[role="tabpanel"]').length===3 && !document.getElementById('folha-2').hidden`);
+    check(await noteState(), noteSelected(2), 'Authenticated print return displays note two');
+
     await go('/aluno', '[data-student-archive-selection]');
     check(await page.evaluate(`document.querySelector('[data-student-selection-submit]').disabled`), true, 'Empty selection cannot submit');
     await page.click('[data-student-selection-id][value="1"]');
@@ -154,9 +222,51 @@ try {
     await page.click('[data-student-selection-id][value="3"]');
     await page.click('[data-student-clear-selection]');
     check(await ids(), [], 'Clear selection');
+
+    await viewport(1366,768);
+    await go('/contrato/criar', '[data-contract-builder]');
+    const builderSheet = index => `[data-contract-sheets] > [data-contract-sheet]:nth-child(${index+1})`;
+    const builderProduct = (sheet,index) => `${builderSheet(sheet)} [data-contract-products] > [data-contract-product]:nth-child(${index+1})`;
+    const fillProduct = async (selector,name,unit) => {
+        for (const [field,value] of [['nome',name],['quantidade','1'],['preco','2,00']]) await fill(`${selector} input[name$="[${field}]"]`,value);
+        await page.click(`${selector} select`);
+        for (const key of ['Home',...Array(unit==='Litros'?2:unit==='K'?1:0).fill('ArrowDown'),'Enter']) {
+            const keyCode={Home:36,ArrowDown:40,Enter:13}[key];
+            await page.command('Input.dispatchKeyEvent', {type:'keyDown',key,code:key,windowsVirtualKeyCode:keyCode});
+            await page.command('Input.dispatchKeyEvent', {type:'keyUp',key,code:key,windowsVirtualKeyCode:keyCode});
+        }
+        await page.until(`document.querySelector(${JSON.stringify(selector+' select')}).value===${JSON.stringify(unit)}`);
+    };
+    await fill('#titulo','Pedido criado no navegador');
+    await fill('#valor','1000,00');
+    await fillProduct(builderProduct(0,0),'Produto removido','UN');
+    await page.click(`${builderSheet(0)} [data-add-product]`);
+    await fillProduct(builderProduct(0,1),'Nota removida','K');
+    await page.click('[data-add-sheet]');
+    check(await page.evaluate(`document.querySelector('${builderProduct(1,0)} select').value`), 'UN', 'Authenticated cloned note resets the product unit');
+    await fillProduct(builderProduct(1,0),'Produto em litros','Litros');
+    await page.click('[data-add-sheet]');
+    await fillProduct(builderProduct(2,0),'Produto em unidades','UN');
+    await page.click(`${builderProduct(0,0)} [data-remove-product]`);
+    check(await page.evaluate(`document.querySelector('${builderProduct(0,0)} select').value`), 'K', 'Authenticated product removal preserves the surviving unit');
+    await page.click(`${builderSheet(0)} [data-remove-sheet]`);
+    check(await page.evaluate(`document.querySelector('${builderProduct(0,0)} select').value`), 'Litros', 'Authenticated note removal preserves the surviving unit');
+    await page.click('[data-add-sheet]');
+    await fillProduct(builderProduct(2,0),'Produto em quilos','K');
+    const submittedEntries = await page.evaluate(`[...new FormData(document.querySelector('[data-contract-builder]').closest('form'))]`);
+    check(new Set(submittedEntries.map(([name])=>name)).size, submittedEntries.length, 'Authenticated creation sends unique field names');
+    check(submittedEntries.filter(([name])=>/\[(nome|unidade)\]$/.test(name)), [
+        ['folhas[0][produtos][0][nome]','Produto em litros'],['folhas[0][produtos][0][unidade]','Litros'],
+        ['folhas[1][produtos][0][nome]','Produto em unidades'],['folhas[1][produtos][0][unidade]','UN'],
+        ['folhas[2][produtos][0][nome]','Produto em quilos'],['folhas[2][produtos][0][unidade]','K'],
+    ], 'Authenticated creation reindexes removed notes and products before submission');
+    await page.click('[data-contract-builder] ~ button[type="submit"]');
+    await page.until(`location.pathname==='/contrato/detalhes/2' && document.querySelectorAll('[role="tabpanel"]').length===3`);
+    check(await page.evaluate(`[...document.querySelectorAll('[role="tabpanel"] .contract-unit-badge')].map(unit=>unit.textContent.trim())`), ['Litros','UN','K'], 'Authenticated PHP creation persists the three submitted product units');
+    await shot('contrato-cadastro-tres-notas-1366');
     check(browser.errors, [], 'No JavaScript exceptions');
     check(/PHP (?:Warning|Fatal error|Parse error)/.test(serverErrors), false, 'No PHP runtime warnings');
-    console.log(`Browser passive batch: ${checks} checks passed (fictitious database, desktop and mobile).`);
+    console.log(`Browser authenticated contracts and passive batch: ${checks} checks passed (fictitious database, desktop and mobile).`);
 } finally {
     await browser?.cleanup();
     if (server && server.exitCode === null) {

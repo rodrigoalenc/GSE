@@ -8,7 +8,7 @@
     <?php if ((int) $student['ativo'] === 0): ?>
     <form class="passivo-form" method="post" action="<?= e(url('aluno/arquivar/' . (int) $student['id'])) ?>">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
-        <div class="passivo-form-grid"><div><label for="archive-box">Caixa</label><input id="archive-box" class="passivo-box-input" name="caixa" maxlength="<?= e((string) Passivo::BOX_MAX_LENGTH) ?>" required value="<?= e($data['caixa']) ?>"></div><div><label for="archive-number">Número ou posição</label><input id="archive-number" name="numero" maxlength="<?= e((string) Passivo::NUMBER_MAX_LENGTH) ?>" value="<?= e($data['numero']) ?>"></div></div>
+        <div class="passivo-form-grid"><div><label for="archive-box">Caixa</label><input id="archive-box" class="passivo-box-input" name="caixa" maxlength="<?= e((string) Passivo::BOX_MAX_LENGTH) ?>" pattern="[\p{L}\p{N}][\p{L}\p{N} ._\/\-]*" required value="<?= e($data['caixa']) ?>"></div><div><label for="archive-number">Número ou posição</label><input id="archive-number" name="numero" maxlength="<?= e((string) Passivo::NUMBER_MAX_LENGTH) ?>" pattern="[\p{L}\p{N}][\p{L}\p{N} ._\/\-]*" required value="<?= e($data['numero']) ?>"></div></div>
         <label class="passivo-confirm"><input type="checkbox" name="confirmar" value="1" required> Confirmo que a pasta física será vinculada a esta caixa e que o aluno original não deve ser excluído.</label>
         <div class="form-actions"><button class="btn-primary" type="submit">Enviar ao Arquivo Passivo</button><a class="btn-secondary" href="<?= e(url('aluno/perfil/' . (int) $student['id'])) ?>">Cancelar</a></div>
     </form>

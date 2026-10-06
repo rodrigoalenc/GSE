@@ -1,0 +1,1196 @@
+{
+  "date": "2026-10-05",
+  "files": [
+    {
+      "file": "aluno-cadastro-1366.png",
+      "bytes": 153290,
+      "sha256": "ace43351ba6c3446858b785a3fe0c311e90b46d9f19f93cd09b452ae0d8899ea",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "aluno-cadastro-1920.png",
+      "bytes": 216285,
+      "sha256": "3ddc7c31bbc0f8941f404e644582457c023433c925b7d1b8880ae536f65481ec",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "aluno-cadastro-390.png",
+      "bytes": 53405,
+      "sha256": "0e0a949d237530972328f8e244ff4b0328d2ba62dbc84cdd973cfc96bc569d5b",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "aluno-edicao-1366.png",
+      "bytes": 171609,
+      "sha256": "4ca3528d804d0b91597dbb6e99aaa11e7a9fc0a101ca37d8b017e1dc468cb2b8",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "aluno-edicao-1920.png",
+      "bytes": 240409,
+      "sha256": "849fcbee92162e53d793859f36557046a520ff20a5329e69c77563f3da943839",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "aluno-edicao-390.png",
+      "bytes": 78775,
+      "sha256": "5c15219e06b732facb7bb1b55ca8612f77f8cd42c371302307c821085b849adb",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "aluno-perfil-1366.png",
+      "bytes": 148522,
+      "sha256": "226e938a150b0b390357575186ada0175092ff86f29a8545f625c5391eaa76fd",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "aluno-perfil-1920.png",
+      "bytes": 241728,
+      "sha256": "799928794d590511e252373109866f5e6e5b2dd2aa336f56c02c64bc2b8bde27",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "aluno-perfil-390.png",
+      "bytes": 66622,
+      "sha256": "064e3d0994b062a054e8b67ad104b0435633abafa91fc2dcfc89d6f22d7b1e92",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "alunos-1366.png",
+      "bytes": 270574,
+      "sha256": "dd9b2ecee18da17ac6f1cb42290dc7f1280867938071e0de29eee3c1a2e0c5a8",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "alunos-1920.png",
+      "bytes": 331758,
+      "sha256": "d6d37f277e07cf7d4fb4cd7e5e6cdda6ac681018af7d566c83d19d16d5dcac8b",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "alunos-390.png",
+      "bytes": 118891,
+      "sha256": "d03ed7957a03fdbe2586d45e8435821c37e67586892a327943c8f5e292c1fceb",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "alunos-vazio-1366.png",
+      "bytes": 253735,
+      "sha256": "af77dfa75920970676053091e6c0d41dfc801ae75ff0d8dfbd794ccc11e99037",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "alunos-vazio-1920.png",
+      "bytes": 280348,
+      "sha256": "cda09fa8813740fe0f46db8cc8dc754c6a854c83b023a3bc931ece9b4326c5fa",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "alunos-vazio-390.png",
+      "bytes": 116932,
+      "sha256": "56e8bfc9ecc17d32ed436655d52147b5d75e3c436297b288f18a790134e35a95",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "arquivar-aluno-1366.png",
+      "bytes": 183809,
+      "sha256": "2fbdb1159faff2af1b04c2ed62e2b0740f7c10cf08da5bf5b3f8a85e00228246",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "arquivar-aluno-1920.png",
+      "bytes": 244561,
+      "sha256": "bea57e32955e8b5d9954618f8e5c3d9a3edd52d216205b8bbd02d28ab6181b1f",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "arquivar-aluno-390.png",
+      "bytes": 75652,
+      "sha256": "6fae72f4989fed48051f3b3271f38a80b6e1410a8057381f5d4316df96b97a71",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "auditoria-1366.png",
+      "bytes": 160134,
+      "sha256": "f4745d1462afc2c2bbabf4b5bdfdd2646f707dafcac7456f4d13e863d299f9b4",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "auditoria-1920.png",
+      "bytes": 242415,
+      "sha256": "3854a18e59fbfb6464814a0ced41ed1a97e363a927cd4fb3bbc6b4eb6b2a92c0",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "auditoria-390.png",
+      "bytes": 64682,
+      "sha256": "74d82433b34b22e72457ee66f1dae5374c063ba0c29877c4ef5de9a415e6eacc",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "certidao-cadastro-1366.png",
+      "bytes": 144398,
+      "sha256": "fe420c8f299535fd0d732ba485eac96f78634ce2be0de81851caf591c256a7e9",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "certidao-cadastro-1920.png",
+      "bytes": 201928,
+      "sha256": "62c11572a13bb89c07bd441292573cf245115b9bd9babb0227a619aa55214d8a",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "certidao-cadastro-390.png",
+      "bytes": 46997,
+      "sha256": "5a4c2f3a3f57b9bddef5dba720376685baafc4498ae61f587cecc14a0c7ee6ef",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "certidao-detalhes-1366.png",
+      "bytes": 165654,
+      "sha256": "a12671d431a0e908a397ed0931e6977ead680d9cb7defa13f938d719d245cb7d",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "certidao-detalhes-1920.png",
+      "bytes": 229450,
+      "sha256": "10e730a9a34482f3f69f227173bf928fc82f3e447a2e2819618cb5301ea10d7e",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "certidao-detalhes-390.png",
+      "bytes": 68284,
+      "sha256": "a01285d33aa23b247eba0797188e4fb727bebce804cdd1d2fef245967ec1e50f",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "certidao-edicao-1366.png",
+      "bytes": 142197,
+      "sha256": "fde21d98612e8c8f7806bce19bf28ac971601e569a746af7f2cdf5d3bc0f18ae",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "certidao-edicao-1920.png",
+      "bytes": 199653,
+      "sha256": "9385a3908d7c04d910c55775982ed1dc0a3ce1e6d55cec8aefea674c79a4b2f9",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "certidao-edicao-390.png",
+      "bytes": 49255,
+      "sha256": "f0c62a22866b16ef19451bc5aac4f8d47edc95deaf25e68a6236fc566dd4211b",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "certidao-renovacao-1366.png",
+      "bytes": 152194,
+      "sha256": "ee27a93e3dfc84b3ca8910bee0e021b68c143fbe24521d6688e73088887a536a",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "certidao-renovacao-1920.png",
+      "bytes": 213412,
+      "sha256": "3bd478d28d8a912197cd5395dfe46ded2a0fd705376d40e6c7fb280fc72c8ca4",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "certidao-renovacao-390.png",
+      "bytes": 57359,
+      "sha256": "08c86a83b1b30eb01e68b67f0a52cb387a0cd0a0f862efed41d3734eb5ccf1ec",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "certidoes-1366.png",
+      "bytes": 240850,
+      "sha256": "b66ba6cfff2afd7a213cb6b5e75e93951162146281f763178128660e4103963c",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "certidoes-1920.png",
+      "bytes": 242620,
+      "sha256": "e8f6b71413fc1298ecb1a0173da55880fc7cef06167bf02a3d7f13254d94a1c4",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "certidoes-390.png",
+      "bytes": 106257,
+      "sha256": "f4ae1e52810d319d7c44bce05df367e713d5d727e9b7d7ae6ceb74e0a33bd8e7",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "certidoes-arquivadas-1366.png",
+      "bytes": 237186,
+      "sha256": "5135c2a1b6084f2d26b5847201276d63f2e4fa95b26d55fef099fe8acd0ed296",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "certidoes-arquivadas-1920.png",
+      "bytes": 236777,
+      "sha256": "d435f2aa1fb27dae44369b6f83cfc3daf9fc2ab83920e208690ac6a4d49a777d",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "certidoes-arquivadas-390.png",
+      "bytes": 105033,
+      "sha256": "476490cad0bed7f1d3443bac54e99a8a9be166602cd5c2957033c088e54c3160",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "certidoes-configuracao-1366.png",
+      "bytes": 172225,
+      "sha256": "512ed88993a60e87a650bedcb2d3599795880a9bf442487d282995a46d507759",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "certidoes-configuracao-1920.png",
+      "bytes": 194494,
+      "sha256": "70ee3fdd53efaebd1e496da19f43baabb0df3806d32972166ac6f39ba39362bc",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "certidoes-configuracao-390.png",
+      "bytes": 91774,
+      "sha256": "55538337eb5d5c6f3dd0433c2580372096e5666b4febe667c7637620976c7cf4",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "certidoes-excluidas-1366.png",
+      "bytes": 182325,
+      "sha256": "8bdca03d46679be8dcb346d0dcb1591ecdbe3c5ed10e9c55e97bab1f2d793316",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "certidoes-excluidas-1920.png",
+      "bytes": 226646,
+      "sha256": "ff507be7c11ecbc6a6f6c23c5480f45e7e4206eaac9970e987a892ca995aff48",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "certidoes-excluidas-390.png",
+      "bytes": 90116,
+      "sha256": "df5dc2c413925b6ee06cbfd7852f561de0a4c20e8ce2fc794ed03caae639a18f",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "contrato-cadastro-tres-notas-1366.png",
+      "bytes": 204218,
+      "sha256": "23026911cca583a3dc2cedaf257bf8f523c88085d226ac518aae548bf82755ce",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "contrato-nota-2-add-product-1366.png",
+      "bytes": 124815,
+      "sha256": "1596b16cd7278eebf92a07be7a977004acea02628c2812a32f1a17d637246cce",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "contrato-nota-2-billing-note-1366.png",
+      "bytes": 139923,
+      "sha256": "9b7fafe395e99d5b2d279560439511377c0b710bdce4b7f19f3d404b9466642e",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "contrato-nota-3-add-product-1366.png",
+      "bytes": 124812,
+      "sha256": "4af76ed3c5bbedaba904ad6240460af1bb2e2c32d69c370be75326f09c9a3a0b",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "contrato-nota-3-billing-note-1366.png",
+      "bytes": 139947,
+      "sha256": "a665c9d178ce07a9feb1e35fcbdbd9c7ae0f534209c61e40789bf7a2353627d0",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "dva-1366.png",
+      "bytes": 214113,
+      "sha256": "20d58310e0c0784600e535ef7983607570dbad7cddb5186d8b95122dfe4449b0",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "dva-1920.png",
+      "bytes": 290068,
+      "sha256": "384c88ae3845f187a720281b629362582c18a0eca05111b5f213952f12314b67",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "dva-390.png",
+      "bytes": 98699,
+      "sha256": "846c0510bb66bd5eec4ec24e9e7064422891f8e67f72d02a56ccce7898986221",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "dva-renovacao-1366.png",
+      "bytes": 167499,
+      "sha256": "2b2c2ff8fab8ce1c99e102299d19d937ed52171bed07d2935f8efd99616677e5",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "dva-renovacao-1920.png",
+      "bytes": 237814,
+      "sha256": "ea350f65ae4416f09088e6a09d471f497305f0a798be2dd668867724672de42e",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "dva-renovacao-390.png",
+      "bytes": 69021,
+      "sha256": "4360014fd56b56c05d18919ac0ea39a62d6fca059ba7b1bb603e0e85f79b8adb",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "erro404-1366.png",
+      "bytes": 30560,
+      "sha256": "f81d9f80d4a4325042a661831bdf19e6ef37231bd2ed0350bbb45dea78c2ff7f",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "erro404-1920.png",
+      "bytes": 34475,
+      "sha256": "d18e239968d61eb537cf5c7ca2ce4c91fa26a16ad744381c2c81a781e9f9db61",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "erro404-390.png",
+      "bytes": 26510,
+      "sha256": "168df00a80aaed81cce5fc6af25eddff1cd243adf25e65bad6ccbd6e5117e8bc",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "estoque-1366.png",
+      "bytes": 211304,
+      "sha256": "58fcea29d70130eeb3d0aa290d8346eda9259868962369f4509279fe67262c1a",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "estoque-1920.png",
+      "bytes": 271096,
+      "sha256": "d2bd5d729858bcf7dd895c3382ec47a63dc1fbd64cd4e9a9e3a111394f411585",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "estoque-390.png",
+      "bytes": 107452,
+      "sha256": "696b5a195dcc290da3cb68a73348145b7a51f282cae76cde89ce1e2c947fc871",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "estoque-legado-1366.png",
+      "bytes": 100603,
+      "sha256": "79c909cdd4d9755ca0c04e66e971e656820c813b9a47611ee1bfce059647d074",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "estoque-legado-1920.png",
+      "bytes": 136994,
+      "sha256": "732bd09917db5db838cf6b0077f65f6b3aa2a6e5d372cfc71238648a7f10be20",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "estoque-legado-390.png",
+      "bytes": 38226,
+      "sha256": "e28a7ffcc42bfe7c4c6f679958e10f0289526561e909fb3ce0b902f05f722d11",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "faturamento3-1366.png",
+      "bytes": 142024,
+      "sha256": "e34f85a77b9a7d630a077c6b4a255c29d60bcc036d4f318d8e13df0aa18e2e12",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "faturamento3-1920.png",
+      "bytes": 204230,
+      "sha256": "2a289a0ae66a061ef428ba082ef6471303dd9b0aca9b5de027f9dbf4bc7926e9",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "faturamento3-390.png",
+      "bytes": 56078,
+      "sha256": "52fed3fbb312086b7a61dbbfa8aa10eca6a65e6690f8007b2e973e5424fa7d35",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "historico-1366.png",
+      "bytes": 165942,
+      "sha256": "4fb79acc274b8b733b9c720435223ae746941d07492f7729e7b85fb6e550fb9d",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "historico-1920.png",
+      "bytes": 200930,
+      "sha256": "190f254594da493325adef0332fd6fa3ab31eaed7f6d8f2ddfa9c21ef5b4e8f8",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "historico-390.png",
+      "bytes": 77824,
+      "sha256": "a7abc55b858595f86f3fd3d0450a1de15ed6acf1dd64ed8dcedcab075195ca16",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "impressao-80-produtos-1366.png",
+      "bytes": 57003,
+      "sha256": "881244d3a9d00aa17ed5eea0df019c355290c097980d9e2f12ab6008d655f4ac",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "impressao-80-produtos-pagina-1.png",
+      "bytes": 120745,
+      "sha256": "d2ca1501364dad6b9e39f7a137dfc1a31bffdd7aac7fe2a883d3c23f4cd92072",
+      "width": 775,
+      "height": 1095
+    },
+    {
+      "file": "impressao-80-produtos-pagina-2.png",
+      "bytes": 130955,
+      "sha256": "09653738501a644500644458da2fae71b80243f0725944950e90ff3decb1de8b",
+      "width": 775,
+      "height": 1095
+    },
+    {
+      "file": "impressao-80-produtos-pagina-3.png",
+      "bytes": 131014,
+      "sha256": "4cc435ba1452617912f1bff297a9d1710c96f286cc1b027e827501ef8fed55c4",
+      "width": 775,
+      "height": 1095
+    },
+    {
+      "file": "impressao-80-produtos-pagina-4.png",
+      "bytes": 57722,
+      "sha256": "0a79d539773510d7dbc5afa2221e91aca34190e20fdf754cfb7c2cd2a83218cb",
+      "width": 775,
+      "height": 1095
+    },
+    {
+      "file": "impressao-80-produtos.pdf",
+      "bytes": 236246,
+      "sha256": "413cb9fb43b8e7211a3044b27dc9079c65c7adcb0bcf0dafc7701e9d0ae4ab30"
+    },
+    {
+      "file": "impressao-nota2-1366.png",
+      "bytes": 32960,
+      "sha256": "ce2bb4470e1e422cbf9ebaee9ed100c74dc45e8f5c2877ff02455d951ad4a6fd",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "impressao-nota2-pagina-1.png",
+      "bytes": 40471,
+      "sha256": "43d6a18352dce402a37a68535af6123d130aa1a13ad409e0677bca48f4a2d814",
+      "width": 775,
+      "height": 1095
+    },
+    {
+      "file": "impressao-nota2.pdf",
+      "bytes": 55958,
+      "sha256": "f1b1e44b524751adf56b6ad888f5ec11342c01e2d3fcfe64963f0885a15c73d0"
+    },
+    {
+      "file": "impressao-pedido-1366.png",
+      "bytes": 42208,
+      "sha256": "5d0244a5694f14e533106911a73591d8fbf3bebafa97a003374bb7f5fbbe0c34",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "impressao-pedido-pagina-1.png",
+      "bytes": 72810,
+      "sha256": "4b24f19d76a2b8df23e4ffa1d2f632afc4adeb9a8f65c38e6982be74afb73873",
+      "width": 775,
+      "height": 1095
+    },
+    {
+      "file": "impressao-pedido.pdf",
+      "bytes": 71273,
+      "sha256": "3d87ec56eccf7fd82343e754308a97cad61bd1cfb0873792325aa9aa44c5bf67"
+    },
+    {
+      "file": "login-1366.png",
+      "bytes": 283808,
+      "sha256": "cf3d2e7b6f34a68652628cd21592fa10e5bfbd4cc3c8e2972ea86089d193d425",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "login-1920.png",
+      "bytes": 469013,
+      "sha256": "31ee5827e044d500a7f6b3ff7e05be47c8de15f32934a75b2c81fbd0e386c7ec",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "login-390.png",
+      "bytes": 98194,
+      "sha256": "6978e87ddd98216be3460eaeb2443ce38aa570814d8bcede8f1aa215e18cbf53",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "menu-expandido-1366.png",
+      "bytes": 151307,
+      "sha256": "f82f031838b90e0e936e3c208d4cb6d0d1cd1f874ef9c8ebafae7b3ddfb3eb34",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "menu-expandido-1920.png",
+      "bytes": 196719,
+      "sha256": "c429d65f073402e997fa01f80f00ed5b6337adebb7f44c8167aa1abd556f445b",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "menu-expandido-390.png",
+      "bytes": 62894,
+      "sha256": "d787f2517751b44d5277df3480fe18b9b11bbd5866fb6bea4e97c2acc6798041",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "nota2-1366.png",
+      "bytes": 136610,
+      "sha256": "5584b37c71727b365d85b7f4af6a679cde9f7b699d2fe03b5c0b4bb1f6f8d690",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "nota2-1920.png",
+      "bytes": 234807,
+      "sha256": "29020ec99cd30d2c258941a021c222f8dc68ccdb4c182e652e1e0d5ca363db32",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "nota2-390.png",
+      "bytes": 61008,
+      "sha256": "1feabf180c886d9fc5416211dbfe7a5108d392e8b71ede543e51301d2d818c6a",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "painel-1366.png",
+      "bytes": 140170,
+      "sha256": "6f6fb240eb9dbb6d17388df678e7f39c2fef055df9462c881c2e733f5e6d2fa4",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "painel-1920.png",
+      "bytes": 190967,
+      "sha256": "3724d1a66ada2e59c5496a066cdc3e155ddc3d9eb1c6cdb9dcf13d730cda51cf",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "painel-390.png",
+      "bytes": 61572,
+      "sha256": "e90ce091f9bb061c5046a4bbdf7da38113f83dff58eb7573116a20a10703dd67",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-1366.png",
+      "bytes": 256151,
+      "sha256": "d25427591aaa19202132b263ab028da918004f7f7edf1982b340752bf58d23f9",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-1920.png",
+      "bytes": 285717,
+      "sha256": "412afd83a268872241b0e7bedc08172a51c49bd98a0b5895860e2bc5c66a85d1",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-390.png",
+      "bytes": 117885,
+      "sha256": "a39f86fccfbfa2250cc6fa6659334c55defe3d226914066633ee4766a9ba0688",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-cadastro-1366.png",
+      "bytes": 149168,
+      "sha256": "8cc5d3998059e79f63bfc9a7da8b0cf01595e27cd08efb177ea397b172f1a3cc",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-cadastro-1920.png",
+      "bytes": 208966,
+      "sha256": "7175ba3a997488123ed9f79d0c2abb56ed37eb2f3f1479a188797f4510592a5f",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-cadastro-390.png",
+      "bytes": 54071,
+      "sha256": "64770ff279ebe77f77f66ebcd7a5f9bcec7fe794229d3ffe3ce9430f6d2d78fa",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-detalhes-1366.png",
+      "bytes": 165807,
+      "sha256": "4f3c1ca2f490c5b0dadbe0c82c5d71873e6bd158b9b73a312e72dc843297b261",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-detalhes-1920.png",
+      "bytes": 248432,
+      "sha256": "785fade2f348c542defc1071bdf684fa5fc55751b7799b29694290fa08783518",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-detalhes-390.png",
+      "bytes": 61122,
+      "sha256": "a8b39a68dc4caa72af17429ea08ae80844faa680f8a6ec94111c984e9108973a",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-edicao-legado-1366.png",
+      "bytes": 187439,
+      "sha256": "2e8d1e965f58e4742b9c6eb7229b6c42696de6e5a97dc8108651d967082db85b",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-edicao-legado-1920.png",
+      "bytes": 236367,
+      "sha256": "e5ddc478f89cc02486c19df8726a29fefae68c306a8913ee86981e7422444a43",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-edicao-legado-390.png",
+      "bytes": 79349,
+      "sha256": "aff3b632a0ba1704709841699d611797c586fff74d19a82d7d4709e8f970b39a",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-excluidos-1366.png",
+      "bytes": 249813,
+      "sha256": "2181a906b0b8ae6ceafdc1079d58dc1f8704cf3335cb47ef5695c715d1b2b1c9",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-excluidos-1920.png",
+      "bytes": 265620,
+      "sha256": "a40660c206d5e3b69661d633bfbcaa79c3282d7b17b9eeae94af3000631eb420",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-excluidos-390.png",
+      "bytes": 107908,
+      "sha256": "9e07ac5511e6fed5f349392e04c111011ab88904ecdcd3e2c22f488d52c18382",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-ferramentas-1366.png",
+      "bytes": 190467,
+      "sha256": "15de5af8e99971753e1e33bd3fca1d8a7d866abeda540f932f56da898477c6a8",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-ferramentas-1920.png",
+      "bytes": 224396,
+      "sha256": "c621ddcc2370882157335fb509fcc388b44f85a0460bea8d900a991dcabba700",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-ferramentas-390.png",
+      "bytes": 77036,
+      "sha256": "6a2ff628fa58c4f0f02719b4ec0ca8807116698ae7aded679e4932cd31e42d5d",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-importacao-1366.png",
+      "bytes": 192376,
+      "sha256": "45ff914b433e5da359f87667d4fc3074294f943551f6d18feaaa9ae3a35ac2f6",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-importacao-1920.png",
+      "bytes": 249091,
+      "sha256": "16a94b2fb337fc9afde6e0267da187983a957a550f9c41ac159dfb3052842bd6",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-importacao-390.png",
+      "bytes": 75684,
+      "sha256": "6f5d3809268eb9b25a9e319912fed043a383e52633c98d1f5c1fe201d9261b6f",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-invalido-1366.png",
+      "bytes": 149168,
+      "sha256": "8cc5d3998059e79f63bfc9a7da8b0cf01595e27cd08efb177ea397b172f1a3cc",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-invalido-1920.png",
+      "bytes": 208966,
+      "sha256": "7175ba3a997488123ed9f79d0c2abb56ed37eb2f3f1479a188797f4510592a5f",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-invalido-390.png",
+      "bytes": 54071,
+      "sha256": "64770ff279ebe77f77f66ebcd7a5f9bcec7fe794229d3ffe3ce9430f6d2d78fa",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-lote-pagina-2-1366.png",
+      "bytes": 142270,
+      "sha256": "69517a6e4184d6f23cb5964f0f73b3ce607b97d4401c77873732911653f313bd",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-lote-previa-1366.png",
+      "bytes": 119056,
+      "sha256": "b76022a754f4998508ec6444e88790f8e8ee9d829b68f9abef0d8caac642e4f8",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-lote-previa-390.png",
+      "bytes": 50900,
+      "sha256": "d555c11931f1a266922d0e0f9d3ac96aac94a5d3a0d7fb99c583d2e3d2b4d552",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-lote-selecao-1366.png",
+      "bytes": 156985,
+      "sha256": "f0e49f42fd7b538829192b53ee24f9f478f078e77097085646ba95ae597c0d8e",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-lote-selecao-390.png",
+      "bytes": 33530,
+      "sha256": "b6aec1af9ac323aa44f0e7c388ccd7414c0b93ba063799a4d2c0dd3b7f54331a",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "passivo-pendentes-1366.png",
+      "bytes": 251983,
+      "sha256": "116ebd1f824d61b1c674b5115c93a151d1d28bae6e6df6267dd908bde8c0bda9",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "passivo-pendentes-1920.png",
+      "bytes": 267022,
+      "sha256": "920e32e1b8af2369bd4e02b4717d5e64aed4720483e090576e5b73544a275573",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "passivo-pendentes-390.png",
+      "bytes": 107802,
+      "sha256": "6f4b7817f6ec26fe89e1cad3a6de8d4d513f030a7b0ecf60b9f49fab330141d7",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "pedido-cadastro-1366.png",
+      "bytes": 143467,
+      "sha256": "25c03010e2f26245e031af6d2ce66d22581667386f7e61fa2aaeb14d9e8c6ad5",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "pedido-cadastro-1920.png",
+      "bytes": 190048,
+      "sha256": "03b90b79ee387175fbf5fd8e55a08c1de2ea3b3cea02d1342cb822ef717a5fbd",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "pedido-cadastro-390.png",
+      "bytes": 59007,
+      "sha256": "0e50afa7ac145a2e45d8717b0bdeb6110de6a730e5d1c416ade9ecc68c68f91b",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "pedido-edicao-1366.png",
+      "bytes": 113319,
+      "sha256": "78fad045d475de2baf2a1d0e14da4bc30d0a67d354cdeee3ee05b6d153e600f9",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "pedido-edicao-1920.png",
+      "bytes": 155705,
+      "sha256": "bc01ba7065c054be3594739d923dacc86879f5340fad32e678cec1767af25ec0",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "pedido-edicao-390.png",
+      "bytes": 45001,
+      "sha256": "9682fe3b60a32f0c93be8accaba641180a96af1e6112df5883b49c46265bb906",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "pedidos-1366.png",
+      "bytes": 254086,
+      "sha256": "8572184a8269900a19699eb34482af2e4575e2c47e2f7ec31424d3f69d2e3e27",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "pedidos-1920.png",
+      "bytes": 289658,
+      "sha256": "17e4a2b593e2b274192b2ab008691837fffb4e2d29cd6cb0664fc9ddc26b0846",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "pedidos-390.png",
+      "bytes": 105960,
+      "sha256": "8b41b7470c46ab0e19daa5c921cf6062c086525f7921a3006ce5f3650708f2c1",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "produto3-1366.png",
+      "bytes": 125253,
+      "sha256": "ecba040173604571c1de61583275230ccb4c5e25d4f2672955c304a206016929",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "produto3-1920.png",
+      "bytes": 204230,
+      "sha256": "2a289a0ae66a061ef428ba082ef6471303dd9b0aca9b5de027f9dbf4bc7926e9",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "produto3-390.png",
+      "bytes": 44167,
+      "sha256": "7ed6bfcae3e9c3619f78e6d80ce623405616254c3d76eb31796fe877d9c79598",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "relatorio-500-alunos-pagina-01.png",
+      "bytes": 113730,
+      "sha256": "7d70b23b6b992578971639fdda1285efffaddcea2c44f81d685da904fa6dc02b",
+      "width": 774,
+      "height": 1095
+    },
+    {
+      "file": "relatorio-500-alunos-pagina-08.png",
+      "bytes": 119309,
+      "sha256": "f483773d8f1b57fbeea94ef9cb7bad35f8598280ada9aec8fdc9e9cc60704b56",
+      "width": 774,
+      "height": 1095
+    },
+    {
+      "file": "relatorio-500-alunos-pagina-14.png",
+      "bytes": 37806,
+      "sha256": "af504744769f5d69a8a8e80caf31252d2e945b7685c6bdaca7b6db729f5e45fb",
+      "width": 774,
+      "height": 1095
+    },
+    {
+      "file": "relatorios-1366.png",
+      "bytes": 253251,
+      "sha256": "2327a606829bfbbf0c9bb6f0cc23b41df7c7f5664ba98a0e1b544352bc52bc7f",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "relatorios-1920.png",
+      "bytes": 368921,
+      "sha256": "aec4cef1ac22ee6ec4effc2966c71a8929ea61a81bf91311c7a277cc7f4136d1",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "relatorios-390.png",
+      "bytes": 116893,
+      "sha256": "2ec5154ad351df9d45ae55724561a52835b9bcaed5238bc91dcf6cbe9bc0df40",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "senha-1366.png",
+      "bytes": 163409,
+      "sha256": "4018f10de1c2a27ca6867e12d00ca9f56efe530e550cdeff30fd07d3c2d55a00",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "senha-1920.png",
+      "bytes": 215123,
+      "sha256": "d19d50cc914b93fc47c2753ac6b173e9a14d8d3bbed72b30b678668969e6a41d",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "senha-390.png",
+      "bytes": 57567,
+      "sha256": "fdbee9b88e3d256439a8683054f068febce978098abad4124ed4383761011620",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "turma-cadastro-1366.png",
+      "bytes": 161708,
+      "sha256": "99ac4e2ae0fbdd4f9e4348aff56c9a0e94c142760715dced11733947468860bb",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "turma-cadastro-1920.png",
+      "bytes": 221031,
+      "sha256": "e81defedf67078764eadcec76c7dea3207311d1043f8b41223da1fdba1c9591c",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "turma-cadastro-390.png",
+      "bytes": 64503,
+      "sha256": "8d2750b7ae24e7086c5158e70f770990ecdcabaff1323b8ae13e36c1eb7d2885",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "turmas-1366.png",
+      "bytes": 207005,
+      "sha256": "ccd6ab60c79a42b9e446b7726e39e91664504aee134840b338b7fb04dbba2bf5",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "turmas-1920.png",
+      "bytes": 249891,
+      "sha256": "3202e87ddb2266d78606ddb65875b81c1adf4271bc7f76cfd950e4776abb18c1",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "turmas-390.png",
+      "bytes": 92465,
+      "sha256": "76082dc523a09d705fe2efd21f4719cedf8de7f360e2a238817aaf09197714d1",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "usuario-cadastro-1366.png",
+      "bytes": 131802,
+      "sha256": "98ce747259578ea4aaf65b7ce095c5a1a1ef0d41be1af09499b950b097d63a85",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "usuario-cadastro-1920.png",
+      "bytes": 186547,
+      "sha256": "612b13688a5ec1c7ab0159591d62b5144ecd0d21929428de7202ad9a68320cdd",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "usuario-cadastro-390.png",
+      "bytes": 38553,
+      "sha256": "56136cca80c83cc51cb74321f17be2e2220c625a945e82c95a5d3ff66cd69aa3",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "usuario-edicao-1366.png",
+      "bytes": 151811,
+      "sha256": "3d306c7f948866135b9d5c4943d3b079555085adad61f8e2ddd5dc05b20b6350",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "usuario-edicao-1920.png",
+      "bytes": 210164,
+      "sha256": "5adb47d5430648e1d5dc976390e2db8598f9e44cf5365f85284c487be7755d76",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "usuario-edicao-390.png",
+      "bytes": 45755,
+      "sha256": "1aa87c0ad1e3cf70fca8501a12b7e330f9da638755dbea69981a0fd4c9356e7a",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "usuarios-1366.png",
+      "bytes": 123174,
+      "sha256": "b4fd2a999b1bfbf61d4ccc52847cf8140c519bf69fdf95f8a984afb682cf4668",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "file": "usuarios-1920.png",
+      "bytes": 150628,
+      "sha256": "0cec9b00f109d64020c79836b6476eb78a0dc6bd0b3f7405885f5c3dc47bd07f",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "usuarios-390.png",
+      "bytes": 54473,
+      "sha256": "eee70825bc7c6a53ca5bec6eca245777ff08432bf3aff48a74d742e49fff019b",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "printChecks": [
+    {
+      "file": "impressao-80-produtos.pdf",
+      "pages": 4,
+      "textBounds": [
+        [
+          39.75,
+          27.96,
+          556.5,
+          788.23
+        ],
+        [
+          48.0,
+          36.24,
+          548.25,
+          797.23
+        ],
+        [
+          48.0,
+          36.24,
+          548.25,
+          797.23
+        ],
+        [
+          39.75,
+          36.24,
+          556.5,
+          440.23
+        ]
+      ]
+    },
+    {
+      "file": "impressao-nota2.pdf",
+      "pages": 1,
+      "textBounds": [
+        [
+          39.75,
+          27.96,
+          556.5,
+          288.73
+        ]
+      ]
+    },
+    {
+      "file": "impressao-pedido.pdf",
+      "pages": 1,
+      "textBounds": [
+        [
+          39.75,
+          27.96,
+          556.5,
+          684.73
+        ]
+      ]
+    }
+  ]
+}

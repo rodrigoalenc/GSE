@@ -1,5 +1,7 @@
 # Módulo 5 — Contratos, Estoque e Relatórios
 
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
 ## Fontes e alcance
 
 Revisão de 02/10/2026, branch `Modulo5`, a partir de `755d28d2c3a69844e3413ff4ea49eefc6bb4b4c2`, com árvore inicialmente limpa. O PDF acadêmico `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` não foi localizado no repositório nem nos diretórios locais de anexos consultados. O arquivo versionado em `Documentação/` é outra edição e não foi usado como equivalente. As referências de páginas abaixo foram recebidas na solicitação e aguardam leitura literal. A descrição funcional é sustentada pelo código e pelos testes, sem declaração de aprovação acadêmica.

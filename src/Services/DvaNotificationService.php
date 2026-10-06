@@ -35,7 +35,7 @@ final class DvaNotificationService
         foreach ($recipients as $recipient) {
             $userId = (int) $recipient['id'];
 
-            if (!$this->claim($status->today(), $userId)) {
+            if (!$this->claim($status->today(), $userId, (string) $recipient['email'])) {
                 $result['skipped']++;
                 continue;
             }
@@ -85,16 +85,30 @@ final class DvaNotificationService
     /** @return list<array<string,mixed>> */
     private function recipients(): array
     {
-        return $this->pdo->query(
+        $recipients = $this->pdo->query(
             "SELECT id, nome, email FROM usuarios
              WHERE ativo = 1 AND tipo = 'administrador' AND recebe_alertas_dva = 1
              ORDER BY id"
         )->fetchAll();
+
+        return array_values(array_filter(
+            $recipients,
+            static fn (array $recipient): bool => filter_var($recipient['email'], FILTER_VALIDATE_EMAIL) !== false
+        ));
     }
 
-    private function claim(string $date, int $userId): bool
+    private function claim(string $date, int $userId, string $email): bool
     {
-        return SqliteTransaction::immediate($this->pdo, function (PDO $pdo) use ($date, $userId): bool {
+        return SqliteTransaction::immediate($this->pdo, function (PDO $pdo) use ($date, $userId, $email): bool {
+            $active = $pdo->prepare(
+                "SELECT 1 FROM usuarios WHERE id = :user AND ativo = 1 AND tipo = 'administrador'
+                 AND recebe_alertas_dva = 1 AND email = :email"
+            );
+            $active->execute(['user' => $userId, 'email' => $email]);
+            if ($active->fetchColumn() === false) {
+                return false;
+            }
+
             $existing = $pdo->prepare(
                 'SELECT status, sent_at FROM dva_notification_deliveries WHERE notification_date = :date AND user_id = :user'
             );

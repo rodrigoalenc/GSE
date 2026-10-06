@@ -1,5 +1,7 @@
 # Revisão visual das telas do GSE
 
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
 Revisão de 02/10/2026 na branch `Modulo5`. As telas existentes dos cinco módulos foram exercitadas com dados fictícios no Chrome instalado, perfil temporário, escala 1 e janelas de 1366×768, 1920×1080 e 390×844. O navegador integrado não apresentou instância disponível. As evidências abaixo pertencem somente ao GSE.
 
 ## Telas e comportamentos verificados

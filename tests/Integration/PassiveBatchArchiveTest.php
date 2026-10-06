@@ -96,7 +96,7 @@ final class PassiveBatchArchiveTest extends DatabaseTestCase
         $actor = $this->insertUsuario('Admin Exclusividade Caixa Lote');
         $student = $this->insertBatchStudent('Aluno Caixa Exclusiva');
         $model = new \Passivo();
-        $old = $model->cadastrar(['nome_completo' => 'Arquivo inativo ficticio', 'caixa' => 'CX-OCUPADA'], $actor);
+        $old = $model->cadastrar(['nome_completo' => 'Arquivo inativo ficticio', 'caixa' => 'CX-OCUPADA', 'numero' => '1'], $actor);
         $this->assertIsInt($old);
         $this->assertTrue($model->definirAtivo($old, false, $actor));
 

@@ -223,27 +223,44 @@ final class Passivo extends Model
     public function atualizar(int $id, array $data, int $actorId): bool
     {
         $this->lastErrorCode = null;
-        $normalized = $this->validarDados($data);
 
-        if ($id < 1 || $normalized === false || !$this->validActor($actorId)) {
+        if ($id < 1 || !$this->validActor($actorId)) {
             $this->lastErrorCode ??= 'invalid_actor';
 
             return false;
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized, $actorId): bool {
-                $existing = $pdo->prepare('SELECT ativo FROM alunos_passivo WHERE id = :id');
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $data, $actorId): bool {
+                $existing = $pdo->prepare('SELECT * FROM alunos_passivo WHERE id = :id');
                 $existing->execute(['id' => $id]);
-                $active = $existing->fetchColumn();
+                $record = $existing->fetch();
 
-                if ($active === false) {
+                if (!is_array($record)) {
                     $this->lastErrorCode = 'not_found';
 
                     return false;
                 }
 
-                if ((int) $active === 1 && $this->locationConflict($pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado'], $id)) {
+                // Legado incompleto continua editável sem inventar a localização.
+                $pending = (int) $record['localizacao_pendente'] === 1;
+                $normalized = $this->normalizeData($data, $pending);
+                if ($normalized === false) {
+                    return false;
+                }
+                foreach (['caixa' => 'invalid_box', 'numero' => 'invalid_number'] as $field => $error) {
+                    $existingDisplay = TextNormalizer::displayName((string) ($record[$field] ?? ''));
+                    if ($normalized[$field] === null && $existingDisplay !== '') {
+                        $this->lastErrorCode = $error;
+                        return false;
+                    }
+                    if (($normalized[$field] ?? '') === $existingDisplay) {
+                        $normalized[$field] = $record[$field];
+                    }
+                }
+                $locationPending = $normalized['caixa_normalizada'] === null || $normalized['numero_normalizado'] === null;
+
+                if ((int) $record['ativo'] === 1 && $this->locationConflict($pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado'], $id)) {
                     $this->lastErrorCode = 'location_conflict';
                     AuditLogger::recordRequired(
                         $pdo, 'passive.conflict', AuditLogger::BLOCKED, $actorId, null,
@@ -258,7 +275,7 @@ final class Passivo extends Model
                      SET nome_completo = :name, nome_normalizado = :normalized_name,
                          data_nascimento = :birth_date, numero = :number,
                          numero_normalizado = :normalized_number, caixa = :box,
-                         caixa_normalizada = :normalized_box, localizacao_pendente = 0,
+                         caixa_normalizada = :normalized_box, localizacao_pendente = :pending,
                          atualizado_em = :updated_at, atualizado_por = :updated_by
                      WHERE id = :id'
                 );
@@ -270,6 +287,7 @@ final class Passivo extends Model
                     'normalized_number' => $normalized['numero_normalizado'],
                     'box' => $normalized['caixa'],
                     'normalized_box' => $normalized['caixa_normalizada'],
+                    'pending' => $locationPending ? 1 : 0,
                     'updated_at' => gmdate('Y-m-d H:i:s'),
                     'updated_by' => $actorId,
                     'id' => $id,
@@ -624,18 +642,7 @@ final class Passivo extends Model
         if ($rows !== []) {
             $key['display'] = TextNormalizer::displayName((string) $rows[0]['caixa']);
         }
-        $maximum = '0';
-        foreach ($rows as $row) {
-            $number = trim((string) ($row['numero'] ?? ''));
-            if (preg_match('/^[0-9]+$/D', $number) === 1) {
-                $digits = ltrim($number, '0');
-                $digits = $digits === '' ? '0' : $digits;
-                if (strlen($digits) > strlen($maximum)
-                    || (strlen($digits) === strlen($maximum) && strcmp($digits, $maximum) > 0)) {
-                    $maximum = $digits;
-                }
-            }
-        }
+        $maximum = $this->maximumArchiveNumber($rows);
         $next = $this->nextArchiveNumber($maximum);
         $first = $next;
         $assignments = [];
@@ -660,6 +667,24 @@ final class Passivo extends Model
             'ultimo_numero' => $assignments[count($assignments) - 1]['numero'], 'total' => count($assignments)];
     }
 
+    /** @param list<array<string,mixed>> $rows */
+    private function maximumArchiveNumber(array $rows): string
+    {
+        $maximum = '0';
+        foreach ($rows as $row) {
+            $number = TextNormalizer::displayName((string) ($row['numero'] ?? ''));
+            if (preg_match('/^[0-9]+$/D', $number) === 1) {
+                $digits = ltrim($number, '0');
+                $digits = $digits === '' ? '0' : $digits;
+                if (strlen($digits) > strlen($maximum)
+                    || (strlen($digits) === strlen($maximum) && strcmp($digits, $maximum) > 0)) {
+                    $maximum = $digits;
+                }
+            }
+        }
+        return $maximum;
+    }
+
     private function nextArchiveNumber(string $number): string
     {
         for ($index = strlen($number) - 1; $index >= 0; $index--) {
@@ -674,9 +699,18 @@ final class Passivo extends Model
 
     /**
      * @param array<string,mixed> $data
-     * @return array{nome_completo:string,nome_normalizado:string,data_nascimento:?string,numero:?string,numero_normalizado:?string,caixa:string,caixa_normalizada:string}|false
+     * @return array{nome_completo:string,nome_normalizado:string,data_nascimento:?string,numero:?string,numero_normalizado:?string,caixa:?string,caixa_normalizada:?string}|false
      */
     public function validarDados(array $data): array|false
+    {
+        return $this->normalizeData($data);
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     * @return array{nome_completo:string,nome_normalizado:string,data_nascimento:?string,numero:?string,numero_normalizado:?string,caixa:?string,caixa_normalizada:?string}|false
+     */
+    private function normalizeData(array $data, bool $allowIncomplete = false): array|false
     {
         $this->lastErrorCode = null;
 
@@ -696,15 +730,15 @@ final class Passivo extends Model
             return false;
         }
 
-        if ($box === '' || mb_strlen($box, 'UTF-8') > self::BOX_MAX_LENGTH
-            || preg_match('/^[\p{L}\p{N}][\p{L}\p{N} ._\/-]*$/u', $box) !== 1) {
+        if (($box === '' && !$allowIncomplete) || ($box !== '' && (mb_strlen($box, 'UTF-8') > self::BOX_MAX_LENGTH
+            || preg_match('/^[\p{L}\p{N}][\p{L}\p{N} ._\/-]*$/u', $box) !== 1))) {
             $this->lastErrorCode = 'invalid_box';
 
             return false;
         }
 
-        if ($number !== '' && (mb_strlen($number, 'UTF-8') > self::NUMBER_MAX_LENGTH
-            || preg_match('/^[\p{L}\p{N}][\p{L}\p{N} ._\/-]*$/u', $number) !== 1)) {
+        if (($number === '' && !$allowIncomplete) || ($number !== '' && (mb_strlen($number, 'UTF-8') > self::NUMBER_MAX_LENGTH
+            || preg_match('/^[\p{L}\p{N}][\p{L}\p{N} ._\/-]*$/u', $number) !== 1))) {
             $this->lastErrorCode = 'invalid_number';
 
             return false;
@@ -736,8 +770,8 @@ final class Passivo extends Model
             'data_nascimento' => $birthDate === '' ? null : $birthDate,
             'numero' => $number === '' ? null : $number,
             'numero_normalizado' => $number === '' ? null : TextNormalizer::searchKey($number),
-            'caixa' => $box,
-            'caixa_normalizada' => TextNormalizer::searchKey($box),
+            'caixa' => $box === '' ? null : $box,
+            'caixa_normalizada' => $box === '' ? null : TextNormalizer::searchKey($box),
         ];
     }
 
@@ -812,6 +846,26 @@ final class Passivo extends Model
             return false;
         }
 
+        $validated = [];
+        $seenPeople = [];
+        $seenLocations = [];
+        foreach ($rows as $row) {
+            $normalized = $this->validarDados($row);
+            if ($normalized === false) {
+                return false;
+            }
+            $personKey = $normalized['nome_normalizado'] . "\0" . ($normalized['data_nascimento'] ?? '');
+            $locationKey = $normalized['caixa_normalizada'] . "\0" . $normalized['numero_normalizado'];
+            if (isset($seenPeople[$personKey]) || isset($seenLocations[$locationKey])) {
+                $this->lastErrorCode = isset($seenPeople[$personKey]) ? 'duplicate_changed' : 'location_conflict';
+                return false;
+            }
+            $seenPeople[$personKey] = true;
+            $seenLocations[$locationKey] = true;
+            $validated[] = $normalized;
+        }
+        $rows = $validated;
+
         try {
             return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($rows, $actorId): int|false {
                 foreach ($rows as $row) {
@@ -857,26 +911,26 @@ final class Passivo extends Model
         }
 
         $all = self::$pdo->prepare(
-            'SELECT id, nome_completo, numero, numero_normalizado
-             FROM alunos_passivo WHERE ativo = 1 AND caixa_normalizada = :box
+            'SELECT id, nome_completo, numero, numero_normalizado, ativo
+             FROM alunos_passivo WHERE caixa_normalizada = :box
              ORDER BY nome_normalizado, id'
         );
         $all->execute(['box' => $boxKey['key']]);
         $rows = $all->fetchAll();
 
-        if ($rows === []) {
+        if (!array_filter($rows, static fn (array $row): bool => (int) $row['ativo'] === 1)) {
             $this->lastErrorCode = 'box_not_found';
 
             return false;
         }
 
         $used = [];
-        $maximum = 0;
+        $maximum = $this->maximumArchiveNumber($rows);
 
         foreach ($rows as $row) {
-            $number = trim((string) ($row['numero'] ?? ''));
+            $number = TextNormalizer::displayName((string) ($row['numero'] ?? ''));
 
-            if ($number === '') {
+            if ($number === '' || (int) $row['ativo'] !== 1) {
                 continue;
             }
 
@@ -890,26 +944,23 @@ final class Passivo extends Model
 
             $used[$key] = true;
 
-            if (preg_match('/^[1-9][0-9]*$/', $number) === 1) {
-                $maximum = max($maximum, (int) $number);
-            }
         }
 
         $assignments = [];
-        $next = $maximum + 1;
+        $next = $this->nextArchiveNumber($maximum);
 
         foreach ($rows as $row) {
-            if (trim((string) ($row['numero'] ?? '')) !== '') {
+            if ((int) $row['ativo'] !== 1 || TextNormalizer::displayName((string) ($row['numero'] ?? '')) !== '') {
                 continue;
             }
 
-            while (isset($used[(string) $next])) {
-                $next++;
+            if (strlen($next) > self::NUMBER_MAX_LENGTH) {
+                $this->lastErrorCode = 'number_range_overflow';
+                return false;
             }
 
-            $assignments[] = ['id' => (int) $row['id'], 'nome' => (string) $row['nome_completo'], 'numero' => (string) $next];
-            $used[(string) $next] = true;
-            $next++;
+            $assignments[] = ['id' => (int) $row['id'], 'nome' => (string) $row['nome_completo'], 'numero' => $next];
+            $next = $this->nextArchiveNumber($next);
         }
 
         return ['caixa' => $boxKey['display'], 'assignments' => $assignments];
@@ -933,12 +984,17 @@ final class Passivo extends Model
 
         try {
             return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($boxKey, $assignments, $actorId): int|false {
+                $currentPreview = $this->previewEnumeracao($boxKey['display']);
+                if ($currentPreview === false || $currentPreview['assignments'] !== $assignments) {
+                    $this->lastErrorCode = 'preview_changed';
+                    return false;
+                }
                 $select = $pdo->prepare(
                     "SELECT numero FROM alunos_passivo
                      WHERE id = :id AND ativo = 1 AND caixa_normalizada = :box"
                 );
                 $update = $pdo->prepare(
-                    'UPDATE alunos_passivo SET numero = :number, numero_normalizado = :normalized,
+                    'UPDATE alunos_passivo SET numero = :number, numero_normalizado = :normalized, localizacao_pendente = 0,
                          atualizado_em = :now, atualizado_por = :actor
                      WHERE id = :id'
                 );
@@ -957,7 +1013,7 @@ final class Passivo extends Model
                     $select->execute(['id' => $id, 'box' => $boxKey['key']]);
                     $current = $select->fetchColumn();
 
-                    if ($current === false || trim((string) $current) !== ''
+                    if ($current === false || TextNormalizer::displayName((string) $current) !== ''
                         || $this->locationConflict($pdo, $boxKey['key'], $number, $id)) {
                         $this->lastErrorCode = 'preview_changed';
 
@@ -993,7 +1049,7 @@ final class Passivo extends Model
         }
     }
 
-    /** @return list<array{numero:?string,nome_completo:string}>|false */
+    /** @return list<array{numero:?string,nome_completo:string,localizacao_pendente:int}>|false */
     public function listarParaTxt(string $box): array|false
     {
         $boxKey = $this->validatedBoxKey($box);
@@ -1003,7 +1059,7 @@ final class Passivo extends Model
         }
 
         $statement = self::$pdo->prepare(
-            "SELECT numero, nome_completo FROM alunos_passivo
+            "SELECT numero, nome_completo, localizacao_pendente FROM alunos_passivo
              WHERE ativo = 1 AND caixa_normalizada = :box
              ORDER BY CASE WHEN numero GLOB '[0-9]*' AND numero NOT GLOB '*[^0-9]*' THEN 0 ELSE 1 END,
                       CAST(numero AS INTEGER), numero_normalizado, nome_normalizado, id"
@@ -1020,6 +1076,7 @@ final class Passivo extends Model
         return array_map(static fn (array $row): array => [
             'numero' => $row['numero'] === null ? null : (string) $row['numero'],
             'nome_completo' => (string) $row['nome_completo'],
+            'localizacao_pendente' => (int) $row['localizacao_pendente'],
         ], $rows);
     }
 
@@ -1066,6 +1123,12 @@ final class Passivo extends Model
         if (in_array($active, ['0', '1'], true)) {
             $conditions[] = 'p.ativo = :active';
             $params['active'] = (int) $active;
+        }
+
+        $location = (string) ($filters['localizacao'] ?? '');
+        if (in_array($location, ['completa', 'pendente'], true)) {
+            $conditions[] = 'p.localizacao_pendente = :pending';
+            $params['pending'] = $location === 'pendente' ? 1 : 0;
         }
 
         $box = mb_substr((string) ($filters['caixa'] ?? ''), 0, self::BOX_MAX_LENGTH + 1, 'UTF-8');

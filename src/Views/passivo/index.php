@@ -33,6 +33,14 @@
             </select>
         </div>
         <div>
+            <label for="passivo-localizacao">Localização</label>
+            <select id="passivo-localizacao" name="localizacao">
+                <option value="">Todas</option>
+                <option value="completa" <?= $filters['localizacao'] === 'completa' ? 'selected' : '' ?>>Completa</option>
+                <option value="pendente" <?= $filters['localizacao'] === 'pendente' ? 'selected' : '' ?>>Pendente</option>
+            </select>
+        </div>
+        <div>
             <label for="passivo-ordem">Ordenar por</label>
             <select id="passivo-ordem" name="ordem">
                 <option value="nome" <?= $filters['ordem'] === 'nome' ? 'selected' : '' ?>>Nome</option>
@@ -57,7 +65,7 @@
     </div>
 </section>
 
-<?php if ($filters['q'] === '' && $filters['caixa'] === '' && $filters['ativo'] === '1'): ?>
+<?php if ($filters['q'] === '' && $filters['caixa'] === '' && $filters['localizacao'] === '' && $filters['ativo'] === '1'): ?>
 <section class="relatorio" aria-labelledby="passivo-boxes-title">
     <div class="section-head"><div><h2 id="passivo-boxes-title">Caixas do acervo</h2><p>Abra uma caixa para consultar seu conteúdo físico.</p></div></div>
     <?php if ($boxes === []): ?>
@@ -85,7 +93,7 @@
 <?php endif; ?>
 
 <section class="relatorio" aria-labelledby="passivo-results-title">
-    <div class="section-head"><div><h2 id="passivo-results-title"><?= $filters['ativo'] === '0' ? 'Registros excluídos do acervo ativo' : ($filters['caixa'] !== '' ? 'Conteúdo da caixa ' . e($filters['caixa']) : 'Registros localizados') ?></h2><p><?= $filters['ativo'] === '0' ? 'Os dados e o histórico estão preservados. A restauração depende de um administrador.' : 'Consulte os registros ou abra os detalhes para editar e excluir do acervo ativo.' ?></p></div></div>
+    <div class="section-head"><div><h2 id="passivo-results-title"><?= $filters['ativo'] === '0' ? 'Registros excluídos do acervo ativo' : ($filters['caixa'] !== '' ? 'Conteúdo da caixa ' . e($filters['caixa']) : 'Registros encontrados') ?></h2><p><?= $filters['ativo'] === '0' ? 'Os dados e o histórico estão preservados. A restauração depende de um administrador.' : 'Consulte os registros ou abra os detalhes para editar e excluir do acervo ativo.' ?></p></div></div>
     <div class="table-scroll">
         <table class="tabela-filtrada passivo-table">
             <thead><tr><th>Nome</th><th>Data de nascimento</th><th>Número</th><th>Caixa</th><th>Situação</th><th>Ações</th></tr></thead>
@@ -94,19 +102,21 @@
             <?php foreach ($result['items'] as $record): ?>
                 <?php
                 $birthTimestamp = $record['data_nascimento'] ? strtotime((string) $record['data_nascimento']) : false;
+                $displayNumber = src\Core\TextNormalizer::displayName((string) ($record['numero'] ?? ''));
+                $displayBox = src\Core\TextNormalizer::displayName((string) ($record['caixa'] ?? ''));
                 $statusClass = 'inactive';
                 $statusLabel = 'Excluído do acervo ativo';
 
                 if ((int) $record['ativo'] === 1) {
                     $statusClass = (int) $record['localizacao_pendente'] === 1 ? 'pending' : 'active';
-                    $statusLabel = (int) $record['localizacao_pendente'] === 1 ? 'Revisão pendente' : 'Ativo';
+                    $statusLabel = (int) $record['localizacao_pendente'] === 1 ? 'Localização pendente' : 'Ativo';
                 }
                 ?>
                 <tr>
                     <td><a class="passivo-name" href="<?= e(url('passivo/detalhes/' . (int) $record['id'])) ?>"><?= e((string) $record['nome_completo']) ?></a></td>
                     <td><?= $birthTimestamp !== false ? e(date('d/m/Y', $birthTimestamp)) : ($record['data_nascimento'] ? e((string) $record['data_nascimento']) : '&mdash;') ?></td>
-                    <td><?= e((string) ($record['numero'] ?: 'Sem número')) ?></td>
-                    <td><span class="passivo-box-badge"><?= e((string) ($record['caixa'] ?: 'Pendente')) ?></span></td>
+                    <td><?= e($displayNumber === '' ? 'Sem número' : $displayNumber) ?></td>
+                    <td><span class="passivo-box-badge"><?= e($displayBox === '' ? 'Pendente' : $displayBox) ?></span></td>
                     <td><span class="passivo-status <?= e($statusClass) ?>"><?= e($statusLabel) ?></span></td>
                     <td><div class="passivo-row-actions"><a href="<?= e(url('passivo/detalhes/' . (int) $record['id'])) ?>">Detalhes</a><a href="<?= e(url('passivo/editar/' . (int) $record['id'])) ?>">Editar</a></div></td>
                 </tr>
@@ -118,7 +128,7 @@
     <?php if ($result['pages'] > 1): ?>
         <nav class="pagination" aria-label="Paginação do Arquivo Passivo">
         <?php for ($page = max(1, $result['page'] - 2); $page <= min($result['pages'], $result['page'] + 2); $page++): ?>
-            <?php $query = http_build_query(['q' => $filters['q'], 'caixa' => $filters['caixa'], 'ativo' => $filters['ativo'] === '' ? 'todos' : $filters['ativo'], 'ordem' => $filters['ordem'], 'page' => $page]); ?>
+            <?php $query = http_build_query(['q' => $filters['q'], 'caixa' => $filters['caixa'], 'localizacao' => $filters['localizacao'], 'ativo' => $filters['ativo'] === '' ? 'todos' : $filters['ativo'], 'ordem' => $filters['ordem'], 'page' => $page]); ?>
             <a class="<?= $page === $result['page'] ? 'active' : '' ?>" <?= $page === $result['page'] ? 'aria-current="page"' : '' ?> href="<?= e(url('passivo?' . $query)) ?>"><?= e((string) $page) ?></a>
         <?php endfor; ?>
         </nav>

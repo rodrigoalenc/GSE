@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS alunos_passivo (
     caixa TEXT NULL,
     caixa_normalizada TEXT NULL,
     ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+    -- Legado sem caixa ou posição deve ser marcado como pendente; guards são instalados pela migração v16.
     localizacao_pendente INTEGER NOT NULL DEFAULT 0 CHECK (localizacao_pendente IN (0, 1)),
     criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

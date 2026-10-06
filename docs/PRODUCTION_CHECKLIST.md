@@ -1,9 +1,12 @@
 # Checklist de Produção — GSE Módulos 1 a 5
 
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
 ## Módulo 5 — bloqueios antes da implantação
 
 - [ ] TCC original conferido literalmente contra a matriz em `docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md`.
 - [ ] Migração v15 ensaiada em cópia da v14 com todos os escritores parados; IDs, valores `REAL` de origem, quantidades, folhas e sequências conferidos, `foreign_key_check` vazio e `integrity_check=ok`.
+- [ ] Migração v16 ensaiada em cópia da v15: somente indicadores incompletos corrigidos, campos históricos/vínculos preservados, guards de localização completos conferidos, backup, repetição e rollback validados.
 - [ ] Backup e restauração conjunta de SQLite, PDFs privados e código anterior ensaiados; nenhum saldo físico foi inferido de quantidade contratual legada.
 - [ ] Valores e quantidades legados pendentes conciliados por administrador contra documentos, com trilha de auditoria; divergências não foram ajustadas automaticamente.
 - [ ] Teste de duas saídas concorrentes e carga máxima de exportação concluídos no ambiente candidato.
@@ -38,7 +41,7 @@
 - [ ] Backup externo, criptografado, retido e restaurado em teste.
 - [ ] Backup preventivo de migração verificado e movido para armazenamento protegido.
 - [ ] Migração de cópia legada conferida: mapas exatos `aluno_id/id_turma` e `dva_id/id_aluno`, IDs, sequências, datas e contagens de alunos/turmas/DVAs preservados, `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`.
-- [ ] Inicializador atual homologado em cópia com a mesma versão de PHP/SQLite e `ext-intl`; `PRAGMA user_version=15`, versões 1–15 sem lacunas, nomes normalizados e estrutura de `alunos_passivo` preservados. A v12 é a etapa histórica do Arquivo Passivo.
+- [ ] Inicializador atual homologado em cópia com a mesma versão de PHP/SQLite e `ext-intl`; `PRAGMA user_version=16`, versões 1–16 sem lacunas, nomes normalizados e estrutura de `alunos_passivo` preservados. A v12 é a etapa histórica do Arquivo Passivo.
 - [ ] Eventuais colisões Unicode de turmas resolvidas manualmente na cópia antes da janela de produção, sem mescla ou renomeação automática de dados reais.
 - [ ] Ausências legadas de timestamps revisadas: o marco técnico gerado pela v11 não foi interpretado como data histórica de cadastro.
 - [ ] Banco de teste que tenha executado a v6 antiga foi descartado ou restaurado pelo backup `pre-migration`; vínculos não foram inferidos manualmente.
@@ -79,17 +82,18 @@
 ## Módulo 3 — Arquivo Passivo
 
 - [ ] Artefato executado com PHP 8.3, SQLite e `ext-intl` equivalentes à homologação.
-- [ ] Na branch atual, `PRAGMA user_version=15` e `schema_migrations` contêm 1 a 15 sem lacunas; a v12 corresponde à entrega histórica do Módulo 3.
+- [ ] Na branch atual, `PRAGMA user_version=16` e `schema_migrations` contêm 1 a 16 sem lacunas; a v12 corresponde à entrega histórica do Módulo 3.
 - [ ] Backup `pre-migration` existe fora de `public`, abre em SQLite e retorna `integrity_check=ok`.
 - [ ] Contagens, IDs, nomes, datas, números, caixas, relacionamentos e `sqlite_sequence` foram comparados antes/depois.
-- [ ] Registros legados sem caixa aparecem com `localizacao_pendente=1`; nenhuma caixa foi inventada.
+- [ ] Registros legados sem caixa ou posição aparecem com `localizacao_pendente=1`; campos conhecidos foram preservados e a edição dos demais dados mantém a pendência.
+- [ ] Criação/importação/arquivamento individual recusam localização incompleta; conclusão posterior valida caixa e posição, conflitos e auditoria sem renumerar o histórico.
 - [ ] Colisões de caixa/número foram listadas para revisão, sem mesclagem, exclusão ou renumeração silenciosa.
 - [ ] `PRAGMA foreign_key_check` não retorna linhas, `PRAGMA integrity_check` retorna `ok` e não existe `alunos_passivo_v12`.
 - [ ] Trigger contra `DELETE` e índice único parcial por aluno de origem foram verificados.
 - [ ] Perfis: funcionário consulta/cria/edita/exporta; administrador também gerencia situação, CSV, enumeração e arquivamento de aluno.
 - [ ] CSV UTF-8 de até 2 MiB/5.000 linhas passou por prévia, confirmação única, mudança concorrente, rollback e remoção do temporário.
 - [ ] Confirmado que a importação comum é aditiva e não contém `DELETE FROM alunos_passivo`.
-- [ ] Enumeração preserva números existentes, usa o máximo da caixa e exige prévia/confirmação.
+- [ ] Enumeração preserva números existentes, usa o máximo histórico da caixa (incluindo excluídos) e exige prévia/confirmação.
 - [ ] TXT usa `nosniff`, `no-store`, nome seguro e conteúdo `Número - Nome`.
 - [ ] Desktop, celular, foco visível, menu, cards, tabela responsiva e mensagens foram homologados conforme `MODULO3_VALIDACAO_MANUAL.md`.
 - [ ] Auditoria inclui `passive.created`, `passive.updated`, `passive.deactivated`, `passive.reactivated`, `passive.student_archived`, importação, enumeração, exportação e bloqueios.
@@ -108,5 +112,5 @@
 - [ ] Confirmar `CERTIDAO_WARNING_DAYS`, `APP_TIMEZONE` e e-mails dos administradores ativos.
 - [ ] Homologar SMTP e habilitar `MAIL_ENABLED`/`CERTIDAO_MAIL_ENABLED` em produção; registrar tarefa diária e monitoramento dos códigos de falha.
 - [ ] Manter agendamento DVA independente; não transportar sua preferência individual para os destinatários de certidões.
-- [ ] Programar SMTP fora do pico: o envio mantém reserva de escrita SQLite; documentar possível duplicação após queda entre aceite SMTP e COMMIT.
+- [ ] Programar SMTP fora do pico: o envio de certidões mantém lock de processo e transações curtas de reserva/confirmação; SMTP ocorre fora da transação SQLite. Documentar possível duplicação após queda entre aceite SMTP e confirmação local.
 - [ ] Reexecutar testes no ambiente de implantação; nenhum banco/PDF real foi utilizado nos testes desta entrega.

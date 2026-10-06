@@ -1,6 +1,8 @@
 # Módulo 4 — Certidões e Fornecedores
 
-Implementado sobre `61930860554535af1915622b8eb273a155917c72` (Modulo3), continuando a branch existente `Modulo4`. Consulta remota realizada em 16/09/2026: ambas as branches apontavam para essa base. Não houve push, merge ou deploy. As execuções de setembro registradas aqui são históricas; o estado atual da branch `Modulo5` usa v15 e está documentado em [MODULO5_VALIDACAO.md](MODULO5_VALIDACAO.md).
+**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+
+Implementado sobre `61930860554535af1915622b8eb273a155917c72` (Modulo3), continuando a branch existente `Modulo4`. Consulta remota realizada em 16/09/2026: ambas as branches apontavam para essa base. Não houve push, merge ou deploy. As execuções de setembro registradas aqui são históricas; o estado atual da branch `Modulo5` usa v16 e está documentado em [MODULO5_VALIDACAO.md](MODULO5_VALIDACAO.md).
 
 ## Fontes e limites da conclusão
 
@@ -44,7 +46,7 @@ O escopo específico deste documento é o Módulo 4. Contratos, notas, estoque e
 | SMTP e agendamento | Não | Não | Configuração operacional/CLI |
 | Inventário/migração de arquivos | Não | Não | CLI com controle do servidor; aplicação da cópia exige ID administrativo ativo |
 
-O `Router` aplica autenticação e CSRF a todas as rotas. Conta inativa, expiração de sessão e troca obrigatória de senha usam a infraestrutura existente, inclusive no PDF. Não há rota de restauração/desarquivamento ou purga. Cada mudança usa POST e confirmação quando altera o ciclo de vida; formulários seguem PRG. `revisao` rejeita atualização ou renovação baseada em dados antigos.
+O `Router` aplica autenticação e CSRF a todas as rotas. Conta inativa, expiração de sessão e troca obrigatória de senha usam a infraestrutura existente, inclusive no PDF. Há desarquivamento operacional autenticado (`POST /certidao/desarquivar/{id}`); exclusão lógica não possui restauração ou purga. Cada mudança usa POST e confirmação quando altera o ciclo de vida; formulários seguem PRG. `revisao` rejeita atualização ou renovação baseada em dados antigos.
 
 Matriz: até **5 fornecedores por página e 10 documentos por fornecedor**, no máximo 50 cartões por resposta. Cada coluna tem total e navegação própria; mudar a página documental de um fornecedor preserva a seleção documental das demais colunas. Os tipos continuam nas linhas. Uma transação somente de leitura mantém totais e itens no mesmo snapshot e termina antes da renderização. Células vazias dizem “Sem documento nesta página”, sem afirmar inexistência no acervo. Filtros redefinem as páginas; links de paginação preservam os filtros. O resumo superior é global, apenas de correntes. Ano em branco ou `todos` inclui todos os anos. Vencimento não arquiva automaticamente.
 

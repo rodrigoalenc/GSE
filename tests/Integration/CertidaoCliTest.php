@@ -18,9 +18,9 @@ final class CertidaoCliTest extends DatabaseTestCase
         foreach ($iterator as $entry) { $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname()); }
         rmdir($this->root); parent::tearDown();
     }
-    private function runCommand(array $arguments): array
+    private function runCommand(array $arguments, array $overrides = []): array
     {
-        $env=array_merge(getenv(),['APP_ENV'=>'testing','CERTIDAO_STORAGE_PATH'=>$this->root.'/private','MAIL_ENABLED'=>'false','CERTIDAO_MAIL_ENABLED'=>'false','LOG_PATH'=>$this->root.'/technical.log']);
+        $env=array_merge(getenv(),['APP_ENV'=>'testing','CERTIDAO_STORAGE_PATH'=>$this->root.'/private','MAIL_ENABLED'=>'false','CERTIDAO_MAIL_ENABLED'=>'false','LOG_PATH'=>$this->root.'/technical.log'], $overrides);
         $process=proc_open([PHP_BINARY,...$arguments],[1=>['pipe','w'],2=>['pipe','w']],$pipes,ROOT_PATH,$env);
         $out=stream_get_contents($pipes[1]); $err=stream_get_contents($pipes[2]); fclose($pipes[1]); fclose($pipes[2]);
         return [proc_close($process),$out,$err];
@@ -53,5 +53,16 @@ final class CertidaoCliTest extends DatabaseTestCase
     {
         $result=$this->runCommand(['bin/notify-certidoes.php']);
         $this->assertSame(0,$result[0]); $this->assertStringContainsString('desabilitado',$result[1]);
+    }
+
+    public function testDisabledDailyCommandsDoNotEvenCreateDatabaseInProduction(): void
+    {
+        $path = $this->root.'/disabled.sqlite';
+        foreach (['bin/notify-dva.php', 'bin/notify-certidoes.php'] as $command) {
+            $result = $this->runCommand([$command], ['APP_ENV'=>'production', 'DB_PATH'=>$path]);
+            $this->assertSame(0, $result[0], $result[1].$result[2]);
+            $this->assertStringContainsString('desabilitad', $result[1]);
+            $this->assertFileDoesNotExist($path);
+        }
     }
 }

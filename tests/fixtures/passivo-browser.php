@@ -12,6 +12,9 @@ ob_start();
 require dirname(__DIR__, 2) . '/bin/init-db.php';
 ob_end_clean();
 $pdo = src\Core\Database::getConnection();
+require_once ROOT_PATH . '/src/Core/RequestContext.php';
+require_once ROOT_PATH . '/src/Core/AuditLogger.php';
+require_once ROOT_PATH . '/src/Model/Contrato.php';
 if (($argv[1] ?? '') === 'seed') {
     $pdo->prepare('INSERT INTO usuarios(nome,email,senha,tipo) VALUES(?,?,?,?)')->execute([
         'Administrador fictício', 'browser@example.test', password_hash('Teste ficticio seguro 2026', PASSWORD_DEFAULT), 'administrador',
@@ -27,6 +30,11 @@ if (($argv[1] ?? '') === 'seed') {
     foreach ([['2', '3', 1, null], ['2', '15', 0, null], ['10', '1', 1, 32]] as [$box, $number, $active, $origin]) {
         $passive->execute(['Pasta ficticia', 'pasta ficticia', $box, $box, $number, $number, $active, $origin]);
     }
+    (new Contrato())->createDetailed('Pedido fictício de navegador', '1000,00', '', array_map(
+        static fn (int $number): array => ['observacao' => 'Nota fictícia ' . $number, 'produtos' => [[
+            'nome' => 'Produto fictício ' . $number, 'marca' => '', 'unidade' => 'UN', 'quantidade' => '1', 'preco' => '2,00',
+        ]]], [1, 2, 3]
+    ), 1);
 }
 echo json_encode([
     'alunos' => $pdo->query('SELECT id,ativo,inativado_em,inativado_por FROM alunos ORDER BY id')->fetchAll(PDO::FETCH_ASSOC),

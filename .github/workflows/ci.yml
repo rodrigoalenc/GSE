@@ -20,7 +20,7 @@ jobs:
         uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
         with:
           php-version: '8.3'
-          extensions: curl, fileinfo, intl, mbstring, pdo_sqlite
+          extensions: curl, dom, fileinfo, intl, mbstring, pdo_sqlite, xml, xmlwriter
           coverage: none
           tools: composer:v2
 
@@ -48,6 +48,8 @@ jobs:
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    env:
+      GSE_BROWSER_EVIDENCE_DIR: ${{ runner.temp }}/gse-browser-evidence
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -67,5 +69,17 @@ jobs:
       - name: Sintaxe e navegação no Chrome isolado
         run: |
           node --check public/assets/js/app.js
+          browser_binary=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          "$browser_binary" --version
+          export BROWSER_BINARY="$browser_binary"
           node tests/browser-contract-tabs.mjs
           node tests/browser-passivo-batch.mjs
+
+      - name: Preservar diagnóstico de falha do navegador
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-failure-diagnostics
+          path: ${{ runner.temp }}/gse-browser-evidence
+          if-no-files-found: ignore
+          retention-days: 7

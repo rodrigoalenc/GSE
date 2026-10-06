@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:http';
-import {access, mkdtemp, readFile, rm} from 'node:fs/promises';
+import {access, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {basename, dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -40,6 +40,7 @@ export async function launchBrowser() {
         await new Promise((done, reject) => { socket.addEventListener('open', done, {once:true}); socket.addEventListener('error', reject, {once:true}); });
         const pending = new Map();
         const errors = [];
+        const consoleMessages = [];
         let sequence = 0;
         socket.addEventListener('message', ({data}) => {
             const message = JSON.parse(data);
@@ -48,6 +49,8 @@ export async function launchBrowser() {
                 if (message.error) reject(new Error(JSON.stringify(message.error))); else resolve(message.result);
             }
             if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails);
+            if (message.method === 'Runtime.consoleAPICalled') consoleMessages.push({type:message.params.type,
+                args:message.params.args.map(argument => argument.value ?? argument.description)});
         });
         const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
             const id = ++sequence;
@@ -65,21 +68,51 @@ export async function launchBrowser() {
                 if (result.exceptionDetails) throw new Error(result.exceptionDetails.text + ': ' + result.exceptionDetails.exception?.description);
                 return result.result.value;
             };
+            const captureFailure = async (label, context) => {
+                if (!process.env.GSE_BROWSER_EVIDENCE_DIR) return;
+                await mkdir(process.env.GSE_BROWSER_EVIDENCE_DIR, {recursive:true});
+                const prefix = join(process.env.GSE_BROWSER_EVIDENCE_DIR, `${label}-${Date.now()}`);
+                const state = await evaluate(`({url:location.href,viewport:{width:innerWidth,height:innerHeight},
+                    scroll:{x:scrollX,y:scrollY},focus:document.activeElement?.outerHTML,
+                    panels:[...document.querySelectorAll('[role="tabpanel"]')].map(panel=>({id:panel.id,hidden:panel.hidden,rect:panel.getBoundingClientRect().toJSON()})),
+                    dom:document.documentElement.outerHTML})`);
+                await writeFile(prefix+'.json', JSON.stringify({...context,...state,errors,console:consoleMessages}, null, 2));
+                const screenshot = await command('Page.captureScreenshot', {format:'png',captureBeyondViewport:false});
+                await writeFile(prefix+'.png', Buffer.from(screenshot.data,'base64'));
+            };
             const until = async (expression) => {
                 for (let attempt=0; attempt<100; attempt++) { if (await evaluate(expression)) return; await new Promise((done)=>setTimeout(done,50)); }
+                await captureFailure('failed-condition', {expression});
                 throw new Error(`Browser condition not satisfied: ${expression}`);
             };
             const navigate = async (url) => { await command('Page.navigate', {url}); await until('document.readyState === "complete"'); };
             const click = async (selector, modifiers = 0) => {
-                await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`);
-                await evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))');
-                const rect = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
+                const lookup = `document.querySelector(${JSON.stringify(selector)})`;
+                await until(`${lookup} !== null && ${lookup}.getClientRects().length > 0 && !${lookup}.disabled`);
+                await evaluate(`${lookup}.scrollIntoView({block:'center',inline:'center'})`);
+                // A pending hashchange can scroll again after scrollIntoView. Two frames alone
+                // did not ensure the third-note link was inside the viewport at mouse dispatch.
+                let previous, rect;
+                for (let attempt=0; attempt<100; attempt++) {
+                    const current = await evaluate(`(() => { const element=${lookup}; const r=element.getBoundingClientRect();
+                        const x=r.x+r.width/2,y=r.y+r.height/2,hit=document.elementFromPoint(x,y);
+                        return {x,y,width:r.width,height:r.height,available:r.width>0&&r.height>0&&!element.disabled&&!!hit&&(element===hit||element.contains(hit))}; })()`);
+                    if (current.available && previous && current.x===previous.x && current.y===previous.y
+                        && current.width===previous.width && current.height===previous.height) { rect={x:current.x,y:current.y}; break; }
+                    if (!current.available) await evaluate(`${lookup}.scrollIntoView({block:'center',inline:'center'})`);
+                    previous=current.available ? current : null;
+                    await new Promise(done=>setTimeout(done,50));
+                }
+                if (!rect) {
+                    await captureFailure('unavailable-click', {selector});
+                    throw new Error(`Browser click target is not stable and available: ${selector}`);
+                }
                 await command('Input.dispatchMouseEvent', {type:'mousePressed', button:'left', clickCount:1, modifiers, ...rect});
                 await command('Input.dispatchMouseEvent', {type:'mouseReleased', button:'left', clickCount:1, modifiers, ...rect});
             };
-            return {command, evaluate, until, navigate, click, targetId};
+            return {command, evaluate, until, navigate, click, captureFailure, targetId};
         };
-        return {newPage, errors, cleanup};
+        return {newPage, errors, consoleMessages, cleanup};
     } catch (error) { await cleanup(); throw error; }
 }
 
@@ -139,8 +172,21 @@ async function run() {
                 check(await page.evaluate(`document.activeElement.closest('details')?.id`),`${form}-${id}`,'Input receives focus');
             }
         }
+        // Reproduce a later fragment scroll overtaking the helper's initial scroll.
+        await page.evaluate(`(() => {
+            document.getElementById('add-product-3').open=false;
+            window.delayedFragmentScroll=false;
+            const opener=document.querySelector('#folha-3 a[href="#add-product-3"]');
+            const original=opener.scrollIntoView;
+            opener.scrollIntoView=function(options) {
+                original.call(this,options); this.scrollIntoView=original;
+                requestAnimationFrame(()=>requestAnimationFrame(()=>{window.scrollTo(0,46); window.delayedFragmentScroll=true;}));
+            };
+        })()`);
         await page.click('#folha-3 a[href="#add-product-3"]');
         await page.until(`location.hash === '#add-product-3'`);
+        check(await page.evaluate('window.delayedFragmentScroll'),true,'A delayed fragment scroll completes before the real click');
+        check(await page.evaluate(`document.getElementById('add-product-3').open`),true,'Third-note product opener remains clickable after a delayed scroll');
         const historyLength = await page.evaluate('history.length');
         await page.click('[data-close-details="add-product-3"]');
         check(await page.evaluate(`document.getElementById('add-product-3').open`),false,'Close button collapses product form');
