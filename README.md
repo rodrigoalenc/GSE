@@ -337,7 +337,7 @@ Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado r
 
 Os Módulos 1, 2 e 3 estão implementados. Os Módulos 4 e 5 continuam fora do escopo funcional. O banco atual usa `PRAGMA user_version=12`; `schema_migrations` deve conter exatamente as versões 1 a 12.
 
-O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação como lógica e o preenchimento posterior do número ainda exigem validação acadêmica. Veja a [matriz de requisitos e evidências da revisão](docs/MODULO3_REVISAO_TCC.md).
+O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação como lógica e o preenchimento posterior do número ainda exigem validação acadêmica.
 
 O CSV usa `Nome;Data;Numero;Caixa`, UTF-8, no máximo 2 MiB e 5.000 linhas. Datas podem ser `YYYY-MM-DD` ou `DD/MM/YYYY`. A prévia expira em 15 minutos, pertence à sessão e ao administrador e só pode ser confirmada uma vez. O hash do arquivo e a análise do acervo são revalidados na confirmação. Linhas válidas são adicionadas em uma única transação; duplicidades, localizações ocupadas e erros são apresentados sem apagar o acervo.
 
@@ -351,7 +351,7 @@ PRAGMA foreign_key_check;  -- nenhuma linha
 PRAGMA integrity_check;    -- ok
 ```
 
-Registros com localização pendente permanecem consultáveis e usam o indicador amarelo “Revisão pendente”; a caixa deve ser corrigida por edição, pois a migração nunca inventa uma localização. Consulte [docs/MODULO3_ARQUIVO_PASSIVO.md](docs/MODULO3_ARQUIVO_PASSIVO.md), [docs/MODULO3_HOMOLOGACAO.md](docs/MODULO3_HOMOLOGACAO.md) e o [roteiro de validação manual](docs/MODULO3_VALIDACAO_MANUAL.md).
+Registros com localização pendente permanecem consultáveis e usam o indicador amarelo “Revisão pendente”; a caixa deve ser corrigida por edição, pois a migração nunca inventa uma localização.
 
 Rotas adicionais:
 
@@ -412,4 +412,4 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 
 O dashboard combina indicadores do Módulo 1 com dados operacionais limitados do Módulo 2. Não antecipa indicadores dos Módulos 3, 4 ou 5.
 
-Antes de implantar, conclua [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) e leia [SECURITY.md](SECURITY.md).
+Antes de implantar, homologue o ambiente institucional, valide permissões de acesso, ensaie a restauração do backup e obtenha o aceite escolar. Leia também [SECURITY.md](SECURITY.md).
