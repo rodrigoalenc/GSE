@@ -271,4 +271,4 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 
 O dashboard foi deliberadamente alterado para exibir somente informações do Módulo 1. Indicadores de alunos e DVA antecipavam entregas posteriores; seus Models e tabelas permanecem intactos.
 
-Antes de implantar, conclua [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) e leia [SECURITY.md](SECURITY.md).
+Antes de implantar, leia [SECURITY.md](SECURITY.md) e valide a instalação em homologação.

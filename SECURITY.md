@@ -34,5 +34,3 @@ Use contas e senhas artificiais em qualquer prova de conceito.
 - configure backups externos criptografados e teste restauração;
 - habilite proteção da branch `main`, revisão e checks obrigatórios no GitHub.
 - agende `php bin/maintenance.php` diariamente e monitore seu código de saída, sem executar limpezas em requisições HTTP.
-
-Consulte também [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md).
