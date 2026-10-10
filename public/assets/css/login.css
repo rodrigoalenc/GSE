@@ -165,7 +165,8 @@ form.login .btn-login:hover {
 }
 
 .login-help { margin-top: 15px; text-align: center; }
-.login-help summary { list-style: none; color: #666; font-size: .9em; cursor: pointer; }
+.login-help summary { list-style: none; color: #666; font-size: 1em; line-height: normal; cursor: pointer; }
+.login-help summary span { font-size: .9em; }
 .login-help summary::-webkit-details-marker { display: none; }
 .login-help p { margin: 12px 0 0; color: var(--text-muted); font-size: .9em; }
 form.login :focus-visible { outline: 3px solid #f4c95d; outline-offset: 3px; }

@@ -78,6 +78,8 @@ h1, h2, h3 {
 .sidebar-brand { display: flex; align-items: center; gap: 12px; color: #fff; font-weight: 700; white-space: nowrap; }
 .sidebar-brand-icon { width: 30px; height: 30px; flex: 0 0 30px; padding: 2px; object-fit: contain; background: #fff; border-radius: 9px; }
 .sidebar-brand-text { font-size: 1.35rem; }
+.sidebar-profile-link { color: inherit; text-decoration: none; }
+.sidebar-profile-link:focus-visible { outline: 3px solid #f4c95d; outline-offset: 4px; border-radius: 4px; }
 
 .sidebar nav { flex-grow: 1; padding: 18px 14px; overflow-y: auto; }
 

@@ -9,8 +9,10 @@ $phone = static function (?string $value): string {
     }
     return 'Não informado';
 };
-$studentPhoneValid = in_array(strlen((string) $student['telefone_aluno']), [10, 11], true);
-$guardianPhoneValid = in_array(strlen((string) $student['telefone_responsavel']), [10, 11], true);
+$studentPhoneDigits = (string) preg_replace('/\D/', '', (string) $student['telefone_aluno']);
+$guardianPhoneDigits = (string) preg_replace('/\D/', '', (string) $student['telefone_responsavel']);
+$studentPhoneValid = in_array(strlen($studentPhoneDigits), [10, 11], true);
+$guardianPhoneValid = in_array(strlen($guardianPhoneDigits), [10, 11], true);
 $dvaStatus = (string) $student['dva_status'];
 $daysRemaining = $student['dva_dias_restantes'];
 $dvaDate = $student['data_vencimento'] ? date('d/m/Y', strtotime((string) $student['data_vencimento'])) : null;
@@ -66,13 +68,13 @@ $historyTime = static function (?string $value): string {
     <div class="contatos-grid">
         <div class="contato-card">
             <span class="contato-label">Aluno</span>
-            <strong class="contato-numero"><?php if ($studentPhoneValid): ?><?= e($phone($student['telefone_aluno'])) ?><?php else: ?><span class="contato-vazio">Não informado</span><?php endif; ?></strong>
-            <?php if ($studentPhoneValid): ?><a class="btn-whatsapp-full" href="<?= e('https://wa.me/55' . (string) $student['telefone_aluno']) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp do aluno">Chamar Aluno</a><?php endif; ?>
+            <strong class="contato-numero"><?php if ($studentPhoneValid): ?><?= e($phone($studentPhoneDigits)) ?><?php else: ?><span class="contato-vazio">Não informado</span><?php endif; ?></strong>
+            <?php if ($studentPhoneValid): ?><a class="btn-whatsapp-full" href="<?= e('https://wa.me/55' . $studentPhoneDigits) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp do aluno">Chamar Aluno</a><?php endif; ?>
         </div>
         <div class="contato-card">
             <span class="contato-label">Responsável</span>
-            <strong class="contato-numero"><?php if ($guardianPhoneValid): ?><?= e($phone($student['telefone_responsavel'])) ?><?php else: ?><span class="contato-vazio">Não informado</span><?php endif; ?></strong>
-            <?php if ($guardianPhoneValid): ?><a class="btn-whatsapp-full" href="<?= e('https://wa.me/55' . (string) $student['telefone_responsavel']) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp do responsável">Chamar Responsável</a><?php endif; ?>
+            <strong class="contato-numero"><?php if ($guardianPhoneValid): ?><?= e($phone($guardianPhoneDigits)) ?><?php else: ?><span class="contato-vazio">Não informado</span><?php endif; ?></strong>
+            <?php if ($guardianPhoneValid): ?><a class="btn-whatsapp-full" href="<?= e('https://wa.me/55' . $guardianPhoneDigits) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp do responsável">Chamar Responsável</a><?php endif; ?>
         </div>
     </div>
 </section>

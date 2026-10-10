@@ -230,6 +230,62 @@ class Usuario extends Model
         }
     }
 
+    /** @return array{nome:string,email_alterado:bool}|false */
+    public function atualizarPerfilProprio(int $id, int $sessionVersion, string $nome, string $email, string $senhaAtual): array|false
+    {
+        $this->lastErrorCode = null;
+        $nome = trim($nome);
+        $email = self::normalizarEmail($email);
+        if (preg_match('//u', $nome) !== 1 || preg_match('//u', $email) !== 1
+            || $nome === '' || mb_strlen($nome, 'UTF-8') > 150
+            || filter_var($email, FILTER_VALIDATE_EMAIL) === false || mb_strlen($email, 'UTF-8') > 254) {
+            $this->lastErrorCode = 'invalid_data';
+            return false;
+        }
+        if ($senhaAtual === '' || preg_match('//u', $senhaAtual) !== 1 || str_contains($senhaAtual, "\0")
+            || mb_strlen($senhaAtual, 'UTF-8') > PasswordPolicy::MAX_LENGTH) {
+            $this->lastErrorCode = 'current_password_invalid';
+            return false;
+        }
+
+        try {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $sessionVersion, $nome, $email, $senhaAtual): array|false {
+                $usuario = $this->buscarPorId($id);
+                if (!$usuario || (int) $usuario['ativo'] !== 1 || (int) $usuario['deve_alterar_senha'] === 1
+                    || !self::perfilValido((string) $usuario['tipo']) || (int) $usuario['session_version'] !== $sessionVersion) {
+                    $this->lastErrorCode = 'session_invalid';
+                    return false;
+                }
+                if (!password_verify($senhaAtual, (string) $usuario['senha'])) {
+                    $this->lastErrorCode = 'current_password_invalid';
+                    return false;
+                }
+                if ($this->emailEmUso($email, $id)) {
+                    $this->lastErrorCode = 'duplicate_email';
+                    return false;
+                }
+
+                $emailChanged = self::normalizarEmail((string) $usuario['email']) !== $email;
+                $statement = $pdo->prepare('UPDATE usuarios SET nome = :name, email = :email,
+                    atualizado_em = :now, session_version = session_version + :invalidate WHERE id = :id');
+                $statement->execute([
+                    'name' => $nome, 'email' => $email, 'now' => gmdate('Y-m-d H:i:s'),
+                    'invalidate' => $emailChanged ? 1 : 0, 'id' => $id,
+                ]);
+                AuditLogger::recordRequired(
+                    $pdo, 'user.profile_updated', AuditLogger::SUCCESS, $id, $id,
+                    'Dados pessoais atualizados pelo próprio usuário.', 'user', $id
+                );
+                return ['nome' => $nome, 'email_alterado' => $emailChanged];
+            });
+        } catch (Throwable $exception) {
+            $this->lastErrorCode = $exception instanceof PDOException && str_contains(strtolower($exception->getMessage()), 'unique')
+                ? 'duplicate_email' : 'database_error';
+            TechnicalLogger::error('user_profile_update_failed', ['exception' => $exception::class]);
+            return false;
+        }
+    }
+
     public function definirAtivo(int $id, bool $ativo, ?int $atorId = null): bool
     {
         $this->lastErrorCode = null;

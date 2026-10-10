@@ -1,80 +1,150 @@
 # Interface atual e evidências do GSE
 
-Inspeção de 05/10/2026, dados fictícios, Chrome 154, escala 1; janelas 1366×768, 1920×1080 e 390×844. As imagens abaixo pertencem somente ao GSE. As capturas desta entrega sucedem as alterações de v16 e o ajuste final do cadastro passivo.
+Inspeção de 06/10/2026 com dados inteiramente fictícios, Chrome 154, escala 1 e janelas 1366 × 768, 1920 × 1080 e 390 × 844. As imagens, legendas e estados desta entrega mostram somente o GSE. A fixture contém 33 alunos, 31 ativos, 2 contas, 3 pastas, 3 certidões e 2 pedidos; os registros excluídos e inativos são preservados.
 
-O ensaio produziu 141 capturas de telas/estados, verificando ausência de transbordamento da página, imagens quebradas, IDs duplicados, violações da CSP e exceções de JavaScript. A rolagem horizontal própria das tabelas largas é preservada no celular. A inspeção das telas alteradas e das páginas impressas complementa essas verificações; não substitui aceite com usuários ou leitores de tela.
+O ensaio final registra 306 capturas de telas/estados. Verificou ausência de transbordamento da página, imagens quebradas, IDs duplicados, violações da CSP e exceções de JavaScript. Formulários e estados interativos receberam conferência de URI relativa, filtros, foco e fontes efetivamente carregadas. A rolagem horizontal de tabelas largas permanece dentro de seu contêiner.
 
-## Inventário de telas e estados
+Organização dos anexos em 09/10/2026: imagens, PDFs, logs e manifestos completos ficam em pacote local separado para a entrega acadêmica; o repositório contém este relatório e o inventário textual. Os caminhos `evidencias/...` abaixo identificam arquivos dentro desse pacote. Esta organização não representa nova execução dos ensaios de 06/10. Cada padrão `nome-{1366,1920,390}.png` identifica as três capturas do mesmo estado, respectivamente em 1366 × 768, 1920 × 1080 e 390 × 844.
 
-| Tela / estado | 1366×768 | 1920×1080 | 390×844 |
-|---|---|---|---|
-| Login: formulário vazio e foco | [Imagem](evidencias/2026-10-05/login-1366.png) | [Imagem](evidencias/2026-10-05/login-1920.png) | [Imagem](evidencias/2026-10-05/login-390.png) |
-| Painel: indicadores preenchidos | [Imagem](evidencias/2026-10-05/painel-1366.png) | [Imagem](evidencias/2026-10-05/painel-1920.png) | [Imagem](evidencias/2026-10-05/painel-390.png) |
-| Usuários: consulta | [Imagem](evidencias/2026-10-05/usuarios-1366.png) | [Imagem](evidencias/2026-10-05/usuarios-1920.png) | [Imagem](evidencias/2026-10-05/usuarios-390.png) |
-| Usuário: cadastro | [Imagem](evidencias/2026-10-05/usuario-cadastro-1366.png) | [Imagem](evidencias/2026-10-05/usuario-cadastro-1920.png) | [Imagem](evidencias/2026-10-05/usuario-cadastro-390.png) |
-| Usuário: edição | [Imagem](evidencias/2026-10-05/usuario-edicao-1366.png) | [Imagem](evidencias/2026-10-05/usuario-edicao-1920.png) | [Imagem](evidencias/2026-10-05/usuario-edicao-390.png) |
-| Senha: alteração | [Imagem](evidencias/2026-10-05/senha-1366.png) | [Imagem](evidencias/2026-10-05/senha-1920.png) | [Imagem](evidencias/2026-10-05/senha-390.png) |
-| Alunos: listagem preenchida | [Imagem](evidencias/2026-10-05/alunos-1366.png) | [Imagem](evidencias/2026-10-05/alunos-1920.png) | [Imagem](evidencias/2026-10-05/alunos-390.png) |
-| Aluno: cadastro | [Imagem](evidencias/2026-10-05/aluno-cadastro-1366.png) | [Imagem](evidencias/2026-10-05/aluno-cadastro-1920.png) | [Imagem](evidencias/2026-10-05/aluno-cadastro-390.png) |
-| Aluno: perfil | [Imagem](evidencias/2026-10-05/aluno-perfil-1366.png) | [Imagem](evidencias/2026-10-05/aluno-perfil-1920.png) | [Imagem](evidencias/2026-10-05/aluno-perfil-390.png) |
-| Aluno: edição | [Imagem](evidencias/2026-10-05/aluno-edicao-1366.png) | [Imagem](evidencias/2026-10-05/aluno-edicao-1920.png) | [Imagem](evidencias/2026-10-05/aluno-edicao-390.png) |
-| DVA: painel e prazos | [Imagem](evidencias/2026-10-05/dva-1366.png) | [Imagem](evidencias/2026-10-05/dva-1920.png) | [Imagem](evidencias/2026-10-05/dva-390.png) |
-| DVA: renovação | [Imagem](evidencias/2026-10-05/dva-renovacao-1366.png) | [Imagem](evidencias/2026-10-05/dva-renovacao-1920.png) | [Imagem](evidencias/2026-10-05/dva-renovacao-390.png) |
-| Turmas: consulta | [Imagem](evidencias/2026-10-05/turmas-1366.png) | [Imagem](evidencias/2026-10-05/turmas-1920.png) | [Imagem](evidencias/2026-10-05/turmas-390.png) |
-| Turma: cadastro | [Imagem](evidencias/2026-10-05/turma-cadastro-1366.png) | [Imagem](evidencias/2026-10-05/turma-cadastro-1920.png) | [Imagem](evidencias/2026-10-05/turma-cadastro-390.png) |
-| Arquivo Passivo: acervo preenchido | [Imagem](evidencias/2026-10-05/passivo-1366.png) | [Imagem](evidencias/2026-10-05/passivo-1920.png) | [Imagem](evidencias/2026-10-05/passivo-390.png) |
-| Arquivo Passivo: filtro de localização pendente | [Imagem](evidencias/2026-10-05/passivo-pendentes-1366.png) | [Imagem](evidencias/2026-10-05/passivo-pendentes-1920.png) | [Imagem](evidencias/2026-10-05/passivo-pendentes-390.png) |
-| Arquivo Passivo: cadastro completo obrigatório | [Imagem](evidencias/2026-10-05/passivo-cadastro-1366.png) | [Imagem](evidencias/2026-10-05/passivo-cadastro-1920.png) | [Imagem](evidencias/2026-10-05/passivo-cadastro-390.png) |
-| Arquivo Passivo: edição de legado incompleto | [Imagem](evidencias/2026-10-05/passivo-edicao-legado-1366.png) | [Imagem](evidencias/2026-10-05/passivo-edicao-legado-1920.png) | [Imagem](evidencias/2026-10-05/passivo-edicao-legado-390.png) |
-| Arquivo Passivo: detalhes da pasta localizada | [Imagem](evidencias/2026-10-05/passivo-detalhes-1366.png) | [Imagem](evidencias/2026-10-05/passivo-detalhes-1920.png) | [Imagem](evidencias/2026-10-05/passivo-detalhes-390.png) |
-| Arquivo Passivo: importação e modelo CSV | [Imagem](evidencias/2026-10-05/passivo-importacao-1366.png) | [Imagem](evidencias/2026-10-05/passivo-importacao-1920.png) | [Imagem](evidencias/2026-10-05/passivo-importacao-390.png) |
-| Arquivo Passivo: enumeração e exportação | [Imagem](evidencias/2026-10-05/passivo-ferramentas-1366.png) | [Imagem](evidencias/2026-10-05/passivo-ferramentas-1920.png) | [Imagem](evidencias/2026-10-05/passivo-ferramentas-390.png) |
-| Arquivo Passivo: consulta dos excluídos | [Imagem](evidencias/2026-10-05/passivo-excluidos-1366.png) | [Imagem](evidencias/2026-10-05/passivo-excluidos-1920.png) | [Imagem](evidencias/2026-10-05/passivo-excluidos-390.png) |
-| Aluno inativo: arquivamento individual | [Imagem](evidencias/2026-10-05/arquivar-aluno-1366.png) | [Imagem](evidencias/2026-10-05/arquivar-aluno-1920.png) | [Imagem](evidencias/2026-10-05/arquivar-aluno-390.png) |
-| Certidões: matriz preenchida | [Imagem](evidencias/2026-10-05/certidoes-1366.png) | [Imagem](evidencias/2026-10-05/certidoes-1920.png) | [Imagem](evidencias/2026-10-05/certidoes-390.png) |
-| Certidões: fornecedores e tipos | [Imagem](evidencias/2026-10-05/certidoes-configuracao-1366.png) | [Imagem](evidencias/2026-10-05/certidoes-configuracao-1920.png) | [Imagem](evidencias/2026-10-05/certidoes-configuracao-390.png) |
-| Certidão: cadastro e PDF opcional | [Imagem](evidencias/2026-10-05/certidao-cadastro-1366.png) | [Imagem](evidencias/2026-10-05/certidao-cadastro-1920.png) | [Imagem](evidencias/2026-10-05/certidao-cadastro-390.png) |
-| Certidão: edição | [Imagem](evidencias/2026-10-05/certidao-edicao-1366.png) | [Imagem](evidencias/2026-10-05/certidao-edicao-1920.png) | [Imagem](evidencias/2026-10-05/certidao-edicao-390.png) |
-| Certidão: renovação | [Imagem](evidencias/2026-10-05/certidao-renovacao-1366.png) | [Imagem](evidencias/2026-10-05/certidao-renovacao-1920.png) | [Imagem](evidencias/2026-10-05/certidao-renovacao-390.png) |
-| Certidão: detalhes e ciclo de vida | [Imagem](evidencias/2026-10-05/certidao-detalhes-1366.png) | [Imagem](evidencias/2026-10-05/certidao-detalhes-1920.png) | [Imagem](evidencias/2026-10-05/certidao-detalhes-390.png) |
-| Certidões: documentos arquivados | [Imagem](evidencias/2026-10-05/certidoes-arquivadas-1366.png) | [Imagem](evidencias/2026-10-05/certidoes-arquivadas-1920.png) | [Imagem](evidencias/2026-10-05/certidoes-arquivadas-390.png) |
-| Certidões: documentos excluídos | [Imagem](evidencias/2026-10-05/certidoes-excluidas-1366.png) | [Imagem](evidencias/2026-10-05/certidoes-excluidas-1920.png) | [Imagem](evidencias/2026-10-05/certidoes-excluidas-390.png) |
-| Pedidos: consulta | [Imagem](evidencias/2026-10-05/pedidos-1366.png) | [Imagem](evidencias/2026-10-05/pedidos-1920.png) | [Imagem](evidencias/2026-10-05/pedidos-390.png) |
-| Pedido: notas, produtos e unidades | [Imagem](evidencias/2026-10-05/pedido-cadastro-1366.png) | [Imagem](evidencias/2026-10-05/pedido-cadastro-1920.png) | [Imagem](evidencias/2026-10-05/pedido-cadastro-390.png) |
-| Pedido: edição | [Imagem](evidencias/2026-10-05/pedido-edicao-1366.png) | [Imagem](evidencias/2026-10-05/pedido-edicao-1920.png) | [Imagem](evidencias/2026-10-05/pedido-edicao-390.png) |
-| Pedido: segunda nota selecionada | [Imagem](evidencias/2026-10-05/nota2-1366.png) | [Imagem](evidencias/2026-10-05/nota2-1920.png) | [Imagem](evidencias/2026-10-05/nota2-390.png) |
-| Pedido: produto aberto na terceira nota | [Imagem](evidencias/2026-10-05/produto3-1366.png) | [Imagem](evidencias/2026-10-05/produto3-1920.png) | [Imagem](evidencias/2026-10-05/produto3-390.png) |
-| Pedido: faturamento aberto na terceira nota | [Imagem](evidencias/2026-10-05/faturamento3-1366.png) | [Imagem](evidencias/2026-10-05/faturamento3-1920.png) | [Imagem](evidencias/2026-10-05/faturamento3-390.png) |
-| Estoque: saldo físico e limites | [Imagem](evidencias/2026-10-05/estoque-1366.png) | [Imagem](evidencias/2026-10-05/estoque-1920.png) | [Imagem](evidencias/2026-10-05/estoque-390.png) |
-| Pedido: histórico auditado | [Imagem](evidencias/2026-10-05/historico-1366.png) | [Imagem](evidencias/2026-10-05/historico-1920.png) | [Imagem](evidencias/2026-10-05/historico-390.png) |
-| Relatórios: filtros e exportação | [Imagem](evidencias/2026-10-05/relatorios-1366.png) | [Imagem](evidencias/2026-10-05/relatorios-1920.png) | [Imagem](evidencias/2026-10-05/relatorios-390.png) |
-| Auditoria: consulta administrativa | [Imagem](evidencias/2026-10-05/auditoria-1366.png) | [Imagem](evidencias/2026-10-05/auditoria-1920.png) | [Imagem](evidencias/2026-10-05/auditoria-390.png) |
-| Erro: página inexistente | [Imagem](evidencias/2026-10-05/erro404-1366.png) | [Imagem](evidencias/2026-10-05/erro404-1920.png) | [Imagem](evidencias/2026-10-05/erro404-390.png) |
-| Arquivo Passivo: posição vazia recusada pelo navegador | [Imagem](evidencias/2026-10-05/passivo-invalido-1366.png) | [Imagem](evidencias/2026-10-05/passivo-invalido-1920.png) | [Imagem](evidencias/2026-10-05/passivo-invalido-390.png) |
-| Menu: foco e expansão | [Imagem](evidencias/2026-10-05/menu-expandido-1366.png) | [Imagem](evidencias/2026-10-05/menu-expandido-1920.png) | [Imagem](evidencias/2026-10-05/menu-expandido-390.png) |
-| Impressão: pedido completo | [Imagem](evidencias/2026-10-05/impressao-pedido-1366.png) | Impressão | Impressão |
-| Impressão: nota individual | [Imagem](evidencias/2026-10-05/impressao-nota2-1366.png) | Impressão | Impressão |
-| Impressão: pedido com 80 produtos | [Imagem](evidencias/2026-10-05/impressao-80-produtos-1366.png) | Impressão | Impressão |
-| Alunos: filtro sem resultados | [Imagem](evidencias/2026-10-05/alunos-vazio-1366.png) | [Imagem](evidencias/2026-10-05/alunos-vazio-1920.png) | [Imagem](evidencias/2026-10-05/alunos-vazio-390.png) |
-| Estoque: conferência administrativa do saldo antigo | [Imagem](evidencias/2026-10-05/estoque-legado-1366.png) | [Imagem](evidencias/2026-10-05/estoque-legado-1920.png) | [Imagem](evidencias/2026-10-05/estoque-legado-390.png) |
+## Telas e estados observados
 
-A seleção entre páginas/filtros e a confirmação do lote também estão nas imagens `passivo-lote-*` desta pasta, produzidas pela suíte permanente com fixture própria; os fluxos autenticados de contratos estão em `contrato-*`. Datas, contatos, contas, fornecedores, DVAs e produtos são fictícios. Não foram usadas capturas antigas para aprovar telas alteradas.
+| Tela / estado | Arquivos em `evidencias/2026-10-06/` no pacote separado |
+|---|---|
+| Login: formulário vazio e foco | `login-{1366,1920,390}.png` |
+| Login: orientação para recuperar acesso | `login-ajuda-{1366,1920,390}.png` |
+| Login: credenciais recusadas | `login-erro-{1366,1920,390}.png` |
+| Painel: indicadores preenchidos | `painel-{1366,1920,390}.png` |
+| Usuários: consulta | `usuarios-{1366,1920,390}.png` |
+| Usuários: busca sem resultados | `usuarios-vazio-{1366,1920,390}.png` |
+| Usuário: cadastro | `usuario-cadastro-{1366,1920,390}.png` |
+| Usuário: edição | `usuario-edicao-{1366,1920,390}.png` |
+| Senha: alteração | `senha-{1366,1920,390}.png` |
+| Meu Perfil: administrador | `usuario-perfil-{1366,1920,390}.png` |
+| Alunos: listagem preenchida | `alunos-{1366,1920,390}.png` |
+| Alunos: filtro sem resultados | `alunos-vazio-{1366,1920,390}.png` |
+| Aluno: cadastro | `aluno-cadastro-{1366,1920,390}.png` |
+| Aluno: observações da DVA abertas | `aluno-observacoes-{1366,1920,390}.png` |
+| Aluno: perfil | `aluno-perfil-{1366,1920,390}.png` |
+| Aluno: edição | `aluno-edicao-{1366,1920,390}.png` |
+| Alunos: consulta dos inativos | `alunos-inativos-{1366,1920,390}.png` |
+| DVA: alunos sem declaração | `dva-sem-{1366,1920,390}.png` |
+| DVA: painel e prazos | `dva-{1366,1920,390}.png` |
+| DVA: renovação | `dva-renovacao-{1366,1920,390}.png` |
+| Turmas: consulta | `turmas-{1366,1920,390}.png` |
+| Turma: cadastro | `turma-cadastro-{1366,1920,390}.png` |
+| Arquivo Passivo: acervo preenchido | `passivo-{1366,1920,390}.png` |
+| Arquivo Passivo: filtro de localização pendente | `passivo-pendentes-{1366,1920,390}.png` |
+| Arquivo Passivo: cadastro completo obrigatório | `passivo-cadastro-{1366,1920,390}.png` |
+| Arquivo Passivo: edição de legado incompleto | `passivo-edicao-legado-{1366,1920,390}.png` |
+| Arquivo Passivo: detalhes da pasta localizada | `passivo-detalhes-{1366,1920,390}.png` |
+| Arquivo Passivo: importação e modelo CSV | `passivo-importacao-{1366,1920,390}.png` |
+| Arquivo Passivo: prévia CSV sem gravação | `passivo-importacao-previa-{1366,1920,390}.png` |
+| Arquivo Passivo: prévia de enumeração sem gravação | `passivo-enumeracao-previa-{1366,1920,390}.png` |
+| Arquivo Passivo: enumeração e exportação | `passivo-ferramentas-{1366,1920,390}.png` |
+| Arquivo Passivo: consulta dos excluídos | `passivo-excluidos-{1366,1920,390}.png` |
+| Aluno inativo: arquivamento individual | `arquivar-aluno-{1366,1920,390}.png` |
+| Certidões: matriz preenchida | `certidoes-{1366,1920,390}.png` |
+| Certidões: fornecedores e tipos | `certidoes-configuracao-{1366,1920,390}.png` |
+| Certidão: cadastro e PDF opcional | `certidao-cadastro-{1366,1920,390}.png` |
+| Certidão: edição | `certidao-edicao-{1366,1920,390}.png` |
+| Certidão: renovação | `certidao-renovacao-{1366,1920,390}.png` |
+| Certidão: detalhes e ciclo de vida | `certidao-detalhes-{1366,1920,390}.png` |
+| Certidões: documentos arquivados | `certidoes-arquivadas-{1366,1920,390}.png` |
+| Certidões: documentos excluídos | `certidoes-excluidas-{1366,1920,390}.png` |
+| Pedidos: consulta | `pedidos-{1366,1920,390}.png` |
+| Pedidos: busca sem resultados | `pedidos-vazio-{1366,1920,390}.png` |
+| Pedido: notas, produtos e unidades | `pedido-cadastro-{1366,1920,390}.png` |
+| Pedido: edição | `pedido-edicao-{1366,1920,390}.png` |
+| Pedido: segunda nota selecionada | `nota2-{1366,1920,390}.png` |
+| Pedido: produto aberto na terceira nota | `produto3-{1366,1920,390}.png` |
+| Pedido: faturamento aberto na terceira nota | `faturamento3-{1366,1920,390}.png` |
+| Estoque: saldo físico e limites | `estoque-{1366,1920,390}.png` |
+| Estoque: conferência administrativa do saldo antigo | `estoque-legado-{1366,1920,390}.png` |
+| Pedido: histórico auditado | `historico-{1366,1920,390}.png` |
+| Relatórios: filtros e exportação | `relatorios-{1366,1920,390}.png` |
+| Auditoria: consulta administrativa | `auditoria-{1366,1920,390}.png` |
+| Erro: página inexistente | `erro404-{1366,1920,390}.png` |
+| Arquivo Passivo: posição vazia recusada pelo navegador | `passivo-invalido-{1366,1920,390}.png` |
+| Menu: foco e expansão | `menu-expandido-{1366,1920,390}.png` |
+| Impressão: pedido completo | `impressao-pedido-{1366,1920,390}.png` |
+| Impressão: nota individual | `impressao-nota2-{1366,1920,390}.png` |
+| Impressão: pedido com 80 produtos | `impressao-80-produtos-{1366,1920,390}.png` |
+| Meu Perfil: funcionário | `usuario-perfil-funcionario-{1366,1920,390}.png` |
+| Erro: acesso administrativo recusado ao funcionário | `erro403-{1366,1920,390}.png` |
+| Aluno: confirmação de possível duplicidade sem gravar | `aluno-duplicidade-{1366,1920,390}.png` |
+| Login: alternância de visibilidade da senha | `login-senha-visivel-{1366,1920,390}.png` |
+| Alunos: ativos e inativos no mesmo filtro | `alunos-todos-{1366,1920,390}.png` |
+| Alunos: segunda página de ativos e inativos | `alunos-todos-pagina2-{1366,1920,390}.png` |
+| Arquivo Passivo: caixa 2, ordenação por número | `passivo-caixa2-{1366,1920,390}.png` |
+| Arquivo Passivo: busca sem resultados | `passivo-vazio-{1366,1920,390}.png` |
+| Arquivo Passivo: edição de pasta completa | `passivo-edicao-{1366,1920,390}.png` |
+| Pedido: primeira nota faturada | `nota1-{1366,1920,390}.png` |
+| Pedido: terceira nota não faturada | `nota3-{1366,1920,390}.png` |
+| Pedido: edição de produto e contexto de estoque | `produto-edicao-{1366,1920,390}.png` |
+| Certidões: matriz em tela cheia | `certidoes-tela-cheia-{1366,1920,390}.png` |
+| Pedido: duas linhas de produtos na primeira nota | `pedido-produtos-dois-{1366,1920,390}.png` |
+| Aluno: campo obrigatório recusado pelo navegador | `aluno-cadastro-invalido-{1366,1920,390}.png` |
+| Usuário: campo obrigatório recusado pelo navegador | `usuario-cadastro-invalido-{1366,1920,390}.png` |
+| Arquivo Passivo: campo obrigatório recusado pelo navegador | `passivo-cadastro-invalido-{1366,1920,390}.png` |
+| Certidão: campo obrigatório recusado pelo navegador | `certidao-cadastro-invalido-{1366,1920,390}.png` |
+| Painel: alunos sem DVA | `painel-sem-dva-{1366,1920,390}.png` |
+| Painel: DVAs vencidas | `painel-vencidas-{1366,1920,390}.png` |
+| Painel: DVAs a vencer | `painel-a-vencer-{1366,1920,390}.png` |
+| Painel: DVAs vigentes | `painel-vigentes-{1366,1920,390}.png` |
+| Painel: alerta de certidões aberto | `painel-certidoes-{1366,1920,390}.png` |
+| Painel: pesquisa com resultado | `painel-busca-{1366,1920,390}.png` |
+| Painel: pesquisa sem resultados | `painel-busca-vazia-{1366,1920,390}.png` |
+| Aluno: DVA vigente, sem contatos | `aluno-perfil-vigente-{1366,1920,390}.png` |
+| Aluno: DVA vencida, sem contatos | `aluno-perfil-vencida-{1366,1920,390}.png` |
+| Aluno: sem DVA | `aluno-perfil-sem-dva-{1366,1920,390}.png` |
+| Certidões: edição de opção em diálogo | `certidoes-opcao-aberta-{1366,1920,390}.png` |
+| Certidões: filtro Vigente sem resultados | `certidoes-filtro-vigente-{1366,1920,390}.png` |
+| Certidões: filtro de pendências preenchido | `certidoes-pendencias-{1366,1920,390}.png` |
+| Certidões: fornecedor selecionado com resultado | `certidoes-fornecedor-{1366,1920,390}.png` |
+| Certidões: ano 2035 sem resultados | `certidoes-ano-vazio-{1366,1920,390}.png` |
+| Certidão: prévia de PDF fictício selecionado | `certidao-pdf-previa-{1366,1920,390}.png` |
+| Aluno: ações ao final do formulário | `aluno-cadastro-acoes-{1366,1920,390}.png` |
+| Pedido: ações ao final do formulário | `pedido-cadastro-acoes-{1366,1920,390}.png` |
+| Certidão: ações ao final do formulário | `certidao-cadastro-acoes-{1366,1920,390}.png` |
+| Arquivo Passivo: ações ao final do formulário | `passivo-cadastro-acoes-{1366,1920,390}.png` |
+| Pedido: observação da segunda nota | `nota-observacao-{1366,1920,390}.png` |
+| Aluno: erro do servidor com dados preservados | `aluno-erro-servidor-{1366,1920,390}.png` |
+| Usuário: erro do servidor com dados preservados | `usuario-erro-servidor-{1366,1920,390}.png` |
+| Arquivo Passivo: erro do servidor com dados preservados | `passivo-erro-servidor-{1366,1920,390}.png` |
+| Certidão: erro do servidor com dados preservados | `certidao-erro-servidor-{1366,1920,390}.png` |
+
+As imagens adicionais `passivo-lote-*`, `contrato-*` e `perfil-*` registram a suíte autenticada permanente. A identificação das notas, o histórico do navegador, as ações com teclado e o foco após fechar o diálogo foram exercitados em dados descartáveis. Os telefones fictícios formatados são exibidos integralmente; seus links de chamada contêm apenas dígitos.
+
+## Ajustes de apresentação verificados
+
+Foram ajustados espaçamento e dimensões do login, títulos e campos dos cadastros, indicadores e cartões, ações de edição de pedido, filtro do arquivo de certidões e os dois pesos de ícones 400/900. O painel voltou a exibir a faixa de aniversário do dia e a idade. As tabelas de DVA usam cores por situação e acomodam as três colunas no celular. O estado Somente pendências usa realce azul. A matriz em tela cheia termina no conteúdo e mantém a rolagem para conjuntos maiores.
+
+Meu Perfil usa cartão, borda, preenchimento e botão azul consistentes com a edição de usuários. O diálogo de fornecedores/tipos mantém foco inicial, Escape, retorno ao acionador e formulário disponível sem JavaScript. Salvar preserva CSRF, revisão e situação da opção.
+
+## Controles e diferenças de estado preservados
+
+- O painel e as consultas padrão contam registros ativos. Inativos e excluídos ficam nas consultas próprias; sua ausência dos indicadores não significa perda de dados.
+- O Arquivo Passivo mostra pendências de localização e oferece filtro, ordenação e consulta de excluídos. Esses campos ocupam espaço real no formulário; os indicadores permanecem em linha no desktop e quebram no celular.
+- Importação CSV e enumeração mostram prévia e confirmação. A primeira é aditiva; a segunda preenche somente posições vazias. As capturas de prévia não confirmam gravações.
+- A renovação de DVA é separada da edição dos dados pessoais para preservar versões e autoria. Observações continuam disponíveis em controle expansível, registrado aberto.
+- Meu Perfil exige senha atual. A mudança de e-mail encerra sessões; a troca de senha tem fluxo próprio e política vigente. O formulário menor e os avisos correspondem a esses controles.
+- Fornecedor e recuperação da tentativa anterior permanecem na edição de pedido; notas, unidades, motivos, revisões, histórico e estoque físico permanecem nos fluxos correspondentes. Esses controles explicam somente o espaço que efetivamente ocupam.
+- Certidões distinguem corrente, arquivada e excluída. Edição altera dados; substituição documental exige renovação. PDF ausente mostra Sem PDF; seleção válida oferece prévia, nome e remoção da seleção. Limite e orientações de upload são visíveis.
+- O catálogo mantém situação ativa/inativa e revisão no diálogo. Esses campos permanecem disponíveis para proteger vínculos históricos e alterações concorrentes.
+- A pesquisa do painel anuncia ausência de resultados e oculta seções sem correspondência. O filtro de ano 2035 retorna zero registros; o seletor exibe Todos os Anos quando esse ano não consta entre as opções disponíveis.
+- A validação nativa foi acionada no formulário correto e confirmou campo inválido, foco e mensagem do navegador. A apresentação da bolha nativa depende do navegador; foco e validação são registrados no estado. Erros do servidor usam classe/mensagem de erro e mantêm o formulário. O caso de usuário usa e-mail duplicado com os demais campos válidos e não cria conta.
 
 ## Impressão e exportações
 
-| Documento / estado | Conferência atual |
+|Documento|Conferência atual|
 |---|---|
-| Pedido de três notas | Uma página, todas as notas e produtos presentes; totais e observações próprios |
-| Nota individual 2 | Uma página, somente Caneta, retorno ao fragmento da segunda nota verificado no navegador |
-| Pedido de 80 produtos e última nota | Quatro páginas; produtos 001–080 exatamente uma vez e em ordem, começando na primeira página; última nota preservada, texto dentro das margens |
-| Relatório máximo de 500 alunos | 14 páginas; todos os 500 nomes filtrados em ordem, sem falta/duplicidade; cabeçalho repetido, primeira/intermediária/última página inspecionadas |
+|Pedido de três notas|Uma página, todas as notas, produtos, totais e observações presentes|
+|Nota individual 2|Uma página, somente Caneta, retorno à segunda nota preservado|
+|Pedido de 80 produtos|Quatro páginas, 001–080 em ordem e exatamente uma vez, produtos já na primeira página e última nota preservada|
+|Relatório de 500 alunos|14 páginas, todos os nomes filtrados em ordem, cabeçalho repetido e primeira/intermediária/última página revisadas|
 
-Exemplos atuais: [pedido de três notas](evidencias/2026-10-05/impressao-pedido-pagina-1.png), [continuação com 80 produtos](evidencias/2026-10-05/impressao-80-produtos-pagina-3.png), [última página do pedido](evidencias/2026-10-05/impressao-80-produtos-pagina-4.png), [última página dos 500 alunos](evidencias/2026-10-05/relatorio-500-alunos-pagina-14.png). Os limites permanecem 500 no PDF e 10.000 na exportação total.
+Exemplos: pedido completo (`evidencias/2026-10-06/impressao-pedido-pagina-1.png`), continuação do pedido longo (`evidencias/2026-10-06/impressao-80-produtos-pagina-3.png`), última nota (`evidencias/2026-10-06/impressao-80-produtos-pagina-4.png`), início dos 500 alunos (`evidencias/2026-10-06/relatorio-500-alunos-pagina-01.png`), página intermediária (`evidencias/2026-10-06/relatorio-500-alunos-pagina-08.png`) e última página (`evidencias/2026-10-06/relatorio-500-alunos-pagina-14.png`). Permanecem os limites 500 no PDF e 10.000 na exportação total.
 
-## Parecer e limites
+A conferência técnica cobre os estados registrados. Permanecem o aceite institucional, a avaliação com usuários e leitores de tela e a execução do fluxo de integração contínua no ambiente remoto. Assets de bibliotecas mantêm licenças e créditos verdadeiros; a autorização institucional do logo não foi presumida.
 
-A identidade azul, logo, menu, tipografia, dimensões principais, formulários, tabelas, foco e navegação foram preservados. O cadastro passivo recebeu espaçamento entre Salvar/Cancelar, separador inferior e fundo do campo Caixa ajustados. A impressão longa passou a permitir continuação da nota, eliminando a primeira página sem produtos; linhas inteiras e cabeçalhos repetidos são preservados. Informações de localização pendente, senha, confirmações, auditoria e estoque físico permanecem explícitas.
-
-Não se declara equivalência visual integral. A conferência dos mockups da edição acadêmica correta, dos estados equivalentes restantes, da usabilidade com os usuários e do ambiente escolar permanece pendente. Comparações técnicas permanecem em arquivos temporários e não integram a narrativa nem as legendas acadêmicas. Assets locais mantêm suas licenças e créditos; a autorização institucional do logo não foi presumida.
-
-Manifestos: [estados observados](evidencias/2026-10-05/estados.json), [arquivos/dimensões/SHA-256](evidencias/2026-10-05/manifesto.json) e [validação final](evidencias/2026-10-05/validacao.json). As evidências de 02/10/2026 continuam no registro histórico [REVISAO_VISUAL.md](REVISAO_VISUAL.md).
+Manifestos: estados e URIs observados (`evidencias/2026-10-06/estados.json`), arquivos/dimensões/SHA-256 (`evidencias/2026-10-06/manifesto.json`) e validação final (`evidencias/2026-10-06/validacao.json`). As evidências anteriores de 05/10 permanecem preservadas.

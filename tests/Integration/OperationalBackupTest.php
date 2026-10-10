@@ -16,6 +16,7 @@ final class OperationalBackupTest extends DatabaseTestCase
         mkdir($root . '/backup/certidoes', 0700, true);
         mkdir($root . '/restored/certidoes', 0700, true);
         $restored = null;
+        $snapshotPath = null;
         try {
             $actor = $this->insertUsuario('Administrador Backup');
             $storage = new \CertidaoStorage($root . '/live');
@@ -34,8 +35,11 @@ final class OperationalBackupTest extends DatabaseTestCase
             });
             $before = $this->snapshot($this->pdo);
 
-            // All writers are quiescent; VACUUM INTO includes committed WAL data.
-            $this->pdo->exec('VACUUM main INTO ' . $this->pdo->quote($root . '/backup/database.sqlite'));
+            // All writers are quiescent; use the application's actual snapshot method.
+            $name = (new \Sistema())->criarBackupManual();
+            $this->assertIsString($name);
+            $snapshotPath = dirname((string) $_ENV['DB_PATH']) . '/backups/' . $name;
+            $this->assertTrue(copy($snapshotPath, $root . '/backup/database.sqlite'));
             $key = $metadata['key'];
             $this->assertTrue(copy($storage->path($key), $root . '/backup/certidoes/' . $key));
             $this->assertSame($metadata['hash'], hash_file('sha256', $root . '/backup/certidoes/' . $key));
@@ -62,6 +66,9 @@ final class OperationalBackupTest extends DatabaseTestCase
             $this->assertSame(0, (int) $row['arquivado']);
         } finally {
             $restored = null;
+            if ($snapshotPath !== null && is_file($snapshotPath)) {
+                unlink($snapshotPath);
+            }
             $iterator = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
                 \RecursiveIteratorIterator::CHILD_FIRST
@@ -81,6 +88,7 @@ final class OperationalBackupTest extends DatabaseTestCase
             $snapshot[$table] = $pdo->query('SELECT * FROM ' . $table . ' ORDER BY rowid')->fetchAll();
         }
         $snapshot['user_version'] = $pdo->query('PRAGMA user_version')->fetchColumn();
+        $snapshot['schema'] = $pdo->query('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name')->fetchAll();
         return $snapshot;
     }
 }

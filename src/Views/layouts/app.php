@@ -3,7 +3,8 @@ $title = $title ?? 'GSE';
 $isAdmin = Auth::isAdmin();
 $currentPath = trim((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? ''), '/');
 $dashboardActive = in_array($currentPath, ['dashboard', 'painel', ''], true);
-$usersActive = str_starts_with($currentPath, 'usuario');
+$profileActive = $currentPath === 'usuario/perfil';
+$usersActive = str_starts_with($currentPath, 'usuario') && !$profileActive;
 $auditActive = str_starts_with($currentPath, 'auditoria');
 $passwordActive = str_starts_with($currentPath, 'senha/alterar');
 $passiveActive = str_starts_with($currentPath, 'passivo') || str_starts_with($currentPath, 'aluno/arquivar');
@@ -42,7 +43,7 @@ $flashClass = [
     <?php if ($certActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css')) ?>">
     <?php endif; ?>
-    <?php if ($usersActive || $auditActive || $passwordActive): ?>
+    <?php if ($usersActive || $profileActive || $auditActive || $passwordActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/usuarios.css')) ?>">
     <?php endif; ?>
     <?php if ($studentsActive || $dvaActive || $classesActive || $dashboardActive): ?>
@@ -114,7 +115,7 @@ $flashClass = [
         <div class="sidebar-footer">
             <div class="sidebar-user">
                 <span class="sidebar-footer-icon" aria-hidden="true">&#128100;</span>
-                <div class="sidebar-footer-label">Olá, <strong><?= e((string) ($_SESSION['usuario_nome'] ?? 'Usuário')) ?></strong>
+                <div class="sidebar-footer-label">Olá, <strong><?php if ($mustChangePassword): ?><?= e((string) ($_SESSION['usuario_nome'] ?? 'Usuário')) ?><?php else: ?><a class="sidebar-profile-link" href="<?= e(url('usuario/perfil')) ?>" <?= $profileActive ? 'aria-current="page"' : '' ?> title="Editar meu perfil"><?= e((string) ($_SESSION['usuario_nome'] ?? 'Usuário')) ?></a><?php endif; ?></strong>
                     <small class="sidebar-user-role visually-hidden"><?= e(nome_perfil((string) ($_SESSION['usuario_tipo'] ?? ''))) ?></small>
                 </div>
             </div>

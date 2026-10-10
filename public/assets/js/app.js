@@ -3,6 +3,39 @@ document.querySelectorAll('[data-cert-auto-submit]').forEach((select) => {
     select.addEventListener('change', () => select.form.requestSubmit());
 });
 
+document.querySelectorAll('[data-cert-option-dialog]').forEach((content) => {
+    if (typeof HTMLDialogElement === 'undefined') return;
+    const item = content.closest('details');
+    const opener = item.querySelector('summary');
+    const dialog = document.createElement('dialog');
+    dialog.className = content.className;
+    dialog.setAttribute('aria-labelledby', content.getAttribute('aria-labelledby'));
+    dialog.append(...content.childNodes);
+    content.replaceWith(dialog);
+    const cancel = dialog.querySelector('[data-cert-option-cancel]');
+    cancel.hidden = false;
+    cancel.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (event) => {
+        if (event.target !== dialog) return;
+        const bounds = dialog.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+    });
+    dialog.addEventListener('close', () => {
+        item.open = false;
+        document.body.classList.remove('cert-option-modal-open');
+        opener.focus();
+    });
+    item.addEventListener('toggle', () => {
+        if (item.open && !dialog.open) {
+            dialog.showModal();
+            document.body.classList.add('cert-option-modal-open');
+            dialog.querySelector('input[name="nome"]').focus();
+        } else if (!item.open && dialog.open) {
+            dialog.close();
+        }
+    });
+});
+
 const certIssueDate = document.getElementById('data_emissao');
 const certPdfInput = document.querySelector('[data-pdf-input]');
 if (certPdfInput) {

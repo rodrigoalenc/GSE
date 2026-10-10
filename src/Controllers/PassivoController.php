@@ -38,7 +38,7 @@ final class PassivoController extends Controller
         }
 
         $this->view('passivo/form', [
-            'title' => 'Novo registro do Arquivo Passivo',
+            'title' => 'Novo Registro (Passivo)',
             'data' => $data,
             'errors' => $errors,
             'editing' => false,
@@ -159,7 +159,7 @@ final class PassivoController extends Controller
             : null;
 
         $this->view('passivo/importar', [
-            'title' => 'Importar Arquivo Passivo',
+            'title' => 'Importar CSV',
             'preview' => $preview,
             'previewToken' => $preview === null ? '' : $token,
             'maxFileSize' => PassivoCsvService::MAX_FILE_SIZE,
@@ -230,7 +230,7 @@ final class PassivoController extends Controller
         }
 
         $this->view('passivo/ferramentas', [
-            'title' => 'Ferramentas do Arquivo Passivo',
+            'title' => 'Ferramentas de Caixa',
             'boxes' => (new Passivo())->caixas(),
             'preview' => $preview,
             'previewToken' => $preview === null ? '' : $token,

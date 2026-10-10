@@ -17,7 +17,15 @@
     <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
 
     <section class="form-section form-block">
-        <div class="section-head"><div><h2>Dados Pessoais</h2></div></div>
+        <div class="section-head"><div><h2>Dados Pessoais</h2></div>
+            <?php if (!$editing): ?>
+                <details class="dva-observation"<?= $data['observacao'] !== '' ? ' open' : '' ?>><summary>Observações DVA (opcional)</summary>
+                    <label for="observacao">Observações DVA (opcional)</label>
+                    <textarea id="observacao" name="observacao" maxlength="1000" rows="3"><?= e($data['observacao']) ?></textarea>
+                    <p class="form-help">Deixe a data vazia para cadastrar o aluno sem DVA.</p>
+                </details>
+            <?php endif; ?>
+        </div>
         <div class="form-grid identity-grid<?= !$editing ? ' has-initial-dva' : '' ?>">
             <div class="field-wide">
                 <label for="nome_completo">Nome Completo:</label>
@@ -44,17 +52,9 @@
         </div>
     </section>
 
-    <?php if (!$editing): ?>
-        <details class="form-section form-block dva-observation"<?= $data['observacao'] !== '' ? ' open' : '' ?>><summary>Observações DVA (opcional)</summary>
-            <label for="observacao">Observações DVA (opcional)</label>
-            <textarea id="observacao" name="observacao" maxlength="1000" rows="3"><?= e($data['observacao']) ?></textarea>
-            <p class="form-help">Deixe a data vazia para cadastrar o aluno sem DVA.</p>
-        </details>
-    <?php endif; ?>
-
     <section class="form-section form-block">
         <div class="section-head"><div><h2>Contatos</h2></div></div>
-        <div class="form-grid">
+        <div class="form-grid contact-grid">
             <div><label for="telefone_aluno">📱 WhatsApp / Celular do Aluno:</label><input id="telefone_aluno" name="telefone_aluno" value="<?= e($data['telefone_aluno']) ?>" maxlength="30" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000"></div>
             <div><label for="telefone_responsavel">👨‍👩‍👦 Telefone do Responsável:</label><input id="telefone_responsavel" name="telefone_responsavel" value="<?= e($data['telefone_responsavel']) ?>" maxlength="30" inputmode="tel" placeholder="(00) 00000-0000"></div>
         </div>

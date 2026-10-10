@@ -8,6 +8,10 @@ $secoesDva = [
     ['titulo' => 'Vigentes', 'classe' => 'vigentes', 'alunos' => $alunosPorStatus[DvaStatus::VIGENTE]],
 ];
 $certidoesAtencao = (int) ($certidoes['a_vencer'] ?? 0) + (int) ($certidoes['vence_hoje'] ?? 0);
+$dataAtual = new DateTimeImmutable((new DvaStatus())->today());
+$aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item): bool =>
+    substr((string) $item['data_nascimento'], 5) === $dataAtual->format('m-d')
+);
 ?>
 
 <div class="dashboard-home" data-dashboard-home>
@@ -19,6 +23,17 @@ $certidoesAtencao = (int) ($certidoes['a_vencer'] ?? 0) + (int) ($certidoes['ven
                 <a href="<?= e(url('certidao')) ?>">Consultar certidões</a>
             </div>
         </details>
+    <?php endif; ?>
+
+    <?php if ($aniversariantesHoje !== []): ?>
+        <section class="dashboard-birthday-today" aria-labelledby="dashboard-birthday-today-title">
+            <h2 id="dashboard-birthday-today-title">🎈 Feliz aniversário</h2>
+            <?php foreach ($aniversariantesHoje as $item): ?>
+                <div class="dashboard-birthday-today-card">
+                    <span>🎈 Hoje é o dia de <strong><?= e((string) $item['nome_completo']) ?></strong>, completando <strong><?= (int) (new DateTimeImmutable((string) $item['data_nascimento']))->diff($dataAtual)->y ?> anos</strong>.</span>
+                </div>
+            <?php endforeach; ?>
+        </section>
     <?php endif; ?>
 
     <section class="dashboard-summary" aria-label="Indicadores dos alunos e DVAs">

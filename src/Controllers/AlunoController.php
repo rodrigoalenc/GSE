@@ -12,7 +12,7 @@ final class AlunoController extends Controller
     {
         $filters = $this->filters();
         $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1;
-        $result = (new Aluno())->paginate($filters, (int) $page);
+        $result = (new Aluno())->paginate($filters, (int) $page, 15);
 
         $this->view('alunos/index', [
             'title' => 'Gerenciar Alunos',

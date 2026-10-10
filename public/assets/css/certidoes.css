@@ -345,7 +345,7 @@
 .cert-filter-chip.active { box-shadow:0 6px 16px rgba(15,36,64,.13); }
 .cert-main-filter select { min-width:235px; min-height:46px; padding:10px 13px; color:#0c2445; background:#f6f9fd; border:1px solid #d3dfed; border-radius:8px; font-weight:650; }
 .cert-pending-link { display:inline-flex; align-items:center; min-height:42px; padding:9px 13px; color:#0c2445; border:1px solid #d5e3f2; border-radius:9px; font-size:.85rem; font-weight:650; }
-.cert-pending-link.active { color:#a45100; background:#fff4dc; }
+.cert-pending-link.active { color:var(--primary-dark); background:#e8f1fb; border-color:#bfd1e4; }
 .cert-fullscreen-controls .btn-secondary { background:#fff; border-color:#d5e3f2; font-size:.85rem; }
 .cert-advanced-filters { margin-top:14px; color:#526276; font-size:.85rem; }
 .cert-advanced-filters summary { cursor:pointer; width:max-content; color:#16508f; font-weight:700; }
@@ -407,7 +407,7 @@
 .cert-workspace:fullscreen .cert-toolbar { display:none; }
 .cert-workspace:fullscreen .cert-toolbar-controls { margin:0; }
 .cert-workspace:fullscreen .cert-fullscreen-controls .btn-secondary { box-shadow:0 4px 14px rgba(15,36,64,.25); }
-.cert-workspace:fullscreen .cert-matrix-scroll { max-height:calc(100vh - 36px); height:calc(100vh - 36px); }
+.cert-workspace:fullscreen .cert-matrix-scroll { max-height:calc(100vh - 36px); height:auto; }
 @media(max-width:600px) { .cert-workspace:fullscreen .cert-fullscreen-status-bar { top:10px; left:10px; right:10px; justify-content:flex-start; } .cert-fullscreen-status-btn,.cert-fullscreen-exit-btn { font-size:.68rem; padding:5px 9px; } }
 
 .cert-form-panel { width:min(100%,800px); max-width:800px; margin:24px auto; padding:30px; border:0; border-radius:16px; }
@@ -555,6 +555,14 @@
     font-display:block;
     src:url('../vendor/fontawesome/webfonts/fa-solid-900.woff2') format('woff2');
 }
+@font-face {
+    font-family:'Font Awesome 6 Free';
+    font-style:normal;
+    font-weight:400;
+    font-display:block;
+    src:url('../vendor/fontawesome/webfonts/fa-regular-400.woff2') format('woff2');
+}
+.cert-year-filter .cert-icon-calendar { font-weight: 400; }
 .cert-icon,
 .cert-page-matrix h1::before,.cert-page-form h1::before,.cert-page-config h1::before {
     font-family:'Font Awesome 6 Free';
@@ -628,11 +636,11 @@
 .cert-fullscreen-controls .btn-secondary { min-height:42px; padding:8px 12px; border-radius:10px; font-size:.85rem; }
 .cert-pending-link { gap:8px; padding:8px 12px; border-radius:10px; font-size:.85rem; }
 .cert-pending-link .cert-icon { color:inherit; }
-.cert-toolbar-history .cert-toolbar-heading { align-items:center; }
-.cert-toolbar-history .cert-toolbar-heading>div { flex:1; }
-.cert-year-filter { margin:0; padding:6px 12px; max-width:320px; }
+.cert-toolbar-history .cert-toolbar-heading { align-items:center; gap:15px; }
+.cert-toolbar-history .cert-toolbar-heading>div { flex:none; }
+.cert-year-filter { margin:0; padding:6px 12px; max-width:320px; gap:8px; }
 .cert-year-filter label { font-size:.9rem; white-space:normal; font-weight:400; }
-.cert-year-filter select { padding:12px 15px; margin-bottom:18px; font-size:1rem; }
+.cert-year-filter select { padding:12px 15px; margin-bottom:18px; font-size:1rem; font-weight:600; color:var(--text-main); }
 .cert-meta { margin-bottom:10px; font-size:.92rem; color:#69788c; }
 .cert-meta span { background:#e0f2fe; color:#075985; font-size:.85rem; }
 .cert-advanced-filters { margin:18px 0 0; }
@@ -644,6 +652,7 @@
 .cert-matrix thead th:first-child,.cert-matrix tbody th { width:200px; min-width:200px; max-width:200px; }
 .cert-matrix thead th:first-child { font-size:.82rem; font-weight:600; letter-spacing:0; line-height:1.15; }
 .cert-matrix tbody th { padding:10px; color:#17212b; background:#f7fafe; font-size:.9rem; text-transform:none; }
+.cert-matrix thead th:not(:first-child), .cert-matrix tbody th { text-transform: uppercase; }
 .cert-matrix td { height:auto; }
 .cert-card { display:flex; flex-direction:column; gap:12px; padding:12px; border-radius:8px; border-color:#e2e8f0; border-top-color:#1f8f4d; box-shadow:0 2px 4px rgba(0,0,0,.03); background:#fff; }
 .cert-card-head { min-height:0; }
@@ -716,6 +725,21 @@
 .cert-config-item-actions .cert-icon-power { background:#f1f5f9; color:#94a3b8; }
 .cert-config-item form { padding-top:12px; }
 .cert-config-item form label,.cert-config-item form button { margin-top:12px; }
+.cert-config-dialog-heading { padding: 20px 22px 8px; }
+.cert-config-dialog-heading h2 { margin: 0 0 6px; color: var(--text-main); font-size: 1.2rem; }
+.cert-config-dialog-heading p { margin: 0; color: var(--text-muted); }
+.cert-config-item .cert-config-dialog form { display: block; padding: 16px 22px 22px; }
+.cert-config-item .cert-config-dialog form label { margin-top: 0; }
+.cert-config-item .cert-config-dialog form label:not(:first-of-type) { margin-top: 18px; }
+.cert-config-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.cert-config-item .cert-config-dialog-actions button { margin-top: 0; }
+dialog.cert-config-dialog { position: fixed; inset: 8vh 0 auto; width: min(100% - 32px, 460px); max-height: calc(92vh - 16px); margin: 0 auto; padding: 0; color: var(--text-main); background: #fff; border: 0; border-radius: 18px; box-shadow: 0 24px 60px rgba(15,23,42,.2); overflow: auto; }
+dialog.cert-config-dialog::backdrop { background: rgba(15,23,42,.55); backdrop-filter: blur(3px); }
+dialog.cert-config-dialog input[name="nome"] { padding: 12px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; }
+dialog.cert-config-dialog input[name="nome"]:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
+dialog.cert-config-dialog .cert-config-dialog-actions .btn-secondary { padding: 10px 14px; color: #334155; background: #e2e8f0; border: 0; border-radius: 10px; font-weight: 600; }
+dialog.cert-config-dialog .cert-config-dialog-actions .btn-primary { min-height: 0; padding: 10px 20px; color: #fff; background: var(--primary-color); border: 0; border-radius: 6px; box-shadow: none; font-family: Arial,sans-serif; font-size: 13.3333px; font-weight: 600; line-height: normal; }
+body.cert-option-modal-open { overflow: hidden; }
 .cert-config-footer { margin-top:30px; margin-bottom:18px; }
 .cert-config-footer a { display:inline-flex; gap:8px; align-items:center; }
 .cert-config-search { font-size:.85rem; }

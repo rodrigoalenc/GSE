@@ -1,5 +1,7 @@
 # Módulo 4 — evidências de validação
 
+**Organização de 09/10/2026:** anexos gerados completos e materiais técnicos de QA foram preservados fora da pasta do projeto. O repositório mantém os relatórios; caminhos `.local-qa/...` e configurações de processos abaixo registram o ambiente histórico das execuções e não indicam arquivos presentes na entrega atual. Não houve nova execução por causa desta organização.
+
 **Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
 
 Registro histórico das execuções de 16 e 17/09/2026. Estes resultados não comprovam o código posterior da branch `Modulo5`; consulte [MODULO5_VALIDACAO.md](MODULO5_VALIDACAO.md) para os resultados atuais.

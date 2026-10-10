@@ -1,6 +1,6 @@
 # Módulo 5 — Contratos, Estoque e Relatórios
 
-**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+**Atualização de 06/10/2026:** o estado atual preserva esquema v16 e acrescenta perfil próprio, snapshot consistente com WAL e correção do CI. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para a conferência literal da edição acadêmica de 34 páginas, rastreabilidade e resultados atuais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados abaixo permanecem históricos e não aprovam o código posterior. A execução remota do código corrigido e o aceite institucional continuam pendentes.
 
 ## Fontes e alcance
 

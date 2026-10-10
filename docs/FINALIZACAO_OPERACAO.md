@@ -1,10 +1,12 @@
 # Finalização operacional do GSE
 
-Revisão local de 05/10/2026, iniciada em `74e7727` e executada sobre o código de trabalho da finalização. Os números abaixo são ensaios reais com dados fictícios; a revisão final e os totais completos constam do relatório de finalização. O `.env` existente foi preservado e as configurações de QA foram fornecidas aos processos descartáveis. Bancos, PDFs de certidões e destinatários institucionais não foram usados no QA nem alterados. Não houve implantação ou agendamento de produção.
+Revisão atual de 06/10/2026 sobre `eff8cbecc54d7a7d6b8639ca87f924e385fc9c10`, com resultados atuais separados dos ensaios históricos de 05/10, iniciados em `74e7727`. Os totais da validação atual constam de [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md). O `.env` foi preservado e configurações de QA foram fornecidas aos processos descartáveis. Bancos, PDFs de certidões e destinatários institucionais não foram usados nem alterados. Não houve implantação, SMTP real ou agendamento de produção.
 
-O PDF exato `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` ainda precisa ser fornecido ou ter sua edição confirmada. As referências a RF006/NF003, UC001 e às figuras de certidões neste documento vêm do plano autorizado pelo usuário, sem declaração de conferência literal desse PDF. A matriz de permissões abaixo descreve o código efetivamente auditado.
+Organização dos anexos em 09/10/2026: imagens, PDFs, logs e manifestos completos ficam em pacote local separado para a entrega acadêmica. O repositório mantém os relatórios e os identificadores textuais `evidencias/...`, relativos a esse pacote. Materiais técnicos temporários de QA também foram preservados fora da pasta do projeto. As datas e os resultados abaixo permanecem os das execuções registradas; esta organização não constitui novo ensaio operacional.
 
-## Verificações e correções
+O PDF correto `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf`, fornecido em Downloads, foi lido integralmente em texto e imagens: 34 páginas, SHA-256 `d459c6cec1bddf7225fdbfe4062ffc4c5f3ff540fff22eb61d2ca6ddd51e1afe`. RF006 está na p.15/física14; NF003, p.16/física15; a produção Linux/Nginx/PHP-FPM/SQLite/intranet/backup está na p.27/física26, com segurança na p.28/física27. A matriz acadêmica completa está no relatório TCC. A matriz abaixo descreve permissões atuais; leitura da fonte não equivale a aceite acadêmico ou implantação.
+
+## Verificações históricas de 05/10 e complementação de 06/10
 
 | Ensaio | Evidência e resultado |
 |---|---|
@@ -13,16 +15,16 @@ O PDF exato `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` ainda precisa ser for
 | Certidões: destinatários, falha parcial, retry, trabalhador concorrente e queda | `CertidaoNotificationTest`; mantém duas contas administrativas ativas independentemente da preferência DVA; nenhum funcionário/inativo recebe. Ensaio de queda e confirmação local simulado. |
 | SMTP/TLS | `PhpMailerTransportTest`; STARTTLS/SMTPS mapeados, `none` recusado em produção, portas padrão incoerentes recusadas. Sem conexão SMTP real. |
 | CLI diária desabilitada | `CertidaoCliTest`: `MAIL_ENABLED=false` impede os dois comandos de abrir/criar o banco, mesmo com `APP_ENV=production`; configuração e diretórios fictícios. **3 testes, 21 asserções**. |
-| Backup e restauração conjunta | `OperationalBackupTest`: snapshot `VACUUM INTO` e PDF privado restaurados em outro diretório; IDs, vínculos, auditoria, sequências e migrações iguais; hash/tamanho corretos, `integrity_check=ok`, FK vazias, inicialização duas vezes sem mudanças. **1 teste, 12 asserções**. |
+| Backup e restauração conjunta | Ensaio histórico de 05/10: `OperationalBackupTest` executava `VACUUM INTO` diretamente, **1 teste/12 asserções**. Em 06/10 passou a chamar o método real `Sistema::criarBackupManual`; o conjunto direcionado `SistemaTest` + `OperationalBackupTest` passou com **8 testes/66 asserções**, 2,072s/22 MiB. Banco e PDF privados restaurados em diretório independente; IDs, vínculos, auditoria, sequências, schema/migrações iguais, hash/tamanho corretos, integridade ok, FK vazias e inicialização duas vezes sem mudanças. |
 | Estoque concorrente e legado | `ModuloCincoTest` e `LegacyStockRecoveryTest`: processos reais competem sobre SQLite temporário; somente uma saída/contagem é aceita, sem saldo negativo; recuperação requer administrador ativo, contagem confirmada, unidade, limites, motivo e auditoria; falha de auditoria desfaz toda a operação. |
 | Inicialização/atualização | `DatabaseMigrationTest` e `DatabaseSchemaConvergenceTest`: banco novo, versões legadas, integridade, preservação e idempotência; a revisão final utiliza esquema v16. |
 | Manutenção | `MaintenanceTest`: retenção remove somente registros vencidos e é idempotente; páginas e autenticação não executam limpeza. |
 
-A primeira bateria operacional teve **80 testes e 416 asserções** (1min14s), antes de acrescentar o ensaio de restauração e a regressão adicional CLI e antes da consolidação do esquema v16. Esse resultado é intermediário e não substitui a bateria final registrada na entrega.
+A primeira bateria operacional de 05/10 teve **80 testes e 416 asserções** (1min14s), antes de acrescentar o ensaio de restauração e a regressão adicional CLI e antes da consolidação do esquema v16. Esse resultado histórico intermediário não substitui a validação atual.
 
-A bateria direcionada após a consolidação v16 passou com **82 testes e 434 asserções**, em 2min21,669s e pico PHPUnit de 26 MiB. Comando: `php vendor/phpunit/phpunit/phpunit --filter 'DvaNotificationTest|CertidaoNotificationTest|PhpMailerTransportTest|LegacyStockRecoveryTest|ModuloCincoTest|DatabaseMigrationTest|DatabaseSchemaConvergenceTest|MaintenanceTest|CertidaoCliTest|OperationalBackupTest' --no-progress`. Sintaxe dos arquivos PHP operacionais e `git diff --check` também passaram.
+A bateria direcionada de 05/10 após a consolidação v16 passou com **82 testes e 434 asserções**, em 2min21,669s e pico PHPUnit de 26 MiB. Comando histórico: `php vendor/phpunit/phpunit/phpunit --filter 'DvaNotificationTest|CertidaoNotificationTest|PhpMailerTransportTest|LegacyStockRecoveryTest|ModuloCincoTest|DatabaseMigrationTest|DatabaseSchemaConvergenceTest|MaintenanceTest|CertidaoCliTest|OperationalBackupTest' --no-progress`. Não se reutilizam esses números como aprovação de 06/10.
 
-Arquivos operacionais alterados: `src/Services/DvaNotificationService.php`, `tests/Integration/DvaNotificationTest.php`, `tests/Integration/CertidaoCliTest.php`, novo `tests/Integration/OperationalBackupTest.php` e os exemplos `.env.example`/`.env.production.example`, que agora explicitam `CERTIDAO_STORAGE_PATH`. O `.env` existente foi preservado.
+Arquivos operacionais alterados em 05/10: `src/Services/DvaNotificationService.php`, testes DVA/CLI/restauração e exemplos `.env`, com armazenamento privado explícito. Em 06/10: `src/Model/Sistema.php`, `tests/Integration/SistemaTest.php` e `OperationalBackupTest.php`. O `.env` existente foi preservado. A suíte completa atual é registrada no relatório TCC, separada dos resultados históricos.
 
 ## Permissões de telas, ações e URLs diretas
 
@@ -32,6 +34,7 @@ Fonte: tabela explícita de `src/Core/Router.php`, `Router::authorize()`, `Auth`
 |---|---|---|---|
 | Login: `GET /`, `/login`; `POST /login/entrar` | Sim | Sim | Sim |
 | Logout; própria senha: `POST /login/sair`, `GET/POST /senha/alterar` | Não | Sim | Sim |
+| Próprio nome/e-mail: `GET/POST /usuario/perfil`, com senha atual e ID da sessão | Não | Sim | Sim |
 | Painel: `GET /dashboard` | Não | Sim | Sim |
 | Alunos: lista, perfil, criar/editar; `GET /aluno`, `/aluno/perfil/{id}`, `GET/POST /aluno/criar`, `/aluno/editar/{id}` | Não | Sim | Sim |
 | DVA: painel e cadastro/edição; `GET /dva`, `GET/POST /aluno/dva/{id}` | Não | Sim | Sim |
@@ -58,7 +61,11 @@ Fonte: tabela explícita de `src/Core/Router.php`, `Router::authorize()`, `Auth`
 
 As linhas com `*` resumem famílias, não autorizam rotas implícitas: somente os métodos e padrões declarados no Router são aceitos; IDs inválidos e métodos incorretos são recusados. O download válido de PDF ocorre exclusivamente por `GET /certidao/pdf/{id}`, autenticado e auditado. O funcionário pode desarquivar uma certidão na operação comum do módulo; a restauração crítica de passivo e a recuperação de estoque seguem restritas ao administrador.
 
-Interpretações a validar academicamente: o plano relata UC001 com ator “Usuário” e autenticação como pré-condição. Mantém-se a inativação de alunos administrativa, considerando seu caráter crítico; a pré-condição genérica não concede todas as ações. O plano também relata Figura 6/p.22 com `include` de anexo PDF e Figura 17/p.29 com “Anexar PDF (Opcional)”. O código preserva anexar/armazenar/consultar/baixar e permite cadastrar/renovar sem anexo, conforme a opção de mockup relatada. A exclusão é lógica: sai da consulta ativa e preserva histórico, vínculos e auditoria; a atribuição dessa interpretação ao PDF original permanece pendente de conferência literal.
+Interpretações agora conferidas no PDF e ainda sujeitas a aceite: UC001 p.18/f.17 usa “Usuário” e login genérico; mantida inativação/reativação administrativa, coerente com o perfil crítico da p.18. Figura 3 p.19/f.18 atribui atualizar dados pessoais/senha ao Usuário, enquanto a Tabela 5 exige administrador; a própria edição de nome/e-mail foi autorizada pelo usuário desta revisão, com senha atual/CSRF, sem gerir contas alheias, perfil, preferência ou situação. Figura 6 p.22/f.21 usa `include` de PDF e Figura 17 p.29/f.28 diz “Anexar PDF (Opcional)”; cadastro/renovação sem anexo foram preservados. Figura 8 p.24/f.23 atribui visualizar/exportar relatórios ao Funcionário, e visualização e os dois formatos de exportação estão autorizadas no Router. Exclusão lógica preserva vínculos/autoria e retira da consulta ativa; o documento não determina DELETE físico inequivocamente. A conferência literal está concluída; a validação acadêmica dessas escolhas não foi presumida.
+
+Perfil próprio altera somente nome/e-mail. Mudança de nome mantém a sessão; mudança de e-mail revoga sessões e exige novo login. Senha continua na rota existente; senha temporária bloqueia o acesso ao perfil até ser trocada. `OwnProfileTest`, segurança de rotas e `tests/http-profile.php` cobrem funcionário/administrador, conta alheia, campos extras, senha incorreta, CSRF, duplicidade, auditoria e revogação.
+
+Auditoria: mutações de Passivo, certidões, contratos/estoque e perfil próprio têm registro obrigatório na transação; operações comuns de alunos/DVA, administração de usuários/turmas e mudança de senha usam `AuditLogger::record` best effort depois da mutação. Não se promete rollback do dado nesses fluxos administrativos se o registro do log falhar.
 
 ## Alertas diários e limites reais de SMTP
 
@@ -70,18 +77,20 @@ Interpretações a validar academicamente: o plano relata UC001 com ator “Usu�
 - Deduplicação diária depende da confirmação local. Queda após aceite SMTP e antes da confirmação pode duplicar retry em ambos os módulos; SMTP não fornece transação atômica conjunta com SQLite, garantia de leitura pelo destinatário ou entrega exatamente uma vez. Uma alteração de conta após a reserva e imediatamente antes do envio ainda possui pequena janela inevitável sem bloqueio externo. Homologar entrega, caixas de spam e bounces no SMTP candidato; não assumir aprovação pelo resultado de transporte falso.
 - Saída CLI: `0` sucesso/desabilitado; `1` configuração/execução falhou; `2` envio com falhas. Monitorar códigos e mensagens. Não foi habilitado nenhum alerta real nesta revisão.
 
-## Exportações no volume máximo
+## Exportações atuais no volume máximo: 06/10/2026
 
 Ambiente local: Windows, PHP CLI 8.4.13, extensões exigidas carregadas, dependências do lock existente, bancos temporários. Medida do controlador real, excluindo criação da fixture; `hrtime` e `memory_get_peak_usage(true)`, em processo novo por formato, com saída gravada em arquivo. Pico é memória do alocador PHP, não RSS do sistema operacional. Uma execução medida por formato; não é ensaio de capacidade da intranet.
 
 | Formato | Alunos filtrados | Tempo | Base/pico PHP | Arquivo | Verificação |
 |---|---:|---:|---:|---:|---|
-| CSV | 10.000 | 0,201s | 4 / 10 MiB | 640.195 bytes | 10.000 nomes únicos na ordem 00001–10000, UTF-8/BOM, turma/DVA/ativo corretos; excluídos alunos inativos, de outra turma e DVA vigente. Exportação total acima de 10.000 recusada. |
-| PDF | 500 | 3,062s | 4 / 88 MiB | 55.850 bytes | 14 páginas; extração completa confirmou 00001–00500 na ordem, sem faltas/duplicidades, com filtros corretos e cabeçalho repetido. |
+| CSV | 10.000 | 0,197s | 4 / 10 MiB | 640.195 bytes | 10.000 nomes únicos na ordem 00001–10000, UTF-8/BOM, turma/DVA/ativo corretos; excluídos alunos inativos, de outra turma e DVA vigente. Exportação total acima de 10.000 recusada. |
+| PDF | 500 | 2,930s | 4 / 88 MiB | 55.847 bytes | 14 páginas; extração completa confirmou 00001–00500 na ordem, sem faltas/duplicidades, com filtros corretos e cabeçalho repetido. |
 
 Não se alteraram os limites de 500 alunos/PDF e 10.000 na exportação total. O teto PDF permanece no controlador antes da geração; o teto total no modelo. A implementação materializa as linhas selecionadas em memória; CSV não é leitura contínua do banco. A memória observada sustenta os limites locais, sem prometer capacidade de vários PDFs simultâneos no servidor candidato.
 
-Extração com pypdf; rasterização com PyMuPDF local porque Poppler não estava disponível. Inspeção das páginas [1](evidencias/2026-10-05/relatorio-500-alunos-pagina-01.png), [8](evidencias/2026-10-05/relatorio-500-alunos-pagina-08.png) e [14](evidencias/2026-10-05/relatorio-500-alunos-pagina-14.png): cabeçalhos e linhas legíveis, sem sobreposição/corte. Os PNGs mostram somente GSE e dados fictícios. Builders, PDF/CSV e resultados detalhados ficam em `.local-qa/operations-*`, como material técnico temporário.
+Extração com pypdf; rasterização com PyMuPDF porque Poppler não está instalado. Capturas das páginas 1 (`evidencias/2026-10-06/relatorio-500-alunos-pagina-01.png`), 8 (`evidencias/2026-10-06/relatorio-500-alunos-pagina-08.png`) e 14 (`evidencias/2026-10-06/relatorio-500-alunos-pagina-14.png`) acompanham a validação visual de 06/10 no pacote separado. Mostram somente GSE/dados fictícios. Builders, PDF/CSV e resultados técnicos detalhados foram preservados fora da pasta do projeto, junto ao material temporário de QA.
+
+Histórico preservado de 05/10: CSV 10.000 em 0,201s, base/pico 4/10 MiB e 640.195 bytes; PDF 500 em 3,062s, 4/88 MiB, 55.850 bytes e 14 páginas. As evidências daquele dia estão em `evidencias/2026-10-05/` dentro do pacote separado; não foram sobrescritas nem usadas como medição atual.
 
 ## Roteiro institucional: PHP-FPM, Nginx, HTTPS e dados privados
 
@@ -173,6 +182,10 @@ O exemplo de administrador serve à instalação **fictícia de homologação**.
 
 ## Backup e restauração conjunta executáveis
 
+O método real `Sistema::criarBackupManual` agora produz snapshot SQLite com `VACUUM main INTO`, incluindo páginas confirmadas ainda no WAL. O destino vem do diretório resolvido de `DB_PATH`: banco externo em `/var/lib/gse/gse.sqlite` gera backups em `/var/lib/gse/backups`, sem escrever no código. Nomes incluem segundo e 128 bits aleatórios; reserva exclusiva e permissões Linux 0700/0600 precedem a gravação; destino é citado por PDO, e integridade/FKs são conferidas antes do retorno basename. Em falha retorna false e remove somente o arquivo reservado por aquela tentativa. Não há nova rota/tela de backup. Backups legados em `ROOT_PATH/database/backups` seguem descobertos por `listarBackups`, sem migração/exclusão e sem duplicação de barras no Windows.
+
+O método não inclui os PDFs nem substitui o snapshot conjunto offline abaixo. A [documentação SQLite de VACUUM INTO](https://www.sqlite.org/lang_vacuum.html) permite destino vazio e descreve snapshot consistente; interrupção antes do término pode deixar arquivo incompleto. O ensaio de restauração usa o método da aplicação e cópia dos PDFs com escritores parados, restaura em outro diretório e confere IDs, vínculos, autoria, schema/migrações, sequências, hashes e integridade. Permissões Unix continuam a conferir no Linux candidato.
+
 Precondições: janela de manutenção, acesso bloqueado, FPM da aplicação e **todas** as tarefas/trabalhadores/CLI GSE parados. Confirmar que não há escritor remanescente. Nunca copiar apenas o arquivo principal de um SQLite ativo em WAL. Os comandos usam caminhos fixos privados do roteiro; manter snapshots anteriores e código anterior. Não executar substituições em banco/PDF institucional fora dessa janela.
 
 Snapshot offline em diretório novo protegido; não reutilizar nome existente:
@@ -234,4 +247,4 @@ Exemplo para crontab da conta dedicada `gse`, depois da aprovação. Horários s
 
 Adicionar ao monitoramento execução diária esperada, códigos de saída, falhas/retries, disco, backup externo/restauração periódica e retenção protegida de logs. Não confundir ausência de novos avisos com falha do agendador. SQLite e locks exigem armazenamento local compatível; não usar cópias divergentes do DB/lock ou presumir garantias em filesystem de rede.
 
-Pendências concretas: conferência literal/aceite acadêmico da edição exata do PDF e das ambiguidades; execução no Linux compatível com CI; sintaxe/integridade do Nginx/FPM do candidato; permissões Unix/HTTPS real; SMTP isolado e entregabilidade; volume e concorrência no servidor da escola; backup externo criptografado/restauração institucional; governança de perfis e retenção; homologação dos cinco módulos e aceite da escola. Resultados locais aprovados não encerram essas etapas.
+Pendências concretas: aceite acadêmico das ambiguidades e mapeamentos documentados após leitura integral do PDF correto; avaliação de usabilidade com responsáveis; publicação autorizada e execução dos dois jobs CI no commit corrigido; Linux/POSIX e permissões Unix; Nginx/FPM/HTTPS do candidato; SMTP isolado/entregabilidade; volume e concorrência na intranet; backup externo criptografado/restauração institucional; governança de perfis, auditoria administrativa e retenção; homologação dos cinco módulos e aceite da escola. O antigo bloqueio de obtenção/conferência literal do PDF foi resolvido. Resultados locais aprovados não encerram as pendências institucionais.

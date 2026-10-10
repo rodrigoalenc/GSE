@@ -52,6 +52,8 @@ final class Router
             $this->route('GET', 'certidao/excluidas', 'CertidaoController', 'excluidas', true),
             $this->route('GET', 'certidao/configurar', 'CertidaoController', 'configurar', true),
             $this->route('POST', 'certidao/configurar', 'CertidaoController', 'configurar', true),
+            $this->route('GET', 'usuario/perfil', 'PerfilController', 'editar', true),
+            $this->route('POST', 'usuario/perfil', 'PerfilController', 'editar', true),
             $this->route('GET', 'usuario', 'UsuarioController', 'index', true, true),
             $this->route('GET', 'usuario/criar', 'UsuarioController', 'criar', true, true),
             $this->route('POST', 'usuario/criar', 'UsuarioController', 'criar', true, true),

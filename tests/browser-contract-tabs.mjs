@@ -85,7 +85,13 @@ export async function launchBrowser() {
                 await captureFailure('failed-condition', {expression});
                 throw new Error(`Browser condition not satisfied: ${expression}`);
             };
-            const navigate = async (url) => { await command('Page.navigate', {url}); await until('document.readyState === "complete"'); };
+            const navigate = async (url) => {
+                const previousOrigin = await evaluate('performance.timeOrigin');
+                const navigation = await command('Page.navigate', {url});
+                if (navigation.errorText) throw new Error(navigation.errorText);
+                if (navigation.loaderId) await until(`performance.timeOrigin !== ${JSON.stringify(previousOrigin)}`);
+                await until('document.readyState === "complete"');
+            };
             const click = async (selector, modifiers = 0) => {
                 const lookup = `document.querySelector(${JSON.stringify(selector)})`;
                 await until(`${lookup} !== null && ${lookup}.getClientRects().length > 0 && !${lookup}.disabled`);

@@ -1,6 +1,8 @@
 # Validação do Módulo 5
 
-**Atualização de 05/10/2026:** o estado atual utiliza esquema v16. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para correções, rastreabilidade e resultados finais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados de revisões anteriores permanecem históricos e não aprovam o código posterior. A conferência literal da edição acadêmica solicitada e o aceite institucional continuam pendentes.
+**Atualização de 06/10/2026:** o estado atual preserva esquema v16 e acrescenta perfil próprio, snapshot consistente com WAL e correção do CI. Consulte [FINALIZACAO_TCC.md](FINALIZACAO_TCC.md) para a conferência literal da edição acadêmica de 34 páginas, rastreabilidade e resultados atuais, [FINALIZACAO_OPERACAO.md](FINALIZACAO_OPERACAO.md) para permissões/operação e [INTERFACE_FINALIZACAO.md](INTERFACE_FINALIZACAO.md) para imagens atuais. Seções e resultados datados abaixo permanecem históricos e não aprovam o código posterior. A execução remota do código corrigido e o aceite institucional continuam pendentes.
+
+Organização dos anexos em 09/10/2026: imagens, PDFs, logs e manifestos completos são preservados em pacote local separado para a entrega acadêmica. O repositório mantém os relatórios e os identificadores textuais `evidencias/...`, relativos a esse pacote. As datas e os resultados das execuções abaixo permanecem históricos; não houve nova execução por causa dessa organização.
 
 ## Revisão de 02/10/2026
 
@@ -41,7 +43,7 @@ A falha inicial das 85 rotas foi reproduzida: o teste esperava 84. A expectativa
 
 ### Navegador e impressão
 
-As telas finais foram exercitadas com dados fictícios em 1366×768, 1920×1080 e 390×844, escala 1. O navegador integrado não apresentou instância disponível; o ensaio usou Chrome headless instalado, com perfil temporário próprio. Layout, formulário aberto, nota selecionada, erro e estados vazios foram capturados. As evidências versionadas mostram somente o GSE e têm legendas próprias em [REVISAO_VISUAL.md](REVISAO_VISUAL.md).
+As telas finais foram exercitadas com dados fictícios em 1366×768, 1920×1080 e 390×844, escala 1. O navegador integrado não apresentou instância disponível; o ensaio usou Chrome headless instalado, com perfil temporário próprio. Layout, formulário aberto, nota selecionada, erro e estados vazios foram capturados. As evidências preservadas no pacote separado mostram somente o GSE e têm legendas próprias em [REVISAO_VISUAL.md](REVISAO_VISUAL.md).
 
 Na aplicação autenticada, o fluxo de contratos passou em 17 verificações no desktop e nas mesmas 17 em 390×844: seleção de nota, abertura/fechamento, formulário recusado, preenchimento escapado, recuperação de estoque e retorno da impressão. Certidões passaram em 58 verificações nas três resoluções; a prévia PDF foi retestada após a correção da CSP, sem violação da política.
 
@@ -65,7 +67,7 @@ Esta revisão usa o esquema v15 existente e não acrescenta migração. Instala�
 | Fluxos e segurança | `src/Controllers/ContratoController.php`, `CertidaoController.php`, `PassivoController.php`; `src/Model/Contrato.php`; `src/Core/ContractFormDraft.php` e `SecurityHeaders.php` |
 | Telas | Views de login/layout, usuários, alunos/perfil, passivo, certidões, contratos e relatórios; seleção compartilhada em `src/Views/contratos/unit-select.php` |
 | Regressões | `tests/Security/CoreSecurityTest.php`, `tests/Integration/LegacyStockRecoveryTest.php`, `tests/Unit/ContractFormDraftTest.php`, `tests/browser-contract-tabs.mjs`, `tests/fixtures/stock-recovery-race.php`, `tests/http-contract-drafts.php`, `tests/http-certidoes.php` e `tests/http-smoke.php` |
-| Entrega e evidências | README; documentos de módulos 3, 4 e 5 revisados; `docs/PRODUCTION_CHECKLIST.md`, `docs/REVISAO_VISUAL.md`; 19 PNGs e manifesto com dimensões/SHA-256 em `docs/evidencias/2026-10-02/` |
+| Entrega e evidências | README; documentos de módulos 3, 4 e 5 revisados; `docs/PRODUCTION_CHECKLIST.md`, `docs/REVISAO_VISUAL.md`; 19 PNGs e manifesto com dimensões/SHA-256 preservados em `evidencias/2026-10-02/` no pacote separado |
 
 As capturas usam dados fictícios. Bases, configurações, perfis do navegador e artefatos auxiliares de QA não integram o commit. A relação exata de caminhos pode ser consultada em `git show --stat` no commit desta revisão.
 
@@ -107,7 +109,7 @@ Ambiente de teste: PHP 8.4.13, SQLite, Windows. As extensões `intl` e `fileinfo
 | `tests/Integration/ModuloCincoTest.php` | 7 testes, 41 verificações; contratos, estoque, duas saídas em processos separados, duplicação, idempotência, estorno, conciliação, auditoria e DVA corrente |
 | Integração HTTP `tests/http-smoke.php` | 166 verificações; inclui visitante, contrato, PDF e CSV do Módulo 5 |
 | `node --check public/assets/js/app.js` e `git diff --check` | Sem erros |
-| PDF de 80 alunos | Três páginas; [primeira](evidencias/modulo5-relatorio-pagina-1.png) e [última](evidencias/modulo5-relatorio-pagina-3.png) renderizadas e inspecionadas, sem corte visível |
+| PDF de 80 alunos | Três páginas; primeira (`evidencias/modulo5-relatorio-pagina-1.png`) e última (`evidencias/modulo5-relatorio-pagina-3.png`) renderizadas e inspecionadas, sem corte visível |
 
 ### Pendências registradas naquela execução
 

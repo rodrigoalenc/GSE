@@ -9,7 +9,7 @@ Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 - UC006 — contratos, folhas, produtos e movimentação de estoque;
 - UC007 — relatórios de alunos e situação da DVA.
 
-O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A finalização de 05/10/2026 corrige a localização do Arquivo Passivo (v16), revalida os destinatários de DVA e estabiliza os testes de navegador. Consulte o [relatório final e a matriz dos cinco módulos](docs/FINALIZACAO_TCC.md), a [matriz de permissões e operação](docs/FINALIZACAO_OPERACAO.md) e o [inventário visual atual](docs/INTERFACE_FINALIZACAO.md). A conferência literal do PDF acadêmico correto, o CI Linux e o aceite institucional continuam pendentes.
+O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A revisão de 06/10/2026 preserva a migração v16 e acrescenta perfil próprio, snapshot SQLite que inclui o WAL e correção semântica do CI. A edição acadêmica de 34 páginas foi conferida literalmente. Consulte o [relatório final e a matriz dos cinco módulos](docs/FINALIZACAO_TCC.md), a [matriz de permissões e operação](docs/FINALIZACAO_OPERACAO.md) e o [inventário visual atual](docs/INTERFACE_FINALIZACAO.md). As ambiguidades acadêmicas, a execução do código corrigido no CI Linux e o aceite institucional têm situação própria nesses relatórios.
 
 ## Módulo 4 — instalação e operação
 
@@ -21,7 +21,7 @@ Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MOD
 - Inventário conservador: `php bin/certidoes-maintenance.php`. Migração de arquivos legados: `php bin/migrate-certidao-pdfs.php --source=CAMINHO_ABSOLUTO` simula, sem mover/apagar originais.
 - Backup operacional cobre **SQLite e PDFs**. Bloqueie os diretórios públicos legados no servidor antes da implantação.
 
-Os registros de validação dos módulos anteriores descrevem suas respectivas entregas. Os resultados da revisão atual estão em [MODULO5_VALIDACAO.md](docs/MODULO5_VALIDACAO.md); aprovação histórica não valida alterações posteriores.
+Os registros de validação dos módulos anteriores, incluindo [MODULO5_VALIDACAO.md](docs/MODULO5_VALIDACAO.md), descrevem suas respectivas entregas. Os resultados atuais estão em [FINALIZACAO_TCC.md](docs/FINALIZACAO_TCC.md); aprovação histórica não valida alterações posteriores.
 
 ## Arquitetura de segurança
 
@@ -118,6 +118,8 @@ O comando gera uma senha temporária aleatória, mostra-a uma única vez e marca
 Para automação controlada, `GSE_ADMIN_PASSWORD` pode ser fornecida apenas ao processo CLI. Não coloque senha em argumentos, `.env`, scripts versionados ou logs. A senha fornecida continua temporária.
 
 Senhas definidas ou redefinidas por administrador também são temporárias e nunca são exibidas novamente pela aplicação.
+
+Funcionários e administradores acessam `/usuario/perfil` pelo próprio nome no rodapé do menu. Nome e e-mail só podem ser alterados para a conta da sessão, com senha atual e CSRF. A auditoria participa da mesma transação: se falhar, a alteração é desfeita. Alterar apenas o nome mantém a sessão; alterar o e-mail encerra todas as sessões anteriores e exige novo login. A troca de senha permanece em `/senha/alterar`. Perfil, situação e preferência de alertas continuam sob administração.
 
 Alertas de DVA são opt-in. O primeiro administrador inicia sem alertas; para uma escolha explícita já na criação, acrescente `--enable-dva-alerts`. A preferência também pode ser habilitada depois pela tela administrativa.
 
@@ -306,6 +308,8 @@ Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deri
 
 Antes de alteração estrutural em banco existente, é criado um backup SQLite consistente em `backups/`, validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
 
+`Sistema::criarBackupManual()` usa `VACUUM INTO` sobre o `DB_PATH` configurado e valida integridade e chaves estrangeiras. Inclui registros confirmados ainda presentes no WAL; a cópia direta do arquivo principal pode perdê-los mesmo quando sua integridade é válida. O método retorna um nome único ou `false` e grava em `backups/` ao lado do banco, fora de `public`; com `DB_PATH=/var/lib/gse/escola.sqlite`, o destino é `/var/lib/gse/backups`. A listagem preserva também a descoberta dos backups antigos em `database/backups`. Esse snapshot cobre somente SQLite. O backup conjunto com PDFs privados e a versão compatível do código exige parada dos escritores e segue o [roteiro operacional](docs/FINALIZACAO_OPERACAO.md).
+
 A v10 preenche `alunos.nome_normalizado` e `turmas.nome_normalizado` sem alterar nomes, IDs, vínculos ou DVAs. Antes do commit, compara contagens, IDs e o mapa `aluno_id → id_turma`, além de exigir `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`. Se duas turmas do mesmo ano se tornarem equivalentes após NFC e conversão Unicode para minúsculas, a migração faz rollback e informa os IDs envolvidos; não exclui, mescla, renomeia nem escolhe automaticamente qual registro prevalece. Corrija a colisão em uma cópia homologada e execute novamente.
 
 A v11 corrige a divergência deixada pela v10 em bancos atualizados, onde `nome_normalizado` podia continuar anulável. Sob `BEGIN IMMEDIATE`, ela recalcula as chaves com `TextNormalizer`, detecta colisões antes da substituição, cria tabelas com as mesmas colunas, defaults, checks e chaves estrangeiras do schema limpo, copia cada coluna explicitamente, preserva IDs, sequências de autoincremento, vínculos aluno/turma, vínculos DVA/aluno e todo o histórico da DVA. Os índices e triggers são recriados; tanto INSERT quanto UPDATE recusam chave nula, vazia ou formada apenas por whitespace Unicode. A normalização Unicode completa permanece no PHP, pois não é reproduzida de forma incompleta em SQL.
@@ -339,6 +343,7 @@ Para rollback, mantenha a aplicação em manutenção e encerre todos os process
 | POST | `/login/sair` | autenticado + CSRF; permitido na troca obrigatória |
 | GET | `/dashboard` | autenticado após troca obrigatória |
 | GET/POST | `/senha/alterar` | autenticado; permitido na troca obrigatória |
+| GET/POST | `/usuario/perfil` | autenticado após troca obrigatória; senha atual e CSRF no POST |
 | GET | `/usuario` | administrador |
 | GET/POST | `/usuario/criar` | administrador |
 | GET/POST | `/usuario/editar/{id}` | administrador |
@@ -368,7 +373,7 @@ O CSV usa `Nome;Data;Numero;Caixa`, UTF-8, no máximo 2 MiB e 5.000 linhas. Data
 
 A migração v12 cria backup SQLite validado antes de escrever, executa `BEGIN IMMEDIATE`, copia colunas explicitamente, preserva IDs e `sqlite_sequence`, recalcula chaves de busca com `TextNormalizer::searchKey()`, marca `localizacao_pendente=1` quando a caixa legada está ausente e recria índices, FKs e o trigger contra `DELETE`. Colisões de caixa/número são preservadas para revisão; não são mescladas nem renumeradas. Um índice único parcial impede dois registros ativos para o mesmo `aluno_origem_id`.
 
-Homologue a v12 em uma cópia com a mesma versão de PHP, SQLite e `ext-intl`. Valide o backup em `database/backups`, compare contagens/IDs/sequências, confirme a ausência de `alunos_passivo_v12` e execute:
+Homologue a v12 em uma cópia com a mesma versão de PHP, SQLite e `ext-intl`. Valide o backup em `backups/` ao lado do arquivo resolvido por `DB_PATH` (padrão `database/backups`), compare contagens/IDs/sequências, confirme a ausência de `alunos_passivo_v12` e execute:
 
 ```sql
 PRAGMA user_version;       -- 16 nesta branch (12 na entrega original do Módulo 3)
@@ -434,8 +439,8 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 - alterações futuras do logo ou da identidade institucional dependem de aprovação da escola;
 - notificações dependem de um SMTP institucional configurado e de agendamento externo;
 - agenda e etiquetas não integram o escopo atual;
-- a leitura literal de `TCC_2_ETAPA_1_MÓDULO_1 - Rodrigo-Calebe.pdf` permanece pendente; o PDF versionado não é presumido equivalente;
-- a leitura do PDF correto, o aceite institucional e a validação de usabilidade com os usuários permanecem pendentes conforme o relatório da revisão atual.
+- a edição acadêmica de 34 páginas foi lida; as ambiguidades de atores, exclusão lógica e PDF opcional exigem decisão acadêmica/institucional registrada na matriz;
+- o aceite institucional e a validação de usabilidade com os usuários permanecem pendentes conforme o relatório da revisão atual.
 
 O painel apresenta indicadores e grupos de alunos por situação da DVA. O menu principal oferece acesso aos módulos implementados, incluindo contratos, estoque e relatórios.
 

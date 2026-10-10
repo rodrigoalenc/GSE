@@ -70,6 +70,11 @@ try {
     await page.click('.btn-login');
     await page.until(`location.pathname === '/dashboard'`);
 
+    await go('/aluno/perfil/1', '.contato-numero');
+    check(await page.evaluate(`({numbers:[...document.querySelectorAll('.contato-numero')].map(e=>e.textContent.trim()),links:[...document.querySelectorAll('.btn-whatsapp-full')].map(e=>e.href)})`),
+        {numbers:['(67) 99999-0001','(67) 99999-0002'],links:['https://wa.me/5567999990001','https://wa.me/5567999990002']},
+        'Formatted historical contacts remain visible and call links contain only canonical digits');
+
     // The synthetic tab fixture also runs against the authenticated PHP application.
     const noteState = () => page.evaluate(`[...document.querySelectorAll('[role="tabpanel"]')].map(panel=>({id:panel.id,hidden:panel.hidden,visible:panel.getBoundingClientRect().height>0}))`);
     const noteSelected = id => [1,2,3].map(number=>({id:`folha-${number}`,hidden:number!==id,visible:number===id}));
@@ -142,8 +147,8 @@ try {
     await page.click('[data-student-selection-id][value="1"]');
     check(await ids(), ['1'], 'First student selected');
     await shot('passivo-lote-selecao-1366');
-    await page.click('.pagination a[aria-label="Página 2"]');
-    await page.until(`new URL(location.href).searchParams.get('page') === '2' && document.querySelector('[data-student-selection-id][value="31"]') !== null`);
+    await page.click('.pagination a[aria-label="Página 3"]');
+    await page.until(`new URL(location.href).searchParams.get('page') === '3' && document.querySelector('[data-student-selection-id][value="31"]') !== null`);
     await page.until(`document.readyState === 'complete' && !document.querySelector('[data-student-select-page]').hidden`);
     await page.click('[data-student-selection-id][value="31"]');
     await shot('passivo-lote-pagina-2-1366');
@@ -187,7 +192,7 @@ try {
     check(await ids(), [], 'Success clears selection');
     check(await page.evaluate(`document.querySelector('[data-student-selection-id][value="1"]').disabled`), true, 'Already archived student cannot be selected');
     await page.click('[data-student-selection-id][value="2"]');
-    await go('/aluno?ativo=todos&page=2', '[data-student-archive-selection]');
+    await go('/aluno?ativo=todos&page=3', '[data-student-archive-selection]');
     check(await page.evaluate(`document.querySelector('[data-student-selection-id][value="32"]').disabled`), true, 'Previously archived inactive student disabled');
     await page.click('[data-student-selection-id][value="33"]');
     check(await ids(), ['2','33'], 'Active and inactive selection across pages');
@@ -216,7 +221,7 @@ try {
     check(finalResult.dvas, initial.dvas, 'DVAs unchanged after both batches');
     await go('/aluno', '[data-student-archive-selection]');
     await page.click('[data-student-select-page]');
-    check((await ids()).length, 20, 'Select current page');
+    check((await ids()).length, 15, 'Select current page');
     await page.click('[data-student-select-page]');
     check(await ids(), [], 'Unselect current page');
     await page.click('[data-student-selection-id][value="3"]');
@@ -264,6 +269,67 @@ try {
     await page.until(`location.pathname==='/contrato/detalhes/2' && document.querySelectorAll('[role="tabpanel"]').length===3`);
     check(await page.evaluate(`[...document.querySelectorAll('[role="tabpanel"] .contract-unit-badge')].map(unit=>unit.textContent.trim())`), ['Litros','UN','K'], 'Authenticated PHP creation persists the three submitted product units');
     await shot('contrato-cadastro-tres-notas-1366');
+    await go('/certidao/configurar', '.cert-config-item');
+    await page.click('.cert-config-item > summary');
+    await page.until(`document.querySelector('dialog.cert-config-dialog')?.open`);
+    check(await page.evaluate(`document.activeElement.name`), 'nome', 'Catalog modal focuses its name field');
+    check(await page.evaluate(`(()=>{const form=document.querySelector('dialog[open] form');return ['_csrf_token','tipo','id','revisao','ativo'].every(name=>new FormData(form).has(name));})()`), true, 'Catalog modal keeps CSRF, identity, revision and state in its submitted payload');
+    await page.command('Input.dispatchKeyEvent', {type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await page.command('Input.dispatchKeyEvent', {type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await page.until(`!document.querySelector('dialog.cert-config-dialog').open`);
+    check(await page.evaluate(`document.activeElement.matches('.cert-config-item > summary')`), true, 'Catalog modal returns keyboard focus after Escape');
+    await page.click('.cert-config-item > summary');
+    await page.until(`document.querySelector('dialog.cert-config-dialog').open`);
+    await page.click('dialog[open] [data-cert-option-cancel]');
+    await page.until(`!document.querySelector('dialog.cert-config-dialog').open`);
+    check(await page.evaluate(`document.activeElement.matches('.cert-config-item > summary')`), true, 'Catalog cancel closes the modal and restores its opener');
+    await page.command('Emulation.setScriptExecutionDisabled', {value:true});
+    await go('/certidao/configurar', 'div[data-cert-option-dialog]');
+    await page.click('.cert-config-item > summary');
+    check(await page.evaluate(`document.querySelector('div[data-cert-option-dialog] input[name="nome"]').getBoundingClientRect().height>0`), true, 'Catalog form remains available inline without JavaScript');
+    await page.command('Emulation.setScriptExecutionDisabled', {value:false});
+    await go('/dashboard', '.sidebar-profile-link');
+    const replace = async (selector, text) => {
+        await page.click(selector);
+        await page.command('Input.dispatchKeyEvent', {type:'keyDown',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
+        await page.command('Input.dispatchKeyEvent', {type:'keyUp',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
+        await page.command('Input.insertText', {text});
+    };
+    for (const [role, email] of [['admin','browser@example.test'],['employee','employee@example.test']]) {
+        if (role==='employee') {
+            await go('/login', '#email');
+            await fill('#email', email);
+            await fill('#senha', 'Teste ficticio seguro 2026');
+            await page.click('.btn-login');
+            await page.until(`location.pathname==='/dashboard' && document.readyState==='complete'`);
+        }
+        await page.evaluate(`document.querySelector('.sidebar-profile-link').focus()`);
+        check(await page.evaluate(`getComputedStyle(document.activeElement).outlineWidth !== '0px'`), true, `${role}: profile link has a visible keyboard focus`);
+        await page.command('Input.dispatchKeyEvent', {type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+        await page.command('Input.dispatchKeyEvent', {type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+        await page.until(`location.pathname==='/usuario/perfil' && document.querySelector('#perfil-nome')!==null && document.readyState==='complete'`);
+        check(await page.evaluate(`document.querySelector('#perfil-email').value`), email, `${role}: own profile opens from the sidebar using Enter`);
+        await replace('#perfil-senha-atual', 'senha incorreta');
+        await page.click('form.usuario-form button[type="submit"]');
+        await page.until(`document.querySelector('[role="alert"]')!==null && document.readyState==='complete'`);
+        check(await page.evaluate(`document.querySelector('#perfil-senha-atual').value`), '', `${role}: failed confirmation never redisplays the password`);
+        check(await page.evaluate(`document.body.textContent.includes('senha incorreta')`), false, `${role}: failed confirmation keeps the password out of messages`);
+        const updatedName=`Perfil fictício ${role}`;
+        await replace('#perfil-nome', updatedName);
+        await replace('#perfil-senha-atual', 'Teste ficticio seguro 2026');
+        await page.click('form.usuario-form button[type="submit"]');
+        await page.until(`document.querySelector('.sidebar-profile-link')?.textContent.trim()===${JSON.stringify(updatedName)} && document.readyState==='complete'`);
+        check(await page.evaluate(`document.querySelector('#perfil-nome').value`), updatedName, `${role}: name change persists and refreshes the session`);
+        await shot(`perfil-${role}-1366`);
+        await replace('#perfil-email', `updated-${role}@example.test`);
+        await replace('#perfil-senha-atual', 'Teste ficticio seguro 2026');
+        await page.click('form.usuario-form button[type="submit"]');
+        await page.until(`location.pathname==='/login' && document.querySelector('#email')!==null && document.readyState==='complete'`);
+        check(await page.evaluate('location.pathname'), '/login', `${role}: email change revokes the authenticated session`);
+        await page.navigate(base+'/usuario/perfil');
+        await page.until(`location.pathname==='/login' && document.readyState==='complete'`);
+        check(await page.evaluate('location.pathname'), '/login', `${role}: the revoked session cannot reopen the profile`);
+    }
     check(browser.errors, [], 'No JavaScript exceptions');
     check(/PHP (?:Warning|Fatal error|Parse error)/.test(serverErrors), false, 'No PHP runtime warnings');
     console.log(`Browser authenticated contracts and passive batch: ${checks} checks passed (fictitious database, desktop and mobile).`);

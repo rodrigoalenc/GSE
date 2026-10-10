@@ -15,13 +15,16 @@
         </form>
         <?php if ($options === []): ?><p class="cert-config-empty">Nenhum<?= $kind === 'fornecedor' ? ' fornecedor registrado.' : ' tipo de certidão registrado.' ?></p><?php endif; ?>
         <?php foreach ($options as $option): ?><details class="cert-option cert-config-item"><summary><span class="cert-config-item-name"><?= e($option['nome']) ?><?= (int)$option['ativo'] === 0 ? ' · Inativo' : '' ?></span><span class="cert-config-item-actions" aria-hidden="true"><i class="cert-icon cert-icon-edit"></i><i class="cert-icon cert-icon-power"></i></span></summary>
+            <div class="cert-config-dialog" data-cert-option-dialog aria-labelledby="editar-opcao-<?= e($kind) ?>-<?= (int)$option['id'] ?>">
+            <div class="cert-config-dialog-heading"><h2 id="editar-opcao-<?= e($kind) ?>-<?= (int)$option['id'] ?>">Renomear <?= $kind === 'fornecedor' ? 'fornecedor' : 'tipo de certidão' ?></h2><p>Atualize o nome desta opção sem precisar sair da tela de configuração.</p></div>
             <form method="post" action="<?= e(url('certidao/configurar')) ?>">
                 <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="tipo" value="<?= e($kind) ?>"><input type="hidden" name="id" value="<?= (int)$option['id'] ?>">
-                <label for="nome-<?= e($kind) ?>-<?= (int)$option['id'] ?>">Nome</label><input id="nome-<?= e($kind) ?>-<?= (int)$option['id'] ?>" name="nome" minlength="2" maxlength="150" required value="<?= e($option['nome']) ?>">
+                <label for="nome-<?= e($kind) ?>-<?= (int)$option['id'] ?>">Novo nome</label><input id="nome-<?= e($kind) ?>-<?= (int)$option['id'] ?>" name="nome" minlength="2" maxlength="150" required value="<?= e($option['nome']) ?>">
                 <input type="hidden" name="revisao" value="<?= (int)$option['revisao'] ?>">
                 <label for="ativo-<?= e($kind) ?>-<?= (int)$option['id'] ?>">Situação</label><select id="ativo-<?= e($kind) ?>-<?= (int)$option['id'] ?>" name="ativo"><option value="1" <?= (int)$option['ativo']===1 ? 'selected' : '' ?>>Ativo</option><option value="0" <?= (int)$option['ativo']===0 ? 'selected' : '' ?>>Inativo</option></select>
-                <button class="btn-secondary" type="submit">Salvar alteração</button>
+                <div class="cert-config-dialog-actions"><button class="btn-secondary" type="button" data-cert-option-cancel hidden>Cancelar</button><button class="btn-primary" type="submit">Salvar alteração</button></div>
             </form>
+            </div>
         </details><?php endforeach; ?>
     </section>
 <?php endforeach; ?>

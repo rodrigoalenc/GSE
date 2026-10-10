@@ -154,7 +154,7 @@ final class ContratoController extends Controller
         if ($record['excluido_em']!==null) { render_http_error(404,'Contrato excluído','O contrato está disponível apenas para consulta.','contrato'); }
         $draft=$_SESSION['contract_edit_draft_'.$id] ?? [];
         unset($_SESSION['contract_edit_draft_'.$id]);
-        $this->view('contratos/form',['title'=>'Editar Pedido','record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
+        $this->view('contratos/form',['title'=>'✏️ Editar Dados Gerais #'.$record['id'],'record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
     }
 
     public function detalhes(string $id): void

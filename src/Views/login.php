@@ -51,7 +51,7 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
         </div>
 
         <button class="btn-login" type="submit">Entrar</button>
-        <details class="login-help"><summary>Esqueci minha senha</summary><p>Solicite ao administrador a redefinição da sua senha para recuperar o acesso.</p></details>
+        <details class="login-help"><summary><span>Esqueci minha senha</span></summary><p>Solicite ao administrador a redefinição da sua senha para recuperar o acesso.</p></details>
     </form>
 <script src="<?= e(url('assets/js/app.js')) ?>"></script>
 </body>

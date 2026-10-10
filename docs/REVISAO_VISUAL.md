@@ -4,6 +4,8 @@
 
 Revisão de 02/10/2026 na branch `Modulo5`. As telas existentes dos cinco módulos foram exercitadas com dados fictícios no Chrome instalado, perfil temporário, escala 1 e janelas de 1366×768, 1920×1080 e 390×844. O navegador integrado não apresentou instância disponível. As evidências abaixo pertencem somente ao GSE.
 
+Organização de 09/10/2026: os anexos gerados completos ficam em pacote local separado para a entrega acadêmica; o repositório preserva este relatório e a identificação textual dos arquivos. Os caminhos `evidencias/...` abaixo são relativos a esse pacote. Os resultados mantêm a data de 02/10; esta organização não constitui nova execução ou aprovação.
+
 ## Telas e comportamentos verificados
 
 | Área | Telas e estados | Ajustes desta revisão |
@@ -24,32 +26,32 @@ Foram inspecionados alinhamento, dimensões, fontes, assets, rolagem, tabelas, f
 
 | Evidência | Legenda |
 |---|---|
-| [Login móvel](evidencias/2026-10-02/login-390.png) | Formulário de acesso em janela de 390×844 |
-| [Painel](evidencias/2026-10-02/painel-1366.png) | Visão administrativa com alunos e prazos fictícios |
-| [Alunos](evidencias/2026-10-02/alunos-1366.png) | Listagem de alunos de demonstração |
-| [Cadastro de aluno](evidencias/2026-10-02/aluno-cadastro-390.png) | Campos e contatos na apresentação móvel |
-| [Arquivo Passivo](evidencias/2026-10-02/passivo-1366.png) | Consulta de caixas e registro físico fictício |
-| [Certidões](evidencias/2026-10-02/certidoes-1920.png) | Matriz por fornecedor e tipo com prazo e ações |
-| [Configuração](evidencias/2026-10-02/certidoes-config-1366.png) | Listas administrativas de fornecedores e tipos |
-| [Pedidos](evidencias/2026-10-02/contratos-1366.png) | Lista, indicadores e acesso aos detalhes |
-| [Nota selecionada](evidencias/2026-10-02/contrato-nota2-1366.png) | Segunda nota do pedido, faturamento e itens |
-| [Produto aberto](evidencias/2026-10-02/contrato-produto2-1920.png) | Formulário interno da segunda nota |
-| [Relatórios](evidencias/2026-10-02/relatorios-1366.png) | Formatos de exportação e filtros |
-| [Erro de produto](evidencias/2026-10-02/nota2-validacao.png) | Quantidade recusada com nome literal e preenchimento preservado |
-| [Conferência de estoque](evidencias/2026-10-02/abertura-legada.png) | Formulário administrativo de contagem física atual |
-| [Impressão das notas](evidencias/2026-10-02/impressao-pedido.png) | Cabeçalho, valores, observações e produtos das três notas |
-| [Impressão de nota individual](evidencias/2026-10-02/impressao-nota.png) | Segunda nota com seus próprios total e saldo |
-| [Pedido com 80 itens: continuação](evidencias/2026-10-02/impressao-80-itens-pagina-3.png) | Cabeçalho repetido e linhas inteiras |
-| [Pedido com 80 itens: última página](evidencias/2026-10-02/impressao-80-itens-pagina-5.png) | Últimos produtos e segunda nota sem corte |
-| [Unidade do pedido no desktop](evidencias/2026-10-02/unidades-pedido-1366.png) | Seleção de Litros após adicionar/remover produtos e notas |
-| [Unidade do pedido no celular](evidencias/2026-10-02/unidades-pedido-390.png) | Campo de escolha em 390×844, sem escrita livre |
-| [Seleção de alunos no desktop](evidencias/2026-10-02/passivo-lote-selecao-1366.png) | Checkbox por aluno e ações para envio ao Arquivo Passivo |
-| [Seleção em outra página](evidencias/2026-10-02/passivo-lote-pagina-2-1366.png) | Seleção anterior mantida ao marcar aluno na segunda página |
-| [Prévia do lote no desktop](evidencias/2026-10-02/passivo-lote-previa-1366.png) | Caixa existente e numeração após a maior pasta já usada |
-| [Prévia do lote no celular](evidencias/2026-10-02/passivo-lote-previa-390.png) | Posições, confirmação e envio em 390×844 |
-| [Seleção de alunos no celular](evidencias/2026-10-02/passivo-lote-selecao-390.png) | Alunos ativos e inativos selecionados em páginas diferentes |
+| Login móvel (`evidencias/2026-10-02/login-390.png`) | Formulário de acesso em janela de 390×844 |
+| Painel (`evidencias/2026-10-02/painel-1366.png`) | Visão administrativa com alunos e prazos fictícios |
+| Alunos (`evidencias/2026-10-02/alunos-1366.png`) | Listagem de alunos de demonstração |
+| Cadastro de aluno (`evidencias/2026-10-02/aluno-cadastro-390.png`) | Campos e contatos na apresentação móvel |
+| Arquivo Passivo (`evidencias/2026-10-02/passivo-1366.png`) | Consulta de caixas e registro físico fictício |
+| Certidões (`evidencias/2026-10-02/certidoes-1920.png`) | Matriz por fornecedor e tipo com prazo e ações |
+| Configuração (`evidencias/2026-10-02/certidoes-config-1366.png`) | Listas administrativas de fornecedores e tipos |
+| Pedidos (`evidencias/2026-10-02/contratos-1366.png`) | Lista, indicadores e acesso aos detalhes |
+| Nota selecionada (`evidencias/2026-10-02/contrato-nota2-1366.png`) | Segunda nota do pedido, faturamento e itens |
+| Produto aberto (`evidencias/2026-10-02/contrato-produto2-1920.png`) | Formulário interno da segunda nota |
+| Relatórios (`evidencias/2026-10-02/relatorios-1366.png`) | Formatos de exportação e filtros |
+| Erro de produto (`evidencias/2026-10-02/nota2-validacao.png`) | Quantidade recusada com nome literal e preenchimento preservado |
+| Conferência de estoque (`evidencias/2026-10-02/abertura-legada.png`) | Formulário administrativo de contagem física atual |
+| Impressão das notas (`evidencias/2026-10-02/impressao-pedido.png`) | Cabeçalho, valores, observações e produtos das três notas |
+| Impressão de nota individual (`evidencias/2026-10-02/impressao-nota.png`) | Segunda nota com seus próprios total e saldo |
+| Pedido com 80 itens: continuação (`evidencias/2026-10-02/impressao-80-itens-pagina-3.png`) | Cabeçalho repetido e linhas inteiras |
+| Pedido com 80 itens: última página (`evidencias/2026-10-02/impressao-80-itens-pagina-5.png`) | Últimos produtos e segunda nota sem corte |
+| Unidade do pedido no desktop (`evidencias/2026-10-02/unidades-pedido-1366.png`) | Seleção de Litros após adicionar/remover produtos e notas |
+| Unidade do pedido no celular (`evidencias/2026-10-02/unidades-pedido-390.png`) | Campo de escolha em 390×844, sem escrita livre |
+| Seleção de alunos no desktop (`evidencias/2026-10-02/passivo-lote-selecao-1366.png`) | Checkbox por aluno e ações para envio ao Arquivo Passivo |
+| Seleção em outra página (`evidencias/2026-10-02/passivo-lote-pagina-2-1366.png`) | Seleção anterior mantida ao marcar aluno na segunda página |
+| Prévia do lote no desktop (`evidencias/2026-10-02/passivo-lote-previa-1366.png`) | Caixa existente e numeração após a maior pasta já usada |
+| Prévia do lote no celular (`evidencias/2026-10-02/passivo-lote-previa-390.png`) | Posições, confirmação e envio em 390×844 |
+| Seleção de alunos no celular (`evidencias/2026-10-02/passivo-lote-selecao-390.png`) | Alunos ativos e inativos selecionados em páginas diferentes |
 
-As imagens de relatório já registradas antes desta revisão permanecem como evidências históricas: [primeira página](evidencias/modulo5-relatorio-pagina-1.png) e [última página](evidencias/modulo5-relatorio-pagina-3.png). Elas não aprovam alterações posteriores.
+As imagens de relatório já registradas antes desta revisão permanecem como evidências históricas: primeira página (`evidencias/modulo5-relatorio-pagina-1.png`) e última página (`evidencias/modulo5-relatorio-pagina-3.png`). Elas não aprovam alterações posteriores.
 
 ## Verificações e limites
 
