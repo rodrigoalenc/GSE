@@ -31,16 +31,9 @@ final class UsuarioController extends Controller
                 $dados['senha'],
                 $dados['tipo'],
                 true,
-                $dados['recebe_alertas_dva']
+                $dados['recebe_alertas_dva'],
+                (int) $_SESSION['usuario_id']
             )) {
-                $created = $model->buscarPorEmail($dados['email']);
-                AuditLogger::record(
-                    'user.created',
-                    AuditLogger::SUCCESS,
-                    (int) $_SESSION['usuario_id'],
-                    is_array($created) ? (int) $created['id'] : null,
-                    'Conta criada com senha temporária.'
-                );
                 $this->redirectWithFlash('usuario', 'success', 'Usuário cadastrado. A senha informada é temporária e deverá ser alterada no primeiro acesso.');
             }
 
@@ -101,25 +94,12 @@ final class UsuarioController extends Controller
                 $dados['email'],
                 $dados['tipo'],
                 $novaSenha,
-                $dados['recebe_alertas_dva']
+                $dados['recebe_alertas_dva'],
+                (int) $_SESSION['usuario_id']
             )) {
                 $actor = (int) $_SESSION['usuario_id'];
                 $target = (int) $usuarioId;
-                $securityChange = false;
-
-                if ((string) $usuario['nome'] !== $dados['nome'] || (string) $usuario['email'] !== $dados['email']) {
-                    AuditLogger::record('user.identity_updated', AuditLogger::SUCCESS, $actor, $target, 'Nome ou e-mail da conta alterado.');
-                }
-
-                if ((string) $usuario['tipo'] !== $dados['tipo']) {
-                    AuditLogger::record('user.role_updated', AuditLogger::SUCCESS, $actor, $target, 'Perfil de acesso alterado.');
-                    $securityChange = true;
-                }
-
-                if ($novaSenha !== null) {
-                    AuditLogger::record('password.reset', AuditLogger::SUCCESS, $actor, $target, 'Senha temporária definida pelo administrador.');
-                    $securityChange = true;
-                }
+                $securityChange = (string) $usuario['tipo'] !== $dados['tipo'] || $novaSenha !== null;
 
                 if ($actor === $target && $securityChange) {
                     SessionManager::terminate();
@@ -210,13 +190,6 @@ final class UsuarioController extends Controller
             );
         }
 
-        AuditLogger::record(
-            $ativoRaw === 1 ? 'user.activated' : 'user.deactivated',
-            AuditLogger::SUCCESS,
-            (int) $_SESSION['usuario_id'],
-            (int) $usuarioId,
-            $ativoRaw === 1 ? 'Conta ativada.' : 'Conta inativada.'
-        );
         $this->redirectWithFlash(
             'usuario',
             'success',

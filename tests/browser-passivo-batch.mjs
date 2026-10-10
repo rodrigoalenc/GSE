@@ -295,6 +295,29 @@ try {
         await page.command('Input.dispatchKeyEvent', {type:'keyUp',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
         await page.command('Input.insertText', {text});
     };
+    await go('/backup', '#backup-create-form');
+    check(await page.evaluate(`document.querySelector('.sidebar-link[href="${base}/backup"]').getAttribute('aria-current')`), 'page', 'Administrator backup menu identifies the current page');
+    for (const [width,height] of [[1366,768],[1920,1080],[390,844]]) {
+        await viewport(width,height);
+        await page.evaluate('document.fonts.ready.then(()=>true)');
+        await noOverflow();
+        await page.evaluate(`document.querySelector('#backup-senha-atual').focus()`);
+        check(await page.evaluate(`getComputedStyle(document.activeElement).outlineWidth !== '0px' || getComputedStyle(document.activeElement).boxShadow !== 'none'`), true, 'Backup confirmation has visible keyboard focus');
+        await shot(`backup-administrador-${width}`);
+    }
+    await viewport(1366,768);
+    await replace('#backup-senha-atual', 'Senha ficticia incorreta backup 2026');
+    await page.click('#backup-create-form button[type="submit"]');
+    await page.until(`document.querySelector('[role="alert"]')!==null && document.readyState==='complete'`);
+    check(await page.evaluate(`document.querySelector('#backup-senha-atual').value`), '', 'Backup failure clears the password');
+    check(await page.evaluate(`document.body.textContent.includes('Senha ficticia incorreta backup 2026')`), false, 'Backup failure does not disclose the password');
+    await replace('#backup-senha-atual', 'Teste ficticio seguro 2026');
+    await page.click('#backup-create-form button[type="submit"]');
+    await page.until(`location.pathname==='/backup' && document.querySelector('a[href*="/backup/baixar/"]')!==null && document.readyState==='complete'`);
+    check(await page.evaluate(`document.querySelectorAll('a[href*="/backup/baixar/"]').length`), 1, 'Administrator creates one downloadable snapshot');
+    await noOverflow();
+    await shot('backup-criado-1366');
+    await go('/dashboard', '.sidebar-profile-link');
     for (const [role, email] of [['admin','browser@example.test'],['employee','employee@example.test']]) {
         if (role==='employee') {
             await go('/login', '#email');
@@ -302,6 +325,10 @@ try {
             await fill('#senha', 'Teste ficticio seguro 2026');
             await page.click('.btn-login');
             await page.until(`location.pathname==='/dashboard' && document.readyState==='complete'`);
+            check(await page.evaluate(`document.querySelector('a[href="${base}/backup"]')===null`), true, 'Employee menu does not offer administrative backups');
+            await go('/backup', '.error-code');
+            check(await page.evaluate(`document.querySelector('.error-code').textContent.trim()`), '403', 'Employee cannot open the administrator backup page directly');
+            await go('/dashboard', '.sidebar-profile-link');
         }
         await page.evaluate(`document.querySelector('.sidebar-profile-link').focus()`);
         check(await page.evaluate(`getComputedStyle(document.activeElement).outlineWidth !== '0px'`), true, `${role}: profile link has a visible keyboard focus`);

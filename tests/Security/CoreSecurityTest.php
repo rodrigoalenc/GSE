@@ -34,7 +34,7 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(91, $routes);
+        $this->assertCount(94, $routes);
         $routeKeys = array_map(static fn (array $route): string => $route['method'] . ' ' . $route['pattern'], $routes);
         $this->assertCount(count($routes), array_unique($routeKeys), 'Cada método/caminho deve ter uma única autorização.');
         $profileRoutes = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === 'usuario/perfil'));
@@ -72,6 +72,19 @@ final class CoreSecurityTest extends TestCase
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/excluirTudo'));
         $this->assertNull($match->invoke($router, 'usuario/editar/{id}', 'usuario/editar/../1'));
         $this->assertContainsOnlyArray($routes);
+        foreach (['backup' => 'GET', 'backup/criar' => 'POST', 'backup/baixar/{nome}' => 'GET'] as $path => $method) {
+            $found = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === $path));
+            $this->assertCount(1, $found);
+            $this->assertSame($method, $found[0]['method']);
+            $this->assertTrue($found[0]['auth']);
+            $this->assertTrue($found[0]['admin']);
+            $this->assertFalse($found[0]['password_change']);
+        }
+        $backupName = 'escola_backup_MANUAL_2026-10-09_10-20-30_' . str_repeat('a', 32) . '.db';
+        $this->assertSame(['nome' => $backupName], $match->invoke($router, 'backup/baixar/{nome}', 'backup/baixar/' . $backupName));
+        foreach (['../' . $backupName, 'other.db', $backupName . '.pdf', 'a%2f' . $backupName, "evil\r\n.db"] as $invalid) {
+            $this->assertNull($match->invoke($router, 'backup/baixar/{nome}', 'backup/baixar/' . $invalid));
+        }
 
         $studentStatus = array_values(array_filter(
             $routes,

@@ -9,7 +9,7 @@ Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 - UC006 — contratos, folhas, produtos e movimentação de estoque;
 - UC007 — relatórios de alunos e situação da DVA.
 
-O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A revisão de 06/10/2026 preserva a migração v16 e acrescenta perfil próprio, snapshot SQLite que inclui o WAL e correção semântica do CI. A edição acadêmica de 34 páginas foi conferida literalmente. As ambiguidades acadêmicas, a execução do código corrigido no CI Linux e o aceite institucional permanecem pendentes.
+O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A revisão de 06/10/2026 preserva a migração v16 e acrescenta perfil próprio, snapshot SQLite que inclui o WAL e correção semântica do CI. A edição acadêmica de 34 páginas foi conferida literalmente. A base publicada em `d475b304` foi aprovada no CI Linux; alterações posteriores exigem validação correspondente ao novo código. As ambiguidades acadêmicas e o aceite institucional permanecem pendentes.
 
 ## Módulo 4 — instalação e operação
 
@@ -43,7 +43,7 @@ Componentes principais:
 
 ## Identidade visual e acessibilidade
 
-A interface usa a identidade azul e o logo institucional da E.E. São José. Login, painel, usuários, senha, auditoria, alunos, DVAs, turmas, passivo, certidões, contratos, estoque, relatórios e erros compartilham a organização visual do GSE. A sidebar expande por `hover` ou `focus-within` no desktop e dispõe de apresentação móvel. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`. A inspeção do código e os testes HTTP não substituem a validação visual e de acessibilidade no navegador.
+A interface usa a identidade azul e o logo institucional da E.E. São José. Login, painel, usuários, senha, auditoria, backups, alunos, DVAs, turmas, passivo, certidões, contratos, estoque, relatórios e erros compartilham a organização visual do GSE. A sidebar expande por `hover` ou `focus-within` no desktop e dispõe de apresentação móvel. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`. A inspeção do código e os testes HTTP não substituem a validação visual e de acessibilidade no navegador.
 
 As decisões seguem as recomendações de [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) e [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) da OWASP, além das APIs nativas de senha do [manual do PHP](https://www.php.net/manual/en/book.password.php).
 
@@ -158,6 +158,8 @@ Uma senha alterada pelo próprio usuário encerra a sessão e exige novo login.
 ## Auditoria de segurança
 
 Administradores acessam `/auditoria`, com paginação e filtros por ação, resultado e período. A interface é somente leitura. São registrados login válido/inválido/bloqueado, logout, expiração/invalidação de sessão, acesso administrativo negado, criação/alteração de conta, perfil, senha, ativação/inativação e bloqueios ligados ao próprio/último administrador.
+
+Alterações de alunos, DVAs, turmas, contas, senhas e preferência de alertas exigem auditoria na mesma transação que salva os dados. Se o registro obrigatório falhar, a alteração e suas versões são desfeitas. O cadastro de aluno com DVA inicial exige os dois eventos. Os controllers obtêm o autor da sessão; dados pessoais, senhas e hashes não são copiados para a descrição dos eventos. Tentativas recusadas e eventos de sessão continuam usando registro independente da transação de domínio.
 
 Cada evento registra horário UTC, ação, resultado, IDs aplicáveis, IP seguro, ID aleatório de requisição e descrição objetiva. Senhas, hashes, cookies, sessão completa e CSRF não são gravados.
 
@@ -308,6 +310,8 @@ Antes de alteração estrutural em banco existente, é criado um backup SQLite c
 
 `Sistema::criarBackupManual()` usa `VACUUM INTO` sobre o `DB_PATH` configurado e valida integridade e chaves estrangeiras. Inclui registros confirmados ainda presentes no WAL; a cópia direta do arquivo principal pode perdê-los mesmo quando sua integridade é válida. O método retorna um nome único ou `false` e grava em `backups/` ao lado do banco, fora de `public`; com `DB_PATH=/var/lib/gse/escola.sqlite`, o destino é `/var/lib/gse/backups`. A listagem preserva também a descoberta dos backups antigos em `database/backups`. Esse snapshot cobre somente SQLite. Para o backup conjunto, pare todos os processos escritores e preserve SQLite, PDFs privados e a versão compatível do código no mesmo conjunto; ensaie a restauração independente antes de usar dados institucionais.
 
+Administradores acessam **Backups** no menu ou em `/backup`, depois de concluir a troca de senha temporária. A consulta não cria arquivos. Para gerar um snapshot, confirme sua senha atual e envie o formulário protegido por CSRF; a conta, o perfil e a versão da sessão são revalidados. A criação e o download exigem auditoria com autoria. Se a auditoria da criação falhar, somente o arquivo criado nessa tentativa é removido; backups anteriores são preservados. O download autenticado usa armazenamento privado e `no-store`, recusando nomes inválidos e links simbólicos. Essa tela gera somente o banco SQLite; a restauração e o backup conjunto de PDFs/código continuam sendo procedimentos operacionais externos.
+
 A v10 preenche `alunos.nome_normalizado` e `turmas.nome_normalizado` sem alterar nomes, IDs, vínculos ou DVAs. Antes do commit, compara contagens, IDs e o mapa `aluno_id → id_turma`, além de exigir `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`. Se duas turmas do mesmo ano se tornarem equivalentes após NFC e conversão Unicode para minúsculas, a migração faz rollback e informa os IDs envolvidos; não exclui, mescla, renomeia nem escolhe automaticamente qual registro prevalece. Corrija a colisão em uma cópia homologada e execute novamente.
 
 A v11 corrige a divergência deixada pela v10 em bancos atualizados, onde `nome_normalizado` podia continuar anulável. Sob `BEGIN IMMEDIATE`, ela recalcula as chaves com `TextNormalizer`, detecta colisões antes da substituição, cria tabelas com as mesmas colunas, defaults, checks e chaves estrangeiras do schema limpo, copia cada coluna explicitamente, preserva IDs, sequências de autoincremento, vínculos aluno/turma, vínculos DVA/aluno e todo o histórico da DVA. Os índices e triggers são recriados; tanto INSERT quanto UPDATE recusam chave nula, vazia ou formada apenas por whitespace Unicode. A normalização Unicode completa permanece no PHP, pois não é reproduzida de forma incompleta em SQL.
@@ -347,6 +351,9 @@ Para rollback, mantenha a aplicação em manutenção e encerre todos os process
 | GET/POST | `/usuario/editar/{id}` | administrador |
 | POST | `/usuario/status/{id}` | administrador + CSRF |
 | GET | `/auditoria` | administrador, somente leitura |
+| GET | `/backup` | administrador após troca obrigatória |
+| POST | `/backup/criar` | administrador + senha atual + CSRF |
+| GET | `/backup/baixar/{nome}` | administrador, arquivo privado e auditoria obrigatória |
 | GET | `/aluno` | autenticado |
 | GET/POST | `/aluno/criar` | autenticado |
 | GET | `/aluno/perfil/{id}` | autenticado |
@@ -410,6 +417,8 @@ composer check
 
 PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v16, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
+As regressões de auditoria provocam falhas no log e conferem rollback dos dados, histórico, preferências e versões. A criação inicial do administrador é testada pela CLI, inclusive com dois processos concorrentes; um rehash tardio não pode desfazer um reset de senha. Os testes de backup cobrem WAL sem checkpoint, restauração independente, permissões, CSRF, confirmação de senha, arquivos inexistentes e falhas de auditoria na geração e no download. Testes de permissões POSIX e links simbólicos precisam executar no Linux.
+
 `composer analyse` executa PHPStan no nível 6 sobre o núcleo, controllers, Models ativos dos cinco módulos, serviços e comandos CLI. Views possuem uma verificação dedicada contra estilos, scripts e handlers inline. Não há baseline nem `ignoreErrors`. O workflow usa PHP 8.3, actions fixadas por SHA imutável e executa instalação limpa, validação estrita, auditoria, lint, PHPStan, PHPUnit e HTTP em pushes e pull requests.
 
 ## Roteiro de demonstração
@@ -428,6 +437,7 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 12. Mostre dashboard integrado e auditoria filtrada por `student`, `dva` e `class`.
 13. Com transporte SMTP de homologação, execute `php bin/notify-dva.php` duas vezes e confirme idempotência.
 14. Execute `composer check`.
+15. Como administrador, abra **Backups**, confirme a senha atual, gere e baixe uma cópia do banco. Confira os eventos `backup.created` e `backup.downloaded` na auditoria; ensaie a restauração em ambiente separado.
 
 ## Limitações conhecidas e fora do escopo
 
@@ -437,7 +447,7 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 - alterações futuras do logo ou da identidade institucional dependem de aprovação da escola;
 - notificações dependem de um SMTP institucional configurado e de agendamento externo;
 - agenda e etiquetas não integram o escopo atual;
-- a edição acadêmica de 34 páginas foi lida; as ambiguidades de atores, exclusão lógica e PDF opcional exigem decisão acadêmica/institucional;
+- a edição acadêmica de 34 páginas foi lida; as ambiguidades de atores, exclusão lógica e PDF opcional, assim como a importação CSV aditiva em relação ao fluxo substitutivo descrito, exigem decisão acadêmica/institucional;
 - o aceite institucional e a validação de usabilidade com os usuários permanecem pendentes.
 
 O painel apresenta indicadores e grupos de alunos por situação da DVA. O menu principal oferece acesso aos módulos implementados, incluindo contratos, estoque e relatórios.

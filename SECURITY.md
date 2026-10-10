@@ -10,6 +10,10 @@ O mantenedor deve confirmar o recebimento, avaliar severidade e coordenar corre�
 
 ## Escopo suportado
 
+Alterações de alunos, DVAs, turmas, contas, senhas e preferência de alertas usam auditoria obrigatória na transação da mutação. Falhas do log desfazem os dados e as versões da sessão envolvidas. Eventos de autenticação, sessão e tentativas bloqueadas usam registro independente; não fazem parte dessa garantia transacional de alterações do domínio.
+
+Backups administrativos exigem conta ativa com perfil de administrador e sessão atualizada. A geração usa POST, CSRF e confirmação da senha atual. Snapshots e downloads permanecem fora de `public`, sem cache, com nomes e caminhos restritos e auditoria obrigatória. Falha da auditoria da geração remove somente o snapshot recém-criado; falha na auditoria do download impede o envio do arquivo. A interface não restaura bancos nem substitui o procedimento de backup conjunto de SQLite, PDFs privados e versão compatível do código.
+
 O código desta branch abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA —, 3 — Arquivo Passivo —, 4 — Certidões e Fornecedores — e 5 — Contratos, Estoque e Relatórios. Isso não constitui homologação ou publicação em produção.
 
 ### Contratos, estoque e relatórios (Módulo 5)

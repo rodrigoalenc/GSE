@@ -33,6 +33,7 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
                 <option value="dva" <?= $filters['resource_type'] === 'dva' ? 'selected' : '' ?>>DVA</option>
                 <option value="class" <?= $filters['resource_type'] === 'class' ? 'selected' : '' ?>>Turma</option>
                 <option value="user" <?= $filters['resource_type'] === 'user' ? 'selected' : '' ?>>Usuário</option>
+                <option value="backup" <?= $filters['resource_type'] === 'backup' ? 'selected' : '' ?>>Backup</option>
             </select>
         </div>
         <div>

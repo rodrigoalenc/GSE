@@ -28,7 +28,6 @@ require_once ROOT_PATH . '/src/Model/Usuario.php';
 
 use src\Core\Database;
 use src\Core\DatabaseInitializer;
-use src\Core\SqliteTransaction;
 
 $options = getopt('', ['name:', 'email:', 'enable-dva-alerts']);
 $name = trim((string) ($options['name'] ?? ''));
@@ -56,25 +55,12 @@ try {
 
     $users = new Usuario();
 
-    $created = SqliteTransaction::immediate($pdo, static function () use ($users, $name, $email, $password, $enableDvaAlerts): array|false {
-        if ($users->contarAdministradoresAtivos() > 0) {
-            throw new RuntimeException('Já existe um administrador ativo. Cadastre novos administradores pela interface.');
-        }
-
-        if (!$users->cadastrar($name, $email, $password, Usuario::PERFIL_ADMINISTRADOR, true, $enableDvaAlerts)) {
-            throw new RuntimeException('Não foi possível criar o administrador. Verifique nome, e-mail e política de senha.');
-        }
-
-        return $users->buscarPorEmail($email);
-    });
-
-    AuditLogger::record(
-        'user.initial_admin_created',
-        AuditLogger::SUCCESS,
-        null,
-        is_array($created) ? (int) $created['id'] : null,
-        'Primeiro administrador criado com senha temporária.'
-    );
+    $created = $users->criarAdministradorInicial($name, $email, $password, $enableDvaAlerts);
+    if ($created === false) {
+        throw new RuntimeException($users->lastErrorCode() === 'active_admin_exists'
+            ? 'Já existe um administrador ativo. Cadastre novos administradores pela interface.'
+            : 'Não foi possível criar o administrador. Verifique nome, e-mail, política de senha e auditoria.');
+    }
 
     echo "Administrador criado com sucesso para {$email}.\n";
 

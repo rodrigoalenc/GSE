@@ -15,6 +15,7 @@ parameters:
         - src/Model/Painel.php
         - src/Model/Turma.php
         - src/Model/Usuario.php
+        - src/Model/Sistema.php
         - bin
     bootstrapFiles:
         - phpstan-bootstrap.php

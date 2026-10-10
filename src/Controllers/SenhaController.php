@@ -35,13 +35,6 @@ final class SenhaController extends Controller
             $model = new Usuario();
 
             if ($erros === [] && $model->alterarSenha((int) $usuario['id'], $senhaAtual, $novaSenha)) {
-                AuditLogger::record(
-                    'password.changed',
-                    AuditLogger::SUCCESS,
-                    (int) $usuario['id'],
-                    (int) $usuario['id'],
-                    'Senha alterada pelo próprio usuário.'
-                );
                 SessionManager::terminate();
                 SessionManager::startFreshForFlash();
                 definir_flash('success', 'Senha alterada com segurança. Faça login novamente.');

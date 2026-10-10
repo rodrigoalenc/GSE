@@ -6,6 +6,7 @@ $dashboardActive = in_array($currentPath, ['dashboard', 'painel', ''], true);
 $profileActive = $currentPath === 'usuario/perfil';
 $usersActive = str_starts_with($currentPath, 'usuario') && !$profileActive;
 $auditActive = str_starts_with($currentPath, 'auditoria');
+$backupActive = str_starts_with($currentPath, 'backup');
 $passwordActive = str_starts_with($currentPath, 'senha/alterar');
 $passiveActive = str_starts_with($currentPath, 'passivo') || str_starts_with($currentPath, 'aluno/arquivar');
 $studentsActive = str_starts_with($currentPath, 'aluno') && !$passiveActive;
@@ -43,7 +44,7 @@ $flashClass = [
     <?php if ($certActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css')) ?>">
     <?php endif; ?>
-    <?php if ($usersActive || $profileActive || $auditActive || $passwordActive): ?>
+    <?php if ($usersActive || $profileActive || $auditActive || $backupActive || $passwordActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/usuarios.css')) ?>">
     <?php endif; ?>
     <?php if ($studentsActive || $dvaActive || $classesActive || $dashboardActive): ?>
@@ -103,6 +104,10 @@ $flashClass = [
                 <a href="<?= e(url('auditoria')) ?>" class="sidebar-link <?= $auditActive ? 'active' : '' ?>" <?= $auditActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#128737;</span>
                     <span class="sidebar-label">Auditoria</span>
+                </a>
+                <a href="<?= e(url('backup')) ?>" class="sidebar-link <?= $backupActive ? 'active' : '' ?>" <?= $backupActive ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon" aria-hidden="true">&#128190;</span>
+                    <span class="sidebar-label">Backups</span>
                 </a>
             <?php endif; ?>
 

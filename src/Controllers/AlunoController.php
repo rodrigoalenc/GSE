@@ -38,19 +38,6 @@ final class AlunoController extends Controller
             );
 
             if ($studentId !== false) {
-                AuditLogger::record(
-                    'student.created', AuditLogger::SUCCESS, (int) $_SESSION['usuario_id'], null,
-                    'Cadastro de aluno concluído.', 'student', $studentId
-                );
-
-                if ($data['data_vencimento'] !== '') {
-                    $dva = (new Dva())->atualDoAluno($studentId);
-                    AuditLogger::record(
-                        'dva.created', AuditLogger::SUCCESS, (int) $_SESSION['usuario_id'], null,
-                        'DVA inicial registrada.', 'dva', is_array($dva) ? (int) $dva['id'] : null
-                    );
-                }
-
                 $this->redirectWithFlash('aluno/perfil/' . $studentId, 'success', 'Aluno cadastrado com sucesso.');
             }
 
@@ -94,11 +81,7 @@ final class AlunoController extends Controller
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $data = $this->formData();
 
-            if ($model->atualizar($studentId, $data, isset($_POST['confirmar_duplicidade']))) {
-                AuditLogger::record(
-                    'student.updated', AuditLogger::SUCCESS, (int) $_SESSION['usuario_id'], null,
-                    'Dados cadastrais do aluno atualizados.', 'student', $studentId
-                );
+            if ($model->atualizar($studentId, $data, isset($_POST['confirmar_duplicidade']), (int) $_SESSION['usuario_id'])) {
                 $this->redirectWithFlash('aluno/perfil/' . $studentId, 'success', 'Aluno atualizado com sucesso.');
             }
 
@@ -166,11 +149,6 @@ final class AlunoController extends Controller
             $this->redirectWithFlash('aluno', 'danger', $this->studentError($model->lastErrorCode()));
         }
 
-        $action = $active === 1 ? 'student.reactivated' : 'student.deactivated';
-        AuditLogger::record(
-            $action, AuditLogger::SUCCESS, (int) $_SESSION['usuario_id'], null,
-            $active === 1 ? 'Aluno reativado.' : 'Aluno inativado.', 'student', $studentId
-        );
         $this->redirectWithFlash(
             'aluno/perfil/' . $studentId,
             'success',
@@ -205,15 +183,6 @@ final class AlunoController extends Controller
             );
 
             if ($result !== false) {
-                AuditLogger::record(
-                    $result['renewed'] ? 'dva.renewed' : 'dva.created',
-                    AuditLogger::SUCCESS,
-                    (int) $_SESSION['usuario_id'],
-                    null,
-                    $result['renewed'] ? 'DVA renovada e versão anterior arquivada.' : 'DVA inicial registrada.',
-                    'dva',
-                    $result['id']
-                );
                 $this->redirectWithFlash('aluno/perfil/' . $studentId, 'success', $result['renewed'] ? 'DVA renovada com sucesso.' : 'DVA registrada com sucesso.');
             }
 

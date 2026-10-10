@@ -27,13 +27,9 @@ final class TurmaController extends Controller
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $model = new Turma();
-            $id = $model->cadastrar($data['nome_turma'], (int) $data['ano_letivo']);
+            $id = $model->cadastrar($data['nome_turma'], (int) $data['ano_letivo'], (int) $_SESSION['usuario_id']);
 
             if ($id !== false) {
-                AuditLogger::record(
-                    'class.created', AuditLogger::SUCCESS, (int) $_SESSION['usuario_id'], null,
-                    'Turma cadastrada.', 'class', $id
-                );
                 $this->redirectWithFlash('turma', 'success', 'Turma cadastrada com sucesso.');
             }
 
@@ -62,11 +58,7 @@ final class TurmaController extends Controller
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $data = $this->formData();
 
-            if ($model->atualizar($classId, $data['nome_turma'], (int) $data['ano_letivo'])) {
-                AuditLogger::record(
-                    'class.updated', AuditLogger::SUCCESS, (int) $_SESSION['usuario_id'], null,
-                    'Turma atualizada.', 'class', $classId
-                );
+            if ($model->atualizar($classId, $data['nome_turma'], (int) $data['ano_letivo'], (int) $_SESSION['usuario_id'])) {
                 $this->redirectWithFlash('turma', 'success', 'Turma atualizada com sucesso.');
             }
 
@@ -91,7 +83,7 @@ final class TurmaController extends Controller
 
         $model = new Turma();
 
-        if (!$model->definirAtiva($classId, $active === 1)) {
+        if (!$model->definirAtiva($classId, $active === 1, (int) $_SESSION['usuario_id'])) {
             $blocked = $model->lastErrorCode() === 'active_students';
             AuditLogger::record(
                 'class.status_change_blocked', $blocked ? AuditLogger::BLOCKED : AuditLogger::FAILURE,
@@ -102,11 +94,6 @@ final class TurmaController extends Controller
             $this->redirectWithFlash('turma', 'danger', $this->errorMessage($model->lastErrorCode()));
         }
 
-        AuditLogger::record(
-            $active === 1 ? 'class.reactivated' : 'class.deactivated', AuditLogger::SUCCESS,
-            (int) $_SESSION['usuario_id'], null,
-            $active === 1 ? 'Turma reativada.' : 'Turma inativada.', 'class', $classId
-        );
         $this->redirectWithFlash('turma', 'success', $active === 1 ? 'Turma reativada.' : 'Turma inativada.');
     }
 

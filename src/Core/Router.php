@@ -63,6 +63,9 @@ final class Router
             $this->route('GET', 'senha/alterar', 'SenhaController', 'alterar', true, false, true),
             $this->route('POST', 'senha/alterar', 'SenhaController', 'alterar', true, false, true),
             $this->route('GET', 'auditoria', 'AuditoriaController', 'index', true, true),
+            $this->route('GET', 'backup', 'BackupController', 'index', true, true),
+            $this->route('POST', 'backup/criar', 'BackupController', 'criar', true, true),
+            $this->route('GET', 'backup/baixar/{nome}', 'BackupController', 'baixar', true, true),
             $this->route('GET', 'aluno', 'AlunoController', 'index', true),
             $this->route('GET', 'aluno/criar', 'AlunoController', 'criar', true),
             $this->route('POST', 'aluno/criar', 'AlunoController', 'criar', true),
@@ -219,6 +222,14 @@ final class Router
         foreach ($patternSegments as $index => $segment) {
             if (preg_match('/^\{([a-z][a-z0-9_]*)\}$/i', $segment, $match) === 1) {
                 $value = $pathSegments[$index];
+
+                if ($match[1] === 'nome' && $pattern === 'backup/baixar/{nome}') {
+                    if (preg_match('/\Aescola_backup_MANUAL_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(?:_[a-f0-9]{32})?\.db\z/D', $value) !== 1) {
+                        return null;
+                    }
+                    $params[$match[1]] = $value;
+                    continue;
+                }
 
                 if (($match[1] === 'id' && preg_match('/^[1-9][0-9]*$/', $value) !== 1)
                     || preg_match('/^[a-z0-9_-]+$/i', $value) !== 1) {

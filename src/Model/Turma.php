@@ -71,7 +71,7 @@ final class Turma extends Model
         return $statement->fetch();
     }
 
-    public function cadastrar(string $name, int $schoolYear): int|false
+    public function cadastrar(string $name, int $schoolYear, ?int $actorId = null): int|false
     {
         $this->lastErrorCode = null;
         try {
@@ -90,21 +90,28 @@ final class Turma extends Model
         }
 
         try {
-            $now = gmdate('Y-m-d H:i:s');
-            $statement = self::$pdo->prepare(
-                'INSERT INTO turmas
-                    (nome_turma, nome_normalizado, ano_letivo, ativo, criado_em, atualizado_em)
-                 VALUES (:name, :normalized_name, :year, 1, :now, :now)'
-            );
-            $statement->execute([
-                'name' => $name,
-                'normalized_name' => $normalizedName,
-                'year' => $schoolYear,
-                'now' => $now,
-            ]);
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($name, $normalizedName, $schoolYear, $actorId): int {
+                $now = gmdate('Y-m-d H:i:s');
+                $statement = $pdo->prepare(
+                    'INSERT INTO turmas
+                        (nome_turma, nome_normalizado, ano_letivo, ativo, criado_em, atualizado_em)
+                     VALUES (:name, :normalized_name, :year, 1, :now, :now)'
+                );
+                $statement->execute([
+                    'name' => $name,
+                    'normalized_name' => $normalizedName,
+                    'year' => $schoolYear,
+                    'now' => $now,
+                ]);
+                $id = (int) $pdo->lastInsertId();
+                AuditLogger::recordRequired(
+                    $pdo, 'class.created', AuditLogger::SUCCESS, $actorId, null,
+                    'Turma cadastrada.', 'class', $id
+                );
 
-            return (int) self::$pdo->lastInsertId();
-        } catch (PDOException $exception) {
+                return $id;
+            });
+        } catch (Throwable $exception) {
             $this->lastErrorCode = str_contains(strtolower($exception->getMessage()), 'unique')
                 ? 'duplicate_class'
                 : 'database_error';
@@ -114,7 +121,7 @@ final class Turma extends Model
         }
     }
 
-    public function atualizar(int $id, string $name, int $schoolYear): bool
+    public function atualizar(int $id, string $name, int $schoolYear, ?int $actorId = null): bool
     {
         $this->lastErrorCode = null;
         try {
@@ -133,26 +140,33 @@ final class Turma extends Model
         }
 
         try {
-            $statement = self::$pdo->prepare(
-                'UPDATE turmas SET nome_turma = :name, nome_normalizado = :normalized_name,
-                    ano_letivo = :year, atualizado_em = :now WHERE id = :id'
-            );
-            $statement->execute([
-                'name' => $name,
-                'normalized_name' => $normalizedName,
-                'year' => $schoolYear,
-                'now' => gmdate('Y-m-d H:i:s'),
-                'id' => $id,
-            ]);
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $name, $normalizedName, $schoolYear, $actorId): bool {
+                $statement = $pdo->prepare(
+                    'UPDATE turmas SET nome_turma = :name, nome_normalizado = :normalized_name,
+                        ano_letivo = :year, atualizado_em = :now WHERE id = :id'
+                );
+                $statement->execute([
+                    'name' => $name,
+                    'normalized_name' => $normalizedName,
+                    'year' => $schoolYear,
+                    'now' => gmdate('Y-m-d H:i:s'),
+                    'id' => $id,
+                ]);
 
-            if ($statement->rowCount() === 0 && !$this->buscarPorId($id)) {
-                $this->lastErrorCode = 'not_found';
+                if ($statement->rowCount() === 0 && !$this->buscarPorId($id)) {
+                    $this->lastErrorCode = 'not_found';
 
-                return false;
-            }
+                    return false;
+                }
 
-            return true;
-        } catch (PDOException $exception) {
+                AuditLogger::recordRequired(
+                    $pdo, 'class.updated', AuditLogger::SUCCESS, $actorId, null,
+                    'Turma atualizada.', 'class', $id
+                );
+
+                return true;
+            });
+        } catch (Throwable $exception) {
             $this->lastErrorCode = str_contains(strtolower($exception->getMessage()), 'unique')
                 ? 'duplicate_class'
                 : 'database_error';
@@ -162,7 +176,7 @@ final class Turma extends Model
         }
     }
 
-    public function definirAtiva(int $id, bool $active): bool
+    public function definirAtiva(int $id, bool $active, ?int $actorId = null): bool
     {
         $this->lastErrorCode = null;
 
@@ -173,13 +187,17 @@ final class Turma extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $active): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $active, $actorId): bool {
                 $class = $this->buscarPorId($id);
 
                 if (!$class) {
                     $this->lastErrorCode = 'not_found';
 
                     return false;
+                }
+
+                if ((int) $class['ativo'] === ($active ? 1 : 0)) {
+                    return true;
                 }
 
                 if (!$active) {
@@ -201,10 +219,14 @@ final class Turma extends Model
                     'now' => gmdate('Y-m-d H:i:s'),
                     'id' => $id,
                 ]);
+                AuditLogger::recordRequired(
+                    $pdo, $active ? 'class.reactivated' : 'class.deactivated', AuditLogger::SUCCESS,
+                    $actorId, null, $active ? 'Turma reativada.' : 'Turma inativada.', 'class', $id
+                );
 
                 return true;
             });
-        } catch (PDOException $exception) {
+        } catch (Throwable $exception) {
             $this->lastErrorCode = str_contains(strtolower($exception->getMessage()), 'class_has_active_students')
                 ? 'active_students'
                 : 'database_error';

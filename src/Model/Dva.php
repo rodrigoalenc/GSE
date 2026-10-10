@@ -124,7 +124,16 @@ final class Dva extends Model
                     'now' => $now,
                 ]);
 
-                return ['id' => (int) $pdo->lastInsertId(), 'renewed' => $currentId !== false];
+                $dvaId = (int) $pdo->lastInsertId();
+                $renewed = $currentId !== false;
+                AuditLogger::recordRequired(
+                    $pdo, $renewed ? 'dva.renewed' : 'dva.created', AuditLogger::SUCCESS,
+                    $actorId, null,
+                    $renewed ? 'DVA renovada e versão anterior arquivada.' : 'DVA inicial registrada.',
+                    'dva', $dvaId
+                );
+
+                return ['id' => $dvaId, 'renewed' => $renewed];
             });
         } catch (Throwable $exception) {
             $this->lastErrorCode = 'database_error';

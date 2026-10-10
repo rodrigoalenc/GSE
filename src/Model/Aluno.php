@@ -178,6 +178,10 @@ final class Aluno extends Model
                     'now' => $now,
                 ]);
                 $studentId = (int) $pdo->lastInsertId();
+                AuditLogger::recordRequired(
+                    $pdo, 'student.created', AuditLogger::SUCCESS, $actorId, null,
+                    'Cadastro de aluno concluído.', 'student', $studentId
+                );
 
                 if ($dva !== null) {
                     $dvaStatement = $pdo->prepare(
@@ -192,6 +196,10 @@ final class Aluno extends Model
                         'observation' => $dva['observation'],
                         'now' => $now,
                     ]);
+                    AuditLogger::recordRequired(
+                        $pdo, 'dva.created', AuditLogger::SUCCESS, $actorId, null,
+                        'DVA inicial registrada.', 'dva', (int) $pdo->lastInsertId()
+                    );
                 }
 
                 return $studentId;
@@ -205,7 +213,7 @@ final class Aluno extends Model
     }
 
     /** @param array<string,mixed> $data */
-    public function atualizar(int $id, array $data, bool $confirmDuplicate = false): bool
+    public function atualizar(int $id, array $data, bool $confirmDuplicate = false, ?int $actorId = null): bool
     {
         $this->lastErrorCode = null;
         $normalized = $this->validateAndNormalize($data);
@@ -217,7 +225,7 @@ final class Aluno extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized, $confirmDuplicate): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized, $confirmDuplicate, $actorId): bool {
                 $current = $this->buscarPorId($id);
 
                 if (!$current) {
@@ -261,6 +269,10 @@ final class Aluno extends Model
                     'now' => gmdate('Y-m-d H:i:s'),
                     'id' => $id,
                 ]);
+                AuditLogger::recordRequired(
+                    $pdo, 'student.updated', AuditLogger::SUCCESS, $actorId, null,
+                    'Dados cadastrais do aluno atualizados.', 'student', $id
+                );
 
                 return true;
             });
@@ -292,6 +304,10 @@ final class Aluno extends Model
                     return false;
                 }
 
+                if ((int) $student['ativo'] === ($active ? 1 : 0)) {
+                    return true;
+                }
+
                 if ($active && !$this->activeClassExists((int) $student['id_turma'], $pdo)) {
                     $this->lastErrorCode = 'invalid_class';
 
@@ -311,6 +327,10 @@ final class Aluno extends Model
                     'deactivated_by' => $active ? null : $actorId,
                     'id' => $id,
                 ]);
+                AuditLogger::recordRequired(
+                    $pdo, $active ? 'student.reactivated' : 'student.deactivated', AuditLogger::SUCCESS,
+                    $actorId, null, $active ? 'Aluno reativado.' : 'Aluno inativado.', 'student', $id
+                );
 
                 return true;
             });

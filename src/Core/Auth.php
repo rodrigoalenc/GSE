@@ -68,7 +68,7 @@ final class Auth
         );
 
         if (PasswordPolicy::needsRehash((string) $usuario['senha'])) {
-            $usuarios->atualizarSenhaHash((int) $usuario['id'], PasswordPolicy::hash($senha));
+            $usuarios->atualizarSenhaHash((int) $usuario['id'], PasswordPolicy::hash($senha), $hash);
         }
 
         return true;
