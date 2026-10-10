@@ -24,6 +24,6 @@
 *.backup
 *.bak
 *.old
-/.reference-original/
 /.local-qa/
 /storage/
+/docs/

@@ -11,7 +11,7 @@ O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticaçã
 
 ## Módulo 4 — instalação e operação
 
-Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MODULO4_CERTIDOES.md) e [resultados de validação](docs/MODULO4_VALIDACAO.md). A migração atual é **v14**, aplicada pelo inicializador com backup validado antes de atualizar banco existente. Ela protege a revisão de fornecedores/tipos e registra tentativas de notificação. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. A homologação visual desktop/celular e a interpretação acadêmica da exclusão lógica continuam pendentes; não se declara conformidade integral com o TCC.
+A migração atual é **v14**, aplicada pelo inicializador com backup validado antes de atualizar banco existente. Ela protege a revisão de fornecedores/tipos e registra tentativas de notificação. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. A homologação visual desktop/celular e a interpretação acadêmica da exclusão lógica continuam pendentes; não se declara conformidade integral com o TCC.
 
 - Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
 - PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
@@ -352,7 +352,7 @@ Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado r
 
 O Arquivo Passivo corresponde à entrega original do Módulo 3 na v12. Nesta branch, os Módulos 1–4 estão implementados e o banco atual usa `PRAGMA user_version=14`, com versões 1–14 em `schema_migrations`. O Módulo 5 permanece fora do escopo.
 
-O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação como lógica e o preenchimento posterior do número ainda exigem validação acadêmica. Veja a [matriz de requisitos e evidências da revisão](docs/MODULO3_REVISAO_TCC.md).
+O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação como lógica e o preenchimento posterior do número ainda exigem validação acadêmica.
 
 O CSV usa `Nome;Data;Numero;Caixa`, UTF-8, no máximo 2 MiB e 5.000 linhas. Datas podem ser `YYYY-MM-DD` ou `DD/MM/YYYY`. A prévia expira em 15 minutos, pertence à sessão e ao administrador e só pode ser confirmada uma vez. O hash do arquivo e a análise do acervo são revalidados na confirmação. Linhas válidas são adicionadas em uma única transação; duplicidades, localizações ocupadas e erros são apresentados sem apagar o acervo.
 
@@ -366,7 +366,7 @@ PRAGMA foreign_key_check;  -- nenhuma linha
 PRAGMA integrity_check;    -- ok
 ```
 
-Registros com localização pendente permanecem consultáveis e usam o indicador amarelo “Revisão pendente”; a caixa deve ser corrigida por edição, pois a migração nunca inventa uma localização. Consulte [docs/MODULO3_ARQUIVO_PASSIVO.md](docs/MODULO3_ARQUIVO_PASSIVO.md), [docs/MODULO3_HOMOLOGACAO.md](docs/MODULO3_HOMOLOGACAO.md) e o [roteiro de validação manual](docs/MODULO3_VALIDACAO_MANUAL.md).
+Registros com localização pendente permanecem consultáveis e usam o indicador amarelo “Revisão pendente”; a caixa deve ser corrigida por edição, pois a migração nunca inventa uma localização.
 
 Rotas adicionais:
 
@@ -427,4 +427,4 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 
 O dashboard inclui os indicadores e atalhos implementados pelos Módulos 1–4; não antecipa as funcionalidades do Módulo 5.
 
-Antes de implantar, conclua [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) e leia [SECURITY.md](SECURITY.md).
+Antes de implantar, homologue o ambiente institucional, valide permissões de acesso, ensaie a restauração do backup e obtenha o aceite escolar. Leia também [SECURITY.md](SECURITY.md).

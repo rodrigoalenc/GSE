@@ -16,7 +16,7 @@ O código desta branch abrange os Módulos 1 — Autenticação e Controle de Us
 
 PDFs permanecem fora de `public`, com download autenticado e verificação de integridade. Renovação preserva o documento anterior; exclusão é lógica e distinta do arquivamento. Revisões de certidões, fornecedores e tipos impedem sobrescrita por formulários antigos, com auditoria na mesma transação. Homologue a migração v14 em cópia antes de atualizar uma instalação e mantenha todos os escritores na mesma versão do código.
 
-Notificações de certidões usam lock local exclusivo e transações curtas; o SMTP não mantém reserva de escrita SQLite. Não remova o arquivo `.certidao-notify.lock` durante operação nem execute esse mecanismo em filesystem compartilhado sem homologar a coordenação. O aceite SMTP seguido de falha de confirmação local pode causar duplicação na retentativa. Consulte os limites, pendências de SMTP/agendamento e o procedimento de backup conjunto SQLite/PDF em [docs/MODULO4_CERTIDOES.md](docs/MODULO4_CERTIDOES.md).
+Notificações de certidões usam lock local exclusivo e transações curtas; o SMTP não mantém reserva de escrita SQLite. Não remova o arquivo `.certidao-notify.lock` durante operação nem execute esse mecanismo em filesystem compartilhado sem homologar a coordenação. O aceite SMTP seguido de falha de confirmação local pode causar duplicação na retentativa. SMTP e agendamento exigem homologação institucional. Faça o backup conjunto de SQLite, PDFs privados e versão compatível do código com todos os escritores parados e ensaie a restauração antes da implantação.
 
 ### Arquivo Passivo (Módulo 3)
 
@@ -57,4 +57,4 @@ Use contas e senhas artificiais em qualquer prova de conceito.
 - habilite proteção da branch `main`, revisão e checks obrigatórios no GitHub.
 - agende `php bin/maintenance.php` diariamente e monitore seu código de saída, sem executar limpezas em requisições HTTP.
 
-Consulte também [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md).
+Antes da implantação, valide HTTPS, permissões do usuário de serviço, backups e restauração no ambiente institucional e obtenha o aceite escolar.
