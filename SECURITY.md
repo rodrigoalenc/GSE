@@ -10,17 +10,17 @@ O mantenedor deve confirmar o recebimento, avaliar severidade e coordenar corre�
 
 ## Escopo suportado
 
-O código desta branch abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA —, 3 — Arquivo Passivo —, 4 — Certidões e Fornecedores — e os fluxos do Módulo 5 descritos em [docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md](docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md). Isso não constitui homologação ou publicação em produção.
+O código desta branch abrange os Módulos 1 — Autenticação e Controle de Usuários —, 2 — Gestão de Alunos, Turmas e DVA —, 3 — Arquivo Passivo —, 4 — Certidões e Fornecedores — e 5 — Contratos, Estoque e Relatórios. Isso não constitui homologação ou publicação em produção.
 
 ### Contratos, estoque e relatórios (Módulo 5)
 
-Rotas novas exigem sessão autenticada; estornos, conciliação legada e correção de faturamento exigem administrador. POST usa CSRF, transação e auditoria obrigatória. Movimentos são imutáveis, saldo é derivado do histórico, e a exclusão lógica não elimina registros. O PDF de relatórios usa Dompdf via Composer com rede e PHP executável desabilitados e HTML escapado; CSV neutraliza fórmulas. Ambos os downloads usam `private, no-store`. Confira as pendências de concorrência, acervo real e validação visual em [docs/MODULO5_VALIDACAO.md](docs/MODULO5_VALIDACAO.md).
+Rotas novas exigem sessão autenticada; estornos, conciliação legada e correção de faturamento exigem administrador. POST usa CSRF, transação e auditoria obrigatória. Movimentos são imutáveis, saldo é derivado do histórico, e a exclusão lógica não elimina registros. O PDF de relatórios usa Dompdf via Composer com rede e PHP executável desabilitados e HTML escapado; CSV neutraliza fórmulas. Ambos os downloads usam `private, no-store`. Homologue os fluxos com o acervo institucional antes de utilizá-los em produção.
 
 ### Certidões e Fornecedores (Módulo 4)
 
 PDFs permanecem fora de `public`, com download autenticado e verificação de integridade. Renovação preserva o documento anterior; exclusão é lógica e distinta do arquivamento. Revisões de certidões, fornecedores e tipos impedem sobrescrita por formulários antigos, com auditoria na mesma transação. Homologue a migração v14 em cópia antes de atualizar uma instalação e mantenha todos os escritores na mesma versão do código.
 
-Notificações de certidões usam lock local exclusivo e transações curtas; o SMTP não mantém reserva de escrita SQLite. Não remova o arquivo `.certidao-notify.lock` durante operação nem execute esse mecanismo em filesystem compartilhado sem homologar a coordenação. O aceite SMTP seguido de falha de confirmação local pode causar duplicação na retentativa. Consulte os limites, pendências de SMTP/agendamento e o procedimento de backup conjunto SQLite/PDF em [docs/MODULO4_CERTIDOES.md](docs/MODULO4_CERTIDOES.md).
+Notificações de certidões usam lock local exclusivo e transações curtas; o SMTP não mantém reserva de escrita SQLite. Não remova o arquivo `.certidao-notify.lock` durante operação nem execute esse mecanismo em filesystem compartilhado sem homologar a coordenação. O aceite SMTP seguido de falha de confirmação local pode causar duplicação na retentativa. SMTP e agendamento exigem homologação institucional. Faça o backup conjunto de SQLite, PDFs privados e versão compatível do código com todos os escritores parados e ensaie a restauração antes da implantação.
 
 ### Arquivo Passivo (Módulo 3)
 
@@ -61,4 +61,4 @@ Use contas e senhas artificiais em qualquer prova de conceito.
 - habilite proteção da branch `main`, revisão e checks obrigatórios no GitHub.
 - agende `php bin/maintenance.php` diariamente e monitore seu código de saída, sem executar limpezas em requisições HTTP.
 
-Consulte também [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md).
+Antes da implantação, homologue SMTP, Nginx/PHP-FPM, HTTPS e intranet e obtenha o aceite escolar.

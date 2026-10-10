@@ -9,19 +9,17 @@ Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 - UC006 — contratos, folhas, produtos e movimentação de estoque;
 - UC007 — relatórios de alunos e situação da DVA.
 
-O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A revisão de 06/10/2026 preserva a migração v16 e acrescenta perfil próprio, snapshot SQLite que inclui o WAL e correção semântica do CI. A edição acadêmica de 34 páginas foi conferida literalmente. Consulte o [relatório final e a matriz dos cinco módulos](docs/FINALIZACAO_TCC.md), a [matriz de permissões e operação](docs/FINALIZACAO_OPERACAO.md) e o [inventário visual atual](docs/INTERFACE_FINALIZACAO.md). As ambiguidades acadêmicas, a execução do código corrigido no CI Linux e o aceite institucional têm situação própria nesses relatórios.
+O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A revisão de 06/10/2026 preserva a migração v16 e acrescenta perfil próprio, snapshot SQLite que inclui o WAL e correção semântica do CI. A edição acadêmica de 34 páginas foi conferida literalmente. As ambiguidades acadêmicas, a execução do código corrigido no CI Linux e o aceite institucional permanecem pendentes.
 
 ## Módulo 4 — instalação e operação
 
-Consulte [documentação, rastreabilidade e comandos de demonstração](docs/MODULO4_CERTIDOES.md) e [resultados históricos de validação](docs/MODULO4_VALIDACAO.md). A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco da branch `Modulo5` chega à **v16**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. A revisão atual exercitou matriz, formulários e tela cheia em três resoluções; o aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
+A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco da branch `Modulo5` chega à **v16**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. Funcionários e administradores autenticados podem consultar e administrar certidões, fornecedores e tipos. O aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
 
 - Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
 - PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
 - Avisos: `CERTIDAO_WARNING_DAYS=15`; `php bin/notify-certidoes.php` só envia em produção com `MAIL_ENABLED=true` e `CERTIDAO_MAIL_ENABLED=true`, após configurar SMTP e agendamento. Não depende do opt-in de DVA.
 - Inventário conservador: `php bin/certidoes-maintenance.php`. Migração de arquivos legados: `php bin/migrate-certidao-pdfs.php --source=CAMINHO_ABSOLUTO` simula, sem mover/apagar originais.
 - Backup operacional cobre **SQLite e PDFs**. Bloqueie os diretórios públicos legados no servidor antes da implantação.
-
-Os registros de validação dos módulos anteriores, incluindo [MODULO5_VALIDACAO.md](docs/MODULO5_VALIDACAO.md), descrevem suas respectivas entregas. Os resultados atuais estão em [FINALIZACAO_TCC.md](docs/FINALIZACAO_TCC.md); aprovação histórica não valida alterações posteriores.
 
 ## Arquitetura de segurança
 
@@ -51,7 +49,7 @@ As decisões seguem as recomendações de [Authentication](https://cheatsheetser
 
 ## Módulo 5 — contratos, estoque e relatórios
 
-A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produtos, faturamento documental, duplicação e impressão. O estoque físico possui limites, abertura confirmada, entradas/saídas, estorno administrativo e histórico auditado; a quantidade contratada permanece distinta do saldo físico. Estoque antigo marcado como aberto sem comprovação exige conferência administrativa atual, com contagem, unidade, justificativa documental, revisão e operação transacional. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). O esquema atual é **v16**; a v15 implementa contratos/estoque e a v16 corrige indicadores de localização do Arquivo Passivo. Consulte [escopo e operação](docs/MODULO5_CONTRATOS_ESTOQUE_RELATORIOS.md) e [validação e pendências](docs/MODULO5_VALIDACAO.md) antes de atualizar um acervo.
+A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produtos, faturamento documental, duplicação e impressão. O estoque físico possui limites, abertura confirmada, entradas/saídas, estorno administrativo e histórico auditado; a quantidade contratada permanece distinta do saldo físico. Estoque antigo marcado como aberto sem comprovação exige conferência administrativa atual, com contagem, unidade, justificativa documental, revisão e operação transacional. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). Funcionários e administradores autenticados acessam contratos, estoque e relatórios; estornos, conciliação legada, conferência de abertura legada e correção de faturamento exigem administrador. O esquema atual é **v16**; a v15 implementa contratos/estoque e a v16 corrige indicadores de localização do Arquivo Passivo.
 
 Para desenvolver, instale dependências com `composer install`, habilite `intl`, `fileinfo`, `mbstring` e `pdo_sqlite`, e execute `composer check`. Dompdf 3.1.6 é gerenciado pelo Composer. Não aplique migração em dados institucionais sem backup e ensaio de restauração conjunto de SQLite e PDFs privados.
 
@@ -308,7 +306,7 @@ Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deri
 
 Antes de alteração estrutural em banco existente, é criado um backup SQLite consistente em `backups/`, validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
 
-`Sistema::criarBackupManual()` usa `VACUUM INTO` sobre o `DB_PATH` configurado e valida integridade e chaves estrangeiras. Inclui registros confirmados ainda presentes no WAL; a cópia direta do arquivo principal pode perdê-los mesmo quando sua integridade é válida. O método retorna um nome único ou `false` e grava em `backups/` ao lado do banco, fora de `public`; com `DB_PATH=/var/lib/gse/escola.sqlite`, o destino é `/var/lib/gse/backups`. A listagem preserva também a descoberta dos backups antigos em `database/backups`. Esse snapshot cobre somente SQLite. O backup conjunto com PDFs privados e a versão compatível do código exige parada dos escritores e segue o [roteiro operacional](docs/FINALIZACAO_OPERACAO.md).
+`Sistema::criarBackupManual()` usa `VACUUM INTO` sobre o `DB_PATH` configurado e valida integridade e chaves estrangeiras. Inclui registros confirmados ainda presentes no WAL; a cópia direta do arquivo principal pode perdê-los mesmo quando sua integridade é válida. O método retorna um nome único ou `false` e grava em `backups/` ao lado do banco, fora de `public`; com `DB_PATH=/var/lib/gse/escola.sqlite`, o destino é `/var/lib/gse/backups`. A listagem preserva também a descoberta dos backups antigos em `database/backups`. Esse snapshot cobre somente SQLite. Para o backup conjunto, pare todos os processos escritores e preserve SQLite, PDFs privados e a versão compatível do código no mesmo conjunto; ensaie a restauração independente antes de usar dados institucionais.
 
 A v10 preenche `alunos.nome_normalizado` e `turmas.nome_normalizado` sem alterar nomes, IDs, vínculos ou DVAs. Antes do commit, compara contagens, IDs e o mapa `aluno_id → id_turma`, além de exigir `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`. Se duas turmas do mesmo ano se tornarem equivalentes após NFC e conversão Unicode para minúsculas, a migração faz rollback e informa os IDs envolvidos; não exclui, mescla, renomeia nem escolhe automaticamente qual registro prevalece. Corrija a colisão em uma cópia homologada e execute novamente.
 
@@ -332,7 +330,7 @@ Bancos locais de teste que já executaram a versão v6 defeituosa anterior a est
 
 Mantenha backups fora do servidor, criptografados e com restauração testada. Backups locais, bancos e sidecars estão no `.gitignore`.
 
-Para rollback, mantenha a aplicação em manutenção e encerre todos os processos PHP e agendadores. Preserve uma cópia do estado que falhou, confirme `PRAGMA integrity_check=ok` no backup `pre-migration`, remova somente sidecars `-wal`/`-shm` depois de não haver conexões abertas e restaure SQLite e PDFs privados do mesmo snapshot, com a versão compatível do código. Reaplique permissões e execute `PRAGMA foreign_key_check`, `PRAGMA integrity_check` e `PRAGMA user_version` antes de reabrir o serviço. Siga o [roteiro conjunto de restauração](docs/FINALIZACAO_OPERACAO.md) e faça o procedimento primeiro em homologação; o inicializador nunca restaura ou substitui automaticamente um banco existente.
+Para rollback, mantenha a aplicação em manutenção e encerre todos os processos PHP e agendadores. Preserve uma cópia do estado que falhou, confirme `PRAGMA integrity_check=ok` no backup `pre-migration`, remova somente sidecars `-wal`/`-shm` depois de não haver conexões abertas e restaure SQLite e PDFs privados do mesmo snapshot, com a versão compatível do código. Reaplique permissões e execute `PRAGMA foreign_key_check`, `PRAGMA integrity_check` e `PRAGMA user_version` antes de reabrir o serviço. Faça o procedimento primeiro em homologação; o inicializador nunca restaura ou substitui automaticamente um banco existente.
 
 ## Rotas explícitas
 
@@ -367,7 +365,7 @@ Rota desconhecida retorna 404 e método incorreto 405. Funcionário autenticado 
 
 O Arquivo Passivo corresponde à entrega original do Módulo 3 na v12. Nesta branch, os Módulos 1–5 estão implementados e o banco atual usa `PRAGMA user_version=16`, com versões 1–16 em `schema_migrations`.
 
-O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação acadêmica permanece pendente. Novos cadastros exigem caixa e posição; somente registros históricos incompletos podem continuar pendentes, sem localização inventada. Veja a [matriz de requisitos e evidências da revisão](docs/MODULO3_REVISAO_TCC.md).
+O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação acadêmica permanece pendente. Novos cadastros exigem caixa e posição; somente registros históricos incompletos podem continuar pendentes, sem localização inventada.
 
 O CSV usa `Nome;Data;Numero;Caixa`, UTF-8, no máximo 2 MiB e 5.000 linhas. Datas podem ser `YYYY-MM-DD` ou `DD/MM/YYYY`. A prévia expira em 15 minutos, pertence à sessão e ao administrador e só pode ser confirmada uma vez. O hash do arquivo e a análise do acervo são revalidados na confirmação. Linhas válidas são adicionadas em uma única transação; duplicidades, localizações ocupadas e erros são apresentados sem apagar o acervo.
 
@@ -381,7 +379,7 @@ PRAGMA foreign_key_check;  -- nenhuma linha
 PRAGMA integrity_check;    -- ok
 ```
 
-A v16 marca como pendentes registros sem caixa ou posição e impede indicação completa para localização vazia. Não altera nomes, datas, números, caixas, autoria ou vínculos. Registros pendentes permanecem consultáveis com o indicador amarelo “Localização pendente”, filtros próprios e identificação no TXT. A edição dos demais dados históricos mantém a pendência; a conclusão valida ambos os campos, conflitos e auditoria. Consulte [docs/MODULO3_ARQUIVO_PASSIVO.md](docs/MODULO3_ARQUIVO_PASSIVO.md), [docs/MODULO3_HOMOLOGACAO.md](docs/MODULO3_HOMOLOGACAO.md) e o [roteiro de validação manual](docs/MODULO3_VALIDACAO_MANUAL.md).
+A v16 marca como pendentes registros sem caixa ou posição e impede indicação completa para localização vazia. Não altera nomes, datas, números, caixas, autoria ou vínculos. Registros pendentes permanecem consultáveis com o indicador amarelo “Localização pendente”, filtros próprios e identificação no TXT. A edição dos demais dados históricos mantém a pendência; a conclusão valida ambos os campos, conflitos e auditoria.
 
 Rotas adicionais:
 
@@ -439,9 +437,9 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 - alterações futuras do logo ou da identidade institucional dependem de aprovação da escola;
 - notificações dependem de um SMTP institucional configurado e de agendamento externo;
 - agenda e etiquetas não integram o escopo atual;
-- a edição acadêmica de 34 páginas foi lida; as ambiguidades de atores, exclusão lógica e PDF opcional exigem decisão acadêmica/institucional registrada na matriz;
-- o aceite institucional e a validação de usabilidade com os usuários permanecem pendentes conforme o relatório da revisão atual.
+- a edição acadêmica de 34 páginas foi lida; as ambiguidades de atores, exclusão lógica e PDF opcional exigem decisão acadêmica/institucional;
+- o aceite institucional e a validação de usabilidade com os usuários permanecem pendentes.
 
 O painel apresenta indicadores e grupos de alunos por situação da DVA. O menu principal oferece acesso aos módulos implementados, incluindo contratos, estoque e relatórios.
 
-Antes de implantar, conclua [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) e leia [SECURITY.md](SECURITY.md).
+Antes de implantar, homologue SMTP, Nginx/PHP-FPM, HTTPS e intranet no ambiente institucional, ensaie a restauração conjunta e obtenha o aceite escolar. Leia também [SECURITY.md](SECURITY.md).
