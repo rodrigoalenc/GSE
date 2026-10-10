@@ -42,5 +42,3 @@ Use contas e senhas artificiais em qualquer prova de conceito.
 - mantenha uma janela de manutenção sem escritores durante a migração e um procedimento de rollback testado a partir do backup validado;
 - habilite proteção da branch `main`, revisão e checks obrigatórios no GitHub.
 - agende `php bin/maintenance.php` diariamente e monitore seu código de saída, sem executar limpezas em requisições HTTP.
-
-Consulte também [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md).
