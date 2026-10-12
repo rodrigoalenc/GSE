@@ -24,9 +24,20 @@ if (($argv[1] ?? '') === 'seed') {
     $pdo->prepare('INSERT INTO usuarios(nome,email,senha,tipo) VALUES(?,?,?,?)')->execute([
         'Legado ficticio', 'legacy@example.test', password_hash(str_repeat('L', 72), PASSWORD_BCRYPT, ['cost' => 4]), 'funcionario',
     ]);
+    // Keep the comparison inside this disposable fixture; never emit password hashes.
+    file_put_contents($testDirectory . '/original-password-hashes.json', json_encode(
+        $pdo->query('SELECT id,senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR), JSON_THROW_ON_ERROR
+    ));
+    if (DIRECTORY_SEPARATOR === '/') {
+        chmod($testDirectory . '/original-password-hashes.json', 0600);
+    }
 }
+$originalHashes = json_decode((string) file_get_contents($testDirectory . '/original-password-hashes.json'), true, 512, JSON_THROW_ON_ERROR);
+$currentHashes = $pdo->query('SELECT id,senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR);
 echo json_encode([
     'users' => $pdo->query('SELECT id,nome,email,tipo,session_version,deve_alterar_senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_ASSOC),
     'algorithms' => array_map(static fn (string $hash): string => password_get_info($hash)['algoName'],
         $pdo->query('SELECT senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_COLUMN)),
+    'original_hashes_preserved' => array_map(static fn (int $id): bool => isset($originalHashes[$id])
+        && hash_equals($originalHashes[$id], $currentHashes[$id]), array_keys($currentHashes)),
 ], JSON_THROW_ON_ERROR);

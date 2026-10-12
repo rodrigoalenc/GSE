@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-// auto_prepend_file for disposable CLI/HTTP tests, never loaded by the application.
+// CLI auto_prepend_file or explicit HTTP test router include; never loaded by the application.
 $testDb = (string) getenv('DB_PATH');
 $testParent = dirname($testDb);
 $disposable = (realpath(dirname($testParent)) === realpath(sys_get_temp_dir())

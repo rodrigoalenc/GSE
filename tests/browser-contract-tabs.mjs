@@ -58,7 +58,7 @@ export async function launchBrowser() {
             pending.set(id, {resolve, reject, timer});
             socket.send(JSON.stringify({id, method, params, ...(sessionId ? {sessionId} : {})}));
         });
-        const newPage = async () => {
+        const newPage = async ({captureFailure: customCaptureFailure} = {}) => {
             const {targetId} = await send('Target.createTarget', {url:'about:blank'});
             const {sessionId} = await send('Target.attachToTarget', {targetId, flatten:true});
             const command = (method, params) => send(method, params, sessionId);
@@ -69,6 +69,7 @@ export async function launchBrowser() {
                 return result.result.value;
             };
             const captureFailure = async (label, context) => {
+                if (customCaptureFailure) return customCaptureFailure(label, context);
                 if (!process.env.GSE_BROWSER_EVIDENCE_DIR) return;
                 await mkdir(process.env.GSE_BROWSER_EVIDENCE_DIR, {recursive:true});
                 const prefix = join(process.env.GSE_BROWSER_EVIDENCE_DIR, `${label}-${Date.now()}`);
