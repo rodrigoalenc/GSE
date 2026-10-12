@@ -11,6 +11,7 @@ use Throwable;
 require_once __DIR__ . '/TextNormalizer.php';
 require_once __DIR__ . '/DataProtection.php';
 require_once __DIR__ . '/ProtectedBackup.php';
+require_once __DIR__ . '/BackupSnapshot.php';
 
 final class DatabaseInitializer
 {
@@ -1285,7 +1286,7 @@ final class DatabaseInitializer
         return in_array($column, array_column($columns, 'name'), true);
     }
 
-    private static function createValidatedBackup(PDO $pdo): ?string
+    private static function createValidatedBackup(PDO $pdo, ?\BackupSnapshot $snapshot = null): ?string
     {
         $databases = $pdo->query('PRAGMA database_list')->fetchAll();
         $rows = array_values(array_filter($databases, static fn (array $row): bool => ($row['name'] ?? '') === 'main'));
@@ -1295,23 +1296,20 @@ final class DatabaseInitializer
         if (is_link($directory) || (!is_dir($directory) && !mkdir($directory,0700,true))) {
             throw new RuntimeException('Destino privado de backup indisponível.');
         }
-        chmod($directory,0700);
         $path = $directory . DIRECTORY_SEPARATOR . pathinfo($databasePath,PATHINFO_FILENAME)
             . '-pre-migration-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(16)) . '.sqlite';
-        $reservation = fopen($path,'xb');
-        if ($reservation === false) { throw new RuntimeException('Destino do snapshot indisponível.'); }
-        chmod($path,0600); fclose($reservation);
-        $verification = null;
-        try {
-            $pdo->exec('VACUUM main INTO ' . $pdo->quote($path));
-            $verification = new PDO('sqlite:' . $path,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-            if ($verification->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
-                throw new RuntimeException('Snapshot preventivo inválido.');
-            }
+        ($snapshot ?? new \BackupSnapshot())->create($path . '.gse', static function (string $temporary) use ($pdo): void {
             $verification = null;
-            \ProtectedBackup::encrypt($path,$path . '.gse');
-            return $path . '.gse';
-        } finally { $verification = null; @unlink($path); }
+            try {
+                $pdo->exec('VACUUM main INTO ' . $pdo->quote($temporary));
+                $verification = new PDO('sqlite:' . $temporary, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                if ($verification->query('PRAGMA integrity_check')->fetchColumn() !== 'ok'
+                    || $verification->query('PRAGMA foreign_key_check')->fetchAll() !== []) {
+                    throw new RuntimeException('Snapshot preventivo inválido.');
+                }
+            } finally { $verification = null; }
+        });
+        return $path . '.gse';
     }
 
     private static function hasApplicationTables(PDO $pdo): bool

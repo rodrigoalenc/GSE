@@ -1,6 +1,6 @@
 # Operação da proteção v17
 
-Esta revisão parte de `e73bb79`. A revisão validada é o diff local sobre essa base, não um commit publicado. Consulte `SECURITY-VALIDATION.md` para os resultados finais. Não foi autorizada publicação, migração do banco escolar, merge, deploy ou verificação de uma URL institucional.
+O ajuste de downloads e limpeza de snapshots parte de `41dcb5d`. A revisão validada é o diff local sobre essa base, não um commit publicado. Consulte `SECURITY-VALIDATION.md` para os resultados finais. Não foi autorizada publicação, migração do banco escolar, merge, deploy ou verificação de uma URL institucional.
 
 ## Escopo e inventário
 
@@ -51,6 +51,23 @@ Não execute este procedimento sobre dados reais sem autorização específica e
 
 O snapshot preventivo também é criptografado. Um snapshot antigo restaurado mantém seu schema anterior e precisa de migração explícita antes de abrir o HTTP. Os resíduos de páginas livres, WAL e journals anteriores, snapshots do SO, arquivos já copiados e retenções externas precisam ser tratados no inventário. `VACUUM`, checkpoint e `unlink` não garantem apagamento físico de SSD. Não destrua cópias legadas ou sua única chave automaticamente.
 
+## Limpeza verificada dos snapshots
+
+Backups manuais e preventivos usam um diretório exclusivo `backups/.snapshot-<operation>` (`0700` em POSIX), com `snapshot.sqlite` e recibo `identity.json` privados (`0600`). Windows exige ACL restrita herdada do armazenamento privado; `chmod` não substitui essa ACL. A reserva exclusiva e a identidade do arquivo/diretório limitam a limpeza à operação atual. A aplicação confere a ausência do arquivo após a tentativa de exclusão, inclusive quando ele já desapareceu, e não remove um caminho cuja identidade mudou.
+
+Falha de snapshot, criptografia ou gravação registra `backup_operation_failed`, com `phase=snapshot`, `encryption` ou `write`. Falha de limpeza registra `backup_plaintext_cleanup_failed`, com identificador aleatório `operation`, fase, classe da exceção e `encrypted=yes/no`. Mensagens de exceções, caminhos privados, dados pessoais, chaves e tokens não são copiados para esses eventos. A CLI de manutenção também configura o log técnico. Uma exceção no logger não interrompe a tentativa de limpeza nem substitui a exceção original; há fallback mínimo para o log do runtime, cuja persistência também depende do armazenamento disponível. Verifique esse armazenamento e monitore esses eventos.
+
+Uma falha de limpeza impede o retorno de sucesso completo: o backup manual retorna falha e não registra `backup.created`; a criação preventiva lança uma exceção antes das migrações. Se também houve falha de operação, a exceção original é preservada e a falha de limpeza fica registrada separadamente. Um backup criptografado concluído é preservado, mesmo que a limpeza falhe; pode aparecer na listagem de backups protegidos, enquanto o temporário e seu recibo nunca são disponibilizados por ela ou por download HTTP. Na simulação `preflight`, a existência de um diretório residual também impede a remoção do backup protegido e da cópia de trabalho daquela simulação.
+
+Procedimento para uma pendência, somente no servidor por um operador autorizado:
+
+1. Mantenha HTTP, workers e tarefas parados durante a conferência. Preserve backups anteriores e o keyring independente. Restrinja a ACL/permissões do armazenamento; não use permissões públicas para contornar um lock ou erro de acesso.
+2. Obtenha o identificador hexadecimal de 32 caracteres do evento técnico. Procure exclusivamente o diretório exato `.snapshot-<operation>` em `dirname(DB_PATH)/backups`. Para `preflight`, confira também os diretórios privados `gse-preflight-*` no temporário do SO, dentro de `backups`. Não publique caminhos, recibos ou snapshots em tickets, telas ou HTTP.
+3. Resolva os caminhos canônicos e recuse links simbólicos em qualquer componente. Compare `operation` do recibo com o nome do diretório e compare `lstat` do diretório e de `snapshot.sqlite` com os campos `dev`, `ino`, `uid`, `mode` e `nlink` registrados em `directory` e `file`. Tamanho e datas da reserva não identificam o snapshot final, pois o SQLite escreve depois. Havendo divergência, recibo ausente/incompleto, ACL inesperada ou arquivos alheios, interrompa a remoção e faça inventário privado; o nome sozinho não comprova propriedade.
+4. O campo `backup` do recibo é somente o nome do destino planejado no diretório pai, não prova que a criptografia terminou. Quando o arquivo protegido existir, valide-o por restauração em destino privado novo com `php bin/security.php restore ORIGEM_PROTEGIDA DESTINO_NOVO` e confira integridade e dados antes de remover o resíduo. Preserve o arquivo criptografado. Sem backup protegido válido, confirme uma fonte original recuperável e uma cópia protegida verificada; nunca elimine a única cópia recuperável.
+5. Resolva a causa (permissão, lock, espaço ou armazenamento). Com a operação encerrada e as identidades novamente conferidas, remova somente o caminho exato `snapshot.sqlite` dessa operação e confirme sua ausência por nova consulta ao filesystem. Depois remova somente seu recibo e o diretório se estiver vazio. Não use limpeza recursiva nem exclusão por curingas; não remova arquivos inesperados ou backups anteriores. Se o snapshot já não existir, não recrie nem substitua o arquivo. Confira separadamente a cópia de trabalho retida por `preflight` antes de removê-la, preservando o backup protegido.
+6. Registre a resolução operacional sem dados pessoais ou segredos e ensaie novamente o backup/restauração antes de reabrir o serviço. Exclusão lógica de arquivo não comprova apagamento físico de SSD, snapshots do volume, cópias externas ou retenções do SO.
+
 ## Rotação, proteção de legado e restauração
 
 Com todos os escritores parados:
@@ -88,6 +105,8 @@ Novas senhas: 15–128 caracteres Unicode, sem composição arbitrária, sem tri
 Configure as janelas com `CONFIRM_WINDOW_SECONDS` e `EXPENSIVE_WINDOW_SECONDS`. Contadores SQLite são atômicos, sobrevivem ao processo e expiram; não há reset por sucesso nas confirmações. Monitore rede compartilhada e volume escolar antes de ajustar os padrões. O limite por requisição complementa os limites de arquivos/linhas, não os substitui.
 
 O frontend bloqueia repetição após validação e confirmação, anuncia processamento, preserva submitter/name/value/formaction e libera bfcache; downloads recebem guarda curta de 3 s. A proteção real de criação de contrato, aluno (inclusive duplicidade confirmada) e registro passivo usa recibo por usuário/operação/token e HMAC do conteúdo normalizado, transação e chave primária composta. Replay retorna o mesmo ID sem nova auditoria; conteúdo divergente é recusado; rollback não consome o recibo. Sem JavaScript, o campo oculto continua sendo enviado. Tokens de estoque, revisões, unicidade de localização, DVA vigente, certidão vigente/renovação e importações confirmadas continuam protegendo outros efeitos. Não há promessa de entrega SMTP exatamente uma vez após queda durante envio.
+
+Formulários de download usam `data-submit-download="true"`; botões podem sobrescrever a indicação, como `data-submit-download="false"` em **Atualizar prévia**. O relatório principal usa a seleção PDF/CSV quando não há `formaction` explícito; botões com esse atributo conservam sua ação. A marcação cobre também o TXT do Arquivo Passivo. A compatibilidade com formulários antigos conserva o reconhecimento de caminhos de download e destino `_blank`. Depois de 3 s, a guarda libera novos envios e remove `aria-busy` e **Processando…**; isso não atesta a conclusão do download. `pageshow` também limpa o estado e cancela o timer anterior. Não há AJAX nem alteração dos tokens ou da validação no servidor.
 
 ## Servidor e checklist
 

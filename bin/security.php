@@ -83,6 +83,7 @@ try {
         } catch (Throwable $exception) { $pdo = null; @unlink($target); throw $exception; }
         echo "Banco restaurado em arquivo novo; anexos não fazem parte deste backup.\n";
     } elseif (in_array($command, ['preflight','migrate','rotate-data'], true)) {
+        TechnicalLogger::configure();
         DataProtection::keyring();
         $pdo = \src\Core\Database::getConnection();
         if ($command === 'preflight') {
@@ -102,10 +103,14 @@ try {
                 echo "Simulação concluída em cópia descartável. Banco original preservado.\n";
             } finally {
                 $copy = null;
-                foreach (glob($scratch . '/backups/*') ?: [] as $file) { @unlink($file); }
-                @rmdir($scratch . '/backups');
-                foreach (glob($scratch . '/*') ?: [] as $file) { @unlink($file); }
-                @rmdir($scratch);
+                // A failed snapshot cleanup must retain its completed encrypted backup
+                // and private receipt for offline recovery, including during preflight.
+                if ((glob($scratch . '/backups/.snapshot-*') ?: []) === []) {
+                    foreach (glob($scratch . '/backups/*') ?: [] as $file) { @unlink($file); }
+                    @rmdir($scratch . '/backups');
+                    foreach (glob($scratch . '/*') ?: [] as $file) { @unlink($file); }
+                    @rmdir($scratch);
+                }
             }
         } else {
             if (($argv[2] ?? '') !== '--maintenance-confirmed') { throw new RuntimeException('Pare HTTP e workers e use --maintenance-confirmed.'); }

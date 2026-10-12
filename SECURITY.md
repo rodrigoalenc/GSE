@@ -75,3 +75,5 @@ Antes da implantação, homologue SMTP, Nginx/PHP-FPM, HTTPS e intranet e obtenh
 
 
 A revisão v17 acrescenta criptografia dos campos de usuários e novos backups, HMAC separado, confirmações limitadas, idempotência e CSRF com tipos inesperados. Consulte [SECURITY-OPERATIONS.md](SECURITY-OPERATIONS.md) para o escopo exato, limites, chaves externas e operação. Senhas legadas válidas de 12 caracteres continuam autenticando. A homologação do servidor real continua pendente.
+
+O ajuste posterior verifica a remoção dos snapshots temporários de backups manuais e preventivos. Uma pendência de limpeza impede sucesso completo e gera evento técnico sem conteúdo pessoal; o backup criptografado concluído é preservado. O [procedimento de limpeza offline](SECURITY-OPERATIONS.md#limpeza-verificada-dos-snapshots) exige conferência de identidade e recuperação antes da remoção. Isso não amplia a criptografia para outros dados pessoais, todo o SQLite ou o disco, nem promete apagamento físico seguro de SSD.

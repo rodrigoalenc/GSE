@@ -8,13 +8,13 @@
     </div>
 </section>
 <div class="box-relatorio">
-    <form action="<?= e(url('relatorio/pdf')) ?>" method="get" class="sistema report-generator" data-report-generator data-pdf-url="<?= e(url('relatorio/pdf')) ?>" data-csv-url="<?= e(url('relatorio/csv')) ?>">
+    <form action="<?= e(url('relatorio/pdf')) ?>" method="get" class="sistema report-generator" data-submit-download="true" data-report-generator data-pdf-url="<?= e(url('relatorio/pdf')) ?>" data-csv-url="<?= e(url('relatorio/csv')) ?>">
         <div class="report-filter-group"><label for="turma" class="label-destaque">1. Filtrar por Turma (Opcional):</label><select id="turma" name="turma" class="select-grande"><option value="">Todas as Turmas</option><?php foreach ($classes as $class): ?><option value="<?= (int) $class['id'] ?>" <?= (string) $result['filters']['turma'] === (string) $class['id'] ? 'selected' : '' ?>><?= e($class['nome_turma']) ?></option><?php endforeach; ?></select></div>
         <div class="report-filter-group"><label for="dva" class="label-destaque">2. Status da DVA:</label><select id="dva" name="dva" class="select-grande"><option value="">Todos (Geral)</option><?php foreach (DvaStatus::ALL as $status): ?><option value="<?= e($status) ?>" <?= $result['filters']['dva'] === $status ? 'selected' : '' ?>><?= e(DvaStatus::label($status)) ?></option><?php endforeach; ?></select></div>
         <div class="report-filter-group"><label for="ativo" class="label-destaque">3. Situação do Aluno:</label><select id="ativo" name="ativo" class="select-grande"><option value="1" <?= $result['filters']['ativo'] === '1' ? 'selected' : '' ?>>Ativos</option><option value="0" <?= $result['filters']['ativo'] === '0' ? 'selected' : '' ?>>Inativos</option><option value="todos" <?= $result['filters']['ativo'] === 'todos' ? 'selected' : '' ?>>Todos</option></select></div>
         <fieldset class="report-format-group"><legend class="label-destaque">4. Formato do Arquivo:</legend><div class="opcoes-formato"><label class="radio-card pdf"><input type="radio" name="formato" value="pdf" checked> 📄 PDF</label><label class="radio-card excel"><input type="radio" name="formato" value="csv"> 📊 CSV</label></div></fieldset>
         <button type="submit" class="btn-primary btn-gerar">📥 Gerar Relatório</button>
-        <div class="report-secondary-actions"><button type="submit" class="btn-secondary" formaction="<?= e(url('relatorio')) ?>">Atualizar prévia</button><button type="submit" class="btn-secondary" data-report-csv formaction="<?= e(url('relatorio/csv')) ?>">Baixar CSV</button></div>
+        <div class="report-secondary-actions"><button type="submit" class="btn-secondary" data-submit-download="false" formaction="<?= e(url('relatorio')) ?>">Atualizar prévia</button><button type="submit" class="btn-secondary" data-submit-download="true" data-report-csv formaction="<?= e(url('relatorio/csv')) ?>">Baixar CSV</button></div>
         <p class="report-limits">PDF: até 500 alunos. CSV: até 10.000 alunos. Para resultados maiores, escolha uma turma ou refine a situação.</p>
     </form>
 </div>

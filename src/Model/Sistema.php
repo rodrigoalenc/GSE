@@ -2,6 +2,7 @@
 
 require_once ROOT_PATH . '/src/Core/Model.php';
 require_once ROOT_PATH . '/src/Core/ProtectedBackup.php';
+require_once ROOT_PATH . '/src/Core/BackupSnapshot.php';
 require_once ROOT_PATH . '/src/Core/ActionBudget.php';
 
 class Sistema extends Model
@@ -38,9 +39,6 @@ class Sistema extends Model
 
     public function criarBackupManual(): string|false
     {
-        $destino = null;
-        $snapshot = null;
-        $origem = null;
         try {
             $arquivoBanco = \src\Core\Database::resolvePath();
 
@@ -58,50 +56,36 @@ class Sistema extends Model
             if (!is_dir($pastaLocal) && !@mkdir($pastaLocal, 0700, true) && !is_dir($pastaLocal)) {
                 throw new Exception('Nao foi possivel criar a pasta local de backups.');
             }
-            if (DIRECTORY_SEPARATOR === '/' && !chmod($pastaLocal, 0700)) {
-                throw new Exception('Nao foi possivel proteger a pasta de backups.');
-            }
             if ($this->diretorioPrivado($pastaLocal) === null) {
                 throw new Exception('O destino do backup nao e um diretorio privado seguro.');
             }
 
             $nome = 'escola_backup_MANUAL_' . date('Y-m-d_H-i-s') . '_' . bin2hex(random_bytes(16)) . '.db';
-            $candidato = $pastaLocal . '/' . $nome;
-            // Exclusive creation reserves only our file; VACUUM INTO accepts an empty target.
-            $reserva = @fopen($candidato, 'x');
-            if ($reserva === false) {
-                throw new Exception('Nao foi possivel reservar o arquivo de backup.');
-            }
-            $destino = $candidato;
-            fclose($reserva);
-            if (DIRECTORY_SEPARATOR === '/' && !chmod($destino, 0600)) {
-                throw new Exception('Nao foi possivel proteger o arquivo de backup.');
-            }
-
-            // A separate connection snapshots the configured source, including committed WAL pages.
-            $origem = new PDO('sqlite:' . $arquivoBanco, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-            $origem->exec('PRAGMA busy_timeout = 5000');
-            $origem->exec('VACUUM main INTO ' . $origem->quote($destino));
-            $origem = null;
-            $snapshot = new PDO('sqlite:' . $destino, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-            if ($snapshot->query('PRAGMA integrity_check')->fetchAll(PDO::FETCH_COLUMN) !== ['ok']
-                || $snapshot->query('PRAGMA foreign_key_check')->fetchAll() !== []) {
-                throw new Exception('O snapshot do banco falhou nas verificacoes de integridade.');
-            }
-            $snapshot = null;
-
-            ProtectedBackup::encrypt($destino, $destino . '.gse');
-            @unlink($destino);
+            $this->backupSnapshot()->create($pastaLocal . '/' . $nome . '.gse', static function (string $destino) use ($arquivoBanco): void {
+                $origem = $snapshot = null;
+                try {
+                    // A separate connection includes committed, uncheckpointed WAL pages.
+                    $origem = new PDO('sqlite:' . $arquivoBanco, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                    $origem->exec('PRAGMA busy_timeout = 5000');
+                    $origem->exec('VACUUM main INTO ' . $origem->quote($destino));
+                    $origem = null;
+                    $snapshot = new PDO('sqlite:' . $destino, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                    if ($snapshot->query('PRAGMA integrity_check')->fetchAll(PDO::FETCH_COLUMN) !== ['ok']
+                        || $snapshot->query('PRAGMA foreign_key_check')->fetchAll() !== []) {
+                        throw new RuntimeException('O snapshot do banco falhou nas verificacoes de integridade.');
+                    }
+                } finally { $origem = $snapshot = null; }
+            });
             return $nome . '.gse';
         } catch (Throwable $e) {
-            $snapshot = null;
-            $origem = null;
-            if ($destino !== null && is_file($destino)) {
-                @unlink($destino);
-            }
             TechnicalLogger::error('backup_snapshot_failed', ['exception' => $e::class]);
             return false;
         }
+    }
+
+    protected function backupSnapshot(): BackupSnapshot
+    {
+        return new BackupSnapshot();
     }
 
     /** @return list<string> */

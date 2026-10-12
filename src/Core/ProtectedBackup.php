@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/DataProtection.php';
+require_once __DIR__ . '/BackupWriteException.php';
 
 final class ProtectedBackup
 {
@@ -19,10 +20,10 @@ final class ProtectedBackup
         $out = null;
         $created = false;
         try {
-            $out = fopen($target, 'xb');
-            if ($out === false) { throw new RuntimeException('Destino do backup indisponível.'); }
+            $out = @fopen($target, 'xb');
+            if ($out === false) { throw new BackupWriteException('Destino do backup indisponível.'); }
             $created = true;
-            if (DIRECTORY_SEPARATOR === '/' && !chmod($target, 0600)) { throw new RuntimeException('Permissões do backup inválidas.'); }
+            if (DIRECTORY_SEPARATOR === '/' && !@chmod($target, 0600)) { throw new BackupWriteException('Permissões do backup inválidas.'); }
             self::write($out, $metadata);
             while (!feof($in)) {
                 $chunk = fread($in, self::CHUNK);
@@ -34,7 +35,7 @@ final class ProtectedBackup
             }
             $final = sodium_crypto_secretstream_xchacha20poly1305_push($state, '', $metadata, SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL);
             self::write($out, pack('N', strlen($final)) . $final);
-            if (!fflush($out) || !fsync($out)) { throw new RuntimeException('Falha ao gravar backup.'); }
+            if (!@fflush($out) || !@fsync($out)) { throw new BackupWriteException('Falha ao gravar backup.'); }
         } catch (Throwable $exception) {
             if (is_resource($out)) { fclose($out); $out = null; }
             if ($created) { @unlink($target); }
@@ -118,8 +119,8 @@ final class ProtectedBackup
     private static function write($stream, string $data): void
     {
         while ($data !== '') {
-            $written = fwrite($stream, $data);
-            if ($written === false || $written === 0) { throw new RuntimeException('Falha ao gravar backup.'); }
+            $written = @fwrite($stream, $data);
+            if ($written === false || $written === 0) { throw new BackupWriteException('Falha ao gravar backup.'); }
             $data = substr($data, $written);
         }
     }

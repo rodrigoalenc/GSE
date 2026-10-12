@@ -14,7 +14,7 @@
     <section class="relatorio passivo-tool-card green">
         <h2>Exportar lista da caixa</h2>
         <p>Gera a listagem UTF-8 no formato "Número - Nome", com ordenação consistente.</p>
-        <form class="passivo-form" method="post" action="<?= e(url('passivo/exportar')) ?>">
+        <form class="passivo-form" method="post" data-submit-download="true" action="<?= e(url('passivo/exportar')) ?>">
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
             <label for="exportar-caixa">Caixa existente</label>
             <select id="exportar-caixa" name="caixa" required><option value="">Selecione</option><?php foreach ($boxes as $box): ?><option value="<?= e($box['caixa']) ?>"><?= e($box['caixa']) ?> (<?= e((string) $box['total']) ?>)</option><?php endforeach; ?></select>

@@ -26,7 +26,7 @@ final class BackupController extends Controller
             $this->redirectWithFlash('backup', 'success', 'Backup do banco criado com sucesso.');
         }
         http_response_code(422);
-        $this->renderPage(['Não foi possível criar o backup. Verifique a senha atual e tente novamente.']);
+        $this->renderPage(['Não foi possível concluir o backup. Verifique a senha atual. Se persistir, solicite a conferência do registro técnico e da limpeza de temporários.']);
     }
 
     public function baixar(string $nome): void

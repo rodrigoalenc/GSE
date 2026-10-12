@@ -27,7 +27,8 @@
         "browser-test": [
             "node tests/browser-password-security.mjs",
             "node tests/browser-contract-tabs.mjs",
-            "node tests/browser-passivo-batch.mjs"
+            "node tests/browser-passivo-batch.mjs",
+            "node tests/browser-report-downloads.mjs"
         ],
         "maintenance": "@php bin/maintenance.php",
         "notify-dva": "@php bin/notify-dva.php",

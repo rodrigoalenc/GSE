@@ -41,9 +41,11 @@ export async function launchBrowser() {
         const pending = new Map();
         const errors = [];
         const consoleMessages = [];
+        const events = [];
         let sequence = 0;
         socket.addEventListener('message', ({data}) => {
             const message = JSON.parse(data);
+            if (message.method?.startsWith('Browser.download') || message.method === 'Network.requestWillBeSent') events.push(message);
             if (message.id && pending.has(message.id)) {
                 const {resolve, reject, timer} = pending.get(message.id); pending.delete(message.id); clearTimeout(timer);
                 if (message.error) reject(new Error(JSON.stringify(message.error))); else resolve(message.result);
@@ -119,7 +121,7 @@ export async function launchBrowser() {
             };
             return {command, evaluate, until, navigate, click, captureFailure, targetId};
         };
-        return {newPage, errors, consoleMessages, cleanup};
+        return {newPage, errors, consoleMessages, events, command:send, cleanup};
     } catch (error) { await cleanup(); throw error; }
 }
 

@@ -1,30 +1,31 @@
-# Validação local da proteção v17
+# Validação local — downloads e limpeza de snapshots
 
-Data: 12/10/2026. Base Git: `e73bb7952491b4747cf17c833672aa056795a5f6`.
-A revisão é o conjunto de alterações locais sobre essa base, incluindo os arquivos novos; não há novo commit publicado ou execução remota que valide esta revisão.
+Data: 12/10/2026. Base Git: `41dcb5d963b569e140f76eb6913c31b11ed09e61`.
+A entrega é o diff local sobre essa base, incluindo arquivos novos. Não houve commit, push ou execução de CI para este ajuste; resultados remotos anteriores não validam estas alterações.
 
-Identificação adicional: SHA-256 `5be30133f1e2ca150120778ab0f6e3a8f959c2d5a3e2c80e09b23844f7ee1e72` do manifesto dos 87 caminhos modificados/novos, excluindo este relatório. Cálculo: caminhos únicos ordenados; para cada caminho, concatenar seu UTF-8, byte NUL e digest SHA-256 binário do conteúdo; aplicar SHA-256 ao conjunto.
+Identificação: SHA-256 `f4216847e0d1473bb20e90e492ddd00f6105df80ce7de50d0bfa02e3821cd4ae` do manifesto dos 20 caminhos modificados/novos, excluindo este relatório. Cálculo: caminhos únicos ordenados; concatenar, para cada caminho, seu UTF-8, byte NUL e digest SHA-256 binário do conteúdo; aplicar SHA-256 ao conjunto.
 
-Ambiente: Windows, PHP 8.4.13, Node 24, Composer e Chrome real. As extensões fileinfo, intl e sodium foram habilitadas para estes comandos por `PHP_INI_SCAN_DIR` apontando para um INI temporário. Bancos, contas, documentos e chaves de testes são sintéticos e descartáveis. O banco institucional e seu `.env` não foram migrados.
+Ambiente: Windows, PHP 8.4.13, Composer 2.8.12, Node 24.13.0 e Chrome real isolado. `fileinfo`, `intl` e `sodium` foram habilitadas por `PHP_INI_SCAN_DIR` com INI temporário. Todos os bancos, documentos, usuários e keyrings utilizados nos testes são sintéticos e descartáveis.
 
-| Comando | Resultado desta revisão |
+| Verificação | Resultado |
 |---|---|
-| `composer check` | Sucesso (exit 0): Composer estrito, lint de 172 arquivos PHP, PHPStan sem erros; PHPUnit 353 testes, 3.485 asserções, 2 ignorados; HTTP 379 verificações; auditoria travada sem avisos de vulnerabilidades |
-| `composer browser-test` | Sucesso: segurança de senhas 36, navegação de contratos 58, operações autenticadas 102 verificações |
+| `composer check` | Sucesso (exit 0): Composer estrito, lint de 176 arquivos PHP, PHPStan sem erros, PHPUnit 372 testes/3.732 asserções/2 ignorados, HTTP 379 verificações e auditoria travada sem avisos de vulnerabilidades |
+| `composer browser-test` | Sucesso (exit 0): senhas 36, contratos 58, operações autenticadas 102 e downloads de relatórios 40 verificações |
+| `php vendor/phpunit/phpunit/phpunit --filter BackupCleanupTest` | Sucesso: 19 testes, 247 asserções, sem avisos ou testes ignorados |
 | `node --check public/assets/js/app.js` e todos os `tests/*.mjs` | Sucesso |
-| `php -l public/index.php` e `php -l tests/http-security-hardening.php` | Sucesso após a última validação de tipos na entrada da rota |
 | `composer check-platform-reqs` | Sucesso, incluindo sodium |
-| `actionlint -shellcheck= -pyflakes= .github/workflows/ci.yml` | Sucesso, actionlint 1.7.12: sintaxe, estrutura e expressões do Actions; analisadores externos opcionais de shell/Python não instalados |
-| `git diff --check` | Sucesso |
+| `git diff --check` | Sucesso após concluir este relatório |
 
-O comando `composer check` engloba validação estrita do Composer, lint PHP, PHPStan, PHPUnit, integração HTTP e auditoria das dependências travadas. A mensagem real do navegador foi `Browser password security: 36 checks passed`, seguida das aprovações dos outros dois testes. O carregamento explícito de `password-runtime.php` pelo roteador exclusivo de testes foi preservado; não há simulação de falhas no código público.
+`composer check` executa Composer estrito, lint, PHPStan nível 6, PHPUnit, testes HTTP e auditoria das dependências travadas. A suíte HTTP inclui os testes de contratos, certidões, passivo, perfil, auditoria, backups e endurecimento. O job de navegador recebeu instalação das dependências Composer e extensões necessárias para gerar PDFs reais; sua execução remota não foi realizada.
 
-Os testes novos verificam persistência criptografada, contexto autenticado, nonces distintos, adulteração, chaves ausentes/incorretas, unicidade normalizada, busca/paginação, migração explícita e rollback, preservação dos limitadores, rotação, reconstrução, restauração e reinício. Também exercitam concorrência em processos separados, replay HTTP sem JavaScript, conteúdo divergente, CSRF malformado, tipos inesperados, HTTP 429, proteção de arquivos estáticos e CORS fechado. As suítes existentes de autorização, uploads, vínculos, sessões, auditoria e PDF foram mantidas.
+Os testes de navegador usam os controles reais e uma aplicação PHP autenticada com dados sintéticos. Verificam PDF e CSV pelo botão principal, bloqueio de repetição imediata, liberação sem recarga, novos filtros e conteúdo CSV, ação específica de Baixar CSV, atualização posterior da prévia, Enter, envio sem submitter, parâmetros, nome/valor do botão, ausência de processamento permanente e navegação de volta. Também verificam `pageshow`, cancelamento do timer anterior e exportação TXT real com POST/CSRF e validação nativa.
 
-## Limites de verificação
+A cobertura de backup exercita os fluxos manual e preventivo: criptografia e remoção, falha de criptografia, falha real de escrita com o tratamento de warnings usado em produção, falha de exclusão, retorno enganoso de exclusão, arquivo já removido e falhas simultâneas. Confere restauração dos backups preservados, identidade/propriedade, preservação de arquivos alheios e backups anteriores, ausência de sucesso/auditoria administrativa completa quando a limpeza falha e logs sem dados pessoais ou segredos. Também verifica que falhas do logger não impedem a limpeza nem substituem a exceção original. As simulações usam subclasses PHP internas e métodos privados nos testes; não foram introduzidos controles HTTP ou variáveis de ambiente para desativar proteções.
 
-- Dois testes dependentes de permissões POSIX/links simbólicos são ignorados no Windows por condições já existentes. Devem executar no runner Linux; não se declara aprovação desses casos neste ambiente.
-- Os jobs `test` e `browser` continuam configurados, com Composer, sodium, ações fixadas por SHA, permissões mínimas e diagnóstico em falha. A confirmação remota aguarda publicação autorizada. Nenhum resultado antigo de CI é usado como evidência desta revisão.
-- Nginx não está instalado localmente. O exemplo `config/nginx-gse.conf` exige adaptação e `nginx -t` no servidor antes da ativação. HTTPS, certificados, ACLs de produção, proxy, cookies e exposição no servidor institucional não foram homologados.
-- Criptografia abrange nome/e-mail dos usuários e novos backups. Outros dados pessoais, sessões, exportações e PDFs têm os limites descritos em [SECURITY-OPERATIONS.md](SECURITY-OPERATIONS.md). Não se declara criptografia de todo o SQLite ou do disco.
-- Ativação exige keyring privado externo e manutenção com migração explícita. Não houve migração real, push, merge ou deploy.
+Limites reais:
+
+- Dois testes existentes dependentes de modos POSIX/links simbólicos são ignorados no Windows. As asserções condicionais de permissões POSIX dos novos testes também não são executadas aqui. Linux e ACLs de produção não foram homologados nesta entrega.
+- Nginx, HTTPS, proxy, SMTP, agendamento, armazenamento institucional e servidor de produção não foram acessados. O workflow foi atualizado, mas não há resultado remoto desta revisão.
+- O ajuste verifica os snapshots de `Sistema::criarBackupManual()` e `DatabaseInitializer::createValidatedBackup()`. Pendências exigem o procedimento offline de [SECURITY-OPERATIONS.md](SECURITY-OPERATIONS.md#limpeza-verificada-dos-snapshots), com serviços parados, identidade conferida e cópia recuperável validada. Não se promete apagamento físico de SSD nem persistência de logs quando o próprio armazenamento está indisponível.
+- A criptografia continua limitada ao nome/e-mail dos usuários e aos backups protegidos. Não abrange todos os dados pessoais, o arquivo SQLite inteiro ou o disco.
+- O banco escolar e seu `.env` foram preservados; não houve migração em dados escolares, merge ou deploy.

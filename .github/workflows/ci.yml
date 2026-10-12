@@ -61,9 +61,12 @@ jobs:
         uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
         with:
           php-version: '8.3'
-          extensions: intl, mbstring, sodium, pdo_sqlite
+          extensions: dom, fileinfo, intl, mbstring, sodium, pdo_sqlite, xml, xmlwriter
           coverage: none
           tools: composer:v2
+
+      - name: Dependências para downloads PDF reais
+        run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Sintaxe e navegação no Chrome isolado
         env:

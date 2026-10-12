@@ -53,6 +53,8 @@ A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produto
 
 Para desenvolver, instale dependências com `composer install`, habilite `intl`, `fileinfo`, `mbstring` e `pdo_sqlite`, e execute `composer check`. Dompdf 3.1.6 é gerenciado pelo Composer. Não aplique migração em dados institucionais sem backup e ensaio de restauração conjunto de SQLite e PDFs privados.
 
+O ajuste de segurança dos downloads libera a guarda de repetição após 3 segundos, permitindo novas exportações PDF/CSV e atualização da prévia sem recarregar a tela. Backups manuais e preventivos verificam a exclusão do snapshot em claro; uma pendência impede sucesso completo e preserva o backup criptografado concluído. Consulte a [limpeza offline de resíduos](SECURITY-OPERATIONS.md#limpeza-verificada-dos-snapshots) e os resultados locais em [SECURITY-VALIDATION.md](SECURITY-VALIDATION.md). A criptografia continua limitada ao nome/e-mail dos usuários e aos backups protegidos, sem cifrar todos os dados pessoais, o SQLite inteiro ou o disco.
+
 ## Requisitos
 
 - PHP 8.3 ou superior, com `argon2id` registrado em `password_algos()` tanto na CLI quanto no PHP-FPM;

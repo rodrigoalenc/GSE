@@ -404,7 +404,7 @@ if (contractTabs) {
 const reportGenerator = document.querySelector('[data-report-generator]');
 if (reportGenerator) {
     reportGenerator.addEventListener('submit', (event) => {
-        if (event.submitter?.hasAttribute('data-report-csv')) return;
+        if (event.submitter?.hasAttribute('formaction')) return;
         const format = reportGenerator.querySelector('[name="formato"]:checked')?.value;
         reportGenerator.action = format === 'csv' ? reportGenerator.dataset.csvUrl : reportGenerator.dataset.pdfUrl;
     });
@@ -533,8 +533,9 @@ document.querySelectorAll('[data-password-max]').forEach((input) => {
 });
 
 // Installed at document level after form-specific validation/confirmation handlers.
-const pendingForms = new Set();
+const pendingForms = new Map();
 const releaseForm = (form) => {
+    clearTimeout(pendingForms.get(form));
     pendingForms.delete(form);
     form.removeAttribute('aria-busy');
     form.querySelector('[data-submit-status]')?.remove();
@@ -543,11 +544,14 @@ document.addEventListener('submit', (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || event.defaultPrevented || !form.checkValidity()) return;
     if (pendingForms.has(form)) { event.preventDefault(); return; }
-    const action = event.submitter?.formAction || form.action;
+    const submitter = event.submitter;
+    const action = submitter?.hasAttribute('formaction') ? submitter.formAction : form.action;
+    const target = submitter?.hasAttribute('formtarget') ? submitter.formTarget : form.target;
     // Downloads do not navigate away; retain a short repeat guard and release it.
-    const download = /(?:exportar|imprimir|download|baixar)/.test(new URL(action, location.href).pathname)
-        || event.submitter?.hasAttribute('data-report-csv') || form.target === '_blank';
-    pendingForms.add(form);
+    const downloadFlag = submitter?.getAttribute('data-submit-download') ?? form.getAttribute('data-submit-download');
+    const download = downloadFlag !== null ? downloadFlag === 'true'
+        : target === '_blank' || /(?:exportar|imprimir|download|baixar)/.test(new URL(action, location.href).pathname);
+    pendingForms.set(form, download ? setTimeout(() => releaseForm(form), 3000) : null);
     form.setAttribute('aria-busy', 'true');
     const status = document.createElement('span');
     status.dataset.submitStatus = '';
@@ -555,6 +559,5 @@ document.addEventListener('submit', (event) => {
     status.textContent = ' Processando…';
     form.append(status);
     // Keep the submitter enabled so its name/value and formaction are submitted.
-    if (download) setTimeout(() => releaseForm(form), 3000);
 });
-window.addEventListener('pageshow', () => [...pendingForms].forEach(releaseForm));
+window.addEventListener('pageshow', () => [...pendingForms.keys()].forEach(releaseForm));
