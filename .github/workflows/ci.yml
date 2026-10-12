@@ -63,6 +63,7 @@ jobs:
           php-version: '8.3'
           extensions: intl, mbstring, pdo_sqlite
           coverage: none
+          tools: composer:v2
 
       - name: Sintaxe e navegação no Chrome isolado
         env:
@@ -72,8 +73,7 @@ jobs:
           browser_binary=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
           "$browser_binary" --version
           export BROWSER_BINARY="$browser_binary"
-          node tests/browser-contract-tabs.mjs
-          node tests/browser-passivo-batch.mjs
+          composer browser-test
 
       - name: Preservar diagnóstico de falha do navegador
         if: failure()
