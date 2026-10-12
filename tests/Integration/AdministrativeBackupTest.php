@@ -60,11 +60,12 @@ final class AdministrativeBackupTest extends DatabaseTestCase
         $this->assertIsString($first);
         $firstPath = $this->root . '/backups/' . $first;
         $firstHash = hash_file('sha256', $firstPath);
-        $restored = new PDO('sqlite:' . $firstPath);
+        \ProtectedBackup::decrypt($firstPath, $this->root . '/restored.sqlite');
+        $restored = new PDO('sqlite:' . $this->root . '/restored.sqlite');
         $this->assertSame('committed-in-wal', $restored->query('SELECT acao FROM logs')->fetchColumn());
         $this->assertSame('ok', $restored->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertSame([], $restored->query('PRAGMA foreign_key_check')->fetchAll());
-        $this->assertSame(16, (int) $restored->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17, (int) $restored->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(0, (int) $restored->query("SELECT COUNT(*) FROM security_audit WHERE action='backup.created'")->fetchColumn(), 'Creation audit occurs after the snapshot.');
         $restored = null;
         $this->assertStringNotContainsString('SYNTHETIC_PRIVATE_PDF_CONTENT', (string) file_get_contents($firstPath));
@@ -75,7 +76,7 @@ final class AdministrativeBackupTest extends DatabaseTestCase
         $opened = $model->abrirBackupAdministrativo($first, $this->admin, 1);
         $this->assertSame($first, $opened['nome']);
         $this->assertSame(filesize($firstPath), $opened['bytes']);
-        $this->assertSame("SQLite format 3\0", fread($opened['handle'], 16));
+        $this->assertSame(\ProtectedBackup::MAGIC, fread($opened['handle'], 5));
         fclose($opened['handle']);
         $this->assertSame($firstHash, hash_file('sha256', $firstPath));
         $audits = $this->pdo->query("SELECT action,actor_user_id,resource_type FROM security_audit WHERE action LIKE 'backup.%' ORDER BY id")->fetchAll();
@@ -113,7 +114,7 @@ final class AdministrativeBackupTest extends DatabaseTestCase
         file_put_contents($this->root . '/backups/keep.txt', 'must remain');
         $this->pdo->exec("CREATE TRIGGER reject_backup_creation_audit BEFORE INSERT ON security_audit WHEN NEW.action='backup.created' BEGIN SELECT RAISE(ABORT,'synthetic audit failure'); END");
         $this->assertFalse($model->criarBackupAdministrativo($this->admin, 1, self::PASSWORD));
-        $this->assertSame([$this->root . '/backups/' . $old], glob($this->root . '/backups/*.db'));
+        $this->assertSame([$this->root . '/backups/' . $old], glob($this->root . '/backups/*.db.gse'));
         $this->assertSame($hash, hash_file('sha256', $this->root . '/backups/' . $old));
         $this->assertSame('must remain', file_get_contents($this->root . '/backups/keep.txt'));
         $this->assertSame(1, (int) $this->pdo->query("SELECT COUNT(*) FROM security_audit WHERE action='backup.created'")->fetchColumn());
@@ -151,7 +152,7 @@ final class AdministrativeBackupTest extends DatabaseTestCase
                 $this->addToAssertionCount(1);
             }
         }
-        $invalid = 'escola_backup_MANUAL_2026-01-02_03-04-05.db';
+        $invalid = 'escola_backup_MANUAL_2026-01-02_03-04-05.db.gse';
         file_put_contents($this->root . '/backups/' . $invalid, '%PDF-synthetic-not-a-database');
         try {
             $model->abrirBackupAdministrativo($invalid, $this->admin, 1);
@@ -169,13 +170,13 @@ final class AdministrativeBackupTest extends DatabaseTestCase
         $this->assertDirectoryDoesNotExist($this->root . '/backups');
         $name = $model->criarBackupAdministrativo($this->admin, 1, self::PASSWORD);
         $this->assertIsString($name);
-        $legacy = 'escola_backup_MANUAL_2026-01-02_03-04-05.db';
+        $legacy = 'escola_backup_MANUAL_2026-01-02_03-04-05.db.gse';
         copy($this->root . '/backups/' . $name, $this->root . '/backups/' . $legacy);
         $opened = $model->abrirBackupAdministrativo($legacy, $this->admin, 1);
         $this->assertSame($legacy, $opened['nome']);
         fclose($opened['handle']);
         for ($i = 0; $i < 205; $i++) {
-            $copy = 'escola_backup_MANUAL_2026-01-02_03-04-05_' . sprintf('%032x', $i) . '.db';
+            $copy = 'escola_backup_MANUAL_2026-01-02_03-04-05_' . sprintf('%032x', $i) . '.db.gse';
             copy($this->root . '/backups/' . $name, $this->root . '/backups/' . $copy);
         }
         $before = count(glob($this->root . '/backups/*'));
@@ -217,7 +218,7 @@ final class AdministrativeBackupTest extends DatabaseTestCase
         $model = new \Sistema();
         $existing = $model->criarBackupAdministrativo($this->admin, 1, self::PASSWORD);
         $this->assertIsString($existing);
-        $missing = 'escola_backup_MANUAL_2000-01-01_00-00-00_' . str_repeat('f', 32) . '.db';
+        $missing = 'escola_backup_MANUAL_2000-01-01_00-00-00_' . str_repeat('f', 32) . '.db.gse';
         $reporting = error_reporting(E_ALL);
         set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
             if (!(error_reporting() & $severity)) {
@@ -270,7 +271,7 @@ final class AdministrativeBackupTest extends DatabaseTestCase
         $model = new \Sistema();
         $name = $model->criarBackupAdministrativo($this->admin, 1, self::PASSWORD);
         $this->assertIsString($name);
-        $linkedName = 'escola_backup_MANUAL_2026-01-02_03-04-05.db';
+        $linkedName = 'escola_backup_MANUAL_2026-01-02_03-04-05.db.gse';
         if (!@symlink($this->root . '/backups/' . $name, $this->root . '/backups/' . $linkedName)) {
             $this->markTestSkipped('Symbolic links require OS permission; this case runs on Linux CI.');
         }

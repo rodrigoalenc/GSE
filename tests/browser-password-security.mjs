@@ -1,3 +1,4 @@
+import {testKeyring} from './browser-keyring.mjs';
 // Real forms against a disposable database; no institutional data or credentials.
 import assert from 'node:assert/strict';
 import {spawn, spawnSync} from 'node:child_process';
@@ -14,7 +15,7 @@ const database = join(temporary, 'fixture.sqlite');
 const modeFile = database + '.password-runtime';
 const sessions = join(temporary, 'sessions');
 await mkdir(sessions);
-const environment = {...process.env, APP_ENV:'testing', APP_URL:'', APP_ALLOWED_HOSTS:'', FORCE_HTTPS:'false',
+const environment = {...process.env, GSE_KEYRING_PATH:await testKeyring(temporary), APP_ENV:'testing', APP_URL:'', APP_ALLOWED_HOSTS:'', FORCE_HTTPS:'false',
     DB_PATH:database, LOG_PATH:join(temporary,'technical.log'), MAIL_ENABLED:'false',
     CERTIDAO_MAIL_ENABLED:'false', LOGIN_DELAY_BASE_MS:'0', LOGIN_DELAY_MAX_MS:'0', TRUSTED_PROXIES:''};
 const php = process.env.PHP_BINARY || 'php';
@@ -24,7 +25,7 @@ const fixture = (mode = 'state') => {
     return JSON.parse(result.stdout);
 };
 const temporaryPassword = 'á'.repeat(40) + ' frase temporária';
-const permanentPassword = '界'.repeat(40) + ' frase definitiva';
+const permanentPassword = '\u{1F9D1}'.repeat(100) + ' frase definitiva';
 let server, browser, page, originalFailure, activeMode;
 let checks = 0;
 const check = (value, expected, message) => {assert.deepEqual(value, expected, message); checks++;};
@@ -190,6 +191,22 @@ try {
     check(fixture().users[0].nome, 'Admin atualizado', 'Profile confirms full long Unicode password');
     check(await page.evaluate('location.pathname'), '/usuario/perfil', 'Name change preserves session');
     check(fixture().algorithms[0], 'argon2id', 'New password remains Argon2id');
+    await fill('#perfil-senha-atual', permanentPassword);
+    const submission = await page.evaluate(`(() => {
+        const form = document.querySelector('#perfil-senha-atual').form;
+        const button = form.querySelector('button[type="submit"]') || form.querySelector('button:not([type])');
+        const cancelled = event => event.preventDefault();
+        form.addEventListener('submit', cancelled, {once:true});
+        form.dispatchEvent(new SubmitEvent('submit', {bubbles:true,cancelable:true,submitter:button}));
+        const cancelledBusy = form.hasAttribute('aria-busy');
+        const first = form.dispatchEvent(new SubmitEvent('submit', {bubbles:true,cancelable:true,submitter:button}));
+        const second = form.dispatchEvent(new SubmitEvent('submit', {bubbles:true,cancelable:true,submitter:button}));
+        const enabled = !button.disabled;
+        window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted:true}));
+        return [cancelledBusy, first, second, enabled, form.hasAttribute('aria-busy')];
+    })()`);
+    check(submission, [false,true,false,true,false], 'Cancelled submit stays available; duplicate is blocked; submitter and bfcache recovery work');
+    await fill('#perfil-senha-atual', '');
     const log = await readFile(environment.LOG_PATH,'utf8');
     assert.ok(log.includes('argon2id_unavailable') && log.includes('argon2id_generation_failed'), 'Both runtime failures reached the application');
     for (const secret of [temporaryPassword, permanentPassword, 'Artificial private detail']) assert.ok(!log.includes(secret));

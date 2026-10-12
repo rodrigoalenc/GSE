@@ -22,7 +22,7 @@ class PasswordHashRuntime
 
 final class PasswordPolicy
 {
-    public const MIN_LENGTH = 12;
+    public const MIN_LENGTH = 15;
     public const MAX_LENGTH = 128;
 
     // Tests replace this private native adapter by reflection; no environment switch.
@@ -49,7 +49,7 @@ final class PasswordPolicy
         $length = mb_strlen($password, 'UTF-8');
 
         if ($length < self::MIN_LENGTH) {
-            $errors[] = 'Use uma senha com pelo menos 12 caracteres.';
+            $errors[] = 'Use uma senha com pelo menos 15 caracteres.';
         }
 
         if ($length > self::MAX_LENGTH) {

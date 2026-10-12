@@ -22,7 +22,7 @@
             <p id="perfil-email-help" class="form-help">Ao alterar o e-mail, suas sessões serão encerradas. Entre novamente com o novo endereço.</p>
             <div class="usuario-profile-confirmation">
                 <label for="perfil-senha-atual">Para salvar qualquer alteração, digite sua <strong>senha atual</strong>:</label>
-                <input type="password" id="perfil-senha-atual" name="senha_atual" maxlength="128" autocomplete="current-password" required placeholder="Sua senha usada para entrar no sistema">
+                <input type="password" id="perfil-senha-atual" name="senha_atual" data-password-max="128" autocomplete="current-password" required placeholder="Sua senha usada para entrar no sistema">
             </div>
             <div class="form-actions">
                 <button class="btn-primary" type="submit">Salvar alterações</button>

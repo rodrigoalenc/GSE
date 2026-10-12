@@ -80,7 +80,7 @@ final class CoreSecurityTest extends TestCase
             $this->assertTrue($found[0]['admin']);
             $this->assertFalse($found[0]['password_change']);
         }
-        $backupName = 'escola_backup_MANUAL_2026-10-09_10-20-30_' . str_repeat('a', 32) . '.db';
+        $backupName = 'escola_backup_MANUAL_2026-10-09_10-20-30_' . str_repeat('a', 32) . '.db.gse';
         $this->assertSame(['nome' => $backupName], $match->invoke($router, 'backup/baixar/{nome}', 'backup/baixar/' . $backupName));
         foreach (['../' . $backupName, 'other.db', $backupName . '.pdf', 'a%2f' . $backupName, "evil\r\n.db"] as $invalid) {
             $this->assertNull($match->invoke($router, 'backup/baixar/{nome}', 'backup/baixar/' . $invalid));

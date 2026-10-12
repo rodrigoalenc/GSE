@@ -11,19 +11,16 @@ if (PHP_SAPI !== 'cli' || !str_starts_with(basename($fixtureDirectory), 'gse-pas
 ob_start();
 require dirname(__DIR__, 2) . '/bin/init-db.php';
 ob_end_clean();
+require_once ROOT_PATH . '/tests/Support/Keyring.php';
 $pdo = src\Core\Database::getConnection();
 require_once ROOT_PATH . '/src/Core/RequestContext.php';
 require_once ROOT_PATH . '/src/Core/AuditLogger.php';
 require_once ROOT_PATH . '/src/Model/Contrato.php';
 require_once ROOT_PATH . '/src/Model/Certidao.php';
 if (($argv[1] ?? '') === 'seed') {
-    $pdo->prepare('INSERT INTO usuarios(nome,email,senha,tipo) VALUES(?,?,?,?)')->execute([
-        'Administrador fictício', 'browser@example.test', password_hash('Teste ficticio seguro 2026', PASSWORD_DEFAULT), 'administrador',
-    ]);
+    test_insert_user($pdo, ['nome'=>'Administrador fictício','email'=>'browser@example.test','senha'=>password_hash('Teste ficticio seguro 2026', PASSWORD_DEFAULT),'tipo'=>'administrador']);
     (new Certidao())->saveOption('fornecedor', null, 'Fornecedor fictício para edição', true, 1);
-    $pdo->prepare('INSERT INTO usuarios(nome,email,senha,tipo) VALUES(?,?,?,?)')->execute([
-        'Funcionário fictício', 'employee@example.test', password_hash('Teste ficticio seguro 2026', PASSWORD_DEFAULT), 'funcionario',
-    ]);
+    test_insert_user($pdo, ['nome'=>'Funcionário fictício','email'=>'employee@example.test','senha'=>password_hash('Teste ficticio seguro 2026', PASSWORD_DEFAULT),'tipo'=>'funcionario']);
     $insert = $pdo->prepare('INSERT INTO alunos(nome_completo,nome_normalizado,data_nascimento,ativo) VALUES(?,?,?,?)');
     $dva = $pdo->prepare('INSERT INTO dvas(id_aluno,id_usuario_registro,data_vencimento,observacao) VALUES(?,1,?,?)');
     for ($id = 1; $id <= 33; $id++) {

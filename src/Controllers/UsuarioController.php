@@ -6,13 +6,16 @@ final class UsuarioController extends Controller
 {
     public function index(): void
     {
-        $termo = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100, 'UTF-8');
-        $usuarios = (new Usuario())->listar($termo);
+        $termo = mb_substr(trim(input_string($_GET['q'] ?? '')), 0, 100, 'UTF-8');
+        $page = filter_var($_GET['pagina'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
+        $page = min($page, 100);
+        $usuarios = (new Usuario())->listar($termo, $page);
 
         $this->view('usuarios/index', [
             'title' => 'Gerenciar Usuários',
             'usuarios' => $usuarios,
             'termo' => $termo,
+            'page' => $page,
         ]);
     }
 
@@ -201,11 +204,11 @@ final class UsuarioController extends Controller
     private function dadosDoFormulario(): array
     {
         return [
-            'nome' => mb_substr(trim((string) ($_POST['nome'] ?? '')), 0, 151, 'UTF-8'),
-            'email' => mb_substr(Usuario::normalizarEmail((string) ($_POST['email'] ?? '')), 0, 255, 'UTF-8'),
-            'tipo' => mb_substr((string) ($_POST['tipo'] ?? Usuario::PERFIL_FUNCIONARIO), 0, 30, 'UTF-8'),
-            'senha' => (string) ($_POST['senha'] ?? ''),
-            'confirmar_senha' => (string) ($_POST['confirmar_senha'] ?? ''),
+            'nome' => mb_substr(trim(input_string($_POST['nome'] ?? '')), 0, 151, 'UTF-8'),
+            'email' => mb_substr(Usuario::normalizarEmail(input_string($_POST['email'] ?? '')), 0, 255, 'UTF-8'),
+            'tipo' => mb_substr(input_string($_POST['tipo'] ?? Usuario::PERFIL_FUNCIONARIO), 0, 30, 'UTF-8'),
+            'senha' => input_string($_POST['senha'] ?? ''),
+            'confirmar_senha' => input_string($_POST['confirmar_senha'] ?? ''),
             'recebe_alertas_dva' => isset($_POST['recebe_alertas_dva']),
         ];
     }

@@ -47,7 +47,8 @@ final class OperationalBackupTest extends DatabaseTestCase
             // A later live change is absent from the restored point in time.
             $model->transition($id, 'archive', 1, $actor);
             $this->assertSame('arquivada', $model->buscarPorId($id)['estado']);
-            $this->assertTrue(copy($root . '/backup/database.sqlite', $root . '/restored/database.sqlite'));
+            \ProtectedBackup::decrypt($root . '/backup/database.sqlite', $root . '/restored/database.sqlite');
+            $this->assertFileExists($root . '/restored/database.sqlite');
             $this->assertTrue(copy($root . '/backup/certidoes/' . $key, $root . '/restored/certidoes/' . $key));
             $restored = new PDO('sqlite:' . $root . '/restored/database.sqlite', null, null, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

@@ -89,8 +89,8 @@ final class DvaNotificationTest extends DatabaseTestCase
     public function testInvalidLegacyEmailIsNeverPassedToTransport(): void
     {
         $admin = $this->insertUsuario('Admin Email Invalido');
-        $this->pdo->prepare('UPDATE usuarios SET recebe_alertas_dva = 1, email = ? WHERE id = ?')
-            ->execute(['invalid-address', $admin]);
+        \test_update_email($this->pdo, $admin, 'invalid-address');
+        $this->pdo->prepare('UPDATE usuarios SET recebe_alertas_dva=1 WHERE id=?')->execute([$admin]);
         $this->insertAlunoComDva('Aluno Aviso', '2026-08-01');
         $this->pdo->exec('UPDATE dvas SET ativo = 1');
         $transport = new RecordingTransport();
@@ -124,7 +124,7 @@ final class DvaNotificationTest extends DatabaseTestCase
                     $this->pdo->prepare('UPDATE usuarios SET ativo = 0 WHERE id = ?')->execute([$this->inactive]);
                     $this->pdo->prepare("UPDATE usuarios SET tipo = 'funcionario' WHERE id = ?")->execute([$this->employee]);
                     $this->pdo->prepare('UPDATE usuarios SET recebe_alertas_dva = 0 WHERE id = ?')->execute([$this->optOut]);
-                    $this->pdo->prepare('UPDATE usuarios SET email = ? WHERE id = ?')->execute(['new@teste.local', $this->email]);
+                    \test_update_email($this->pdo, (int) $this->email, 'new@teste.local');
                 }
             }
         };

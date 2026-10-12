@@ -4,6 +4,19 @@ declare(strict_types=1);
 
 define('ROOT_PATH', dirname(__DIR__));
 
+require_once ROOT_PATH . '/tests/Support/Keyring.php';
+$inheritedTestKey = (string) getenv('GSE_KEYRING_PATH');
+if (is_file($inheritedTestKey) && str_starts_with(basename(dirname($inheritedTestKey)), 'gse-unit-keys-')
+    && realpath(dirname(dirname($inheritedTestKey))) === realpath(sys_get_temp_dir())) {
+    $_ENV['GSE_KEYRING_PATH'] = $inheritedTestKey;
+} else {
+    $testKeyDirectory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gse-unit-keys-' . bin2hex(random_bytes(8));
+    $testKeyPath = test_keyring($testKeyDirectory);
+    $_ENV['GSE_KEYRING_PATH'] = $testKeyPath;
+    putenv('GSE_KEYRING_PATH=' . $testKeyPath);
+    register_shutdown_function(static function () use ($testKeyPath, $testKeyDirectory): void { @unlink($testKeyPath); @unlink($testKeyPath . '.rotation.lock'); @rmdir($testKeyDirectory); });
+}
+
 $_ENV['APP_ENV'] = 'testing';
 $_ENV['LOGIN_DELAY_BASE_MS'] = '0';
 $_ENV['LOGIN_DELAY_MAX_MS'] = '0';

@@ -128,8 +128,8 @@ final class ContratoController extends Controller
                 $sheets=$_POST['folhas'] ?? null;
                 if ($sheets!==null && !is_array($sheets)) { throw new DomainException('Folhas inválidas.'); }
                 $id=$sheets===null
-                    ? $this->model()->create($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$this->actor())
-                    : $this->model()->createDetailed($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$sheets,$this->actor());
+                    ? $this->model()->create($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$this->actor(), $this->field('_request_token'))
+                    : $this->model()->createDetailed($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$sheets,$this->actor(), $this->field('_request_token'));
                 unset($_SESSION['contract_draft']);
                 return 'contrato/detalhes/'.$id;
             });

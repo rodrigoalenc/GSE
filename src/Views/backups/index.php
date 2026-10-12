@@ -14,7 +14,7 @@
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <h3>Criar backup do banco</h3>
         <label for="backup-senha-atual">Confirme sua senha atual:</label>
-        <input type="password" id="backup-senha-atual" name="senha_atual" autocomplete="current-password" maxlength="128" required>
+        <input type="password" id="backup-senha-atual" name="senha_atual" autocomplete="current-password" data-password-max="128" required>
         <div class="form-actions">
             <button class="btn-primary" type="submit">Criar backup</button>
         </div>

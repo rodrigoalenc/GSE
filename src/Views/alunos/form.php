@@ -15,6 +15,7 @@
 
 <form class="student-form form-shell relatorio form-container" method="post" action="<?= e(url($action)) ?>">
     <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+    <input type="hidden" name="_request_token" value="<?= e(bin2hex(random_bytes(16))) ?>">
 
     <section class="form-section form-block">
         <div class="section-head"><div><h2>Dados Pessoais</h2></div>

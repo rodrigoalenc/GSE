@@ -1,3 +1,4 @@
+import {testKeyring} from './browser-keyring.mjs';
 // Run: node tests/browser-passivo-batch.mjs (PHP and Chrome/Chromium required).
 // All database writes use fictitious data in a generated temporary directory.
 import assert from 'node:assert/strict';
@@ -13,7 +14,7 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const temporary = await mkdtemp(join(tmpdir(), 'gse-passivo-browser-'));
 const sessions = join(temporary, 'sessions');
 await mkdir(sessions);
-const environment = {...process.env, APP_ENV:'testing', APP_URL:'', APP_ALLOWED_HOSTS:'', FORCE_HTTPS:'false',
+const environment = {...process.env, GSE_KEYRING_PATH:await testKeyring(temporary), APP_ENV:'testing', APP_URL:'', APP_ALLOWED_HOSTS:'', FORCE_HTTPS:'false',
     DB_PATH:join(temporary,'fixture.sqlite'), LOG_PATH:join(temporary,'technical.log'),
     CERTIDAO_STORAGE_PATH:join(temporary,'certidoes'), CERTIDAO_MAIL_ENABLED:'false', MAIL_ENABLED:'false',
     LOGIN_DELAY_BASE_MS:'0', LOGIN_DELAY_MAX_MS:'0', TRUSTED_PROXIES:''};

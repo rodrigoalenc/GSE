@@ -521,3 +521,40 @@ document.querySelectorAll('[data-archive-batch-box]').forEach((form) => {
     mode.addEventListener('change', refreshBox);
     refreshBox();
 });
+// Count Unicode code points, as the server does; native maxlength counts UTF-16 units.
+document.querySelectorAll('[data-password-max]').forEach((input) => {
+    const validate = () => {
+        const length = Array.from(input.value).length;
+        input.setCustomValidity(length > Number(input.dataset.passwordMax) ? 'Use no máximo 128 caracteres.'
+            : length > 0 && length < Number(input.dataset.passwordMin || 0) ? 'Use pelo menos 15 caracteres.' : '');
+    };
+    input.addEventListener('input', validate);
+    validate();
+});
+
+// Installed at document level after form-specific validation/confirmation handlers.
+const pendingForms = new Set();
+const releaseForm = (form) => {
+    pendingForms.delete(form);
+    form.removeAttribute('aria-busy');
+    form.querySelector('[data-submit-status]')?.remove();
+};
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || event.defaultPrevented || !form.checkValidity()) return;
+    if (pendingForms.has(form)) { event.preventDefault(); return; }
+    const action = event.submitter?.formAction || form.action;
+    // Downloads do not navigate away; retain a short repeat guard and release it.
+    const download = /(?:exportar|imprimir|download|baixar)/.test(new URL(action, location.href).pathname)
+        || event.submitter?.hasAttribute('data-report-csv') || form.target === '_blank';
+    pendingForms.add(form);
+    form.setAttribute('aria-busy', 'true');
+    const status = document.createElement('span');
+    status.dataset.submitStatus = '';
+    status.setAttribute('role', 'status');
+    status.textContent = ' Processando…';
+    form.append(status);
+    // Keep the submitter enabled so its name/value and formaction are submitted.
+    if (download) setTimeout(() => releaseForm(form), 3000);
+});
+window.addEventListener('pageshow', () => [...pendingForms].forEach(releaseForm));

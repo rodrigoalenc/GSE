@@ -40,7 +40,7 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
             <label for="senha">Senha:</label>
             <div class="input-with-toggle">
                 <input type="password" id="senha" name="senha" autocomplete="current-password"
-                       maxlength="128" placeholder="Sua senha" required>
+                       data-password-max="128" placeholder="Sua senha" required>
                 <button class="toggle-password" type="button" data-password-toggle="senha" aria-label="Mostrar senha" title="Mostrar senha">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />

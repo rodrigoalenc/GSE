@@ -47,7 +47,7 @@ final class OwnProfileTest extends DatabaseTestCase
     public function testNameChangeOnLegacyMixedCaseEmailKeepsEquivalentAddressAndSessionValid(): void
     {
         $id = $this->insertUsuario('Perfil email legado', 'funcionario');
-        $this->pdo->prepare('UPDATE usuarios SET email = ? WHERE id = ?')->execute(['LEGADO@EXAMPLE.TEST', $id]);
+        \test_update_email($this->pdo, $id, 'LEGADO@EXAMPLE.TEST');
         $model = new \Usuario();
         $before = $model->buscarPorId($id);
         $_SESSION = ['usuario_id' => $id, 'auth_version' => (int) $before['session_version']];

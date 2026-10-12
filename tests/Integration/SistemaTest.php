@@ -75,7 +75,8 @@ final class SistemaTest extends DatabaseTestCase
         $oldCopy = null;
 
         $backup = $this->backup(new \Sistema());
-        $restored = new PDO('sqlite:' . $backup, null, null, [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+        \ProtectedBackup::decrypt($backup, $this->root . '/restored.sqlite');
+        $restored = new PDO('sqlite:' . $this->root . '/restored.sqlite', null, null, [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
         $this->assertSame(2, (int) $restored->query('SELECT COUNT(*) FROM logs')->fetchColumn());
         $this->assertSame('ok', $restored->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertSame([], $restored->query('PRAGMA foreign_key_check')->fetchAll());
@@ -97,7 +98,7 @@ final class SistemaTest extends DatabaseTestCase
         $this->assertSame($hash, hash_file('sha256', $first));
         $this->assertContains($first, $sistema->listarBackups());
         $this->assertContains($second, $sistema->listarBackups());
-        $this->assertMatchesRegularExpression('/^escola_backup_MANUAL_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_[a-f0-9]{32}\.db$/', basename($second));
+        $this->assertMatchesRegularExpression('/^escola_backup_MANUAL_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_[a-f0-9]{32}\.db\.gse$/', basename($second));
         $timestampLength = strlen('escola_backup_MANUAL_') + 19;
         // Retry only across a wall-clock second boundary, keeping all prior files intact.
         for ($attempt = 0; $attempt < 3 && substr(basename($first), 0, $timestampLength) !== substr(basename($second), 0, $timestampLength); $attempt++) {
@@ -114,7 +115,8 @@ final class SistemaTest extends DatabaseTestCase
         $alternative->exec("CREATE TABLE marker(id INTEGER PRIMARY KEY, value TEXT); INSERT INTO marker VALUES (42, 'configured-source')");
         $this->configurePath($this->root . '/configured.sqlite');
         $backup = $this->backup(new \Sistema());
-        $restored = new PDO('sqlite:' . $backup);
+        \ProtectedBackup::decrypt($backup, $this->root . '/restored.sqlite');
+        $restored = new PDO('sqlite:' . $this->root . '/restored.sqlite');
         $this->assertSame('configured-source', $restored->query('SELECT value FROM marker WHERE id=42')->fetchColumn());
         $this->assertSame(0, (int) $restored->query("SELECT COUNT(*) FROM sqlite_master WHERE name='usuarios'")->fetchColumn());
     }
@@ -130,12 +132,12 @@ final class SistemaTest extends DatabaseTestCase
         try {
             file_put_contents($legacy, 'synthetic-legacy-backup');
             $sistema = new \Sistema();
-            $this->assertContains($legacy, array_map(static fn (string $path): string => str_replace('\\', '/', $path), $sistema->listarBackups()));
+            $this->assertNotContains($legacy, array_map(static fn (string $path): string => str_replace('\\', '/', $path), $sistema->listarBackups()));
             // Resolving a default source must not duplicate the legacy directory on Windows.
             // No database is opened or created at this placeholder path.
             $this->configurePath(ROOT_PATH . '/database/fixture-not-opened.sqlite');
             $listed = array_map(static fn (string $path): string => str_replace('\\', '/', $path), $sistema->listarBackups());
-            $this->assertSame(1, count(array_filter($listed, static fn (string $path): bool => $path === $legacy)));
+            $this->assertSame(0, count(array_filter($listed, static fn (string $path): bool => $path === $legacy)));
             $this->assertSame('synthetic-legacy-backup', file_get_contents($legacy));
         } finally {
             unlink($legacy);
@@ -170,7 +172,7 @@ final class SistemaTest extends DatabaseTestCase
         $this->pdo->exec('PRAGMA foreign_keys=OFF');
         $this->pdo->exec("INSERT INTO alunos(nome_completo,nome_normalizado,data_nascimento,id_turma) VALUES ('Orfao','orfao','2010-01-01',999999)");
         $this->assertFalse($sistema->criarBackupManual());
-        $this->assertSame([$validBackup], glob($this->root . '/backups/*.db'));
+        $this->assertSame([$validBackup], glob($this->root . '/backups/*.db.gse'));
         $this->assertSame($hash, hash_file('sha256', $validBackup));
         $this->assertSame('not a sqlite database', file_get_contents($this->root . '/invalid.sqlite'));
     }

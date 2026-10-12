@@ -132,7 +132,16 @@ final class Router
                 render_http_error(419, 'Sessão expirada', 'Atualize a página e tente enviar o formulário novamente.');
             }
 
-            $this->invoke($route, $params);
+            require_once __DIR__ . '/ActionBudget.php';
+            try {
+                if ($route['auth'] && preg_match('~(?:exportar|imprimir|download|baixar|preview|backup/criar|relatorio/(?:csv|pdf)|certidao/(?:pdf|cadastrar|renovar|editar))~', $path) === 1) {
+                    ActionBudget::consume(\src\Core\Database::getConnection(), (int) $_SESSION['usuario_id'], $route['pattern'], false);
+                }
+                $this->invoke($route, $params);
+            } catch (ActionLimitExceeded $exception) {
+                header('Retry-After: ' . $exception->retryAfter);
+                render_http_error(429, 'Muitas tentativas', $exception->getMessage());
+            }
 
             return;
         }
@@ -224,7 +233,7 @@ final class Router
                 $value = $pathSegments[$index];
 
                 if ($match[1] === 'nome' && $pattern === 'backup/baixar/{nome}') {
-                    if (preg_match('/\Aescola_backup_MANUAL_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(?:_[a-f0-9]{32})?\.db\z/D', $value) !== 1) {
+                    if (preg_match('/\Aescola_backup_MANUAL_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(?:_[a-f0-9]{32})?\.db\.gse\z/D', $value) !== 1) {
                         return null;
                     }
                     $params[$match[1]] = $value;

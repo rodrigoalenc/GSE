@@ -42,10 +42,10 @@ final class PassiveMigrationTest extends TestCase
     public function testVersionElevenUpgradePreservesLegacyRowsIdsSequenceAndCollisions(): void
     {
         $pdo = $this->legacyDatabase();
-        DatabaseInitializer::initialize($pdo);
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
+        DatabaseInitializer::initialize($pdo, true);
 
-        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([4, 9, 15], array_map('intval', $pdo->query('SELECT id FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_COLUMN)));
         $this->assertSame(20, (int) $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn());
         $this->assertSame('jose legado', $pdo->query('SELECT nome_normalizado FROM alunos_passivo WHERE id = 4')->fetchColumn());
@@ -63,9 +63,10 @@ final class PassiveMigrationTest extends TestCase
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn());
         $this->assertSame([], $pdo->query("SELECT name FROM sqlite_master WHERE name = 'alunos_passivo_v12'")->fetchAll());
-        $backups = glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: [];
+        $backups = glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite.gse') ?: [];
         $this->assertCount(1, $backups);
-        $backup = new PDO('sqlite:' . $backups[0], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        \ProtectedBackup::decrypt($backups[0], $this->root . '/restored.sqlite');
+        $backup = new PDO('sqlite:' . $this->root . '/restored.sqlite', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         $this->assertSame('ok', $backup->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertSame(11, (int) $backup->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(3, (int) $backup->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn());
@@ -94,11 +95,11 @@ final class PassiveMigrationTest extends TestCase
     public function testMigratedAndCleanPassiveSchemasAreEquivalent(): void
     {
         $migrated = $this->legacyDatabase();
-        DatabaseInitializer::initialize($migrated);
+        DatabaseInitializer::initialize($migrated, true);
         $cleanPath = $this->root . DIRECTORY_SEPARATOR . 'clean.sqlite';
         $clean = new PDO('sqlite:' . $cleanPath, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         $clean->exec('PRAGMA foreign_keys = ON');
-        DatabaseInitializer::initialize($clean);
+        DatabaseInitializer::initialize($clean, true);
 
         $this->assertSame($this->structure($clean), $this->structure($migrated));
     }
@@ -108,7 +109,7 @@ final class PassiveMigrationTest extends TestCase
         $pdo = $this->legacyDatabase();
         $pdo->exec('PRAGMA foreign_keys = OFF');
 
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
 
         $this->assertSame(0, (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn());
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
@@ -125,7 +126,7 @@ final class PassiveMigrationTest extends TestCase
         );
 
         try {
-            DatabaseInitializer::initialize($pdo);
+            DatabaseInitializer::initialize($pdo, true);
             $this->fail('A falha forçada deveria interromper a migração v12.');
         } catch (\PDOException $exception) {
             $this->assertStringContainsString('forced_v12_failure', $exception->getMessage());
@@ -139,7 +140,7 @@ final class PassiveMigrationTest extends TestCase
         $this->assertSame(0, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 12')->fetchColumn());
         $this->assertSame([], $pdo->query("SELECT name FROM sqlite_master WHERE name = 'alunos_passivo_v12'")->fetchAll());
         $this->assertSame(1, (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn());
-        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite.gse') ?: []);
     }
 
     public function testVersionSixteenMarksMissingLocationsWithoutChangingHistoricalDataAndIsIdempotent(): void
@@ -147,7 +148,7 @@ final class PassiveMigrationTest extends TestCase
         $pdo = $this->versionFifteenDatabase();
         $before = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         $sequence = $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn();
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
         $after = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         $this->assertSame([0, 1, 1, 1, 1], array_column($after, 'localizacao_pendente'));
         foreach ($after as $index => $row) {
@@ -155,13 +156,13 @@ final class PassiveMigrationTest extends TestCase
             $this->assertSame($before[$index], $row);
         }
         $this->assertSame($sequence, $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn());
-        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 16')->fetchColumn());
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
         $this->assertSame($after, $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
-        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite.gse') ?: []);
         foreach ([
             "INSERT INTO alunos_passivo(nome_completo,nome_normalizado,caixa,caixa_normalizada) VALUES('Sem posição','sem posicao','A','a')",
             "INSERT INTO alunos_passivo(nome_completo,nome_normalizado,numero,numero_normalizado) VALUES('Sem caixa','sem caixa','1','1')",
@@ -184,7 +185,7 @@ final class PassiveMigrationTest extends TestCase
         $before = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         $pdo->exec("CREATE TRIGGER fail_passive_v16 BEFORE INSERT ON schema_migrations WHEN NEW.version = 16 BEGIN SELECT RAISE(ABORT, 'forced_v16_failure'); END");
         try {
-            DatabaseInitializer::initialize($pdo);
+            DatabaseInitializer::initialize($pdo, true);
             $this->fail('A falha forçada deveria interromper a migração v16.');
         } catch (\PDOException $exception) {
             $this->assertStringContainsString('forced_v16_failure', $exception->getMessage());
@@ -195,14 +196,14 @@ final class PassiveMigrationTest extends TestCase
         $this->assertSame(0, (int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE name IN ('trg_require_passive_location_insert','trg_require_passive_location_update','idx_passivo_localizacao_pendente')")->fetchColumn());
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
-        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite.gse') ?: []);
     }
 
     private function versionFifteenDatabase(): PDO
     {
         $pdo = new PDO('sqlite:' . $this->database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         $pdo->exec('PRAGMA foreign_keys = ON');
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
         $pdo->exec('DROP TRIGGER trg_require_passive_location_insert');
         $pdo->exec('DROP TRIGGER trg_require_passive_location_update');
         $pdo->exec('DROP INDEX idx_passivo_localizacao_pendente');

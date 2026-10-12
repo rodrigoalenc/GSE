@@ -17,9 +17,9 @@ foreach (['administrador', 'funcionario'] as $profileRole) {
     $profileEmail = 'perfil-' . $profileRole . '@example.test';
     $profileCookie = $tempRoot . DIRECTORY_SEPARATOR . 'perfil-' . $profileRole . '.cookies';
     $profileOtherCookie = $tempRoot . DIRECTORY_SEPARATOR . 'perfil-' . $profileRole . '-outra.cookies';
-    $profileInsert = $profileDb->prepare('INSERT INTO usuarios(nome,email,senha,tipo,ativo,deve_alterar_senha,recebe_alertas_dva) VALUES(?,?,?,?,1,0,?)');
-    $profileInsert->execute(['Perfil ficticio ' . $profileRole, $profileEmail, password_hash($profilePassword, PASSWORD_DEFAULT), $profileRole, $profileRole === 'administrador' ? 1 : 0]);
-    $profileId = (int) $profileDb->lastInsertId();
+    $profileId = test_insert_user($profileDb, ['nome'=>'Perfil ficticio ' . $profileRole, 'email'=>$profileEmail,
+        'senha'=>password_hash($profilePassword, PASSWORD_DEFAULT), 'tipo'=>$profileRole, 'ativo'=>1,
+        'deve_alterar_senha'=>0, 'recebe_alertas_dva'=>$profileRole === 'administrador' ? 1 : 0]);
     checkHttp($profileLogin($profileEmail, $profilePassword, $profileCookie)['status'] === 302, 'Login para perfil próprio: ' . $profileRole);
     $profilePage = request('GET', $baseUrl . '/usuario/perfil?id=1', $profileCookie);
     checkHttp($profilePage['status'] === 200 && str_contains($profilePage['body'], 'value="' . $profileEmail . '"')
@@ -44,11 +44,11 @@ foreach (['administrador', 'funcionario'] as $profileRole) {
         'ativo' => '0', 'recebe_alertas_dva' => $profileRole === 'administrador' ? '0' : '1',
     ]);
     $profileAfter = $profileDb->query('SELECT * FROM usuarios WHERE id = ' . $profileId)->fetch(PDO::FETCH_ASSOC);
-    $profileExpected = $profileBefore;
+    $profileExpected = DataProtection::user($profileBefore);
     $profileExpected['nome'] = 'Nome proprio ' . $profileRole;
     $profileExpected['atualizado_em'] = $profileAfter['atualizado_em'];
     checkHttp($profileSaved['status'] === 302 && str_ends_with($profileSaved['headers']['location'] ?? '', '/usuario/perfil')
-        && $profileExpected === $profileAfter
+        && $profileExpected === DataProtection::user($profileAfter)
         && $profileOtherBefore === $profileDb->query('SELECT * FROM usuarios WHERE id = 1')->fetch(PDO::FETCH_ASSOC), 'Payload de ID e privilégios é ignorado; somente nome próprio muda: ' . $profileRole);
     $profilePage = request('GET', $baseUrl . '/usuario/perfil', $profileCookie);
     checkHttp($profilePage['status'] === 200 && str_contains($profilePage['body'], 'Nome proprio ' . $profileRole), 'Nome atualizado mantém sessão e rodapé: ' . $profileRole);

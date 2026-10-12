@@ -57,7 +57,6 @@ final class ErrorHandler
     {
         TechnicalLogger::error($event, [
             'type' => $type,
-            'message' => $message,
             'file' => basename($file),
             'line' => $line,
         ]);

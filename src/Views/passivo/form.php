@@ -5,6 +5,7 @@
 <section class="relatorio passivo-form-shell<?= $editing ? ' passivo-edit-shell' : '' ?>">
     <form class="passivo-form" method="post" action="<?= e(url($editing ? 'passivo/editar/' . $recordId : 'passivo/criar')) ?>">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+    <input type="hidden" name="_request_token" value="<?= e(bin2hex(random_bytes(16))) ?>">
         <?php if (!$editing): ?><div class="passivo-form-tip">ℹ️ <strong>Dica:</strong> Use esta tela para adicionar um aluno avulso. Para muitos alunos, use a Importação CSV.</div><?php endif; ?>
         <?php if ($editing): ?><div class="passivo-edit-warning"><strong>Atenção:</strong> A ferramenta "Enumerar" preenche somente posições vazias, depois do maior número já usado na caixa, preservando o histórico.</div><?php endif; ?>
         <div class="passivo-form-grid">

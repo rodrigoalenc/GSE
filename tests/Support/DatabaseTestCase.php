@@ -56,12 +56,8 @@ abstract class DatabaseTestCase extends TestCase
     ): int
     {
         $email = strtolower(str_replace(' ', '.', $nome)) . '@teste.local';
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO usuarios (nome, email, senha, tipo, ativo) VALUES (?, ?, ?, ?, ?)'
-        );
-        $stmt->execute([$nome, $email, \PasswordPolicy::hash($senha), $perfil, $ativo ? 1 : 0]);
-
-        return (int) $this->pdo->lastInsertId();
+        return \test_insert_user($this->pdo, ['nome'=>$nome, 'email'=>$email, 'senha'=>\PasswordPolicy::hash($senha),
+            'tipo'=>$perfil, 'ativo'=>$ativo ? 1 : 0]);
     }
 
     protected function insertAlunoComDva(string $nome, string $vencimento, ?int $idTurma = null): int

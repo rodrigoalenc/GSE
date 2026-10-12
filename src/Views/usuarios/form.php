@@ -30,19 +30,19 @@ $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
                             <option value="administrador" <?= $dados['tipo'] === 'administrador' ? 'selected' : '' ?>>Administrador</option>
                         </select></div>
                         <div class="senha-opcional"><label for="senha">Redefinir Senha (Opcional):</label><div class="usuario-edit-password-row">
-                            <input type="password" id="senha" name="senha" autocomplete="new-password" maxlength="128" placeholder="Nova senha" title="Deixe em branco para manter a senha atual">
-                            <label class="usuario-confirm-label"><span class="visually-hidden">Confirmar senha:</span><input type="password" id="confirmar_senha" name="confirmar_senha" autocomplete="new-password" maxlength="128" placeholder="Confirmar senha"></label>
+                            <input type="password" id="senha" name="senha" autocomplete="new-password" data-password-max="128" data-password-min="15" placeholder="Nova senha" title="Deixe em branco para manter a senha atual">
+                            <label class="usuario-confirm-label"><span class="visually-hidden">Confirmar senha:</span><input type="password" id="confirmar_senha" name="confirmar_senha" autocomplete="new-password" data-password-max="128" placeholder="Confirmar senha"></label>
                         </div></div>
                     </div>
                     <?php else: ?>
                     <div class="usuario-password-grid">
                         <div>
                             <label for="senha"><?= $edicao ? 'Nova senha (opcional):' : 'Senha:' ?></label>
-                            <input type="password" id="senha" name="senha" autocomplete="new-password" maxlength="128" placeholder="<?= $edicao ? 'Deixe em branco para manter a atual' : 'Mínimo de 12 caracteres' ?>" <?= $edicao ? '' : 'required' ?>>
+                            <input type="password" id="senha" name="senha" autocomplete="new-password" data-password-max="128" data-password-min="15" placeholder="<?= $edicao ? 'Deixe em branco para manter a atual' : 'Mínimo de 15 caracteres' ?>" <?= $edicao ? '' : 'required' ?>>
                         </div>
                         <div>
                             <label for="confirmar_senha">Confirmar senha:</label>
-                            <input type="password" id="confirmar_senha" name="confirmar_senha" autocomplete="new-password" maxlength="128" placeholder="Repita a senha" <?= $edicao ? '' : 'required' ?>>
+                            <input type="password" id="confirmar_senha" name="confirmar_senha" autocomplete="new-password" data-password-max="128" placeholder="Repita a senha" <?= $edicao ? '' : 'required' ?>>
                         </div>
                     </div>
 
@@ -61,7 +61,7 @@ $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
                     <div class="form-actions">
                         <button type="submit"><?= $edicao ? 'Salvar Alterações' : 'Salvar' ?></button>
                         <a class="cancelar" href="<?= e(url('usuario')) ?>">Cancelar</a>
-                        <details class="usuario-access-help"><summary>Orientações de acesso</summary><p>Use de 12 a 128 caracteres. Frases-senha, espaços e caracteres Unicode são aceitos; senhas comuns ou semelhantes ao nome/e-mail são recusadas.<?= $edicao ? ' Deixe os dois campos em branco para manter a senha atual.' : '' ?> A senha definida por administrador será temporária. Alterações de perfil e senha invalidam as sessões anteriores.</p></details>
+                        <details class="usuario-access-help"><summary>Orientações de acesso</summary><p>Use de 15 a 128 caracteres. Frases-senha, espaços e caracteres Unicode são aceitos; senhas comuns ou semelhantes ao nome/e-mail são recusadas.<?= $edicao ? ' Deixe os dois campos em branco para manter a senha atual.' : '' ?> A senha definida por administrador será temporária. Alterações de perfil e senha invalidam as sessões anteriores.</p></details>
                     </div>
                 </form>
         </section>

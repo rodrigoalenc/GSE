@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Core/Model.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
+require_once ROOT_PATH . '/src/Core/DataProtection.php';
+require_once ROOT_PATH . '/src/Core/ActionBudget.php';
 
 use src\Core\SqliteTransaction;
 
@@ -19,10 +21,11 @@ class Usuario extends Model
     /** @return array<string,mixed>|false */
     public function buscarPorEmail(string $email): array|false
     {
-        $stmt = self::$pdo->prepare('SELECT * FROM usuarios WHERE email = :email COLLATE NOCASE LIMIT 1');
-        $stmt->execute(['email' => self::normalizarEmail($email)]);
+        $stmt = self::$pdo->prepare('SELECT * FROM usuarios WHERE email_lookup = :email LIMIT 1');
+        $stmt->execute(['email' => DataProtection::emailIndex($email)]);
 
-        return $stmt->fetch();
+        $row = $stmt->fetch();
+        return $row === false ? false : DataProtection::user($row);
     }
 
     /** @return array<string,mixed>|false */
@@ -31,28 +34,22 @@ class Usuario extends Model
         $stmt = self::$pdo->prepare('SELECT * FROM usuarios WHERE id = :id LIMIT 1');
         $stmt->execute(['id' => $id]);
 
-        return $stmt->fetch();
+        $row = $stmt->fetch();
+        return $row === false ? false : DataProtection::user($row);
     }
 
     /** @return list<array<string,mixed>> */
-    public function listar(string $termo = ''): array
+    public function listar(string $termo = '', int $page = 1): array
     {
-        $termo = trim($termo);
-        $columns = 'id, nome, email, tipo, ativo, deve_alterar_senha, recebe_alertas_dva, criado_em, atualizado_em';
-
-        if ($termo === '') {
-            return self::$pdo->query("SELECT {$columns} FROM usuarios ORDER BY nome COLLATE NOCASE")->fetchAll();
-        }
-
-        $stmt = self::$pdo->prepare(
-            "SELECT {$columns} FROM usuarios
-             WHERE nome LIKE :termo ESCAPE '\\' OR email LIKE :termo ESCAPE '\\'
-             ORDER BY nome COLLATE NOCASE"
-        );
-        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $termo);
-        $stmt->execute(['termo' => '%' . $escaped . '%']);
-
-        return $stmt->fetchAll();
+        $stmt = self::$pdo->prepare("SELECT id, nome, email, tipo, ativo, deve_alterar_senha,
+            recebe_alertas_dva, criado_em, atualizado_em FROM usuarios
+            WHERE gse_name(nome,id) LIKE :term ESCAPE '\\' OR gse_email(email,id) LIKE :term ESCAPE '\\'
+            ORDER BY gse_name(nome,id) COLLATE NOCASE, id LIMIT 50 OFFSET :offset");
+        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr(trim($termo), 0, 254));
+        $stmt->bindValue(':term', '%' . $escaped . '%');
+        $stmt->bindValue(':offset', (max(1, min($page, 100)) - 1) * 50, PDO::PARAM_INT);
+        $stmt->execute();
+        return array_map([DataProtection::class, 'user'], $stmt->fetchAll());
     }
 
     public function cadastrar(
@@ -169,12 +166,13 @@ class Usuario extends Model
                 if (!$identityChanged && !$privilegeChanged && $novaSenha === null && !$alertsChanged) {
                     return true;
                 }
-                $sql = 'UPDATE usuarios SET nome = :nome, email = :email, tipo = :tipo,
+                $sql = 'UPDATE usuarios SET nome = :nome, email = :email, email_lookup = :email_lookup, tipo = :tipo,
                         atualizado_em = :updated, recebe_alertas_dva = :dva_alerts';
                 $params = [
                     'id' => $id,
-                    'nome' => $nome,
-                    'email' => $email,
+                    'nome' => DataProtection::encrypt($nome, 'usuarios.nome', $id),
+                    'email' => DataProtection::encrypt($email, 'usuarios.email', $id),
+                    'email_lookup' => DataProtection::emailIndex($email),
                     'tipo' => $tipo,
                     'updated' => gmdate('Y-m-d H:i:s'),
                     'dva_alerts' => $alertsAfter,
@@ -223,39 +221,32 @@ class Usuario extends Model
     public function alterarSenha(int $id, string $senhaAtual, string $novaSenha): bool
     {
         $this->lastErrorCode = null;
+        ActionBudget::consume(self::$pdo, $id, 'password');
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $senhaAtual, $novaSenha): bool {
-                $usuario = $this->buscarPorId($id);
-
-                if (!$usuario || !PasswordPolicy::verify($senhaAtual, (string) ($usuario['senha'] ?? ''))) {
-                    $this->lastErrorCode = 'current_password_invalid';
-
+            $before = $this->buscarPorId($id);
+            if (!$before || (int) $before['ativo'] !== 1 || !PasswordPolicy::verify($senhaAtual, (string) $before['senha'])) {
+                $this->lastErrorCode = 'current_password_invalid';
+                return false;
+            }
+            if (PasswordPolicy::validate($novaSenha, (string) $before['nome'], (string) $before['email']) !== []) {
+                $this->lastErrorCode = 'invalid_password';
+                return false;
+            }
+            if (PasswordPolicy::verify($novaSenha, (string) $before['senha'])) {
+                $this->lastErrorCode = 'password_reused';
+                return false;
+            }
+            $hash = PasswordPolicy::hash($novaSenha);
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $before, $hash): bool {
+                $current = $this->buscarPorId($id);
+                if (!$current || (int) $current['ativo'] !== 1 || $current['senha'] !== $before['senha']
+                    || $current['session_version'] !== $before['session_version'] || $current['tipo'] !== $before['tipo']) {
+                    $this->lastErrorCode = 'session_invalid';
                     return false;
                 }
-
-                if (PasswordPolicy::validate($novaSenha, (string) $usuario['nome'], (string) $usuario['email']) !== []) {
-                    $this->lastErrorCode = 'invalid_password';
-
-                    return false;
-                }
-
-                if (PasswordPolicy::verify($novaSenha, (string) $usuario['senha'])) {
-                    $this->lastErrorCode = 'password_reused';
-
-                    return false;
-                }
-
-                $statement = $pdo->prepare(
-                    'UPDATE usuarios SET senha = :password, deve_alterar_senha = 0,
-                        password_changed_at = :changed, atualizado_em = :changed,
-                        session_version = session_version + 1 WHERE id = :id'
-                );
-                $statement->execute([
-                    'password' => PasswordPolicy::hash($novaSenha),
-                    'changed' => gmdate('Y-m-d H:i:s'),
-                    'id' => $id,
-                ]);
-
+                $pdo->prepare('UPDATE usuarios SET senha=?, deve_alterar_senha=0,
+                    password_changed_at=?, atualizado_em=?, session_version=session_version+1 WHERE id=?')
+                    ->execute([$hash, gmdate('Y-m-d H:i:s'), gmdate('Y-m-d H:i:s'), $id]);
                 AuditLogger::recordRequired($pdo, 'password.changed', AuditLogger::SUCCESS, $id, $id,
                     'Senha alterada pelo próprio usuário.', 'user', $id);
                 return true;
@@ -263,7 +254,6 @@ class Usuario extends Model
         } catch (Throwable $exception) {
             $this->lastErrorCode = 'database_error';
             TechnicalLogger::error('password_change_failed', ['exception' => $exception::class]);
-
             return false;
         }
     }
@@ -286,15 +276,21 @@ class Usuario extends Model
             return false;
         }
 
+        ActionBudget::consume(self::$pdo, $id, 'profile');
+        $verified = $this->buscarPorId($id);
+        if (!$verified || !PasswordPolicy::verify($senhaAtual, (string) $verified['senha'])) {
+            $this->lastErrorCode = 'current_password_invalid';
+            return false;
+        }
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $sessionVersion, $nome, $email, $senhaAtual): array|false {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $sessionVersion, $nome, $email, $verified): array|false {
                 $usuario = $this->buscarPorId($id);
                 if (!$usuario || (int) $usuario['ativo'] !== 1 || (int) $usuario['deve_alterar_senha'] === 1
                     || !self::perfilValido((string) $usuario['tipo']) || (int) $usuario['session_version'] !== $sessionVersion) {
                     $this->lastErrorCode = 'session_invalid';
                     return false;
                 }
-                if (!PasswordPolicy::verify($senhaAtual, (string) $usuario['senha'])) {
+                if ($usuario['senha'] !== $verified['senha']) {
                     $this->lastErrorCode = 'current_password_invalid';
                     return false;
                 }
@@ -304,10 +300,11 @@ class Usuario extends Model
                 }
 
                 $emailChanged = self::normalizarEmail((string) $usuario['email']) !== $email;
-                $statement = $pdo->prepare('UPDATE usuarios SET nome = :name, email = :email,
+                $statement = $pdo->prepare('UPDATE usuarios SET nome = :name, email = :email, email_lookup = :lookup,
                     atualizado_em = :now, session_version = session_version + :invalidate WHERE id = :id');
                 $statement->execute([
-                    'name' => $nome, 'email' => $email, 'now' => gmdate('Y-m-d H:i:s'),
+                    'name' => DataProtection::encrypt($nome, 'usuarios.nome', $id), 'email' => DataProtection::encrypt($email, 'usuarios.email', $id),
+                    'lookup' => DataProtection::emailIndex($email), 'now' => gmdate('Y-m-d H:i:s'),
                     'invalidate' => $emailChanged ? 1 : 0, 'id' => $id,
                 ]);
                 AuditLogger::recordRequired(
@@ -448,8 +445,8 @@ class Usuario extends Model
 
     public function emailEmUso(string $email, ?int $ignorarId = null): bool
     {
-        $sql = 'SELECT COUNT(*) FROM usuarios WHERE email = :email COLLATE NOCASE';
-        $params = ['email' => self::normalizarEmail($email)];
+        $sql = 'SELECT COUNT(*) FROM usuarios WHERE email_lookup = :email';
+        $params = ['email' => DataProtection::emailIndex($email)];
 
         if ($ignorarId !== null) {
             $sql .= ' AND id <> :id';
@@ -485,14 +482,16 @@ class Usuario extends Model
     private function insertAuditedUser(PDO $pdo, string $nome, string $email, string $senha, string $tipo,
         bool $senhaTemporaria, bool $recebeAlertasDva, ?int $actorId, string $action): int
     {
+        $id = (int) $pdo->query("SELECT MAX(COALESCE((SELECT seq FROM sqlite_sequence WHERE name='usuarios'),0), COALESCE((SELECT MAX(id) FROM usuarios),0))+1")->fetchColumn();
         $stmt = $pdo->prepare(
             'INSERT INTO usuarios
-                (nome, email, senha, tipo, ativo, session_version, deve_alterar_senha,
+                (id, nome, email, email_lookup, senha, tipo, ativo, session_version, deve_alterar_senha,
                  password_changed_at, recebe_alertas_dva)
-             VALUES (:nome, :email, :senha, :tipo, 1, 1, :temporary, :changed_at, :dva_alerts)'
+             VALUES (:id, :nome, :email, :lookup, :senha, :tipo, 1, 1, :temporary, :changed_at, :dva_alerts)'
         );
         $stmt->execute([
-            'nome' => $nome, 'email' => $email, 'senha' => PasswordPolicy::hash($senha), 'tipo' => $tipo,
+            'id' => $id, 'nome' => DataProtection::encrypt($nome, 'usuarios.nome', $id),
+            'email' => DataProtection::encrypt($email, 'usuarios.email', $id), 'lookup' => DataProtection::emailIndex($email), 'senha' => PasswordPolicy::hash($senha), 'tipo' => $tipo,
             'temporary' => $senhaTemporaria ? 1 : 0, 'changed_at' => $senhaTemporaria ? null : gmdate('Y-m-d H:i:s'),
             'dva_alerts' => $tipo === self::PERFIL_ADMINISTRADOR && $recebeAlertasDva ? 1 : 0,
         ]);

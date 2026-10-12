@@ -8,8 +8,8 @@ final class TurmaController extends Controller
 {
     public function index(): void
     {
-        $search = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100, 'UTF-8');
-        $activeRaw = (string) ($_GET['ativo'] ?? '');
+        $search = mb_substr(trim(input_string($_GET['q'] ?? '')), 0, 100, 'UTF-8');
+        $activeRaw = input_string($_GET['ativo'] ?? '');
         $active = in_array($activeRaw, ['0', '1'], true) ? $activeRaw === '1' : null;
 
         $this->view('turmas/index', [
@@ -101,8 +101,8 @@ final class TurmaController extends Controller
     private function formData(): array
     {
         return [
-            'nome_turma' => mb_substr((string) ($_POST['nome_turma'] ?? ''), 0, 101, 'UTF-8'),
-            'ano_letivo' => mb_substr(trim((string) ($_POST['ano_letivo'] ?? date('Y'))), 0, 4, 'UTF-8'),
+            'nome_turma' => mb_substr(input_string($_POST['nome_turma'] ?? ''), 0, 101, 'UTF-8'),
+            'ano_letivo' => mb_substr(trim(input_string($_POST['ano_letivo'] ?? date('Y'))), 0, 4, 'UTF-8'),
         ];
     }
 

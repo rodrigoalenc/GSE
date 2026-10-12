@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Core/Model.php';
+require_once ROOT_PATH . '/src/Core/RequestReceipt.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
 
@@ -165,8 +166,8 @@ final class Passivo extends Model
 
         $statement = self::$pdo->prepare(
             'SELECT p.*, a.nome_completo AS aluno_origem_nome,
-                    uc.nome AS criado_por_nome, ua.nome AS atualizado_por_nome,
-                    ui.nome AS inativado_por_nome, ur.nome AS restaurado_por_nome
+                    gse_name(uc.nome,uc.id) AS criado_por_nome, gse_name(ua.nome,ua.id) AS atualizado_por_nome,
+                    gse_name(ui.nome,ui.id) AS inativado_por_nome, gse_name(ur.nome,ur.id) AS restaurado_por_nome
              FROM alunos_passivo p
              LEFT JOIN alunos a ON a.id = p.aluno_origem_id
              LEFT JOIN usuarios uc ON uc.id = p.criado_por
@@ -181,7 +182,7 @@ final class Passivo extends Model
     }
 
     /** @param array<string,mixed> $data */
-    public function cadastrar(array $data, int $actorId): int|false
+    public function cadastrar(array $data, int $actorId, ?string $requestToken = null): int|false
     {
         $this->lastErrorCode = null;
         $normalized = $this->validarDados($data);
@@ -193,24 +194,26 @@ final class Passivo extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($normalized, $actorId): int|false {
-                if ($this->locationConflict($pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado'])) {
-                    $this->lastErrorCode = 'location_conflict';
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($normalized, $actorId, $requestToken): int|false {
+                return RequestReceipt::run($pdo,$actorId,'passivo.create',$requestToken,[$normalized], function () use ($pdo,$normalized,$actorId): int|false {
+                    if ($this->locationConflict($pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado'])) {
+                        $this->lastErrorCode = 'location_conflict';
+                        AuditLogger::recordRequired(
+                            $pdo, 'passive.conflict', AuditLogger::BLOCKED, $actorId, null,
+                            'Conflito de localização impediu o cadastro.', 'passive_record'
+                        );
+
+                        return false;
+                    }
+
+                    $id = $this->insert($pdo, $normalized, $actorId, null);
                     AuditLogger::recordRequired(
-                        $pdo, 'passive.conflict', AuditLogger::BLOCKED, $actorId, null,
-                        'Conflito de localização impediu o cadastro.', 'passive_record'
+                        $pdo, 'passive.created', AuditLogger::SUCCESS, $actorId, null,
+                        'Registro do arquivo passivo criado.', 'passive_record', $id
                     );
 
-                    return false;
-                }
-
-                $id = $this->insert($pdo, $normalized, $actorId, null);
-                AuditLogger::recordRequired(
-                    $pdo, 'passive.created', AuditLogger::SUCCESS, $actorId, null,
-                    'Registro do arquivo passivo criado.', 'passive_record', $id
-                );
-
-                return $id;
+                    return $id;
+                });
             });
         } catch (Throwable $exception) {
             $this->databaseFailure('passive_create_failed', $exception);

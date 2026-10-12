@@ -50,11 +50,11 @@ final class DatabaseMigrationTest extends TestCase
     public function testCleanInitializationIsIdempotentAndVersioned(): void
     {
         $pdo = Database::getConnection();
-        DatabaseInitializer::initialize($pdo);
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
+        DatabaseInitializer::initialize($pdo, true);
 
-        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
-        $this->assertSame(16, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
         $this->assertSame(1, $this->columnNotNull($pdo, 'turmas', 'nome_normalizado'));
         $this->assertSame(1, $this->columnNotNull($pdo, 'alunos', 'nome_normalizado'));
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
@@ -78,10 +78,10 @@ final class DatabaseMigrationTest extends TestCase
         $legacy = null;
 
         $pdo = Database::getConnection();
-        DatabaseInitializer::initialize($pdo);
-        $user = $pdo->query('SELECT * FROM usuarios WHERE id = 1')->fetch();
+        DatabaseInitializer::initialize($pdo, true);
+        $user = \DataProtection::user($pdo->query('SELECT * FROM usuarios WHERE id = 1')->fetch());
         $columns = array_column($pdo->query('PRAGMA table_info(usuarios)')->fetchAll(), 'name');
-        $backups = glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: [];
+        $backups = glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite.gse') ?: [];
 
         $this->assertSame('Legado Preservado', $user['nome']);
         $this->assertSame('administrador', $user['tipo']);
@@ -89,7 +89,8 @@ final class DatabaseMigrationTest extends TestCase
         $this->assertContains('deve_alterar_senha', $columns);
         $this->assertContains('password_changed_at', $columns);
         $this->assertCount(1, $backups);
-        $backup = new PDO('sqlite:' . $backups[0]);
+        \ProtectedBackup::decrypt($backups[0], $this->root . '/restored.sqlite');
+        $backup = new PDO('sqlite:' . $this->root . '/restored.sqlite');
         $this->assertSame('ok', $backup->query('PRAGMA integrity_check')->fetchColumn());
 
         $this->expectException(\PDOException::class);
@@ -129,8 +130,8 @@ final class DatabaseMigrationTest extends TestCase
         $legacy = null;
 
         $pdo = Database::getConnection();
-        DatabaseInitializer::initialize($pdo);
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
+        DatabaseInitializer::initialize($pdo, true);
 
         $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM alunos')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM turmas')->fetchColumn());
@@ -138,9 +139,9 @@ final class DatabaseMigrationTest extends TestCase
         $this->assertSame(3, (int) $pdo->query('SELECT id FROM dvas WHERE ativo = 1')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM dvas WHERE ativo = 1')->fetchColumn());
         $this->assertNull($pdo->query('SELECT ano_letivo FROM turmas WHERE id = 1')->fetchColumn() ?: null);
-        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
-        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite.gse') ?: []);
         $pdo->exec("INSERT INTO turmas (nome_turma, nome_normalizado, ano_letivo) VALUES ('Turma Histórica', 'turma histórica', 2026)");
         $pdo->exec("INSERT INTO turmas (nome_turma, nome_normalizado, ano_letivo) VALUES ('Turma Histórica', 'turma histórica', 2027)");
         $this->assertSame(3, (int) $pdo->query('SELECT COUNT(*) FROM turmas')->fetchColumn());
@@ -204,7 +205,7 @@ final class DatabaseMigrationTest extends TestCase
 
         $pdo = Database::getConnection();
         $this->assertSame(1, (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn());
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
 
         $relationships = $pdo->query('SELECT id, id_turma FROM alunos ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR);
         $this->assertSame(1, (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn());
@@ -220,12 +221,12 @@ final class DatabaseMigrationTest extends TestCase
         $this->assertSame(0, (int) $pdo->query('SELECT recebe_alertas_dva FROM usuarios WHERE id = 7')->fetchColumn());
 
         $pdo->exec("INSERT INTO turmas (nome_turma, nome_normalizado, ano_letivo) VALUES ('Turma A', 'turma a', 2026), ('Turma A', 'turma a', 2027)");
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
         $this->assertSame([101 => 10, 102 => 20, 103 => 10], array_map(
             'intval',
             $pdo->query('SELECT id, id_turma FROM alunos ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR)
         ));
-        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
     }
 
@@ -272,7 +273,7 @@ final class DatabaseMigrationTest extends TestCase
         $pdo = Database::getConnection();
 
         try {
-            DatabaseInitializer::initialize($pdo);
+            DatabaseInitializer::initialize($pdo, true);
             $this->fail('A colisão Unicode deveria interromper a migração.');
         } catch (\RuntimeException $exception) {
             $this->assertStringContainsString('IDs 10,20', $exception->getMessage());
@@ -286,7 +287,7 @@ final class DatabaseMigrationTest extends TestCase
         ));
         $this->assertSame([201], array_map('intval', $pdo->query('SELECT id FROM dvas')->fetchAll(PDO::FETCH_COLUMN)));
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
-        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite') ?: []);
+        $this->assertCount(1, glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite.gse') ?: []);
     }
 
     private function columnNotNull(PDO $pdo, string $table, string $column): int

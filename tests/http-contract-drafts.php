@@ -40,7 +40,7 @@ function contractDraftRecovery(array $response,string $cookie): array
 
 $draftCreatePage=request('GET',$baseUrl.'/contrato/criar',$cookieAdmin);
 $draftCreate=request('POST',$baseUrl.'/contrato/criar',$cookieAdmin,[
-    '_csrf_token'=>csrf($draftCreatePage['body']),'titulo'=>'Pedido HTTP rascunhos','valor'=>'100,00','fornecedor'=>'',
+    '_csrf_token'=>csrf($draftCreatePage['body']),'_request_token'=>hiddenValue($draftCreatePage['body'],'_request_token',32),'titulo'=>'Pedido HTTP rascunhos','valor'=>'100,00','fornecedor'=>'',
     'folhas'=>array_map(static fn(int $number): array => ['observacao'=>'Nota de teste '.$number,'produtos'=>[
         ['nome'=>'Produto '.$number,'marca'=>'Marca teste','unidade'=>['un','K','Litros'][$number-1],'quantidade'=>'2','preco'=>'3,00'],
     ]],[1,2,3]),

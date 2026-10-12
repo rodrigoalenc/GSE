@@ -58,7 +58,7 @@ final class TechnicalLogger
         ];
 
         foreach ($context as $key => $value) {
-            if (preg_match('/pass|secret|token|cookie|session|authorization/i', $key)) {
+            if (preg_match('/pass|secret|token|cookie|session|authorization|key|email|nome/i', $key)) {
                 continue;
             }
 
@@ -101,6 +101,7 @@ final class TechnicalLogger
             $value
         ) ?? '';
 
+        $value = preg_replace('/(?:gse1:[A-Za-z0-9_-]+:[A-Za-z0-9+\/=]+|\$argon2id\$[^\s]+|\$2[aby]\$[^\s]+|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i', '[REDACTED]', $value) ?? '';
         return mb_substr(trim($value), 0, $limit);
     }
 

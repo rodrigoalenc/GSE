@@ -49,7 +49,7 @@ As decisões seguem as recomendações de [Authentication](https://cheatsheetser
 
 ## Módulo 5 — contratos, estoque e relatórios
 
-A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produtos, faturamento documental, duplicação e impressão. O estoque físico possui limites, abertura confirmada, entradas/saídas, estorno administrativo e histórico auditado; a quantidade contratada permanece distinta do saldo físico. Estoque antigo marcado como aberto sem comprovação exige conferência administrativa atual, com contagem, unidade, justificativa documental, revisão e operação transacional. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). Funcionários e administradores autenticados acessam contratos, estoque e relatórios; estornos, conciliação legada, conferência de abertura legada e correção de faturamento exigem administrador. O esquema atual é **v16**; a v15 implementa contratos/estoque e a v16 corrige indicadores de localização do Arquivo Passivo.
+A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produtos, faturamento documental, duplicação e impressão. O estoque físico possui limites, abertura confirmada, entradas/saídas, estorno administrativo e histórico auditado; a quantidade contratada permanece distinta do saldo físico. Estoque antigo marcado como aberto sem comprovação exige conferência administrativa atual, com contagem, unidade, justificativa documental, revisão e operação transacional. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). Funcionários e administradores autenticados acessam contratos, estoque e relatórios; estornos, conciliação legada, conferência de abertura legada e correção de faturamento exigem administrador. O esquema atual é **v17**; a v15 implementa contratos/estoque e a v16 corrige indicadores de localização do Arquivo Passivo.
 
 Para desenvolver, instale dependências com `composer install`, habilite `intl`, `fileinfo`, `mbstring` e `pdo_sqlite`, e execute `composer check`. Dompdf 3.1.6 é gerenciado pelo Composer. Não aplique migração em dados institucionais sem backup e ensaio de restauração conjunto de SQLite e PDFs privados.
 
@@ -75,6 +75,8 @@ git clone https://github.com/rodrigoalenc/GSE.git
 cd GSE
 composer install
 ```
+
+Antes dos comandos de inicialização, crie o keyring externo e configure `GSE_KEYRING_PATH` seguindo [SECURITY-OPERATIONS.md](SECURITY-OPERATIONS.md). Para bancos existentes com usuários, use a migração explícita desse procedimento.
 
 No Windows:
 
@@ -123,7 +125,7 @@ Alertas de DVA são opt-in. O primeiro administrador inicia sem alertas; para um
 
 ## Política de senhas
 
-- 12 a 128 caracteres Unicode;
+- 15 a 128 caracteres Unicode para novas definições; credenciais legadas continuam verificáveis;
 - espaços e frases-senha são permitidos;
 - não há exigência artificial de símbolo, maiúscula ou dígito;
 - senhas vazias, comuns ou muito semelhantes ao nome/e-mail são recusadas;
@@ -143,7 +145,7 @@ Confira o suporte com `php -r "var_export(password_algos());"` e valide também 
 
 ## Rate limiting
 
-Falhas são controladas separadamente por hash da conta normalizada e por hash do IP. O padrão bloqueia a conta após 5 falhas e o IP após 40 falhas dentro de 15 minutos, com bloqueio temporário de 15 minutos. O atraso exponencial, limitado a 2 segundos, acompanha o histórico da conta para não penalizar coletivamente redes escolares sob NAT.
+Falhas são controladas separadamente por HMAC da conta normalizada e por HMAC do IP, com preservação dos orçamentos anteriores na v17. O padrão bloqueia a conta após 5 falhas e o IP após 40 falhas dentro de 15 minutos, com bloqueio temporário de 15 minutos. O atraso exponencial, limitado a 2 segundos, acompanha o histórico da conta para não penalizar coletivamente redes escolares sob NAT.
 
 Um login válido limpa somente o estado daquela conta. O histórico compartilhado do IP é preservado para que uma conta válida não permita contornar a proteção de rede. Os limites independentes mantêm proteção contra ataques distribuídos à mesma conta e evitam que cinco erros de uma pessoa bloqueiem toda a escola.
 
@@ -262,6 +264,10 @@ Use `.env.production.example` como modelo sem credenciais.
 
 Para instalações antigas, `LOGIN_MAX_FAILURES` continua aceito como fallback somente do limite por conta e `LOGIN_WINDOW_SECONDS` como fallback da janela. O limite por IP nunca herda o valor baixo antigo: se `LOGIN_IP_MAX_FAILURES` estiver ausente ou inválido, usa 40. Migre para os nomes novos ao revisar a configuração.
 
+## Proteção v17
+
+Antes de iniciar a aplicação, configure um keyring privado externo e siga [o procedimento de segurança](SECURITY-OPERATIONS.md) para criação, simulação, migração, rotação e restauração. A nova camada cifra nome/e-mail dos usuários e novos backups; não cifra todo o SQLite nem os PDFs privados.
+
 ## Produção, HTTPS e proxy reverso
 
 Em produção, `APP_URL` inválida interrompe a inicialização; host não permitido retorna 400; exceções geram página 500 genérica com ID da requisição. Detalhes ficam em `LOG_PATH`, fora de `public/`.
@@ -294,7 +300,7 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões individuais de 1 a 16. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação. A v15 acrescenta contratos/notas/produtos, valores em centavos, limites e movimentos de estoque, registro de operações e preservação dos valores legados. A v16 corrige indicadores de localização incompleta e impede novos registros completos sem caixa ou posição.
+`schema_migrations` controla versões individuais de 1 a 17. `php bin/init-db.php` exige `GSE_KEYRING_PATH` e pode ser repetido em bancos já protegidos; bancos existentes com usuários exigem a migração explícita v17 antes de abrir o HTTP. O inicializador cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação. A v15 acrescenta contratos/notas/produtos, valores em centavos, limites e movimentos de estoque, registro de operações e preservação dos valores legados. A v16 corrige indicadores de localização incompleta e impede novos registros completos sem caixa ou posição.
 
 | Versão | Alteração |
 |---|---|
@@ -311,12 +317,13 @@ O banco permanece fora de `public/`; em produção essa regra é validada e uma 
 | 14 | Revisão de fornecedores/tipos e tentativas de notificação |
 | 15 | Contratos/notas/produtos, estoque auditado, operações idempotentes e valores legados preservados |
 | 16 | Indicador de localização incompleta do passivo, guards de INSERT/UPDATE e índice, sem renumerar pastas |
+| 17 | Campos de usuários cifrados, índice HMAC único, contadores protegidos, orçamentos de confirmação e recibos de idempotência |
 
 Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
 
-Antes de alteração estrutural em banco existente, é criado um backup SQLite consistente em `backups/`, validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
+Antes de alteração estrutural em banco existente, é criado um backup protegido secretstream em `backups/`, com snapshot SQLite temporário privado validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
 
-`Sistema::criarBackupManual()` usa `VACUUM INTO` sobre o `DB_PATH` configurado e valida integridade e chaves estrangeiras. Inclui registros confirmados ainda presentes no WAL; a cópia direta do arquivo principal pode perdê-los mesmo quando sua integridade é válida. O método retorna um nome único ou `false` e grava em `backups/` ao lado do banco, fora de `public`; com `DB_PATH=/var/lib/gse/escola.sqlite`, o destino é `/var/lib/gse/backups`. A listagem preserva também a descoberta dos backups antigos em `database/backups`. Esse snapshot cobre somente SQLite. Para o backup conjunto, pare todos os processos escritores e preserve SQLite, PDFs privados e a versão compatível do código no mesmo conjunto; ensaie a restauração independente antes de usar dados institucionais.
+`Sistema::criarBackupManual()` produz `.db.gse` com secretstream após usar `VACUUM INTO` sobre o `DB_PATH` configurado e valida integridade e chaves estrangeiras. Inclui registros confirmados ainda presentes no WAL; a cópia direta do arquivo principal pode perdê-los mesmo quando sua integridade é válida. O método retorna um nome único ou `false` e grava em `backups/` ao lado do banco, fora de `public`; com `DB_PATH=/var/lib/gse/escola.sqlite`, o destino é `/var/lib/gse/backups`. A listagem publica somente backups protegidos `.db.gse`; os legados em claro ficam preservados no disco e exigem proteção CLI antes de download. Esse snapshot cobre somente SQLite. Para o backup conjunto, pare todos os processos escritores e preserve SQLite, PDFs privados e a versão compatível do código no mesmo conjunto; ensaie a restauração independente antes de usar dados institucionais.
 
 Administradores acessam **Backups** no menu ou em `/backup`, depois de concluir a troca de senha temporária. A consulta não cria arquivos. Para gerar um snapshot, confirme sua senha atual e envie o formulário protegido por CSRF; a conta, o perfil e a versão da sessão são revalidados. A criação e o download exigem auditoria com autoria. Se a auditoria da criação falhar, somente o arquivo criado nessa tentativa é removido; backups anteriores são preservados. O download autenticado usa armazenamento privado e `no-store`, recusando nomes inválidos e links simbólicos. Essa tela gera somente o banco SQLite; a restauração e o backup conjunto de PDFs/código continuam sendo procedimentos operacionais externos.
 
@@ -423,7 +430,7 @@ composer security-check
 composer check
 ```
 
-PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v16, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
+PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v17, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
 As regressões de auditoria provocam falhas no log e conferem rollback dos dados, histórico, preferências e versões. A criação inicial do administrador é testada pela CLI, inclusive com dois processos concorrentes; um rehash tardio não pode desfazer um reset de senha. Os testes de backup cobrem WAL sem checkpoint, restauração independente, permissões, CSRF, confirmação de senha, arquivos inexistentes e falhas de auditoria na geração e no download. Testes de permissões POSIX e links simbólicos precisam executar no Linux.
 

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Core/Model.php';
+require_once ROOT_PATH . '/src/Core/RequestReceipt.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
 require_once ROOT_PATH . '/src/Model/Dva.php';
@@ -108,7 +109,7 @@ final class Aluno extends Model
      * @param array<string,mixed> $data
      * @param array<string,mixed>|null $initialDva
      */
-    public function cadastrar(array $data, int $actorId, ?array $initialDva = null, bool $confirmDuplicate = false): int|false
+    public function cadastrar(array $data, int $actorId, ?array $initialDva = null, bool $confirmDuplicate = false, ?string $requestToken = null): int|false
     {
         $this->lastErrorCode = null;
         $normalized = $this->validateAndNormalize($data);
@@ -135,74 +136,76 @@ final class Aluno extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($normalized, $actorId, $dva, $confirmDuplicate): int|false {
-                $actor = $pdo->prepare('SELECT 1 FROM usuarios WHERE id = :id AND ativo = 1 LIMIT 1');
-                $actor->execute(['id' => $actorId]);
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($normalized, $actorId, $dva, $confirmDuplicate, $requestToken): int|false {
+                return RequestReceipt::run($pdo,$actorId,'aluno.create',$requestToken,[$normalized,$dva,$confirmDuplicate], function () use ($pdo,$normalized,$actorId,$dva,$confirmDuplicate): int|false {
+                    $actor = $pdo->prepare('SELECT 1 FROM usuarios WHERE id = :id AND ativo = 1 LIMIT 1');
+                    $actor->execute(['id' => $actorId]);
 
-                if ($actor->fetchColumn() === false) {
-                    $this->lastErrorCode = 'invalid_actor';
+                    if ($actor->fetchColumn() === false) {
+                        $this->lastErrorCode = 'invalid_actor';
 
-                    return false;
-                }
+                        return false;
+                    }
 
-                if (!$this->activeClassExists((int) $normalized['id_turma'], $pdo)) {
-                    $this->lastErrorCode = 'invalid_class';
+                    if (!$this->activeClassExists((int) $normalized['id_turma'], $pdo)) {
+                        $this->lastErrorCode = 'invalid_class';
 
-                    return false;
-                }
+                        return false;
+                    }
 
-                if (!$confirmDuplicate && $this->duplicateExists(
-                    $pdo,
-                    $normalized['nome_completo'],
-                    $normalized['data_nascimento']
-                )) {
-                    $this->lastErrorCode = 'possible_duplicate';
+                    if (!$confirmDuplicate && $this->duplicateExists(
+                        $pdo,
+                        $normalized['nome_completo'],
+                        $normalized['data_nascimento']
+                    )) {
+                        $this->lastErrorCode = 'possible_duplicate';
 
-                    return false;
-                }
+                        return false;
+                    }
 
-                $now = gmdate('Y-m-d H:i:s');
-                $statement = $pdo->prepare(
-                    'INSERT INTO alunos
-                        (nome_completo, nome_normalizado, data_nascimento, id_turma, telefone_aluno, telefone_responsavel,
-                         ativo, criado_em, atualizado_em)
-                     VALUES (:name, :normalized_name, :birth, :class, :student_phone, :guardian_phone, 1, :now, :now)'
-                );
-                $statement->execute([
-                    'name' => $normalized['nome_completo'],
-                    'normalized_name' => $normalized['nome_normalizado'],
-                    'birth' => $normalized['data_nascimento'],
-                    'class' => $normalized['id_turma'],
-                    'student_phone' => $normalized['telefone_aluno'],
-                    'guardian_phone' => $normalized['telefone_responsavel'],
-                    'now' => $now,
-                ]);
-                $studentId = (int) $pdo->lastInsertId();
-                AuditLogger::recordRequired(
-                    $pdo, 'student.created', AuditLogger::SUCCESS, $actorId, null,
-                    'Cadastro de aluno concluído.', 'student', $studentId
-                );
-
-                if ($dva !== null) {
-                    $dvaStatement = $pdo->prepare(
-                        'INSERT INTO dvas
-                            (id_aluno, id_usuario_registro, data_vencimento, observacao, ativo, criado_em, atualizado_em)
-                         VALUES (:student, :actor, :expiration, :observation, 1, :now, :now)'
+                    $now = gmdate('Y-m-d H:i:s');
+                    $statement = $pdo->prepare(
+                        'INSERT INTO alunos
+                            (nome_completo, nome_normalizado, data_nascimento, id_turma, telefone_aluno, telefone_responsavel,
+                             ativo, criado_em, atualizado_em)
+                         VALUES (:name, :normalized_name, :birth, :class, :student_phone, :guardian_phone, 1, :now, :now)'
                     );
-                    $dvaStatement->execute([
-                        'student' => $studentId,
-                        'actor' => $actorId,
-                        'expiration' => $dva['expiration_date'],
-                        'observation' => $dva['observation'],
+                    $statement->execute([
+                        'name' => $normalized['nome_completo'],
+                        'normalized_name' => $normalized['nome_normalizado'],
+                        'birth' => $normalized['data_nascimento'],
+                        'class' => $normalized['id_turma'],
+                        'student_phone' => $normalized['telefone_aluno'],
+                        'guardian_phone' => $normalized['telefone_responsavel'],
                         'now' => $now,
                     ]);
+                    $studentId = (int) $pdo->lastInsertId();
                     AuditLogger::recordRequired(
-                        $pdo, 'dva.created', AuditLogger::SUCCESS, $actorId, null,
-                        'DVA inicial registrada.', 'dva', (int) $pdo->lastInsertId()
+                        $pdo, 'student.created', AuditLogger::SUCCESS, $actorId, null,
+                        'Cadastro de aluno concluído.', 'student', $studentId
                     );
-                }
 
-                return $studentId;
+                    if ($dva !== null) {
+                        $dvaStatement = $pdo->prepare(
+                            'INSERT INTO dvas
+                                (id_aluno, id_usuario_registro, data_vencimento, observacao, ativo, criado_em, atualizado_em)
+                             VALUES (:student, :actor, :expiration, :observation, 1, :now, :now)'
+                        );
+                        $dvaStatement->execute([
+                            'student' => $studentId,
+                            'actor' => $actorId,
+                            'expiration' => $dva['expiration_date'],
+                            'observation' => $dva['observation'],
+                            'now' => $now,
+                        ]);
+                        AuditLogger::recordRequired(
+                            $pdo, 'dva.created', AuditLogger::SUCCESS, $actorId, null,
+                            'DVA inicial registrada.', 'dva', (int) $pdo->lastInsertId()
+                        );
+                    }
+
+                    return $studentId;
+                });
             });
         } catch (Throwable $exception) {
             $this->lastErrorCode = 'database_error';

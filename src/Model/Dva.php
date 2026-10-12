@@ -23,7 +23,7 @@ final class Dva extends Model
         $statement = self::$pdo->prepare(
             'SELECT d.id, d.id_aluno, d.id_usuario_registro, d.data_vencimento,
                     d.observacao, d.ativo, d.criado_em, d.atualizado_em, d.substituido_em,
-                    u.nome AS usuario_registro
+                    gse_name(u.nome,u.id) AS usuario_registro
              FROM dvas d
              LEFT JOIN usuarios u ON u.id = d.id_usuario_registro
              WHERE d.id_aluno = :student AND d.ativo = 1
@@ -44,7 +44,7 @@ final class Dva extends Model
         $statement = self::$pdo->prepare(
             'SELECT d.id, d.id_aluno, d.id_usuario_registro, d.data_vencimento,
                     d.observacao, d.ativo, d.criado_em, d.atualizado_em, d.substituido_em,
-                    u.nome AS usuario_registro
+                    gse_name(u.nome,u.id) AS usuario_registro
              FROM dvas d
              LEFT JOIN usuarios u ON u.id = d.id_usuario_registro
              WHERE d.id_aluno = :student

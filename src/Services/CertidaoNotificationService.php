@@ -19,7 +19,7 @@ final class CertidaoNotificationService
         foreach ($q->fetchAll() as $row) {
             if (in_array($dates->classify((string)$row['data_vencimento']), ['vencida','vence_hoje','a_vencer'], true)) { $warnings[] = $row; }
         }
-        $recipients = array_values(array_filter($this->pdo->query("SELECT id,nome,email FROM usuarios WHERE ativo=1 AND tipo='administrador' ORDER BY id")->fetchAll(), static fn (array $row): bool => filter_var($row['email'], FILTER_VALIDATE_EMAIL) !== false));
+        $recipients = array_values(array_filter(array_map([DataProtection::class, 'user'], $this->pdo->query("SELECT id,nome,email FROM usuarios WHERE ativo=1 AND tipo='administrador' ORDER BY id")->fetchAll()), static fn (array $row): bool => filter_var($row['email'], FILTER_VALIDATE_EMAIL) !== false));
         $result = ['warnings'=>count($warnings),'recipients'=>count($recipients),'sent'=>0,'skipped'=>0,'failed'=>0];
         if ($warnings === []) { return $result; }
         if ($recipients === []) { $result['failed'] = 1; return $result; }
@@ -48,8 +48,8 @@ final class CertidaoNotificationService
                         $q = $pdo->prepare('SELECT 1 FROM certidao_notification_deliveries WHERE notification_date=? AND user_id=?');
                         $q->execute([$dates->today(), $recipient['id']]);
                         if ($q->fetchColumn() !== false) { return false; }
-                        $active = $pdo->prepare("SELECT 1 FROM usuarios WHERE id=? AND ativo=1 AND tipo='administrador' AND email=?");
-                        $active->execute([$recipient['id'],$recipient['email']]);
+                        $active = $pdo->prepare("SELECT 1 FROM usuarios WHERE id=? AND ativo=1 AND tipo='administrador' AND email_lookup=?");
+                        $active->execute([$recipient['id'],DataProtection::emailIndex((string)$recipient['email'])]);
                         if ($active->fetchColumn() === false) { return false; }
                         $q = $pdo->prepare('INSERT INTO certidao_notification_attempts(notification_date,user_id,attempted_at) VALUES (?,?,?) ON CONFLICT(notification_date,user_id) DO UPDATE SET attempts=attempts+1, attempted_at=excluded.attempted_at');
                         $q->execute([$dates->today(),$recipient['id'],gmdate('Y-m-d H:i:s')]);

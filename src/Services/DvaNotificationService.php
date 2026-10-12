@@ -92,7 +92,7 @@ final class DvaNotificationService
         )->fetchAll();
 
         return array_values(array_filter(
-            $recipients,
+            array_map([DataProtection::class, 'user'], $recipients),
             static fn (array $recipient): bool => filter_var($recipient['email'], FILTER_VALIDATE_EMAIL) !== false
         ));
     }
@@ -102,9 +102,9 @@ final class DvaNotificationService
         return SqliteTransaction::immediate($this->pdo, function (PDO $pdo) use ($date, $userId, $email): bool {
             $active = $pdo->prepare(
                 "SELECT 1 FROM usuarios WHERE id = :user AND ativo = 1 AND tipo = 'administrador'
-                 AND recebe_alertas_dva = 1 AND email = :email"
+                 AND recebe_alertas_dva = 1 AND email_lookup = :email"
             );
-            $active->execute(['user' => $userId, 'email' => $email]);
+            $active->execute(['user' => $userId, 'email' => DataProtection::emailIndex($email)]);
             if ($active->fetchColumn() === false) {
                 return false;
             }

@@ -14,6 +14,7 @@ require_once ROOT_PATH . '/src/Core/PasswordPolicy.php';
 require_once ROOT_PATH . '/src/Core/RequestContext.php';
 require_once ROOT_PATH . '/src/Core/AuditLogger.php';
 require_once ROOT_PATH . '/src/Model/Usuario.php';
+require_once ROOT_PATH . '/tests/Support/Keyring.php';
 $pdo = Model::getConexao();
 src\Core\DatabaseInitializer::initialize($pdo);
 $users = new Usuario();
@@ -21,9 +22,7 @@ if (($argv[1] ?? '') === 'seed') {
     if (!$users->criarAdministradorInicial('Admin ficticio', 'admin@example.test', str_repeat('á', 40) . ' frase temporária')) {
         throw new RuntimeException('Password fixture failed.');
     }
-    $pdo->prepare('INSERT INTO usuarios(nome,email,senha,tipo) VALUES(?,?,?,?)')->execute([
-        'Legado ficticio', 'legacy@example.test', password_hash(str_repeat('L', 72), PASSWORD_BCRYPT, ['cost' => 4]), 'funcionario',
-    ]);
+    test_insert_user($pdo, ['nome'=>'Legado ficticio','email'=>'legacy@example.test','senha'=>password_hash(str_repeat('L', 72), PASSWORD_BCRYPT, ['cost' => 4]),'tipo'=>'funcionario']);
     // Keep the comparison inside this disposable fixture; never emit password hashes.
     file_put_contents($testDirectory . '/original-password-hashes.json', json_encode(
         $pdo->query('SELECT id,senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR), JSON_THROW_ON_ERROR
@@ -35,7 +34,7 @@ if (($argv[1] ?? '') === 'seed') {
 $originalHashes = json_decode((string) file_get_contents($testDirectory . '/original-password-hashes.json'), true, 512, JSON_THROW_ON_ERROR);
 $currentHashes = $pdo->query('SELECT id,senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR);
 echo json_encode([
-    'users' => $pdo->query('SELECT id,nome,email,tipo,session_version,deve_alterar_senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_ASSOC),
+    'users' => array_map([DataProtection::class,'user'], $pdo->query('SELECT id,nome,email,tipo,session_version,deve_alterar_senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_ASSOC)),
     'algorithms' => array_map(static fn (string $hash): string => password_get_info($hash)['algoName'],
         $pdo->query('SELECT senha FROM usuarios ORDER BY id')->fetchAll(PDO::FETCH_COLUMN)),
     'original_hashes_preserved' => array_map(static fn (int $id): bool => isset($originalHashes[$id])

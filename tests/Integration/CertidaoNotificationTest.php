@@ -47,7 +47,7 @@ final class CertidaoNotificationTest extends DatabaseTestCase
         $fake=new class implements \MailTransport { public function send(string $a,string $n,string $s,string $h,string $t): void { throw new \LogicException('Unexpected send'); } };
         $service=new \CertidaoNotificationService($this->pdo,$fake,$this->dates());
         $this->assertSame(0,$service->notify()['failed']);
-        $this->seed(); $this->pdo->exec("UPDATE usuarios SET email='invalid-'||id WHERE tipo='administrador'");
+        $this->seed(); foreach ($this->pdo->query("SELECT id FROM usuarios WHERE tipo='administrador'")->fetchAll() as $row) { \test_update_email($this->pdo, (int)$row['id'], 'invalid-' . $row['id']); }
         $this->assertSame(1,$service->notify()['failed']);
         $this->pdo->exec("UPDATE certidoes SET excluido_em='2026-09-16' WHERE id IN (1,2,3)");
         $this->assertSame(0,$service->notify()['warnings']);

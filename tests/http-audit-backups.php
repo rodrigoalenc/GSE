@@ -5,8 +5,8 @@ declare(strict_types=1);
 // Todos os dados, snapshots e sessões pertencem ao ambiente descartável do smoke.
 $backupDb = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $backupDirectory = $tempRoot . DIRECTORY_SEPARATOR . 'backups';
-$backupFiles = static fn (): array => glob($backupDirectory . DIRECTORY_SEPARATOR . '*.db') ?: [];
-$missingBackup = 'escola_backup_MANUAL_2000-01-01_00-00-00_' . str_repeat('a', 32) . '.db';
+$backupFiles = static fn (): array => glob($backupDirectory . DIRECTORY_SEPARATOR . '*.db.gse') ?: [];
+$missingBackup = 'escola_backup_MANUAL_2000-01-01_00-00-00_' . str_repeat('a', 32) . '.db.gse';
 foreach ([['GET', '/backup'], ['POST', '/backup/criar'], ['GET', '/backup/baixar/' . $missingBackup]] as [$method, $path]) {
     checkHttp(request($method, $baseUrl . $path, $cookieGuest)['status'] === 302, 'Visitante não acessa backups: ' . $method . ' ' . $path);
     checkHttp(request($method, $baseUrl . $path, $cookieEmployee)['status'] === 403, 'Funcionário não acessa backups: ' . $method . ' ' . $path);
@@ -39,12 +39,13 @@ checkHttp($backupCreated['status'] === 302 && str_ends_with($backupCreated['head
 $createdBackupPath = $createdBackupFiles[0];
 $createdBackupName = basename($createdBackupPath);
 $backupDownload = request('GET', $baseUrl . '/backup/baixar/' . rawurlencode($createdBackupName), $cookieAdmin);
-checkHttp($backupDownload['status'] === 200 && str_starts_with($backupDownload['body'], "SQLite format 3\0")
+checkHttp($backupDownload['status'] === 200 && str_starts_with($backupDownload['body'], ProtectedBackup::MAGIC)
     && str_contains(strtolower($backupDownload['headers']['cache-control'] ?? ''), 'no-store')
     && str_contains($backupDownload['headers']['content-disposition'] ?? '', 'attachment;')
     && ($backupDownload['headers']['x-content-type-options'] ?? '') === 'nosniff', 'Download autenticado é SQLite privado, sem cache e sem sniffing');
 $restoredBackupPath = $tempRoot . DIRECTORY_SEPARATOR . 'http-restored-backup.sqlite';
-file_put_contents($restoredBackupPath, $backupDownload['body']);
+file_put_contents($restoredBackupPath . '.gse', $backupDownload['body']);
+ProtectedBackup::decrypt($restoredBackupPath . '.gse', $restoredBackupPath);
 $restoredBackup = new PDO('sqlite:' . $restoredBackupPath, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 checkHttp($restoredBackup->query('PRAGMA integrity_check')->fetchColumn() === 'ok'
     && $restoredBackup->query('PRAGMA foreign_key_check')->fetchAll() === []
@@ -83,7 +84,7 @@ try {
 }
 
 // A preferência isolada de alertas também constitui alteração rastreável.
-$auditAdmin = $backupDb->query('SELECT * FROM usuarios WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+$auditAdmin = DataProtection::user($backupDb->query('SELECT * FROM usuarios WHERE id=1')->fetch(PDO::FETCH_ASSOC));
 $newAlerts = (int) $auditAdmin['recebe_alertas_dva'] !== 1;
 $adminEditPage = request('GET', $baseUrl . '/usuario/editar/1', $cookieAdmin);
 $adminEditData = ['_csrf_token' => csrf($adminEditPage['body']), 'nome' => $auditAdmin['nome'], 'email' => $auditAdmin['email'], 'tipo' => 'administrador', 'senha' => '', 'confirmar_senha' => ''];

@@ -15,9 +15,9 @@ final class SenhaController extends Controller
         $erros = [];
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $senhaAtual = (string) ($_POST['senha_atual'] ?? '');
-            $novaSenha = (string) ($_POST['nova_senha'] ?? '');
-            $confirmacao = (string) ($_POST['confirmar_senha'] ?? '');
+            $senhaAtual = input_string($_POST['senha_atual'] ?? '');
+            $novaSenha = input_string($_POST['nova_senha'] ?? '');
+            $confirmacao = input_string($_POST['confirmar_senha'] ?? '');
 
             if ($senhaAtual === '') {
                 $erros[] = 'Informe a senha atual.';

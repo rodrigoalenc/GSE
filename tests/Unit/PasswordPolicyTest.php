@@ -49,12 +49,12 @@ final class PasswordPolicyTest extends TestCase
 
     public function testCharacterBoundariesAndInvalidEncoding(): void
     {
-        foreach ([12, 128] as $length) {
+        foreach ([15, 128] as $length) {
             $password = str_repeat('界', $length);
             $this->assertSame([], \PasswordPolicy::validate($password));
             $this->assertTrue(\PasswordPolicy::verify($password, \PasswordPolicy::hash($password)));
         }
-        foreach ([str_repeat('界', 11), str_repeat('界', 129), "Invalid UTF8 \xff", "Frase com nulo\0"] as $password) {
+        foreach ([str_repeat('界', 14), str_repeat('界', 129), "Invalid UTF8 \xff", "Frase com nulo\0"] as $password) {
             $this->assertNotEmpty(\PasswordPolicy::validate($password));
         }
         $password = '  Café com espaços 2026  ';

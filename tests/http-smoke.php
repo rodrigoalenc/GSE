@@ -183,10 +183,10 @@ function csrf(string $html): string
     return $match[1];
 }
 
-function hiddenValue(string $html, string $name): string
+function hiddenValue(string $html, string $name, int $length = 64): string
 {
     $quoted = preg_quote($name, '/');
-    if (preg_match('/name="' . $quoted . '" value="([a-f0-9]{64})"/', $html, $match) !== 1) {
+    if (preg_match('/name="' . $quoted . '" value="([a-f0-9]{' . $length . '})"/', $html, $match) !== 1) {
         throw new RuntimeException("Campo oculto {$name} não encontrado na resposta.");
     }
 
@@ -241,6 +241,11 @@ function waitForServer(string $url, string $cookie, array $headers = []): void
     throw new RuntimeException('O servidor HTTP não ficou pronto.');
 }
 
+require_once __DIR__ . '/Support/Keyring.php';
+require_once dirname(__DIR__) . '/src/Core/DataProtection.php';
+require_once dirname(__DIR__) . '/src/Core/ProtectedBackup.php';
+$httpKeyPath = test_keyring($tempRoot);
+putenv('GSE_KEYRING_PATH=' . $httpKeyPath);
 $baseEnvironment = array_merge(getenv(), [
     'APP_ENV' => 'testing',
     'APP_URL' => '',
@@ -346,7 +351,8 @@ try {
     $contractForm = request('GET', $baseUrl . '/contrato/criar', $cookieAdmin);
     checkHttp($contractForm['status'] === 200, 'Formulário de contrato autenticado');
     $contractCreated = request('POST', $baseUrl . '/contrato/criar', $cookieAdmin, [
-        '_csrf_token' => csrf($contractForm['body']), 'titulo' => 'Contrato HTTP', 'valor' => '100,00', 'fornecedor' => '',
+        '_csrf_token' => csrf($contractForm['body']),
+        '_request_token' => hiddenValue($contractForm['body'], '_request_token', 32), 'titulo' => 'Contrato HTTP', 'valor' => '100,00', 'fornecedor' => '',
     ]);
     preg_match('#/contrato/detalhes/([0-9]+)#', $contractCreated['headers']['location'] ?? '', $contractMatch);
     checkHttp($contractCreated['status'] === 302 && isset($contractMatch[1]), 'Cadastro HTTP de contrato');
@@ -359,7 +365,8 @@ try {
     checkHttp(request('GET', $baseUrl . '/contrato/imprimir/' . $contractId . '?folha=999999', $cookieAdmin)['status'] === 404, 'Folha de outro contrato é recusada na impressão');
     $completeForm = request('GET', $baseUrl . '/contrato/criar', $cookieAdmin);
     $complete = request('POST', $baseUrl . '/contrato/criar', $cookieAdmin, [
-        '_csrf_token' => csrf($completeForm['body']), 'titulo' => 'Contrato completo HTTP', 'valor' => '40,00', 'fornecedor' => '',
+        '_csrf_token' => csrf($completeForm['body']),
+        '_request_token' => hiddenValue($completeForm['body'], '_request_token', 32), 'titulo' => 'Contrato completo HTTP', 'valor' => '40,00', 'fornecedor' => '',
         'folhas' => [
             ['observacao' => 'Primeira', 'produtos' => [['nome' => 'Papel', 'marca' => 'Marca A', 'unidade' => 'resma', 'quantidade' => '2', 'preco' => '5,00']]],
             ['observacao' => 'Segunda', 'produtos' => [['nome' => 'Lápis', 'marca' => '', 'unidade' => 'caixa', 'quantidade' => '1', 'preco' => '8,00']]],
@@ -429,7 +436,7 @@ try {
     $studentPage = request('GET', $baseUrl . '/aluno/criar', $cookieAdmin);
     $initialExpiration = date('Y-m-d', strtotime('+10 days'));
     $createdStudent = request('POST', $baseUrl . '/aluno/criar', $cookieAdmin, [
-        '_csrf_token' => csrf($studentPage['body']),
+        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($studentPage['body']),
         'nome_completo' => 'João HTTP <Seguro>',
         'data_nascimento' => '2011-05-10',
         'id_turma' => '1',
@@ -505,7 +512,7 @@ try {
     $passiveCreate = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
     checkHttp(preg_match('/<input[^>]+id="numero"[^>]+required/', $passiveCreate['body']) === 1, 'Interface exige posição física no cadastro passivo');
     $incompletePassive = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
-        '_csrf_token' => csrf($passiveCreate['body']), 'nome_completo' => 'Cadastro sem posição',
+        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($passiveCreate['body']), 'nome_completo' => 'Cadastro sem posição',
         'data_nascimento' => '2000-01-01', 'numero' => '', 'caixa' => 'CX-HTTP',
     ]);
     $retainedPassive = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
@@ -517,7 +524,7 @@ try {
         && (int) $verification->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn() === 0,
         'Servidor rejeita localização incompleta, conserva formulário por PRG e não grava');
     $passiveCreated = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
-        '_csrf_token' => csrf($passiveCreate['body']),
+        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($passiveCreate['body']),
         'nome_completo' => 'Jose HTTP Passivo',
         'data_nascimento' => '2000-01-01',
         'numero' => '1',
@@ -629,7 +636,7 @@ try {
 
     $formulaCreatePage = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
     $formulaCreated = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
-        '_csrf_token' => csrf($formulaCreatePage['body']),
+        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($formulaCreatePage['body']),
         'nome_completo' => '=2+2',
         'data_nascimento' => '',
         'numero' => '8',
@@ -758,7 +765,7 @@ try {
     $employeeCreatePage = request('GET', $baseUrl . '/passivo/criar', $cookieEmployee);
     checkHttp($employeeCreatePage['status'] === 200, 'Funcionário acessa cadastro passivo');
     $employeeCreated = request('POST', $baseUrl . '/passivo/criar', $cookieEmployee, [
-        '_csrf_token' => csrf($employeeCreatePage['body']),
+        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($employeeCreatePage['body']),
         'nome_completo' => 'Funcionário HTTP Passivo',
         'data_nascimento' => '2002-03-04',
         'numero' => '1',
@@ -824,7 +831,7 @@ try {
         checkHttp($beforeDeletion[$field] === $deletedRecord[$field], 'Exclusão preserva ' . $field);
     }
     $deletionAudit = $verification->query("SELECT actor_user_id, resource_type, resource_id FROM security_audit WHERE action = 'passive.deactivated' AND result = 'success' AND resource_id = " . $employeePassiveId . ' ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
-    $employeeActorId = (int) $verification->query("SELECT id FROM usuarios WHERE email = 'employee@example.test'")->fetchColumn();
+    $employeeActorId = (int) $verification->query("SELECT id FROM usuarios WHERE email_lookup = '" . DataProtection::emailIndex('employee@example.test') . "'")->fetchColumn();
     checkHttp($deletionAudit !== false && (int) $deletionAudit['actor_user_id'] === $employeeActorId && (int) $deletedRecord['inativado_por'] === $employeeActorId && $deletionAudit['resource_type'] === 'passive_record', 'Auditoria identifica funcionário, ação e registro excluído');
     $activeSearch = request('GET', $baseUrl . '/passivo?q=' . rawurlencode('Funcionário HTTP Editado'), $cookieEmployee);
     $deletedSearch = request('GET', $baseUrl . '/passivo/inativos?caixa=CX-FUNC', $cookieEmployee);
@@ -885,6 +892,7 @@ try {
     require __DIR__ . '/http-passivo-batch.php';
     require __DIR__ . '/http-profile.php';
     require __DIR__ . '/http-audit-backups.php';
+    require __DIR__ . '/http-security-hardening.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');
     $adminDashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);

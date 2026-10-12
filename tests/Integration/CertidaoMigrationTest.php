@@ -22,10 +22,10 @@ final class CertidaoMigrationTest extends DatabaseTestCase
             INSERT INTO certidoes(id,id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,arquivo_pdf,arquivado,status) VALUES(42,7,5,'bad','2026-02-30','legacy.pdf',1,1),(43,7,5,'2026-01-01','2026-02-02',NULL,0,1);
             UPDATE sqlite_sequence SET seq=90 WHERE name='certidoes'");
         $before=$pdo->query('SELECT id,id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,arquivo_pdf,arquivado,status FROM certidoes')->fetchAll();
-        DatabaseInitializer::initialize($pdo); DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true); DatabaseInitializer::initialize($pdo, true);
         $this->assertSame($before,$pdo->query('SELECT id,id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,arquivo_pdf,arquivado,status FROM certidoes')->fetchAll());
         $this->assertSame(90,(int)$pdo->query("SELECT seq FROM sqlite_sequence WHERE name='certidoes'")->fetchColumn());
-        $this->assertSame(16,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([],$pdo->query('PRAGMA foreign_key_check')->fetchAll()); $this->assertSame('ok',$pdo->query('PRAGMA integrity_check')->fetchColumn());
         foreach (['certidoes','lista_fornecedores','lista_tipos_certidao','certidao_notification_deliveries'] as $table) { $this->assertSame($this->pdo->query('PRAGMA table_info('.$table.')')->fetchAll(),$pdo->query('PRAGMA table_info('.$table.')')->fetchAll()); }
     }
@@ -33,7 +33,7 @@ final class CertidaoMigrationTest extends DatabaseTestCase
     {
         $pdo=$this->legacy(); $before=$pdo->query('PRAGMA table_info(certidoes)')->fetchAll();
         $pdo->exec("CREATE TRIGGER fail13 BEFORE INSERT ON schema_migrations WHEN NEW.version=13 BEGIN SELECT RAISE(ABORT,'forced13'); END");
-        try { DatabaseInitializer::initialize($pdo); $this->fail('Expected rollback'); } catch (\PDOException $e) { $this->assertStringContainsString('forced13',$e->getMessage()); }
+        try { DatabaseInitializer::initialize($pdo, true); $this->fail('Expected rollback'); } catch (\PDOException $e) { $this->assertStringContainsString('forced13',$e->getMessage()); }
         $this->assertSame($before,$pdo->query('PRAGMA table_info(certidoes)')->fetchAll());
         $this->assertSame(12,(int)$pdo->query('PRAGMA user_version')->fetchColumn()); $this->assertSame(1,(int)$pdo->query('PRAGMA foreign_keys')->fetchColumn());
         $this->assertSame('ok',$pdo->query('PRAGMA integrity_check')->fetchColumn());
@@ -50,18 +50,18 @@ final class CertidaoMigrationTest extends DatabaseTestCase
         $before=$pdo->query('SELECT * FROM lista_fornecedores')->fetchAll();
         $delivered=$pdo->query('SELECT * FROM certidao_notification_deliveries')->fetchAll();
         $pdo->exec("CREATE TRIGGER fail14 BEFORE INSERT ON schema_migrations WHEN NEW.version=14 BEGIN SELECT RAISE(ABORT,'forced14'); END");
-        try { DatabaseInitializer::initialize($pdo); $this->fail('Expected rollback'); }
+        try { DatabaseInitializer::initialize($pdo, true); $this->fail('Expected rollback'); }
         catch (\PDOException $e) { $this->assertStringContainsString('forced14',$e->getMessage()); }
         $this->assertSame(13,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame($before,$pdo->query('SELECT * FROM lista_fornecedores')->fetchAll());
         $pdo->exec('DROP TRIGGER fail14');
-        DatabaseInitializer::initialize($pdo); DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true); DatabaseInitializer::initialize($pdo, true);
         $supplier=$pdo->query('SELECT * FROM lista_fornecedores')->fetch();
         $this->assertSame(1,$supplier['revisao']); unset($supplier['revisao']);
         $this->assertSame($before[0],$supplier);
         $this->assertSame(1,(int)$pdo->query('SELECT revisao FROM lista_tipos_certidao WHERE id=8')->fetchColumn());
         $this->assertSame($delivered,$pdo->query('SELECT * FROM certidao_notification_deliveries')->fetchAll());
-        $this->assertSame(16,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(40,(int)$pdo->query("SELECT seq FROM sqlite_sequence WHERE name='lista_fornecedores'")->fetchColumn());
         $this->assertSame([],$pdo->query('PRAGMA foreign_key_check')->fetchAll());
         $this->assertSame('ok',$pdo->query('PRAGMA integrity_check')->fetchColumn());

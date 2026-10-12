@@ -7,6 +7,8 @@ require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 
 use src\Core\SqliteTransaction;
 
+require_once ROOT_PATH . '/src/Core/RequestReceipt.php';
+
 final class Contrato extends Model
 {
     public static function integer(mixed $value, int $min = 0, int $max = 1000000000): int
@@ -42,7 +44,7 @@ final class Contrato extends Model
         $count->execute([$term]);
         $total = (int) $count->fetchColumn();
         $page = min($page, max(1, (int) ceil($total / 20)));
-        $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor, u.nome AS excluido_por_nome, '
+        $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor, gse_name(u.nome,u.id) AS excluido_por_nome, '
             . '(SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL) AS notas, '
             . '(SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL AND pg.data_faturamento IS NOT NULL) AS notas_faturadas '
             . 'FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor '
@@ -75,7 +77,7 @@ final class Contrato extends Model
     /** @return array<string,mixed> */
     public function find(int $id): array
     {
-        $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor, u.nome AS excluido_por_nome FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor LEFT JOIN usuarios u ON u.id=p.excluido_por WHERE p.id=?');
+        $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor, gse_name(u.nome,u.id) AS excluido_por_nome FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor LEFT JOIN usuarios u ON u.id=p.excluido_por WHERE p.id=?');
         $query->execute([$id]);
         return $query->fetch() ?: throw new DomainException('Contrato não encontrado.');
     }
@@ -99,7 +101,7 @@ final class Contrato extends Model
     /** @return list<array<string,mixed>> */
     public function movements(int $itemId): array
     {
-        $query = self::$pdo->prepare('SELECT m.*,u.nome AS usuario,i.nome_produto,i.unidade,i.numero_pagina,p.id AS contrato_id,p.titulo AS contrato_titulo FROM estoque_movimentos m JOIN usuarios u ON u.id=m.usuario_id JOIN pedido_produtos i ON i.id=m.produto_id JOIN pedidos p ON p.id=i.id_pedido WHERE m.produto_id=? ORDER BY m.id DESC');
+        $query = self::$pdo->prepare('SELECT m.*,gse_name(u.nome,u.id) AS usuario,i.nome_produto,i.unidade,i.numero_pagina,p.id AS contrato_id,p.titulo AS contrato_titulo FROM estoque_movimentos m JOIN usuarios u ON u.id=m.usuario_id JOIN pedido_produtos i ON i.id=m.produto_id JOIN pedidos p ON p.id=i.id_pedido WHERE m.produto_id=? ORDER BY m.id DESC');
         $query->execute([$itemId]);
         return $query->fetchAll();
     }
@@ -124,21 +126,25 @@ final class Contrato extends Model
         return ['items'=>$q->fetchAll(),'total'=>$total,'page'=>$page,'pages'=>$pages];
     }
 
-    public function create(string $title, string $money, string $supplier, int $actor): int
+    public function create(string $title, string $money, string $supplier, int $actor, ?string $requestToken = null): int
     {
         $title = $this->title($title); $cents = self::cents($money); $supplierId = $this->supplier($supplier, null);
-        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($title,$cents,$supplierId,$actor): int {
-            $query = $pdo->prepare('INSERT INTO pedidos(titulo,valor_total,valor_centavos,qtd_paginas,id_fornecedor) VALUES(?,?,?,?,?)');
-            $query->execute([$title,$cents/100,$cents,1,$supplierId]);
-            $id = (int) $pdo->lastInsertId();
-            $pdo->prepare('INSERT INTO pedido_paginas(id_pedido,numero_pagina,valor_pagina,valor_centavos,observacao) VALUES(?,1,0,0,\'\')')->execute([$id]);
-            $this->audit($pdo,'created','contrato',$id,$actor);
-            return $id;
+        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($title,$cents,$supplierId,$actor,$requestToken): int {
+            $result = RequestReceipt::run($pdo,$actor,'contract.create',$requestToken,[$title,$cents,$supplierId], function () use ($pdo,$title,$cents,$supplierId,$actor): int {
+                $query = $pdo->prepare('INSERT INTO pedidos(titulo,valor_total,valor_centavos,qtd_paginas,id_fornecedor) VALUES(?,?,?,?,?)');
+                $query->execute([$title,$cents/100,$cents,1,$supplierId]);
+                $id = (int) $pdo->lastInsertId();
+                $pdo->prepare('INSERT INTO pedido_paginas(id_pedido,numero_pagina,valor_pagina,valor_centavos,observacao) VALUES(?,1,0,0,\'\')')->execute([$id]);
+                $this->audit($pdo,'created','contrato',$id,$actor);
+                return $id;
+            });
+            if ($result === false) { throw new LogicException('Resultado de contrato inválido.'); }
+            return $result;
         });
     }
 
     /** @param array<mixed> $sheets */
-    public function createDetailed(string $title, string $money, string $supplier, array $sheets, int $actor): int
+    public function createDetailed(string $title, string $money, string $supplier, array $sheets, int $actor, ?string $requestToken = null): int
     {
         $title = $this->title($title);
         $cents = self::cents($money);
@@ -176,22 +182,26 @@ final class Contrato extends Model
             $validated[] = [trim($note),$normalized];
         }
         if ($allocated > $cents) { throw new DomainException('Itens ultrapassam o valor contratado.'); }
-        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($title,$cents,$supplierId,$validated,$actor): int {
-            $pdo->prepare('INSERT INTO pedidos(titulo,valor_total,valor_centavos,qtd_paginas,id_fornecedor) VALUES(?,?,?,?,?)')
-                ->execute([$title,$cents/100,$cents,count($validated),$supplierId]);
-            $id = (int)$pdo->lastInsertId();
-            $insertSheet = $pdo->prepare('INSERT INTO pedido_paginas(id_pedido,numero_pagina,valor_pagina,valor_centavos,observacao) VALUES(?,?,?,?,?)');
-            $insertItem = $pdo->prepare('INSERT INTO pedido_produtos(id_pedido,numero_pagina,nome_produto,marca,unidade,quantidade,valor_unitario,valor_total,quantidade_contratada,preco_centavos,total_centavos) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
-            foreach ($validated as $index => [$note,$products]) {
-                $number = $index+1;
-                $sheetTotal = array_sum(array_column($products,5));
-                $insertSheet->execute([$id,$number,$sheetTotal/100,$sheetTotal,$note]);
-                foreach ($products as [$name,$brand,$unit,$quantity,$price,$total]) {
-                    $insertItem->execute([$id,$number,$name,$brand,$unit,$quantity,$price/100,$total/100,$quantity,$price,$total]);
+        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($title,$cents,$supplierId,$validated,$actor,$requestToken): int {
+            $result = RequestReceipt::run($pdo,$actor,'contract.create',$requestToken,[$title,$cents,$supplierId,$validated], function () use ($pdo,$title,$cents,$supplierId,$actor,$validated): int {
+                $pdo->prepare('INSERT INTO pedidos(titulo,valor_total,valor_centavos,qtd_paginas,id_fornecedor) VALUES(?,?,?,?,?)')
+                    ->execute([$title,$cents/100,$cents,count($validated),$supplierId]);
+                $id = (int)$pdo->lastInsertId();
+                $insertSheet = $pdo->prepare('INSERT INTO pedido_paginas(id_pedido,numero_pagina,valor_pagina,valor_centavos,observacao) VALUES(?,?,?,?,?)');
+                $insertItem = $pdo->prepare('INSERT INTO pedido_produtos(id_pedido,numero_pagina,nome_produto,marca,unidade,quantidade,valor_unitario,valor_total,quantidade_contratada,preco_centavos,total_centavos) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+                foreach ($validated as $index => [$note,$products]) {
+                    $number = $index+1;
+                    $sheetTotal = array_sum(array_column($products,5));
+                    $insertSheet->execute([$id,$number,$sheetTotal/100,$sheetTotal,$note]);
+                    foreach ($products as [$name,$brand,$unit,$quantity,$price,$total]) {
+                        $insertItem->execute([$id,$number,$name,$brand,$unit,$quantity,$price/100,$total/100,$quantity,$price,$total]);
+                    }
                 }
-            }
-            $this->audit($pdo,'created','contrato',$id,$actor);
-            return $id;
+                $this->audit($pdo,'created','contrato',$id,$actor);
+                return $id;
+            });
+            if ($result === false) { throw new LogicException('Resultado de contrato inválido.'); }
+            return $result;
         });
     }
 

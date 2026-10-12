@@ -22,6 +22,9 @@
 *.certidao-notify.lock
 /database/backups/
 *.backup
+*.gse
+*.rotation.lock
+*-keys.json
 *.bak
 *.old
 /.local-qa/

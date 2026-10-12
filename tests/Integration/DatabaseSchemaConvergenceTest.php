@@ -52,8 +52,8 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->initialize($pdo, $path);
 
-        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
-        $this->assertSame(16, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
         $this->assertSame(1, $this->columnNotNull($pdo, 'turmas', 'nome_normalizado'));
         $this->assertSame(1, $this->columnNotNull($pdo, 'alunos', 'nome_normalizado'));
         $this->assertSame($beforeData, $this->preservedModuleData($pdo));
@@ -75,7 +75,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->assertSame($signature, $this->moduleSchemaSignature($pdo));
         $this->assertSame($data, $this->preservedModuleData($pdo));
-        $this->assertSame(16, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
         $this->assertCount(1, $this->backups());
     }
 
@@ -108,7 +108,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->initialize($pdo, $path);
 
-        $this->assertSame(16, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame('turma á', $pdo->query('SELECT nome_normalizado FROM turmas WHERE id = 10')->fetchColumn());
         $this->assertSame('aluno áureo', $pdo->query('SELECT nome_normalizado FROM alunos WHERE id = 101')->fetchColumn());
         $this->assertSame([101 => 10], $this->relationships($pdo, 'alunos', 'id_turma'));
@@ -244,7 +244,8 @@ final class DatabaseSchemaConvergenceTest extends TestCase
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn());
         $this->assertCount(1, $this->backups());
-        $backup = $this->connection($this->backups()[0]);
+        \ProtectedBackup::decrypt($this->backups()[0], $this->root . '/restored.sqlite');
+        $backup = $this->connection($this->root . '/restored.sqlite');
         $this->assertSame('ok', $backup->query('PRAGMA integrity_check')->fetchColumn());
     }
 
@@ -369,7 +370,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
     {
         $_ENV['DB_PATH'] = $path;
         putenv('DB_PATH=' . $path);
-        DatabaseInitializer::initialize($pdo);
+        DatabaseInitializer::initialize($pdo, true);
     }
 
     private function connection(string $path): PDO
@@ -392,7 +393,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
     /** @return list<string> */
     private function backups(): array
     {
-        $items = glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite');
+        $items = glob($this->root . DIRECTORY_SEPARATOR . 'backups' . DIRECTORY_SEPARATOR . '*.sqlite.gse');
 
         return $items === false ? [] : array_values($items);
     }

@@ -9,12 +9,14 @@ use RuntimeException;
 use Throwable;
 
 require_once __DIR__ . '/TextNormalizer.php';
+require_once __DIR__ . '/DataProtection.php';
+require_once __DIR__ . '/ProtectedBackup.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 16;
+    private const LATEST_VERSION = 17;
 
-    public static function initialize(PDO $pdo): void
+    public static function initialize(PDO $pdo, bool $allowSecurityMigration = false): void
     {
         $schemaPath = (defined('ROOT_PATH') ? ROOT_PATH : dirname(__DIR__, 2)) . '/database/schema.sql';
 
@@ -28,7 +30,13 @@ final class DatabaseInitializer
             throw new RuntimeException('Nao foi possivel ler o schema do banco.');
         }
 
+        \DataProtection::keyring();
+        \DataProtection::register($pdo);
         $applied = self::appliedVersions($pdo);
+        if (!in_array(17, $applied, true) && self::tableExists($pdo, 'usuarios')
+            && (int) $pdo->query('SELECT COUNT(*) FROM usuarios')->fetchColumn() > 0 && !$allowSecurityMigration) {
+            throw new RuntimeException('A migração de proteção exige execução CLI explícita em manutenção.');
+        }
 
         if (count($applied) === self::LATEST_VERSION
             && min($applied) === 1
@@ -49,6 +57,7 @@ final class DatabaseInitializer
                 self::runMigration($pdo, $version, $schema);
             }
 
+            $pdo->exec('PRAGMA user_version = ' . self::LATEST_VERSION);
             Database::protectFiles();
         } catch (Throwable $exception) {
             if ($backupPath !== null && class_exists('\TechnicalLogger', false)) {
@@ -127,8 +136,48 @@ final class DatabaseInitializer
             14 => self::migrateCertificateConcurrency($pdo),
             15 => self::migrateContractsAndStock($pdo),
             16 => self::migratePassiveLocationCompleteness($pdo),
+            17 => self::migrateDataProtection($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
+    }
+
+    private static function migrateDataProtection(PDO $pdo): void
+    {
+        // Re-key existing opaque counters without resetting their abuse budgets.
+        $rekey = $pdo->prepare('UPDATE login_attempts SET key_hash=? WHERE key_type=? AND key_hash=?');
+        foreach ($pdo->query('SELECT key_type,key_hash FROM login_attempts')->fetchAll() as $attempt) {
+            $rekey->execute([hash_hmac('sha256', 'login-' . $attempt['key_type'] . ':' . $attempt['key_hash'],
+                \DataProtection::keyring()['index']), $attempt['key_type'], $attempt['key_hash']]);
+        }
+        self::addColumnIfMissing($pdo, 'usuarios', 'email_lookup', 'TEXT');
+        $seen = [];
+        $update = $pdo->prepare('UPDATE usuarios SET nome = ?, email = ?, email_lookup = ? WHERE id = ?');
+        foreach ($pdo->query('SELECT id, nome, email FROM usuarios')->fetchAll() as $row) {
+            $id = (int) $row['id'];
+            $name = (string) $row['nome'];
+            $email = mb_strtolower(trim((string) $row['email']), 'UTF-8');
+            if (!mb_check_encoding($name, 'UTF-8') || $name === '' || mb_strlen($name) > 150
+                || filter_var($email, FILTER_VALIDATE_EMAIL) === false || strlen($email) > 254) {
+                throw new RuntimeException('Dados pessoais inválidos impedem a migração.');
+            }
+            $lookup = \DataProtection::emailIndex($email);
+            if (isset($seen[$lookup])) { throw new RuntimeException('Colisão de e-mail normalizado impede a migração.'); }
+            $seen[$lookup] = true;
+            $update->execute([\DataProtection::encrypt($name, 'usuarios.nome', $id),
+                \DataProtection::encrypt($email, 'usuarios.email', $id), $lookup, $id]);
+        }
+        $pdo->exec('CREATE UNIQUE INDEX idx_usuarios_email_lookup ON usuarios(email_lookup)');
+        foreach (['INSERT', 'UPDATE OF nome, email, email_lookup'] as $index => $operation) {
+            $pdo->exec("CREATE TRIGGER trg_protected_identity_{$index} BEFORE {$operation} ON usuarios
+                WHEN NEW.email_lookup IS NULL OR length(NEW.email_lookup) <> 64
+                  OR NEW.nome NOT GLOB 'gse1:*' OR NEW.email NOT GLOB 'gse1:*'
+                BEGIN SELECT RAISE(ABORT, 'protected_identity_required'); END");
+        }
+        $pdo->exec('CREATE TABLE action_budgets (bucket TEXT PRIMARY KEY, attempts INTEGER NOT NULL, expires INTEGER NOT NULL)');
+        $pdo->exec('CREATE INDEX idx_action_budget_expiry ON action_budgets(expires)');
+        $pdo->exec('CREATE TABLE request_receipts (user_id INTEGER NOT NULL REFERENCES usuarios(id),
+            operation TEXT NOT NULL, token TEXT NOT NULL, digest TEXT NOT NULL, result_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(user_id, operation, token))');
     }
 
     private static function migratePassiveLocationCompleteness(PDO $pdo): void
@@ -1239,40 +1288,30 @@ final class DatabaseInitializer
     private static function createValidatedBackup(PDO $pdo): ?string
     {
         $databases = $pdo->query('PRAGMA database_list')->fetchAll();
-        $row = array_values(array_filter($databases, static fn (array $item): bool => ($item['name'] ?? '') === 'main'))[0] ?? null;
-        $databasePath = is_array($row) ? (string) ($row['file'] ?? '') : '';
-
-        if ($databasePath === '' || $databasePath === ':memory:' || !is_file($databasePath)) {
-            return null;
-        }
-
+        $rows = array_values(array_filter($databases, static fn (array $row): bool => ($row['name'] ?? '') === 'main'));
+        $databasePath = (string) ($rows[0]['file'] ?? '');
+        if ($databasePath === '' || !is_file($databasePath)) { return null; }
         $directory = dirname($databasePath) . DIRECTORY_SEPARATOR . 'backups';
-
-        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-            throw new RuntimeException('Não foi possível criar o diretório seguro de backup da migração.');
+        if (is_link($directory) || (!is_dir($directory) && !mkdir($directory,0700,true))) {
+            throw new RuntimeException('Destino privado de backup indisponível.');
         }
-
-        $name = pathinfo($databasePath, PATHINFO_FILENAME)
-            . '-pre-migration-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.sqlite';
-        $backupPath = $directory . DIRECTORY_SEPARATOR . $name;
-        $pdo->exec('VACUUM main INTO ' . $pdo->quote($backupPath));
-
-        if (!is_file($backupPath) || filesize($backupPath) === 0) {
-            throw new RuntimeException('O backup preventivo da migração não pode ser validado.');
-        }
-
-        $verification = new PDO('sqlite:' . $backupPath, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-
-        if ($verification->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
-            throw new RuntimeException('O backup preventivo da migração falhou na verificação de integridade.');
-        }
-
-        if (DIRECTORY_SEPARATOR === '/') {
-            @chmod($directory, 0700);
-            @chmod($backupPath, 0600);
-        }
-
-        return $backupPath;
+        chmod($directory,0700);
+        $path = $directory . DIRECTORY_SEPARATOR . pathinfo($databasePath,PATHINFO_FILENAME)
+            . '-pre-migration-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(16)) . '.sqlite';
+        $reservation = fopen($path,'xb');
+        if ($reservation === false) { throw new RuntimeException('Destino do snapshot indisponível.'); }
+        chmod($path,0600); fclose($reservation);
+        $verification = null;
+        try {
+            $pdo->exec('VACUUM main INTO ' . $pdo->quote($path));
+            $verification = new PDO('sqlite:' . $path,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+            if ($verification->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
+                throw new RuntimeException('Snapshot preventivo inválido.');
+            }
+            $verification = null;
+            \ProtectedBackup::encrypt($path,$path . '.gse');
+            return $path . '.gse';
+        } finally { $verification = null; @unlink($path); }
     }
 
     private static function hasApplicationTables(PDO $pdo): bool

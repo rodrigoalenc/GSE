@@ -48,8 +48,8 @@ final class SqliteProtectionTest extends TestCase
         putenv('DB_PATH=' . $database);
         \Model::setConexao(null);
         $pdo = Database::getConnection();
-        DatabaseInitializer::initialize($pdo);
-        $pdo->exec("INSERT INTO usuarios (nome, email, senha, tipo) VALUES ('Teste', 'teste@example.test', 'hash', 'funcionario')");
+        DatabaseInitializer::initialize($pdo, true);
+        \test_insert_user($pdo, ['nome'=>'Teste','email'=>'teste@example.test','senha'=>'hash','tipo'=>'funcionario']);
         Database::protectFiles($database);
 
         clearstatcache(true, $database);

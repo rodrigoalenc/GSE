@@ -34,7 +34,8 @@ final class AlunoController extends Controller
                 $data,
                 (int) $_SESSION['usuario_id'],
                 ['data_vencimento' => $data['data_vencimento'], 'observacao' => $data['observacao']],
-                isset($_POST['confirmar_duplicidade'])
+                isset($_POST['confirmar_duplicidade']),
+                input_string($_POST['_request_token'] ?? '')
             );
 
             if ($studentId !== false) {
@@ -166,8 +167,8 @@ final class AlunoController extends Controller
         }
 
         $data = [
-            'data_vencimento' => mb_substr(trim((string) ($_POST['data_vencimento'] ?? '')), 0, 10, 'UTF-8'),
-            'observacao' => mb_substr(trim((string) ($_POST['observacao'] ?? '')), 0, Dva::OBSERVATION_MAX_LENGTH + 1, 'UTF-8'),
+            'data_vencimento' => mb_substr(trim(input_string($_POST['data_vencimento'] ?? '')), 0, 10, 'UTF-8'),
+            'observacao' => mb_substr(trim(input_string($_POST['observacao'] ?? '')), 0, Dva::OBSERVATION_MAX_LENGTH + 1, 'UTF-8'),
         ];
         $errors = [];
         $current = (new Dva())->atualDoAluno($studentId);
@@ -221,13 +222,13 @@ final class AlunoController extends Controller
     /** @return array<string,string> */
     private function filters(): array
     {
-        $active = (string) ($_GET['ativo'] ?? '1');
+        $active = input_string($_GET['ativo'] ?? '1');
 
         return [
-            'q' => mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100, 'UTF-8'),
-            'turma' => mb_substr(trim((string) ($_GET['turma'] ?? '')), 0, 20, 'UTF-8'),
+            'q' => mb_substr(trim(input_string($_GET['q'] ?? '')), 0, 100, 'UTF-8'),
+            'turma' => mb_substr(trim(input_string($_GET['turma'] ?? '')), 0, 20, 'UTF-8'),
             'ativo' => in_array($active, ['0', '1', 'todos'], true) ? ($active === 'todos' ? '' : $active) : '1',
-            'dva' => in_array((string) ($_GET['dva'] ?? ''), DvaStatus::ALL, true) ? (string) $_GET['dva'] : '',
+            'dva' => in_array(input_string($_GET['dva'] ?? ''), DvaStatus::ALL, true) ? (string) $_GET['dva'] : '',
         ];
     }
 
@@ -235,13 +236,13 @@ final class AlunoController extends Controller
     private function formData(): array
     {
         return [
-            'nome_completo' => mb_substr((string) ($_POST['nome_completo'] ?? ''), 0, Aluno::NAME_MAX_LENGTH + 1, 'UTF-8'),
-            'data_nascimento' => mb_substr(trim((string) ($_POST['data_nascimento'] ?? '')), 0, 10, 'UTF-8'),
-            'id_turma' => mb_substr(trim((string) ($_POST['id_turma'] ?? '')), 0, 20, 'UTF-8'),
-            'telefone_aluno' => mb_substr(trim((string) ($_POST['telefone_aluno'] ?? '')), 0, 30, 'UTF-8'),
-            'telefone_responsavel' => mb_substr(trim((string) ($_POST['telefone_responsavel'] ?? '')), 0, 30, 'UTF-8'),
-            'data_vencimento' => mb_substr(trim((string) ($_POST['data_vencimento'] ?? '')), 0, 10, 'UTF-8'),
-            'observacao' => mb_substr(trim((string) ($_POST['observacao'] ?? '')), 0, Dva::OBSERVATION_MAX_LENGTH + 1, 'UTF-8'),
+            'nome_completo' => mb_substr(input_string($_POST['nome_completo'] ?? ''), 0, Aluno::NAME_MAX_LENGTH + 1, 'UTF-8'),
+            'data_nascimento' => mb_substr(trim(input_string($_POST['data_nascimento'] ?? '')), 0, 10, 'UTF-8'),
+            'id_turma' => mb_substr(trim(input_string($_POST['id_turma'] ?? '')), 0, 20, 'UTF-8'),
+            'telefone_aluno' => mb_substr(trim(input_string($_POST['telefone_aluno'] ?? '')), 0, 30, 'UTF-8'),
+            'telefone_responsavel' => mb_substr(trim(input_string($_POST['telefone_responsavel'] ?? '')), 0, 30, 'UTF-8'),
+            'data_vencimento' => mb_substr(trim(input_string($_POST['data_vencimento'] ?? '')), 0, 10, 'UTF-8'),
+            'observacao' => mb_substr(trim(input_string($_POST['observacao'] ?? '')), 0, Dva::OBSERVATION_MAX_LENGTH + 1, 'UTF-8'),
         ];
     }
 

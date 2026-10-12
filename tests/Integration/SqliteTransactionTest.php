@@ -16,10 +16,7 @@ final class SqliteTransactionTest extends DatabaseTestCase
 
         try {
             SqliteTransaction::immediate($this->pdo, function () use ($original): void {
-                $this->pdo->exec(
-                    "INSERT INTO usuarios (nome, email, senha, tipo, ativo)
-                     VALUES ('Registro parcial', 'parcial@teste.local', 'hash', 'funcionario', 1)"
-                );
+                \test_insert_user($this->pdo, ['nome'=>'Registro parcial','email'=>'parcial@teste.local','senha'=>'hash','tipo'=>'funcionario','ativo'=>1]);
 
                 throw $original;
             });
@@ -30,14 +27,11 @@ final class SqliteTransactionTest extends DatabaseTestCase
 
         $this->assertSame(
             0,
-            (int) $this->pdo->query("SELECT COUNT(*) FROM usuarios WHERE email = 'parcial@teste.local'")->fetchColumn()
+            (int) $this->pdo->query("SELECT COUNT(*) FROM usuarios WHERE email_lookup = '" . \DataProtection::emailIndex('parcial@teste.local') . "'")->fetchColumn()
         );
 
         $result = SqliteTransaction::immediate($this->pdo, function (): string {
-            $this->pdo->exec(
-                "INSERT INTO usuarios (nome, email, senha, tipo, ativo)
-                 VALUES ('Registro valido', 'valido@teste.local', 'hash', 'funcionario', 1)"
-            );
+            \test_insert_user($this->pdo, ['nome'=>'Registro valido','email'=>'valido@teste.local','senha'=>'hash','tipo'=>'funcionario','ativo'=>1]);
 
             return 'ok';
         });
@@ -45,7 +39,7 @@ final class SqliteTransactionTest extends DatabaseTestCase
         $this->assertSame('ok', $result);
         $this->assertSame(
             1,
-            (int) $this->pdo->query("SELECT COUNT(*) FROM usuarios WHERE email = 'valido@teste.local'")->fetchColumn()
+            (int) $this->pdo->query("SELECT COUNT(*) FROM usuarios WHERE email_lookup = '" . \DataProtection::emailIndex('valido@teste.local') . "'")->fetchColumn()
         );
     }
 

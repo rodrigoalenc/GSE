@@ -1,6 +1,8 @@
 <?php
 
 require_once ROOT_PATH . '/src/Core/Model.php';
+require_once ROOT_PATH . '/src/Core/ProtectedBackup.php';
+require_once ROOT_PATH . '/src/Core/ActionBudget.php';
 
 class Sistema extends Model
 {
@@ -88,14 +90,16 @@ class Sistema extends Model
             }
             $snapshot = null;
 
-            return $nome;
+            ProtectedBackup::encrypt($destino, $destino . '.gse');
+            @unlink($destino);
+            return $nome . '.gse';
         } catch (Throwable $e) {
             $snapshot = null;
             $origem = null;
             if ($destino !== null && is_file($destino)) {
                 @unlink($destino);
             }
-            error_log('Erro CRITICO no Model Sistema (criarBackupManual): ' . $e->getMessage());
+            TechnicalLogger::error('backup_snapshot_failed', ['exception' => $e::class]);
             return false;
         }
     }
@@ -109,7 +113,7 @@ class Sistema extends Model
             $pastas = array_unique([$this->pastaBackups(), str_replace('\\', '/', ROOT_PATH) . '/database/backups']);
             foreach ($pastas as $pasta) {
                 if (is_dir($pasta) && !is_link($pasta)) {
-                    $arquivos = array_merge($arquivos, glob($pasta . '/*.db') ?: []);
+                    $arquivos = array_merge($arquivos, glob($pasta . '/*.db.gse') ?: []);
                 }
             }
 
@@ -133,6 +137,7 @@ class Sistema extends Model
     {
         $novo = null;
         $identidade = null;
+        ActionBudget::consume($this->conexaoBackup(), $ator, 'backup');
         try {
             $pdo = $this->conexaoBackup();
             $usuario = $this->administradorAtual($pdo, $ator, $versaoSessao);
@@ -233,9 +238,12 @@ class Sistema extends Model
             $atual = @lstat($path);
             if ($stat === false || $atual === false || !$this->mesmoArquivo($stat, $atual)
                 || $this->resolverBackup($nome, $this->pastasBackupsPrivadas()) !== $path
-                || fread($handle, 16) !== "SQLite format 3\0" || !rewind($handle)) {
+                || !rewind($handle)) {
                 throw new DomainException('Backup indisponivel.');
             }
+            try { ProtectedBackup::read($handle, null); }
+            catch (RuntimeException) { throw new DomainException('Backup indisponivel.'); }
+            rewind($handle);
             \src\Core\SqliteTransaction::immediate($pdo, function (PDO $pdo) use ($ator, $versaoSessao, $nome): void {
                 $this->administradorAtual($pdo, $ator, $versaoSessao);
                 AuditLogger::recordRequired($pdo, 'backup.downloaded', AuditLogger::SUCCESS, $ator, null,
@@ -276,7 +284,7 @@ class Sistema extends Model
     private function nomeBackupValido(string $nome): bool
     {
         // Legacy manual snapshots used the same timestamp without the random suffix.
-        return preg_match('/\Aescola_backup_MANUAL_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(?:_[a-f0-9]{32})?\.db\z/D', $nome) === 1;
+        return preg_match('/\Aescola_backup_MANUAL_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(?:_[a-f0-9]{32})?\.db\.gse\z/D', $nome) === 1;
     }
 
     /** @return list<string> */

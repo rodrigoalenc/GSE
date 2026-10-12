@@ -5,7 +5,7 @@ declare(strict_types=1);
 // Included by http-smoke.php: fixtures and writes use only its temporary database.
 $batchDb = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 $batchDb->exec('PRAGMA foreign_keys=ON');
-$batchActor = (int) $batchDb->query("SELECT id FROM usuarios WHERE email='admin@example.test'")->fetchColumn();
+$batchActor = (int) $batchDb->query("SELECT id FROM usuarios WHERE email_lookup='" . DataProtection::emailIndex('admin@example.test') . "'")->fetchColumn();
 $batchInsertStudent = static function (string $name, bool $active = true) use ($batchDb, $batchActor): int {
     $batchDb->prepare('INSERT INTO alunos(nome_completo,nome_normalizado,data_nascimento,ativo) VALUES(?,?,?,?)')
         ->execute([$name, strtolower($name), '2010-05-10', $active ? 1 : 0]);

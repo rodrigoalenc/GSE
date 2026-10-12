@@ -27,7 +27,7 @@ final class PassivoController extends Controller
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $model = new Passivo();
-            $id = $model->cadastrar($data, $this->actorId());
+            $id = $model->cadastrar($data, $this->actorId(), input_string($_POST['_request_token'] ?? ''));
 
             if ($id !== false) {
                 $this->redirectWithFlash('passivo/detalhes/' . $id, 'success', 'Registro adicionado ao Arquivo Passivo.');
@@ -151,7 +151,7 @@ final class PassivoController extends Controller
 
     public function importar(): void
     {
-        $token = (string) ($_GET['preview'] ?? '');
+        $token = input_string($_GET['preview'] ?? '');
         $summaries = $_SESSION['passivo_import_summaries'] ?? [];
         $preview = preg_match('/^[a-f0-9]{64}$/', $token) === 1 && is_array($summaries)
             && isset($summaries[$token]) && is_array($summaries[$token])
@@ -198,7 +198,7 @@ final class PassivoController extends Controller
 
     public function confirmImport(): void
     {
-        $token = (string) ($_POST['preview_token'] ?? '');
+        $token = input_string($_POST['preview_token'] ?? '');
         $service = new PassivoCsvService();
         $count = $service->confirm($token, $this->actorId(), new Passivo());
         unset($_SESSION['passivo_import_summaries'][$token]);
@@ -216,7 +216,7 @@ final class PassivoController extends Controller
 
     public function ferramentas(): void
     {
-        $token = (string) ($_GET['preview'] ?? '');
+        $token = input_string($_GET['preview'] ?? '');
         $previews = $_SESSION['passivo_enumeration_previews'] ?? [];
         $preview = preg_match('/^[a-f0-9]{64}$/', $token) === 1 && is_array($previews)
             && isset($previews[$token]) && is_array($previews[$token])
@@ -240,7 +240,7 @@ final class PassivoController extends Controller
     public function previewEnumeration(): void
     {
         $model = new Passivo();
-        $preview = $model->previewEnumeracao((string) ($_POST['caixa'] ?? ''));
+        $preview = $model->previewEnumeracao(input_string($_POST['caixa'] ?? ''));
 
         if ($preview === false) {
             AuditLogger::record(
@@ -266,7 +266,7 @@ final class PassivoController extends Controller
 
     public function confirmEnumeration(): void
     {
-        $token = (string) ($_POST['preview_token'] ?? '');
+        $token = input_string($_POST['preview_token'] ?? '');
         $previews = $_SESSION['passivo_enumeration_previews'] ?? [];
         $preview = preg_match('/^[a-f0-9]{64}$/', $token) === 1 && is_array($previews)
             && isset($previews[$token]) && is_array($previews[$token])
@@ -298,7 +298,7 @@ final class PassivoController extends Controller
 
     public function exportar(): never
     {
-        $box = (string) ($_POST['caixa'] ?? '');
+        $box = input_string($_POST['caixa'] ?? '');
         $model = new Passivo();
         $rows = $model->listarParaTxt($box);
 
@@ -338,8 +338,8 @@ final class PassivoController extends Controller
 
         $state = $this->consumeFormState('archive_' . $studentId);
         $defaultData = [
-            'caixa' => mb_substr((string) ($_POST['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH + 1, 'UTF-8'),
-            'numero' => mb_substr((string) ($_POST['numero'] ?? ''), 0, Passivo::NUMBER_MAX_LENGTH + 1, 'UTF-8'),
+            'caixa' => mb_substr(input_string($_POST['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH + 1, 'UTF-8'),
+            'numero' => mb_substr(input_string($_POST['numero'] ?? ''), 0, Passivo::NUMBER_MAX_LENGTH + 1, 'UTF-8'),
         ];
         $data = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
             ? $defaultData : (is_array($state['data'] ?? null) ? $state['data'] : $defaultData);
@@ -502,15 +502,15 @@ final class PassivoController extends Controller
 
     private function renderIndex(?string $forcedActive): void
     {
-        $active = $forcedActive ?? (string) ($_GET['ativo'] ?? '1');
+        $active = $forcedActive ?? input_string($_GET['ativo'] ?? '1');
         $filters = [
-            'q' => mb_substr((string) ($_GET['q'] ?? ''), 0, Passivo::SEARCH_MAX_LENGTH, 'UTF-8'),
-            'caixa' => mb_substr((string) ($_GET['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH, 'UTF-8'),
-            'localizacao' => in_array((string) ($_GET['localizacao'] ?? ''), ['completa', 'pendente'], true)
+            'q' => mb_substr(input_string($_GET['q'] ?? ''), 0, Passivo::SEARCH_MAX_LENGTH, 'UTF-8'),
+            'caixa' => mb_substr(input_string($_GET['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH, 'UTF-8'),
+            'localizacao' => in_array(input_string($_GET['localizacao'] ?? ''), ['completa', 'pendente'], true)
                 ? (string) $_GET['localizacao'] : '',
             'ativo' => in_array($active, ['0', '1', 'todos'], true) ? ($active === 'todos' ? '' : $active) : '1',
-            'ordem' => in_array((string) ($_GET['ordem'] ?? 'nome'), ['nome', 'numero', 'caixa', 'recente'], true)
-                ? (string) ($_GET['ordem'] ?? 'nome') : 'nome',
+            'ordem' => in_array(input_string($_GET['ordem'] ?? 'nome'), ['nome', 'numero', 'caixa', 'recente'], true)
+                ? input_string($_GET['ordem'] ?? 'nome') : 'nome',
         ];
         $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1;
         $model = new Passivo();
@@ -537,10 +537,10 @@ final class PassivoController extends Controller
     private function formData(): array
     {
         return [
-            'nome_completo' => mb_substr((string) ($_POST['nome_completo'] ?? ''), 0, Passivo::NAME_MAX_LENGTH + 1, 'UTF-8'),
-            'data_nascimento' => mb_substr(trim((string) ($_POST['data_nascimento'] ?? '')), 0, 10, 'UTF-8'),
-            'numero' => mb_substr((string) ($_POST['numero'] ?? ''), 0, Passivo::NUMBER_MAX_LENGTH + 1, 'UTF-8'),
-            'caixa' => mb_substr((string) ($_POST['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH + 1, 'UTF-8'),
+            'nome_completo' => mb_substr(input_string($_POST['nome_completo'] ?? ''), 0, Passivo::NAME_MAX_LENGTH + 1, 'UTF-8'),
+            'data_nascimento' => mb_substr(trim(input_string($_POST['data_nascimento'] ?? '')), 0, 10, 'UTF-8'),
+            'numero' => mb_substr(input_string($_POST['numero'] ?? ''), 0, Passivo::NUMBER_MAX_LENGTH + 1, 'UTF-8'),
+            'caixa' => mb_substr(input_string($_POST['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH + 1, 'UTF-8'),
         ];
     }
 
