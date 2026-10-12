@@ -227,7 +227,7 @@ class Usuario extends Model
             return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $senhaAtual, $novaSenha): bool {
                 $usuario = $this->buscarPorId($id);
 
-                if (!$usuario || !password_verify($senhaAtual, (string) ($usuario['senha'] ?? ''))) {
+                if (!$usuario || !PasswordPolicy::verify($senhaAtual, (string) ($usuario['senha'] ?? ''))) {
                     $this->lastErrorCode = 'current_password_invalid';
 
                     return false;
@@ -239,7 +239,7 @@ class Usuario extends Model
                     return false;
                 }
 
-                if (password_verify($novaSenha, (string) $usuario['senha'])) {
+                if (PasswordPolicy::verify($novaSenha, (string) $usuario['senha'])) {
                     $this->lastErrorCode = 'password_reused';
 
                     return false;
@@ -294,7 +294,7 @@ class Usuario extends Model
                     $this->lastErrorCode = 'session_invalid';
                     return false;
                 }
-                if (!password_verify($senhaAtual, (string) $usuario['senha'])) {
+                if (!PasswordPolicy::verify($senhaAtual, (string) $usuario['senha'])) {
                     $this->lastErrorCode = 'current_password_invalid';
                     return false;
                 }
@@ -410,7 +410,7 @@ class Usuario extends Model
     public function atualizarSenhaHash(int $id, string $hash, ?string $expectedHash = null): bool
     {
         $this->lastErrorCode = null;
-        if (!str_starts_with($hash, '$')) {
+        if (password_get_info($hash)['algoName'] !== 'argon2id') {
             $this->lastErrorCode = 'invalid_data';
             return false;
         }

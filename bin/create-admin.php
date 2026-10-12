@@ -49,6 +49,9 @@ if ($password === '') {
 
 try {
     TechnicalLogger::configure();
+    if (!PasswordPolicy::argon2idAvailable()) {
+        throw new RuntimeException('O PHP CLI precisa oferecer Argon2id em password_algos() para criar senhas.');
+    }
     $pdo = Database::getConnection();
     DatabaseInitializer::initialize($pdo);
     Model::setConexao($pdo);
@@ -59,7 +62,7 @@ try {
     if ($created === false) {
         throw new RuntimeException($users->lastErrorCode() === 'active_admin_exists'
             ? 'Já existe um administrador ativo. Cadastre novos administradores pela interface.'
-            : 'Não foi possível criar o administrador. Verifique nome, e-mail, política de senha e auditoria.');
+            : 'Não foi possível criar o administrador. Verifique nome, e-mail, política de senha, suporte e recursos para Argon2id no PHP e auditoria.');
     }
 
     echo "Administrador criado com sucesso para {$email}.\n";

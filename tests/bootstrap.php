@@ -54,6 +54,7 @@ require_once ROOT_PATH . '/src/Model/Passivo.php';
 require_once ROOT_PATH . '/src/Model/Relatorio.php';
 require_once ROOT_PATH . '/src/Model/Sistema.php';
 require_once ROOT_PATH . '/tests/Support/DatabaseTestCase.php';
+require_once ROOT_PATH . '/tests/Support/PasswordRuntime.php';
 
 $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 

@@ -138,7 +138,7 @@ class Sistema extends Model
             $usuario = $this->administradorAtual($pdo, $ator, $versaoSessao);
             if ($senhaAtual === '' || preg_match('//u', $senhaAtual) !== 1 || str_contains($senhaAtual, "\0")
                 || mb_strlen($senhaAtual, 'UTF-8') > PasswordPolicy::MAX_LENGTH
-                || !password_verify($senhaAtual, (string) $usuario['senha'])) {
+                || !PasswordPolicy::verify($senhaAtual, (string) $usuario['senha'])) {
                 throw new DomainException('Confirmacao de acesso invalida.');
             }
             $hashVerificado = (string) $usuario['senha'];

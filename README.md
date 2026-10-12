@@ -31,7 +31,7 @@ Componentes principais:
 - `RequestContext` obtém host, HTTPS e IP sem confiar em headers de proxy por padrão;
 - `SessionManager` aplica timeout ocioso/absoluto e renovação do identificador;
 - `LoginThrottle` limita falhas por conta normalizada e IP;
-- `PasswordPolicy` valida frases-senha Unicode e usa Argon2id quando disponível;
+- `PasswordPolicy` valida frases-senha Unicode e exige Argon2id para novos hashes;
 - `TextNormalizer` gera nomes de exibição em NFC e chaves de comparação Unicode reutilizadas por alunos, turmas e migrações;
 - `AuditLogger` registra eventos de segurança em tabela separada do log técnico;
 - `DatabaseInitializer` aplica migrações versionadas, idempotentes e com backup preventivo;
@@ -55,7 +55,7 @@ Para desenvolver, instale dependências com `composer install`, habilite `intl`,
 
 ## Requisitos
 
-- PHP 8.3 ou superior;
+- PHP 8.3 ou superior, com `argon2id` registrado em `password_algos()` tanto na CLI quanto no PHP-FPM;
 - Composer 2;
 - extensões `pdo`, `pdo_sqlite`, `intl`, `fileinfo`, `mbstring`, `session`, `filter` e `hash`, além das exigidas pelas dependências do Composer;
 - extensão `curl` apenas para o teste HTTP automatizado.
@@ -127,11 +127,19 @@ Alertas de DVA são opt-in. O primeiro administrador inicia sem alertas; para um
 - espaços e frases-senha são permitidos;
 - não há exigência artificial de símbolo, maiúscula ou dígito;
 - senhas vazias, comuns ou muito semelhantes ao nome/e-mail são recusadas;
-- senhas nunca são truncadas;
-- hash preferencial Argon2id, com fallback para `PASSWORD_DEFAULT`;
+- senhas não são truncadas, normalizadas nem aparadas; UTF-8 inválido e bytes nulos são recusados;
+- novos hashes exigem Argon2id, com os custos nativos do PHP e sem fallback; indisponibilidade ou falha impede cadastro/reset/troca sem alteração parcial ou revogação de sessões;
 - login usa `password_verify()` e rehash transparente com `password_needs_rehash()`.
 
 O login apresenta sempre a mesma mensagem para conta inexistente, inativa, senha errada ou bloqueio interno.
+
+Hashes bcrypt legados continuam verificáveis com entradas de até 72 **bytes**, mesmo que a política mínima antiga fosse diferente. Entradas maiores são ambíguas e recebem a falha genérica, com limitação de tentativas e sem autenticação ou rehash. A mesma restrição vale para confirmação da senha atual. Senhas Argon2id acima de 72 bytes continuam verificadas integralmente, dentro dos 128 caracteres.
+
+Após login válido e integralmente verificável, hashes legados podem migrar para Argon2id, sem sobrescrever um reset concorrente. Se Argon2id estiver indisponível ou o rehash falhar, o hash anterior é preservado e o login válido continua; nunca há downgrade. O bcrypt fictício de comparação temporal não é usado para criar senhas.
+
+O hash bcrypt não revela o tamanho da senha original: não é possível identificar contas afetadas apenas pelo hash. Para uma conta cujo login seja recusado por senha longa, um administrador autorizado deve confirmar a identidade pelo procedimento institucional e redefinir uma senha temporária em **Usuários**, com auditoria e troca obrigatória. Não tente recuperar acesso truncando a senha. Se a conta afetada for o único administrador ativo, use o procedimento operacional supervisionado de recuperação de acesso; a CLI inicial recusa criar outro administrador enquanto houver um ativo. Não altere hashes diretamente nem desative essa proteção. Não há endpoint público de recuperação.
+
+Confira o suporte com `php -r "var_export(password_algos());"` e valide também o runtime web. A CLI de criação inicial encerra com código diferente de zero quando não pode gerar Argon2id e informa o requisito do ambiente.
 
 ## Rate limiting
 
