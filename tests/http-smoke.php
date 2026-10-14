@@ -881,12 +881,59 @@ try {
     $audit = request('GET', $baseUrl . '/auditoria', $cookieAdmin);
     checkHttp(
         $audit['status'] === 200
-        && str_contains($audit['body'], 'login.success')
-        && str_contains($audit['body'], 'student.created')
-        && str_contains($audit['body'], 'passive.created')
-        && str_contains($audit['body'], 'passive.import_completed'),
-        'Auditoria administrativa inclui recursos do Módulo 2'
+        && str_contains($audit['body'], '<th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th>')
+        && str_contains($audit['body'], 'Login')
+        && str_contains($audit['body'], 'Cadastrar Aluno')
+        && str_contains($audit['body'], 'Passivo - Cadastrar')
+        && str_contains($audit['body'], 'Passivo - Importar CSV'),
+        'Auditoria administrativa apresenta ações de todos os módulos em quatro colunas'
     );
+    checkHttp(
+        str_contains($audit['body'], 'Digite usuário, ação ou detalhe...')
+        && str_contains($audit['body'], 'assets/js/auditoria.js')
+        && str_contains($audit['body'], 'Administrador HTTP')
+        && str_contains($audit['body'], 'Novo aluno:')
+        && str_contains($audit['body'], 'Limpar Antigos (&gt; 1 ano)')
+        && !str_contains($audit['body'], 'student.created')
+        && !str_contains($audit['body'], 'Ver detalhes técnicos'),
+        'Auditoria exibe pesquisa única, ações legíveis e detalhes do cadastro'
+    );
+    checkHttp(request('GET', $baseUrl . '/auditoria', $cookieEmployee)['status'] === 403
+        && request('GET', $baseUrl . '/auditoria', $cookieGuest)['status'] === 302,
+        'Auditoria com nomes de usuários permanece restrita ao administrador');
+
+    $auditDb = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $auditDb->exec("INSERT INTO security_audit(occurred_at,action,result,request_id,description) VALUES
+        (datetime('now','-400 days'),'test.old_audit','success','old-http-audit','Registro antigo fictício.'),
+        (date('now','-365 days') || ' 00:00:00','test.boundary_audit','success','boundary-http-audit','Registro limítrofe fictício.')");
+    $oldAuditCount = static fn (): int => (int) $auditDb->query("SELECT COUNT(*) FROM security_audit WHERE action='test.old_audit'")->fetchColumn();
+    $auditGet = request('GET', $baseUrl . '/auditoria?acao=limpar', $cookieAdmin);
+    checkHttp($auditGet['status'] === 200 && $oldAuditCount() === 1, 'Consultar logs não executa limpeza');
+    checkHttp(request('POST', $baseUrl . '/auditoria', $cookieEmployee, ['acao' => 'limpar'])['status'] === 403
+        && request('POST', $baseUrl . '/auditoria', $cookieGuest, ['acao' => 'limpar'])['status'] === 302
+        && $oldAuditCount() === 1, 'Limpeza de logs exige administrador autenticado');
+    checkHttp(request('POST', $baseUrl . '/auditoria', $cookieAdmin, ['acao' => 'limpar', '_csrf_token' => 'invalid'])['status'] === 419
+        && $oldAuditCount() === 1, 'CSRF inválido preserva os logs antigos');
+    checkHttp(request('POST', $baseUrl . '/auditoria', $cookieAdmin, ['acao' => 'invalida', '_csrf_token' => csrf($auditGet['body'])])['status'] === 400
+        && $oldAuditCount() === 1, 'Ação inválida não limpa logs');
+    $auditDb->exec("CREATE TRIGGER fail_http_audit_cleanup BEFORE INSERT ON security_audit WHEN NEW.action='audit.cleaned' BEGIN SELECT RAISE(ABORT,'forced'); END");
+    try {
+        $failedCleanup = request('POST', $baseUrl . '/auditoria', $cookieAdmin, ['acao' => 'limpar', '_csrf_token' => csrf($auditGet['body'])]);
+        $cleanupPage = request('GET', $baseUrl . '/auditoria', $cookieAdmin);
+        checkHttp($failedCleanup['status'] === 302 && $oldAuditCount() === 1
+            && str_contains($cleanupPage['body'], 'Não foi possível limpar os logs')
+            && !preg_match('/forced|PDOException|SQLSTATE/', $cleanupPage['body']), 'Falha na auditoria desfaz limpeza e retorna mensagem genérica');
+    } finally {
+        $auditDb->exec('DROP TRIGGER fail_http_audit_cleanup');
+    }
+    $cleanup = request('POST', $baseUrl . '/auditoria', $cookieAdmin, ['acao' => 'limpar', '_csrf_token' => csrf($cleanupPage['body'])]);
+    checkHttp($cleanup['status'] === 302 && str_ends_with($cleanup['headers']['location'] ?? '', '/auditoria')
+        && $oldAuditCount() === 0
+        && (int) $auditDb->query("SELECT COUNT(*) FROM security_audit WHERE action='test.boundary_audit'")->fetchColumn() === 1
+        && (int) $auditDb->query("SELECT COUNT(*) FROM security_audit WHERE action='audit.cleaned' AND actor_user_id=1 AND result='success'")->fetchColumn() === 1,
+        'Administrador limpa somente logs antigos e registra a própria operação');
+    unset($oldAuditCount);
+    $auditDb = null;
     require __DIR__ . '/http-contract-drafts.php';
     require __DIR__ . '/http-certidoes.php';
     require __DIR__ . '/http-passivo-batch.php';

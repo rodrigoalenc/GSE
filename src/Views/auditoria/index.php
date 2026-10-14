@@ -1,99 +1,42 @@
-<?php
-$queryBase = array_filter($filters, static fn (string $value): bool => $value !== '');
-?>
 <div class="audit-info-box" role="note">
     <strong>ℹ️ Informação:</strong>
-    <span>Consulte os eventos de segurança registrados no sistema. Use os filtros para localizar ações, resultados, recursos e períodos.</span>
+    <span>Aqui você vê as últimas 500 ações realizadas no sistema. Use a pesquisa para filtrar.</span>
 </div>
 
-<section class="relatorio audit-report">
-    <div class="audit-toolbar">
-        <form class="audit-filters" method="get" action="<?= e(url('auditoria')) ?>">
-        <div>
-            <label for="action">Ação</label>
-            <input id="action" name="action" value="<?= e($filters['action']) ?>" maxlength="80" placeholder="Ex.: student.created">
+<section class="relatorio audit-log-panel">
+    <div class="toolbar-logs">
+        <div class="search-group">
+            <label for="filtroPainel">Pesquisar nos Logs:</label>
+            <input type="search" id="filtroPainel" placeholder="Digite usuário, ação ou detalhe..." class="sistema" aria-controls="corpoLogs">
         </div>
-        <div>
-            <label for="result">Resultado</label>
-            <select id="result" name="result">
-                <option value="">Todos</option>
-                <option value="success" <?= $filters['result'] === 'success' ? 'selected' : '' ?>>Sucesso</option>
-                <option value="failure" <?= $filters['result'] === 'failure' ? 'selected' : '' ?>>Falha</option>
-                <option value="blocked" <?= $filters['result'] === 'blocked' ? 'selected' : '' ?>>Bloqueado</option>
-            </select>
-        </div>
-        <div>
-            <label for="resource_type">Tipo de recurso</label>
-            <select id="resource_type" name="resource_type">
-                <option value="">Todos</option>
-                <?php foreach (['certidao'=>'Certidão','fornecedor'=>'Fornecedor','tipo'=>'Tipo de certidão'] as $key=>$label): ?>
-                    <option value="<?= e($key) ?>" <?= $filters['resource_type'] === $key ? 'selected' : '' ?>><?= e($label) ?></option>
-                <?php endforeach; ?>
-                <option value="student" <?= $filters['resource_type'] === 'student' ? 'selected' : '' ?>>Aluno</option>
-                <option value="dva" <?= $filters['resource_type'] === 'dva' ? 'selected' : '' ?>>DVA</option>
-                <option value="class" <?= $filters['resource_type'] === 'class' ? 'selected' : '' ?>>Turma</option>
-                <option value="user" <?= $filters['resource_type'] === 'user' ? 'selected' : '' ?>>Usuário</option>
-                <option value="backup" <?= $filters['resource_type'] === 'backup' ? 'selected' : '' ?>>Backup</option>
-            </select>
-        </div>
-        <div>
-            <label for="from">De</label>
-            <input type="date" id="from" name="from" value="<?= e($filters['from']) ?>">
-        </div>
-        <div>
-            <label for="to">Até</label>
-            <input type="date" id="to" name="to" value="<?= e($filters['to']) ?>">
-        </div>
-        <div class="audit-actions">
-            <button class="btn-primary" type="submit">Filtrar</button>
-            <a class="btn-secondary" href="<?= e(url('auditoria')) ?>">Limpar</a>
-        </div>
+        <form method="post" action="<?= e(url('auditoria')) ?>" data-confirm-status="<?= e($retentionDays === 365 ? 'Tem certeza que deseja apagar permanentemente os logs com mais de 1 ano?' : 'Tem certeza que deseja apagar permanentemente os logs com mais de ' . $retentionDays . ' dias?') ?>">
+            <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="acao" value="limpar">
+            <button type="submit" class="btn-secondary">🧹 Limpar Antigos (<?= e($retentionDays === 365 ? '> 1 ano' : '> ' . $retentionDays . ' dias') ?>)</button>
         </form>
     </div>
-    <p class="audit-results-meta"><?= e((string) $result['total']) ?> registro(s) · Horários em UTC.</p>
+
     <div class="table-scroll">
-        <table class="tabela-filtrada audit-table">
+        <table class="tabela-filtrada tabela-logs">
             <thead>
-            <tr>
-                <th>Data/hora UTC</th>
-                <th>Ação</th>
-                <th>Resultado</th>
-                <th>Responsável</th>
-                <th>Usuário afetado</th>
-                <th>Recurso</th>
-                <th>IP</th>
-                <th>Requisição</th>
-                <th>Descrição</th>
-            </tr>
+                <tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr>
             </thead>
-            <tbody>
-            <?php if ($result['items'] === []): ?>
-                <tr><td colspan="9" class="empty-state">Nenhum evento encontrado.</td></tr>
-            <?php else: ?>
-                <?php foreach ($result['items'] as $item): ?>
-                    <tr>
-                        <td><?= e((string) $item['occurred_at']) ?></td>
-                        <td><code><?= e((string) $item['action']) ?></code></td>
-                        <td><span class="badge-status badge-audit-<?= e((string) $item['result']) ?>"><?= e((string) $item['result']) ?></span></td>
-                        <td><?= e($item['actor_user_id'] === null ? '—' : '#' . (string) $item['actor_user_id']) ?></td>
-                        <td><?= e($item['target_user_id'] === null ? '—' : '#' . (string) $item['target_user_id']) ?></td>
-                        <td><?= e($item['resource_type'] === null ? '—' : (string) $item['resource_type'] . ' #' . (string) $item['resource_id']) ?></td>
-                        <td><?= e((string) ($item['ip_address'] ?? '—')) ?></td>
-                        <td><code><?= e(mb_substr((string) $item['request_id'], 0, 12)) ?>…</code></td>
-                        <td><?= e((string) $item['description']) ?></td>
+            <tbody id="corpoLogs">
+                <?php if ($logs === []): ?>
+                    <tr><td colspan="4" class="empty-state">Nenhum registro de log encontrado.</td></tr>
+                <?php endif; ?>
+                <?php foreach ($logs as $log): ?>
+                    <?php $entry = AuditPresentation::logEntry($log); ?>
+                    <tr class="item-filtrado">
+                        <td class="col-data"><?= e($entry['date']) ?></td>
+                        <td class="col-user filtro-user" title="Nome consultado no cadastro atual."><?= e($entry['user']) ?></td>
+                        <td class="col-acao filtro-acao <?= e($entry['action_class']) ?>"><?= e($entry['action']) ?></td>
+                        <td class="col-detalhe filtro-detalhe" title="Identificação dos registros conforme o cadastro atual."><?= e($entry['details']) ?></td>
                     </tr>
                 <?php endforeach; ?>
-            <?php endif; ?>
+                <tr id="logs-sem-resultados" hidden><td colspan="4" class="empty-state">Nenhum registro de log encontrado.</td></tr>
             </tbody>
         </table>
     </div>
-
-    <?php if ($result['pages'] > 1): ?>
-        <nav class="pagination" aria-label="Paginação da auditoria">
-            <?php for ($page = 1; $page <= $result['pages']; $page++): ?>
-                <?php $pageUrl = url('auditoria?' . http_build_query(array_merge($queryBase, ['page' => $page]))); ?>
-                <a class="<?= $page === $result['page'] ? 'active' : '' ?>" href="<?= e($pageUrl) ?>" <?= $page === $result['page'] ? 'aria-current="page"' : '' ?>><?= e((string) $page) ?></a>
-            <?php endfor; ?>
-        </nav>
-    <?php endif; ?>
 </section>
+<script src="<?= e(url('assets/js/auditoria.js')) ?>" defer></script>

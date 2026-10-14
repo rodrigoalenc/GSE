@@ -63,6 +63,7 @@ final class Router
             $this->route('GET', 'senha/alterar', 'SenhaController', 'alterar', true, false, true),
             $this->route('POST', 'senha/alterar', 'SenhaController', 'alterar', true, false, true),
             $this->route('GET', 'auditoria', 'AuditoriaController', 'index', true, true),
+            $this->route('POST', 'auditoria', 'AuditoriaController', 'limpar', true, true),
             $this->route('GET', 'backup', 'BackupController', 'index', true, true),
             $this->route('POST', 'backup/criar', 'BackupController', 'criar', true, true),
             $this->route('GET', 'backup/baixar/{nome}', 'BackupController', 'baixar', true, true),
