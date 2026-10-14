@@ -6,6 +6,8 @@ use PDO;
 use PDOException;
 use RuntimeException;
 
+require_once __DIR__ . '/DataProtection.php';
+
 class Database
 {
     private static ?PDO $connection = null;
@@ -42,6 +44,7 @@ class Database
             self::$connection->exec('PRAGMA journal_mode = WAL;');
             self::$connection->exec('PRAGMA busy_timeout = 5000;');
 
+            \DataProtection::register(self::$connection);
             self::protectFiles($dbPath);
 
             return self::$connection;
@@ -53,6 +56,7 @@ class Database
     public static function setConnection(?PDO $connection): void
     {
         self::$connection = $connection;
+        if ($connection !== null) { \DataProtection::register($connection); }
     }
 
     public static function resolvePath(): string

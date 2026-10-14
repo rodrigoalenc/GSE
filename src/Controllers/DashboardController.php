@@ -12,12 +12,19 @@ final class DashboardController extends Controller
             redirect('login');
         }
 
-        $estatisticas = (new Usuario())->estatisticas();
-
+        require_once ROOT_PATH . '/src/Model/Painel.php';
+        require_once ROOT_PATH . '/src/Model/Aluno.php';
+        $statusService = new DvaStatus();
+        $painel = new Painel();
+        $alunos = new Aluno();
+        require_once ROOT_PATH . '/src/Model/Certidao.php';
         $this->view('dashboard/index', [
             'title' => 'Painel de Controle',
-            'usuario' => $usuario,
-            'estatisticas' => $estatisticas,
+            'certidoes' => (new Certidao())->summary(),
+            'moduloDois' => $painel->resumo($statusService),
+            'alunosPorStatus' => $painel->alunosPorStatus($statusService),
+            'aniversariantesMes' => $alunos->aniversariantesDoMesCompleto(),
+            'mesAtual' => (int) date('n', strtotime($statusService->today())),
         ]);
     }
 }

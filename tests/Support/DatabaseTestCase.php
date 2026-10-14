@@ -28,7 +28,7 @@ abstract class DatabaseTestCase extends TestCase
             @unlink($this->databaseFile);
         }
 
-        foreach ([$this->databaseFile . '-wal', $this->databaseFile . '-shm'] as $sqliteSidecar) {
+        foreach ([$this->databaseFile . '-wal', $this->databaseFile . '-shm', $this->databaseFile . '.certidao-notify.lock'] as $sqliteSidecar) {
             if ($sqliteSidecar !== '' && is_file($sqliteSidecar)) {
                 @unlink($sqliteSidecar);
             }
@@ -39,8 +39,11 @@ abstract class DatabaseTestCase extends TestCase
 
     protected function insertTurma(string $nome = '1 Ano A'): int
     {
-        $stmt = $this->pdo->prepare('INSERT INTO turmas (nome_turma) VALUES (?)');
-        $stmt->execute([$nome]);
+        $displayName = \src\Core\TextNormalizer::displayName($nome);
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO turmas (nome_turma, nome_normalizado) VALUES (?, ?)'
+        );
+        $stmt->execute([$displayName, \src\Core\TextNormalizer::comparisonKey($displayName)]);
 
         return (int) $this->pdo->lastInsertId();
     }
@@ -53,18 +56,22 @@ abstract class DatabaseTestCase extends TestCase
     ): int
     {
         $email = strtolower(str_replace(' ', '.', $nome)) . '@teste.local';
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO usuarios (nome, email, senha, tipo, ativo) VALUES (?, ?, ?, ?, ?)'
-        );
-        $stmt->execute([$nome, $email, \PasswordPolicy::hash($senha), $perfil, $ativo ? 1 : 0]);
-
-        return (int) $this->pdo->lastInsertId();
+        return \test_insert_user($this->pdo, ['nome'=>$nome, 'email'=>$email, 'senha'=>\PasswordPolicy::hash($senha),
+            'tipo'=>$perfil, 'ativo'=>$ativo ? 1 : 0]);
     }
 
     protected function insertAlunoComDva(string $nome, string $vencimento, ?int $idTurma = null): int
     {
-        $stmt = $this->pdo->prepare('INSERT INTO alunos (nome_completo, data_nascimento, id_turma) VALUES (?, ?, ?)');
-        $stmt->execute([$nome, '2010-05-10', $idTurma]);
+        $displayName = \src\Core\TextNormalizer::displayName($nome);
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO alunos (nome_completo, nome_normalizado, data_nascimento, id_turma) VALUES (?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $displayName,
+            \src\Core\TextNormalizer::comparisonKey($displayName),
+            '2010-05-10',
+            $idTurma,
+        ]);
         $idAluno = (int) $this->pdo->lastInsertId();
 
         $stmtDva = $this->pdo->prepare('INSERT INTO dvas (id_aluno, data_vencimento) VALUES (?, ?)');

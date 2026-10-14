@@ -74,11 +74,20 @@ function csrf_token(): string
     return $_SESSION['_csrf_token'];
 }
 
-function csrf_valido(?string $token): bool
+function csrf_valido(mixed $token): bool
 {
     return is_string($token)
-        && isset($_SESSION['_csrf_token'])
+        && preg_match('/\A[a-f0-9]{64}\z/D', $token) === 1
+        && is_string($_SESSION['_csrf_token'] ?? null)
         && hash_equals($_SESSION['_csrf_token'], $token);
+}
+
+function input_string(mixed $value): string
+{
+    if (!is_string($value) && PHP_SAPI !== 'cli') {
+        render_http_error(400, 'Requisição inválida', 'O formato de um campo não é aceito.');
+    }
+    return is_string($value) && mb_check_encoding($value, 'UTF-8') && !str_contains($value, "\0") ? $value : '';
 }
 
 function csrf_renovar(): string
@@ -96,6 +105,7 @@ function definir_flash(string $tipo, string $mensagem): void
     ];
 }
 
+/** @return array<string,mixed>|null */
 function consumir_flash(): ?array
 {
     $flash = $_SESSION['_flash'] ?? null;

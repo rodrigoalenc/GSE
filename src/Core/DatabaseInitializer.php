@@ -8,11 +8,16 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
+require_once __DIR__ . '/TextNormalizer.php';
+require_once __DIR__ . '/DataProtection.php';
+require_once __DIR__ . '/ProtectedBackup.php';
+require_once __DIR__ . '/BackupSnapshot.php';
+
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 4;
+    private const LATEST_VERSION = 17;
 
-    public static function initialize(PDO $pdo): void
+    public static function initialize(PDO $pdo, bool $allowSecurityMigration = false): void
     {
         $schemaPath = (defined('ROOT_PATH') ? ROOT_PATH : dirname(__DIR__, 2)) . '/database/schema.sql';
 
@@ -26,40 +31,34 @@ final class DatabaseInitializer
             throw new RuntimeException('Nao foi possivel ler o schema do banco.');
         }
 
-        $hasMigrations = self::tableExists($pdo, 'schema_migrations');
-        $currentVersion = $hasMigrations
-            ? (int) $pdo->query('SELECT COALESCE(MAX(version), 0) FROM schema_migrations')->fetchColumn()
-            : 0;
-        $hasUsers = self::tableExists($pdo, 'usuarios');
-        $backupPath = null;
+        \DataProtection::keyring();
+        \DataProtection::register($pdo);
+        $applied = self::appliedVersions($pdo);
+        if (!in_array(17, $applied, true) && self::tableExists($pdo, 'usuarios')
+            && (int) $pdo->query('SELECT COUNT(*) FROM usuarios')->fetchColumn() > 0 && !$allowSecurityMigration) {
+            throw new RuntimeException('A migração de proteção exige execução CLI explícita em manutenção.');
+        }
 
-        if ($currentVersion >= self::LATEST_VERSION) {
+        if (count($applied) === self::LATEST_VERSION
+            && min($applied) === 1
+            && max($applied) === self::LATEST_VERSION) {
             Database::protectFiles();
 
             return;
         }
 
-        if ($hasUsers && $currentVersion < self::LATEST_VERSION) {
-            $backupPath = self::createValidatedBackup($pdo);
-        }
+        $backupPath = self::hasApplicationTables($pdo) ? self::createValidatedBackup($pdo) : null;
 
         try {
-            SqliteTransaction::immediate($pdo, static function (PDO $pdo) use ($schema): void {
-                $pdo->exec($schema);
-                self::migrateLegacyUsers($pdo);
-                self::ensureCaseInsensitiveEmailUniqueness($pdo);
-                self::ensureLastAdminTrigger($pdo);
-
-                $insert = $pdo->prepare(
-                    'INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (:version, :applied_at)'
-                );
-
-                for ($version = 1; $version <= self::LATEST_VERSION; $version++) {
-                    $insert->execute(['version' => $version, 'applied_at' => gmdate('Y-m-d H:i:s')]);
+            for ($version = 1; $version <= self::LATEST_VERSION; $version++) {
+                if (in_array($version, $applied, true)) {
+                    continue;
                 }
 
-                $pdo->exec('PRAGMA user_version = ' . self::LATEST_VERSION);
-            });
+                self::runMigration($pdo, $version, $schema);
+            }
+
+            $pdo->exec('PRAGMA user_version = ' . self::LATEST_VERSION);
             Database::protectFiles();
         } catch (Throwable $exception) {
             if ($backupPath !== null && class_exists('\TechnicalLogger', false)) {
@@ -73,24 +72,217 @@ final class DatabaseInitializer
         }
     }
 
-    private static function migrateLegacyUsers(PDO $pdo): void
+    private static function runMigration(PDO $pdo, int $version, string $schema): void
     {
-        $columns = $pdo->query('PRAGMA table_info(usuarios)')->fetchAll();
-        $columnNames = array_column($columns, 'name');
+        $rebuildsClasses = $version === 6 && self::classesRequireRebuild($pdo);
+        $rebuildsNormalizedNames = $version === 11;
+        $rebuildsPassiveArchive = $version === 12 && self::passiveArchiveRequiresRebuild($pdo);
+        $requiresForeignKeysOff = $rebuildsClasses || $rebuildsNormalizedNames || $rebuildsPassiveArchive;
+        $foreignKeysBefore = (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn();
 
-        $columns = [
-            'ativo' => 'INTEGER NOT NULL DEFAULT 1',
-            'atualizado_em' => 'TEXT',
-            'session_version' => 'INTEGER NOT NULL DEFAULT 1',
-            'deve_alterar_senha' => 'INTEGER NOT NULL DEFAULT 0',
-            'password_changed_at' => 'TEXT',
-        ];
+        if ($requiresForeignKeysOff) {
+            // SQLite ignora mudancas de foreign_keys dentro de uma transacao. A
+            // desativacao ocorre antes do BEGIN IMMEDIATE e e sempre restaurada.
+            $pdo->exec('PRAGMA foreign_keys = OFF');
 
-        foreach ($columns as $name => $definition) {
-            if (!in_array($name, $columnNames, true)) {
-                $pdo->exec("ALTER TABLE usuarios ADD COLUMN {$name} {$definition}");
+            if ((int) $pdo->query('PRAGMA foreign_keys')->fetchColumn() !== 0) {
+                throw new RuntimeException('Nao foi possivel preparar a migracao estrutural segura.');
             }
         }
+
+        try {
+            SqliteTransaction::immediate($pdo, static function (PDO $pdo) use ($schema, $version): void {
+                self::applyMigration($pdo, $version, $schema);
+
+                $insert = $pdo->prepare(
+                    'INSERT INTO schema_migrations (version, applied_at) VALUES (:version, :applied_at)'
+                );
+                $insert->execute([
+                    'version' => $version,
+                    'applied_at' => gmdate('Y-m-d H:i:s'),
+                ]);
+                $pdo->exec('PRAGMA user_version = ' . $version);
+            });
+        } finally {
+            if ($requiresForeignKeysOff) {
+                $pdo->exec('PRAGMA foreign_keys = ' . ($foreignKeysBefore === 1 ? 'ON' : 'OFF'));
+
+                if ((int) $pdo->query('PRAGMA foreign_keys')->fetchColumn() !== $foreignKeysBefore) {
+                    throw new RuntimeException('Nao foi possivel restaurar a protecao de chaves estrangeiras.');
+                }
+            }
+        }
+
+        if ($requiresForeignKeysOff && self::foreignKeyViolations($pdo) !== []) {
+            throw new RuntimeException('A migracao estrutural deixou relacionamentos invalidos.');
+        }
+    }
+
+    private static function applyMigration(PDO $pdo, int $version, string $schema): void
+    {
+        match ($version) {
+            1 => $pdo->exec($schema),
+            2 => self::migrateLegacyUsers($pdo),
+            3 => self::ensureCaseInsensitiveEmailUniqueness($pdo),
+            4 => self::ensureLastAdminTrigger($pdo),
+            5 => self::migrateStudents($pdo),
+            6 => self::migrateClasses($pdo),
+            7 => self::migrateDvas($pdo),
+            8 => self::migrateAuditAndAlerts($pdo),
+            9 => self::ensureModuleTwoGuardsAndNotifications($pdo),
+            10 => self::normalizeModuleTwoNames($pdo),
+            11 => self::enforceNormalizedNameSchema($pdo),
+            12 => self::migratePassiveArchive($pdo),
+            13 => self::migrateCertificates($pdo),
+            14 => self::migrateCertificateConcurrency($pdo),
+            15 => self::migrateContractsAndStock($pdo),
+            16 => self::migratePassiveLocationCompleteness($pdo),
+            17 => self::migrateDataProtection($pdo),
+            default => throw new RuntimeException('Versao de migracao desconhecida.'),
+        };
+    }
+
+    private static function migrateDataProtection(PDO $pdo): void
+    {
+        // Re-key existing opaque counters without resetting their abuse budgets.
+        $rekey = $pdo->prepare('UPDATE login_attempts SET key_hash=? WHERE key_type=? AND key_hash=?');
+        foreach ($pdo->query('SELECT key_type,key_hash FROM login_attempts')->fetchAll() as $attempt) {
+            $rekey->execute([hash_hmac('sha256', 'login-' . $attempt['key_type'] . ':' . $attempt['key_hash'],
+                \DataProtection::keyring()['index']), $attempt['key_type'], $attempt['key_hash']]);
+        }
+        self::addColumnIfMissing($pdo, 'usuarios', 'email_lookup', 'TEXT');
+        $seen = [];
+        $update = $pdo->prepare('UPDATE usuarios SET nome = ?, email = ?, email_lookup = ? WHERE id = ?');
+        foreach ($pdo->query('SELECT id, nome, email FROM usuarios')->fetchAll() as $row) {
+            $id = (int) $row['id'];
+            $name = (string) $row['nome'];
+            $email = mb_strtolower(trim((string) $row['email']), 'UTF-8');
+            if (!mb_check_encoding($name, 'UTF-8') || $name === '' || mb_strlen($name) > 150
+                || filter_var($email, FILTER_VALIDATE_EMAIL) === false || strlen($email) > 254) {
+                throw new RuntimeException('Dados pessoais inválidos impedem a migração.');
+            }
+            $lookup = \DataProtection::emailIndex($email);
+            if (isset($seen[$lookup])) { throw new RuntimeException('Colisão de e-mail normalizado impede a migração.'); }
+            $seen[$lookup] = true;
+            $update->execute([\DataProtection::encrypt($name, 'usuarios.nome', $id),
+                \DataProtection::encrypt($email, 'usuarios.email', $id), $lookup, $id]);
+        }
+        $pdo->exec('CREATE UNIQUE INDEX idx_usuarios_email_lookup ON usuarios(email_lookup)');
+        foreach (['INSERT', 'UPDATE OF nome, email, email_lookup'] as $index => $operation) {
+            $pdo->exec("CREATE TRIGGER trg_protected_identity_{$index} BEFORE {$operation} ON usuarios
+                WHEN NEW.email_lookup IS NULL OR length(NEW.email_lookup) <> 64
+                  OR NEW.nome NOT GLOB 'gse1:*' OR NEW.email NOT GLOB 'gse1:*'
+                BEGIN SELECT RAISE(ABORT, 'protected_identity_required'); END");
+        }
+        $pdo->exec('CREATE TABLE action_budgets (bucket TEXT PRIMARY KEY, attempts INTEGER NOT NULL, expires INTEGER NOT NULL)');
+        $pdo->exec('CREATE INDEX idx_action_budget_expiry ON action_budgets(expires)');
+        $pdo->exec('CREATE TABLE request_receipts (user_id INTEGER NOT NULL REFERENCES usuarios(id),
+            operation TEXT NOT NULL, token TEXT NOT NULL, digest TEXT NOT NULL, result_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(user_id, operation, token))');
+    }
+
+    private static function migratePassiveLocationCompleteness(PDO $pdo): void
+    {
+        // Corrige apenas o indicador: localização, vínculos, autoria e datas são preservados.
+        $pending = $pdo->prepare('UPDATE alunos_passivo SET localizacao_pendente = 1 WHERE id = :id AND localizacao_pendente = 0');
+        foreach ($pdo->query('SELECT id, caixa, numero, caixa_normalizada, numero_normalizado FROM alunos_passivo')->fetchAll() as $row) {
+            if (TextNormalizer::displayName((string) ($row['caixa'] ?? '')) === ''
+                || TextNormalizer::displayName((string) ($row['numero'] ?? '')) === ''
+                || trim((string) ($row['caixa_normalizada'] ?? '')) === ''
+                || trim((string) ($row['numero_normalizado'] ?? '')) === '') {
+                $pending->execute(['id' => (int) $row['id']]);
+            }
+        }
+
+        foreach (['insert' => 'INSERT', 'update' => 'UPDATE'] as $suffix => $operation) {
+            $pdo->exec(
+                "CREATE TRIGGER IF NOT EXISTS trg_require_passive_location_{$suffix}
+                 BEFORE {$operation} ON alunos_passivo
+                 WHEN NEW.localizacao_pendente = 0 AND (
+                     NEW.caixa IS NULL OR TRIM(NEW.caixa, CHAR(9, 10, 13, 32)) = ''
+                     OR NEW.numero IS NULL OR TRIM(NEW.numero, CHAR(9, 10, 13, 32)) = ''
+                     OR NEW.caixa_normalizada IS NULL OR TRIM(NEW.caixa_normalizada) = ''
+                     OR NEW.numero_normalizado IS NULL OR TRIM(NEW.numero_normalizado) = '')
+                 BEGIN SELECT RAISE(ABORT, 'incomplete_passive_location'); END"
+            );
+        }
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_localizacao_pendente ON alunos_passivo (localizacao_pendente, ativo)');
+        if (self::foreignKeyViolations($pdo) !== [] || self::integrityCheck($pdo) !== ['ok']) {
+            throw new RuntimeException('A migração v16 encontrou inconsistências no arquivo passivo.');
+        }
+    }
+
+    private static function migrateCertificateConcurrency(PDO $pdo): void
+    {
+        foreach (['lista_fornecedores', 'lista_tipos_certidao'] as $table) {
+            self::addColumnIfMissing($pdo, $table, 'revisao', 'INTEGER NOT NULL DEFAULT 1 CHECK (revisao >= 1)');
+        }
+        $pdo->exec('CREATE TABLE IF NOT EXISTS certidao_notification_attempts (
+            notification_date TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES usuarios(id),
+            attempts INTEGER NOT NULL DEFAULT 1, attempted_at TEXT NOT NULL,
+            PRIMARY KEY(notification_date, user_id)
+        )');
+        if (self::foreignKeyViolations($pdo) !== [] || $pdo->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
+            throw new RuntimeException('Migração v14 interrompida: integridade ou referências inválidas.');
+        }
+    }
+
+    private static function migrateContractsAndStock(PDO $pdo): void
+    {
+        $pdo->exec('CREATE TABLE IF NOT EXISTS pedidos (id INTEGER PRIMARY KEY AUTOINCREMENT, titulo TEXT NOT NULL, valor_total REAL NOT NULL DEFAULT 0, qtd_paginas INTEGER NOT NULL DEFAULT 1, criado_em TEXT DEFAULT CURRENT_TIMESTAMP)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS pedido_paginas (id INTEGER PRIMARY KEY AUTOINCREMENT, id_pedido INTEGER NOT NULL REFERENCES pedidos(id), numero_pagina INTEGER NOT NULL, valor_pagina REAL NOT NULL DEFAULT 0, observacao TEXT, data_faturamento TEXT, UNIQUE(id_pedido,numero_pagina))');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS pedido_produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, id_pedido INTEGER NOT NULL REFERENCES pedidos(id), numero_pagina INTEGER NOT NULL, nome_produto TEXT NOT NULL, marca TEXT, unidade TEXT NOT NULL, quantidade REAL NOT NULL, valor_unitario REAL NOT NULL, valor_total REAL NOT NULL)');
+        foreach (['id_fornecedor' => 'INTEGER REFERENCES lista_fornecedores(id)',
+                  'valor_centavos' => 'INTEGER', 'revisao' => 'INTEGER NOT NULL DEFAULT 1',
+                  'excluido_em' => 'TEXT', 'excluido_por' => 'INTEGER REFERENCES usuarios(id)'] as $name => $definition) {
+            self::addColumnIfMissing($pdo, 'pedidos', $name, $definition);
+        }
+        foreach (['valor_centavos' => 'INTEGER', 'revisao' => 'INTEGER NOT NULL DEFAULT 1',
+                  'excluido_em' => 'TEXT', 'excluido_por' => 'INTEGER REFERENCES usuarios(id)'] as $name => $definition) {
+            self::addColumnIfMissing($pdo, 'pedido_paginas', $name, $definition);
+        }
+        foreach (['preco_centavos' => 'INTEGER', 'total_centavos' => 'INTEGER',
+                  'quantidade_contratada' => 'INTEGER', 'estoque_minimo' => 'INTEGER',
+                  'estoque_maximo' => 'INTEGER', 'estoque_inicializado' => 'INTEGER NOT NULL DEFAULT 0',
+                  'revisao' => 'INTEGER NOT NULL DEFAULT 1', 'excluido_em' => 'TEXT',
+                  'excluido_por' => 'INTEGER REFERENCES usuarios(id)'] as $name => $definition) {
+            self::addColumnIfMissing($pdo, 'pedido_produtos', $name, $definition);
+        }
+        $pdo->exec("CREATE TABLE IF NOT EXISTS estoque_movimentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produto_id INTEGER NOT NULL REFERENCES pedido_produtos(id) ON DELETE RESTRICT,
+            tipo TEXT NOT NULL CHECK(tipo IN ('abertura','entrada','saida','estorno')),
+            quantidade INTEGER NOT NULL CHECK(quantidade <> 0),
+            motivo TEXT NOT NULL,
+            usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+            criado_em TEXT NOT NULL,
+            idempotencia TEXT NOT NULL UNIQUE,
+            movimento_original_id INTEGER UNIQUE REFERENCES estoque_movimentos(id)
+        )");
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_estoque_produto ON estoque_movimentos(produto_id,id)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS modulo5_operacoes (idempotencia TEXT PRIMARY KEY, tipo TEXT NOT NULL, recurso_id INTEGER NOT NULL, usuario_id INTEGER NOT NULL REFERENCES usuarios(id), criado_em TEXT NOT NULL)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_pedidos_ativos ON pedidos(excluido_em,id)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS modulo5_valores_legados (
+            tabela TEXT NOT NULL CHECK(tabela IN (\'pedidos\',\'pedido_paginas\',\'pedido_produtos\')),
+            registro_id INTEGER NOT NULL, campo TEXT NOT NULL, valor_original TEXT,
+            PRIMARY KEY(tabela,registro_id,campo)
+        )');
+        $pdo->exec("INSERT OR IGNORE INTO modulo5_valores_legados SELECT 'pedidos',id,'valor_total',CAST(valor_total AS TEXT) FROM pedidos");
+        $pdo->exec("INSERT OR IGNORE INTO modulo5_valores_legados SELECT 'pedido_paginas',id,'valor_pagina',CAST(valor_pagina AS TEXT) FROM pedido_paginas");
+        $pdo->exec("INSERT OR IGNORE INTO modulo5_valores_legados SELECT 'pedido_produtos',id,'valor_unitario',CAST(valor_unitario AS TEXT) FROM pedido_produtos");
+        $pdo->exec("INSERT OR IGNORE INTO modulo5_valores_legados SELECT 'pedido_produtos',id,'valor_total',CAST(valor_total AS TEXT) FROM pedido_produtos");
+        if (self::foreignKeyViolations($pdo) !== [] || $pdo->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
+            throw new RuntimeException('Migração v15 interrompida: integridade ou referências inválidas.');
+        }
+    }
+
+    private static function migrateLegacyUsers(PDO $pdo): void
+    {
+        self::addColumnIfMissing($pdo, 'usuarios', 'ativo', 'INTEGER NOT NULL DEFAULT 1');
+        self::addColumnIfMissing($pdo, 'usuarios', 'atualizado_em', 'TEXT');
+        self::addColumnIfMissing($pdo, 'usuarios', 'session_version', 'INTEGER NOT NULL DEFAULT 1');
+        self::addColumnIfMissing($pdo, 'usuarios', 'deve_alterar_senha', 'INTEGER NOT NULL DEFAULT 0');
+        self::addColumnIfMissing($pdo, 'usuarios', 'password_changed_at', 'TEXT');
 
         $pdo->exec("UPDATE usuarios SET tipo = 'administrador' WHERE tipo = 'admin'");
         $pdo->exec("UPDATE usuarios SET tipo = 'funcionario' WHERE tipo IN ('usuario', 'funcionário', 'funcionario')");
@@ -99,6 +291,50 @@ final class DatabaseInitializer
         $pdo->exec('UPDATE usuarios SET session_version = 1 WHERE session_version IS NULL OR session_version < 1');
         $pdo->exec('UPDATE usuarios SET deve_alterar_senha = 0 WHERE deve_alterar_senha IS NULL OR deve_alterar_senha NOT IN (0, 1)');
         $pdo->exec("UPDATE usuarios SET atualizado_em = COALESCE(atualizado_em, criado_em, CURRENT_TIMESTAMP)");
+    }
+
+    private static function migrateCertificates(PDO $pdo): void
+    {
+        // Early module installations may not contain the legacy certificate tables yet.
+        $pdo->exec('CREATE TABLE IF NOT EXISTS lista_fornecedores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL UNIQUE)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS lista_tipos_certidao (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL UNIQUE)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS certidoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, id_fornecedor INTEGER NOT NULL,
+            id_tipo_certidao INTEGER NOT NULL, data_emissao TEXT NOT NULL,
+            data_vencimento TEXT NOT NULL, observacao TEXT NULL, arquivo_pdf TEXT NULL,
+            arquivado INTEGER DEFAULT 0, status INTEGER DEFAULT 1,
+            FOREIGN KEY(id_fornecedor) REFERENCES lista_fornecedores(id),
+            FOREIGN KEY(id_tipo_certidao) REFERENCES lista_tipos_certidao(id)
+        )');
+        foreach (['lista_fornecedores', 'lista_tipos_certidao'] as $table) {
+            self::addColumnIfMissing($pdo, $table, 'ativo', 'INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0,1))');
+            self::addColumnIfMissing($pdo, $table, 'atualizado_por', 'INTEGER REFERENCES usuarios(id)');
+            self::addColumnIfMissing($pdo, $table, 'atualizado_em', 'TEXT');
+        }
+        foreach ([
+            'anterior_id' => 'INTEGER REFERENCES certidoes(id)',
+            'excluido_em' => 'TEXT',
+            'criado_por' => 'INTEGER REFERENCES usuarios(id)',
+            'atualizado_por' => 'INTEGER REFERENCES usuarios(id)',
+            'criado_em' => 'TEXT',
+            'atualizado_em' => 'TEXT',
+            'pdf_privado' => 'TEXT',
+            'pdf_nome' => 'TEXT',
+            'pdf_bytes' => 'INTEGER',
+            'pdf_sha256' => 'TEXT',
+            'revisao' => 'INTEGER NOT NULL DEFAULT 1',
+        ] as $column => $definition) {
+            self::addColumnIfMissing($pdo, 'certidoes', $column, $definition);
+        }
+        $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS ux_certidoes_anterior ON certidoes(anterior_id) WHERE anterior_id IS NOT NULL');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_certidoes_matriz ON certidoes(excluido_em, arquivado, status, id_fornecedor, id_tipo_certidao, data_vencimento)');
+        $pdo->exec("CREATE TABLE IF NOT EXISTS certidao_notification_deliveries (
+            notification_date TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES usuarios(id),
+            sent_at TEXT NOT NULL, PRIMARY KEY(notification_date, user_id)
+        )");
+        if (self::foreignKeyViolations($pdo) !== [] || $pdo->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
+            throw new RuntimeException('Migração v13 interrompida: integridade ou referências inválidas.');
+        }
     }
 
     private static function ensureCaseInsensitiveEmailUniqueness(PDO $pdo): void
@@ -110,7 +346,7 @@ final class DatabaseInitializer
 
         if ($duplicate !== false) {
             throw new RuntimeException(
-                'A migração foi interrompida: existem e-mails duplicados que diferem apenas por maiúsculas e minúsculas.'
+                'A migracao foi interrompida: existem e-mails duplicados que diferem apenas por maiusculas e minusculas.'
             );
         }
 
@@ -141,43 +377,950 @@ final class DatabaseInitializer
         );
     }
 
-    private static function createValidatedBackup(PDO $pdo): ?string
+    private static function migrateStudents(PDO $pdo): void
+    {
+        self::addColumnIfMissing($pdo, 'alunos', 'ativo', 'INTEGER NOT NULL DEFAULT 1');
+        self::addColumnIfMissing($pdo, 'alunos', 'atualizado_em', 'TEXT');
+        self::addColumnIfMissing($pdo, 'alunos', 'inativado_em', 'TEXT');
+        self::addColumnIfMissing($pdo, 'alunos', 'inativado_por', 'INTEGER REFERENCES usuarios(id) ON DELETE SET NULL');
+
+        $pdo->exec('UPDATE alunos SET ativo = 1 WHERE ativo IS NULL OR ativo NOT IN (0, 1)');
+        $pdo->exec('UPDATE alunos SET atualizado_em = COALESCE(atualizado_em, criado_em)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_nome ON alunos (nome_completo COLLATE NOCASE)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_turma_ativo ON alunos (id_turma, ativo)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_nascimento ON alunos (data_nascimento)');
+    }
+
+    private static function migrateClasses(PDO $pdo): void
+    {
+        $requiresRebuild = self::classesRequireRebuild($pdo);
+        self::addColumnIfMissing($pdo, 'turmas', 'ano_letivo', 'INTEGER');
+        self::addColumnIfMissing($pdo, 'turmas', 'ativo', 'INTEGER NOT NULL DEFAULT 1');
+        self::addColumnIfMissing($pdo, 'turmas', 'criado_em', 'TEXT');
+        self::addColumnIfMissing($pdo, 'turmas', 'atualizado_em', 'TEXT');
+
+        $pdo->exec('UPDATE turmas SET ativo = 1 WHERE ativo IS NULL OR ativo NOT IN (0, 1)');
+
+        if ($requiresRebuild) {
+            $beforeCounts = self::moduleTwoCounts($pdo);
+            $classIdsBefore = self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id');
+            $studentIdsBefore = self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id');
+            $dvaIdsBefore = self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id');
+            $relationshipsBefore = self::studentClassRelationships($pdo);
+            $pdo->exec(
+                'CREATE TABLE turmas_v6 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nome_turma TEXT NOT NULL,
+                    ano_letivo INTEGER NULL,
+                    ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+                    criado_em TEXT NULL,
+                    atualizado_em TEXT NULL
+                )'
+            );
+            $pdo->exec(
+                'INSERT INTO turmas_v6 (id, nome_turma, ano_letivo, ativo, criado_em, atualizado_em)
+                 SELECT id, nome_turma, ano_letivo, ativo, criado_em, atualizado_em FROM turmas'
+            );
+
+            if ((int) $pdo->query('SELECT COUNT(*) FROM turmas_v6')->fetchColumn() !== $beforeCounts['classes']) {
+                throw new RuntimeException('A migracao de turmas falhou na validacao de contagem.');
+            }
+
+            $pdo->exec('DROP TABLE turmas');
+            $pdo->exec('ALTER TABLE turmas_v6 RENAME TO turmas');
+
+            if (self::moduleTwoCounts($pdo) !== $beforeCounts
+                || self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id') !== $classIdsBefore
+                || self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id') !== $studentIdsBefore
+                || self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id') !== $dvaIdsBefore
+                || self::studentClassRelationships($pdo) !== $relationshipsBefore
+                || self::foreignKeyViolations($pdo) !== []) {
+                throw new RuntimeException('A migracao de turmas nao preservou integralmente os dados e relacionamentos.');
+            }
+        }
+
+        $pdo->exec(
+            'CREATE UNIQUE INDEX IF NOT EXISTS ux_turmas_nome_ano
+             ON turmas (nome_turma COLLATE NOCASE, ano_letivo)
+             WHERE ano_letivo IS NOT NULL'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_turmas_ativo_ano ON turmas (ativo, ano_letivo DESC, nome_turma)');
+    }
+
+    private static function migrateDvas(PDO $pdo): void
+    {
+        $hadActiveColumn = self::columnExists($pdo, 'dvas', 'ativo');
+        self::addColumnIfMissing($pdo, 'dvas', 'ativo', 'INTEGER NOT NULL DEFAULT 0');
+        self::addColumnIfMissing($pdo, 'dvas', 'atualizado_em', 'TEXT');
+        self::addColumnIfMissing($pdo, 'dvas', 'substituido_em', 'TEXT');
+
+        if (!$hadActiveColumn) {
+            $pdo->exec('UPDATE dvas SET ativo = 0');
+            $pdo->exec(
+                'UPDATE dvas SET ativo = 1
+                 WHERE id = (
+                    SELECT atual.id FROM dvas AS atual
+                    WHERE atual.id_aluno = dvas.id_aluno
+                    ORDER BY COALESCE(atual.criado_em, \'\') DESC, atual.id DESC
+                    LIMIT 1
+                 )'
+            );
+        } else {
+            $pdo->exec('UPDATE dvas SET ativo = 0 WHERE ativo IS NULL OR ativo NOT IN (0, 1)');
+        }
+
+        $pdo->exec('UPDATE dvas SET atualizado_em = COALESCE(atualizado_em, criado_em)');
+        $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS ux_dvas_um_ativo_por_aluno ON dvas (id_aluno) WHERE ativo = 1');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_dvas_ativo_vencimento ON dvas (ativo, data_vencimento)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_dvas_aluno_historico ON dvas (id_aluno, criado_em DESC, id DESC)');
+    }
+
+    private static function migrateAuditAndAlerts(PDO $pdo): void
+    {
+        self::addColumnIfMissing($pdo, 'security_audit', 'resource_type', 'TEXT');
+        self::addColumnIfMissing($pdo, 'security_audit', 'resource_id', 'INTEGER');
+        self::addColumnIfMissing($pdo, 'usuarios', 'recebe_alertas_dva', 'INTEGER NOT NULL DEFAULT 0');
+
+        $pdo->exec('UPDATE usuarios SET recebe_alertas_dva = 0 WHERE recebe_alertas_dva IS NULL OR recebe_alertas_dva NOT IN (0, 1)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_security_audit_resource ON security_audit (resource_type, resource_id)');
+    }
+
+    private static function classesRequireRebuild(PDO $pdo): bool
+    {
+        if (!self::tableExists($pdo, 'turmas')) {
+            return false;
+        }
+
+        foreach ($pdo->query('PRAGMA index_list(turmas)')->fetchAll() as $index) {
+            if ((int) ($index['unique'] ?? 0) !== 1) {
+                continue;
+            }
+
+            $indexName = str_replace('"', '""', (string) ($index['name'] ?? ''));
+
+            if ($indexName === '') {
+                continue;
+            }
+
+            $columns = $pdo->query('PRAGMA index_info("' . $indexName . '")')->fetchAll(PDO::FETCH_COLUMN, 2);
+
+            if ($columns === ['nome_turma']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return array{classes:int,students:int,dvas:int} */
+    private static function moduleTwoCounts(PDO $pdo): array
+    {
+        return [
+            'classes' => (int) $pdo->query('SELECT COUNT(*) FROM turmas')->fetchColumn(),
+            'students' => (int) $pdo->query('SELECT COUNT(*) FROM alunos')->fetchColumn(),
+            'dvas' => (int) $pdo->query('SELECT COUNT(*) FROM dvas')->fetchColumn(),
+        ];
+    }
+
+    /** @return list<int> */
+    private static function integerColumn(PDO $pdo, string $sql): array
+    {
+        return array_map('intval', $pdo->query($sql)->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /** @return array<int,int|null> */
+    private static function studentClassRelationships(PDO $pdo): array
+    {
+        $relationships = [];
+
+        foreach ($pdo->query('SELECT id, id_turma FROM alunos ORDER BY id')->fetchAll() as $row) {
+            $relationships[(int) $row['id']] = $row['id_turma'] === null ? null : (int) $row['id_turma'];
+        }
+
+        return $relationships;
+    }
+
+    /** @return list<array<string,mixed>> */
+    private static function foreignKeyViolations(PDO $pdo): array
+    {
+        return $pdo->query('PRAGMA foreign_key_check')->fetchAll();
+    }
+
+    /** @return list<string> */
+    private static function integrityCheck(PDO $pdo): array
+    {
+        return array_map(
+            static fn (mixed $value): string => (string) $value,
+            $pdo->query('PRAGMA integrity_check')->fetchAll(PDO::FETCH_COLUMN)
+        );
+    }
+
+    private static function ensureModuleTwoGuardsAndNotifications(PDO $pdo): void
+    {
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS dva_notification_deliveries (
+                notification_date TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                sent_at TEXT NULL,
+                status TEXT NOT NULL CHECK (status IN ('processing', 'sent', 'failed')),
+                last_error_code TEXT NULL,
+                PRIMARY KEY (notification_date, user_id),
+                FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
+            )"
+        );
+
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_prevent_student_delete
+             BEFORE DELETE ON alunos
+             BEGIN
+                SELECT RAISE(ABORT, 'student_physical_delete_forbidden');
+             END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_prevent_dva_delete
+             BEFORE DELETE ON dvas
+             BEGIN
+                SELECT RAISE(ABORT, 'dva_physical_delete_forbidden');
+             END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_protect_class_with_active_students
+             BEFORE UPDATE OF ativo ON turmas
+             WHEN OLD.ativo = 1 AND NEW.ativo = 0
+              AND EXISTS (SELECT 1 FROM alunos WHERE id_turma = OLD.id AND ativo = 1)
+             BEGIN
+                SELECT RAISE(ABORT, 'class_has_active_students');
+             END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_student_active_insert
+             BEFORE INSERT ON alunos WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_student_active'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_student_active_update
+             BEFORE UPDATE OF ativo ON alunos WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_student_active'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_class_active_update
+             BEFORE UPDATE OF ativo ON turmas WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_class_active'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_class_active_insert
+             BEFORE INSERT ON turmas WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_class_active'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_dva_active_update
+             BEFORE UPDATE OF ativo ON dvas WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_dva_active'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_dva_active_insert
+             BEFORE INSERT ON dvas WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_dva_active'); END"
+        );
+    }
+
+    private static function normalizeModuleTwoNames(PDO $pdo): void
+    {
+        $beforeCounts = self::moduleTwoCounts($pdo);
+        $classIdsBefore = self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id');
+        $studentIdsBefore = self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id');
+        $dvaIdsBefore = self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id');
+        $relationshipsBefore = self::studentClassRelationships($pdo);
+
+        self::addColumnIfMissing($pdo, 'alunos', 'nome_normalizado', 'TEXT');
+        self::addColumnIfMissing($pdo, 'turmas', 'nome_normalizado', 'TEXT');
+
+        $updateStudent = $pdo->prepare(
+            'UPDATE alunos SET nome_normalizado = :normalized WHERE id = :id'
+        );
+
+        foreach ($pdo->query('SELECT id, nome_completo FROM alunos ORDER BY id')->fetchAll() as $student) {
+            $updateStudent->execute([
+                'normalized' => TextNormalizer::comparisonKey((string) $student['nome_completo']),
+                'id' => (int) $student['id'],
+            ]);
+        }
+
+        $updateClass = $pdo->prepare(
+            'UPDATE turmas SET nome_normalizado = :normalized WHERE id = :id'
+        );
+
+        foreach ($pdo->query('SELECT id, nome_turma FROM turmas ORDER BY id')->fetchAll() as $class) {
+            $updateClass->execute([
+                'normalized' => TextNormalizer::comparisonKey((string) $class['nome_turma']),
+                'id' => (int) $class['id'],
+            ]);
+        }
+
+        $collision = $pdo->query(
+            "SELECT ano_letivo, nome_normalizado, GROUP_CONCAT(id, ',') AS ids
+             FROM turmas
+             WHERE ano_letivo IS NOT NULL
+             GROUP BY nome_normalizado, ano_letivo
+             HAVING COUNT(*) > 1
+             ORDER BY ano_letivo, MIN(id)
+             LIMIT 1"
+        )->fetch();
+
+        if (is_array($collision)) {
+            throw new RuntimeException(sprintf(
+                'A migracao Unicode foi interrompida: as turmas de IDs %s se tornam equivalentes no ano letivo %s. Corrija a colisao manualmente e execute novamente.',
+                (string) $collision['ids'],
+                (string) $collision['ano_letivo']
+            ));
+        }
+
+        $pdo->exec('DROP INDEX IF EXISTS ux_turmas_nome_ano');
+        $pdo->exec('DROP INDEX IF EXISTS idx_alunos_nome');
+        $pdo->exec(
+            'CREATE UNIQUE INDEX IF NOT EXISTS ux_turmas_nome_normalizado_ano
+             ON turmas (nome_normalizado, ano_letivo)
+             WHERE ano_letivo IS NOT NULL'
+        );
+        $pdo->exec(
+            'CREATE INDEX IF NOT EXISTS idx_alunos_nome_normalizado
+             ON alunos (nome_normalizado)'
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_require_student_normalized_name
+             BEFORE INSERT ON alunos
+             WHEN NEW.nome_normalizado IS NULL OR trim(NEW.nome_normalizado) = ''
+             BEGIN SELECT RAISE(ABORT, 'student_normalized_name_required'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_require_class_normalized_name
+             BEFORE INSERT ON turmas
+             WHEN NEW.nome_normalizado IS NULL OR trim(NEW.nome_normalizado) = ''
+             BEGIN SELECT RAISE(ABORT, 'class_normalized_name_required'); END"
+        );
+
+        if (self::moduleTwoCounts($pdo) !== $beforeCounts
+            || self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id') !== $classIdsBefore
+            || self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id') !== $studentIdsBefore
+            || self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id') !== $dvaIdsBefore
+            || self::studentClassRelationships($pdo) !== $relationshipsBefore
+            || self::foreignKeyViolations($pdo) !== []
+            || self::integrityCheck($pdo) !== ['ok']) {
+            throw new RuntimeException('A migracao Unicode nao preservou integralmente o banco de dados.');
+        }
+    }
+
+    private static function enforceNormalizedNameSchema(PDO $pdo): void
+    {
+        foreach (['turmas_v11', 'alunos_v11'] as $temporaryTable) {
+            if (self::tableExists($pdo, $temporaryTable)) {
+                throw new RuntimeException('A migracao v11 encontrou uma estrutura temporaria inesperada.');
+            }
+        }
+
+        $beforeCounts = self::moduleTwoCounts($pdo);
+        $beforeClassIds = self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id');
+        $beforeStudentIds = self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id');
+        $beforeDvaIds = self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id');
+        $beforeStudentClasses = self::studentClassRelationships($pdo);
+        $beforeDvaStudents = self::dvaStudentRelationships($pdo);
+        $beforeSequences = self::moduleTwoSequences($pdo);
+        $beforeData = self::moduleTwoDataSnapshot($pdo);
+        $migrationTimestamp = gmdate('Y-m-d H:i:s');
+
+        $classRows = [];
+        $classKeys = [];
+
+        foreach ($beforeData['classes'] as $class) {
+            $normalized = TextNormalizer::comparisonKey((string) $class['nome_turma']);
+
+            if ($normalized === '') {
+                throw new RuntimeException('A migracao v11 foi interrompida: existe uma turma com nome invalido.');
+            }
+
+            if ($class['ano_letivo'] !== null) {
+                $collisionKey = (string) $class['ano_letivo'] . "\0" . $normalized;
+
+                if (isset($classKeys[$collisionKey])) {
+                    throw new RuntimeException(sprintf(
+                        'A migracao Unicode foi interrompida: as turmas de IDs %d,%d se tornam equivalentes no mesmo ano letivo. Corrija a colisao em uma copia homologada e execute novamente.',
+                        $classKeys[$collisionKey],
+                        (int) $class['id']
+                    ));
+                }
+
+                $classKeys[$collisionKey] = (int) $class['id'];
+            }
+
+            $class['nome_normalizado'] = $normalized;
+            $class['criado_em'] ??= $migrationTimestamp;
+            $class['atualizado_em'] ??= (string) $class['criado_em'];
+            $classRows[] = $class;
+        }
+
+        $studentRows = [];
+
+        foreach ($beforeData['students'] as $student) {
+            $normalized = TextNormalizer::comparisonKey((string) $student['nome_completo']);
+
+            if ($normalized === '') {
+                throw new RuntimeException('A migracao v11 foi interrompida: existe um aluno com nome invalido.');
+            }
+
+            $student['nome_normalizado'] = $normalized;
+            $student['criado_em'] ??= $migrationTimestamp;
+            $student['atualizado_em'] ??= (string) $student['criado_em'];
+            $studentRows[] = $student;
+        }
+
+        $pdo->exec(
+            'CREATE TABLE turmas_v11 (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome_turma TEXT NOT NULL,
+                nome_normalizado TEXT NOT NULL,
+                ano_letivo INTEGER NULL,
+                ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )'
+        );
+        $pdo->exec(
+            'CREATE TABLE alunos_v11 (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome_completo TEXT NOT NULL,
+                nome_normalizado TEXT NOT NULL,
+                data_nascimento TEXT NOT NULL,
+                id_turma INTEGER NULL,
+                telefone_aluno TEXT NULL,
+                telefone_responsavel TEXT NULL,
+                ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                inativado_em TEXT NULL,
+                inativado_por INTEGER NULL,
+                FOREIGN KEY (id_turma) REFERENCES turmas(id) ON DELETE SET NULL,
+                FOREIGN KEY (inativado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+            )'
+        );
+
+        $insertClass = $pdo->prepare(
+            'INSERT INTO turmas_v11
+                (id, nome_turma, nome_normalizado, ano_letivo, ativo, criado_em, atualizado_em)
+             VALUES
+                (:id, :name, :normalized_name, :school_year, :active, :created_at, :updated_at)'
+        );
+
+        foreach ($classRows as $class) {
+            $insertClass->execute([
+                'id' => $class['id'],
+                'name' => $class['nome_turma'],
+                'normalized_name' => $class['nome_normalizado'],
+                'school_year' => $class['ano_letivo'],
+                'active' => $class['ativo'],
+                'created_at' => $class['criado_em'],
+                'updated_at' => $class['atualizado_em'],
+            ]);
+        }
+
+        $insertStudent = $pdo->prepare(
+            'INSERT INTO alunos_v11
+                (id, nome_completo, nome_normalizado, data_nascimento, id_turma,
+                 telefone_aluno, telefone_responsavel, ativo, criado_em, atualizado_em,
+                 inativado_em, inativado_por)
+             VALUES
+                (:id, :name, :normalized_name, :birth_date, :class_id,
+                 :student_phone, :guardian_phone, :active, :created_at, :updated_at,
+                 :deactivated_at, :deactivated_by)'
+        );
+
+        foreach ($studentRows as $student) {
+            $insertStudent->execute([
+                'id' => $student['id'],
+                'name' => $student['nome_completo'],
+                'normalized_name' => $student['nome_normalizado'],
+                'birth_date' => $student['data_nascimento'],
+                'class_id' => $student['id_turma'],
+                'student_phone' => $student['telefone_aluno'],
+                'guardian_phone' => $student['telefone_responsavel'],
+                'active' => $student['ativo'],
+                'created_at' => $student['criado_em'],
+                'updated_at' => $student['atualizado_em'],
+                'deactivated_at' => $student['inativado_em'],
+                'deactivated_by' => $student['inativado_por'],
+            ]);
+        }
+
+        if ((int) $pdo->query('SELECT COUNT(*) FROM turmas_v11')->fetchColumn() !== $beforeCounts['classes']
+            || (int) $pdo->query('SELECT COUNT(*) FROM alunos_v11')->fetchColumn() !== $beforeCounts['students']) {
+            throw new RuntimeException('A migracao v11 falhou na validacao das copias estruturais.');
+        }
+
+        // As tabelas novas referenciam os nomes definitivos. Com foreign_keys
+        // temporariamente OFF, as tabelas antigas podem ser substituidas sem
+        // reescrever a referencia externa de dvas para alunos.
+        $pdo->exec('DROP TABLE alunos');
+        $pdo->exec('DROP TABLE turmas');
+        $pdo->exec('ALTER TABLE turmas_v11 RENAME TO turmas');
+        $pdo->exec('ALTER TABLE alunos_v11 RENAME TO alunos');
+
+        self::restoreModuleTwoSequences($pdo, $beforeSequences);
+        self::ensureModuleTwoIndexes($pdo);
+        self::ensureModuleTwoGuardsAndNotifications($pdo);
+        self::ensureNormalizedNameGuards($pdo);
+
+        $afterData = self::moduleTwoDataSnapshot($pdo);
+
+        if (self::moduleTwoCounts($pdo) !== $beforeCounts
+            || self::integerColumn($pdo, 'SELECT id FROM turmas ORDER BY id') !== $beforeClassIds
+            || self::integerColumn($pdo, 'SELECT id FROM alunos ORDER BY id') !== $beforeStudentIds
+            || self::integerColumn($pdo, 'SELECT id FROM dvas ORDER BY id') !== $beforeDvaIds
+            || self::studentClassRelationships($pdo) !== $beforeStudentClasses
+            || self::dvaStudentRelationships($pdo) !== $beforeDvaStudents
+            || self::moduleTwoSequences($pdo) !== $beforeSequences
+            || $afterData['classes'] !== self::withoutNormalizedNames($classRows)
+            || $afterData['students'] !== self::withoutNormalizedNames($studentRows)
+            || $afterData['dvas'] !== $beforeData['dvas']
+            || self::foreignKeyViolations($pdo) !== []
+            || self::integrityCheck($pdo) !== ['ok']) {
+            throw new RuntimeException('A migracao v11 nao preservou integralmente os dados e relacionamentos.');
+        }
+    }
+
+    private static function ensureModuleTwoIndexes(PDO $pdo): void
+    {
+        $pdo->exec(
+            'CREATE UNIQUE INDEX IF NOT EXISTS ux_turmas_nome_normalizado_ano
+             ON turmas (nome_normalizado, ano_letivo)
+             WHERE ano_letivo IS NOT NULL'
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_turmas_ativo_ano ON turmas (ativo, ano_letivo DESC, nome_turma)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_nome_normalizado ON alunos (nome_normalizado)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_turma_ativo ON alunos (id_turma, ativo)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_alunos_nascimento ON alunos (data_nascimento)');
+    }
+
+    private static function ensureNormalizedNameGuards(PDO $pdo): void
+    {
+        $whitespaceOnly = "trim(NEW.nome_normalizado,
+            char(9) || char(10) || char(11) || char(12) || char(13) || char(32) ||
+            char(133) || char(160) || char(5760) || char(8192) || char(8193) ||
+            char(8194) || char(8195) || char(8196) || char(8197) || char(8198) ||
+            char(8199) || char(8200) || char(8201) || char(8202) || char(8232) ||
+            char(8233) || char(8239) || char(8287) || char(12288)
+        ) = ''";
+
+        foreach ([
+            ['trg_require_student_normalized_name_insert', 'INSERT', 'alunos', 'student_normalized_name_required'],
+            ['trg_require_student_normalized_name_update', 'UPDATE OF nome_normalizado', 'alunos', 'student_normalized_name_required'],
+            ['trg_require_class_normalized_name_insert', 'INSERT', 'turmas', 'class_normalized_name_required'],
+            ['trg_require_class_normalized_name_update', 'UPDATE OF nome_normalizado', 'turmas', 'class_normalized_name_required'],
+        ] as [$name, $operation, $table, $error]) {
+            $pdo->exec(
+                "CREATE TRIGGER IF NOT EXISTS {$name}
+                 BEFORE {$operation} ON {$table}
+                 WHEN NEW.nome_normalizado IS NULL OR {$whitespaceOnly}
+                 BEGIN SELECT RAISE(ABORT, '{$error}'); END"
+            );
+        }
+    }
+
+    /** @return array<int,int> */
+    private static function dvaStudentRelationships(PDO $pdo): array
+    {
+        $relationships = [];
+
+        foreach ($pdo->query('SELECT id, id_aluno FROM dvas ORDER BY id')->fetchAll() as $row) {
+            $relationships[(int) $row['id']] = (int) $row['id_aluno'];
+        }
+
+        return $relationships;
+    }
+
+    /** @return array<string,int> */
+    private static function moduleTwoSequences(PDO $pdo): array
+    {
+        $sequences = [];
+        $rows = $pdo->query(
+            "SELECT name, seq FROM sqlite_sequence
+             WHERE name IN ('turmas', 'alunos', 'dvas') ORDER BY name"
+        )->fetchAll();
+
+        foreach ($rows as $row) {
+            $sequences[(string) $row['name']] = (int) $row['seq'];
+        }
+
+        return $sequences;
+    }
+
+    /** @param array<string,int> $sequences */
+    private static function restoreModuleTwoSequences(PDO $pdo, array $sequences): void
+    {
+        $pdo->exec(
+            "DELETE FROM sqlite_sequence
+             WHERE name IN ('turmas', 'alunos', 'turmas_v11', 'alunos_v11')"
+        );
+        $insert = $pdo->prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (:name, :sequence)');
+
+        foreach (['turmas', 'alunos'] as $table) {
+            if (array_key_exists($table, $sequences)) {
+                $insert->execute(['name' => $table, 'sequence' => $sequences[$table]]);
+            }
+        }
+    }
+
+    /**
+     * @return array{
+     *   classes:list<array<string,mixed>>,
+     *   students:list<array<string,mixed>>,
+     *   dvas:list<array<string,mixed>>
+     * }
+     */
+    private static function moduleTwoDataSnapshot(PDO $pdo): array
+    {
+        return [
+            'classes' => $pdo->query(
+                'SELECT id, nome_turma, ano_letivo, ativo, criado_em, atualizado_em
+                 FROM turmas ORDER BY id'
+            )->fetchAll(),
+            'students' => $pdo->query(
+                'SELECT id, nome_completo, data_nascimento, id_turma, telefone_aluno,
+                        telefone_responsavel, ativo, criado_em, atualizado_em, inativado_em, inativado_por
+                 FROM alunos ORDER BY id'
+            )->fetchAll(),
+            'dvas' => $pdo->query(
+                'SELECT id, id_aluno, id_usuario_registro, data_vencimento, observacao,
+                        ativo, criado_em, atualizado_em, substituido_em
+                 FROM dvas ORDER BY id'
+            )->fetchAll(),
+        ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $rows
+     * @return list<array<string,mixed>>
+     */
+    private static function withoutNormalizedNames(array $rows): array
+    {
+        foreach ($rows as &$row) {
+            unset($row['nome_normalizado']);
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    private static function passiveArchiveRequiresRebuild(PDO $pdo): bool
+    {
+        if (!self::tableExists($pdo, 'alunos_passivo')) {
+            return false;
+        }
+
+        $required = [
+            'id', 'aluno_origem_id', 'nome_completo', 'nome_normalizado', 'data_nascimento',
+            'numero', 'numero_normalizado', 'caixa', 'caixa_normalizada', 'ativo',
+            'localizacao_pendente', 'criado_em', 'atualizado_em', 'inativado_em',
+            'inativado_por', 'restaurado_em', 'restaurado_por', 'criado_por', 'atualizado_por',
+        ];
+        $columns = array_column($pdo->query('PRAGMA table_info(alunos_passivo)')->fetchAll(), 'name');
+
+        return array_diff($required, $columns) !== [];
+    }
+
+    private static function migratePassiveArchive(PDO $pdo): void
+    {
+        if (self::tableExists($pdo, 'alunos_passivo_v12')) {
+            throw new RuntimeException('A migração v12 encontrou uma estrutura temporária inesperada.');
+        }
+
+        if (!self::tableExists($pdo, 'alunos_passivo')) {
+            self::createPassiveArchiveTable($pdo, 'alunos_passivo');
+            self::ensurePassiveArchiveIndexesAndGuards($pdo);
+
+            return;
+        }
+
+        if (!self::passiveArchiveRequiresRebuild($pdo)) {
+            self::normalizeExistingPassiveArchive($pdo);
+            self::ensurePassiveArchiveIndexesAndGuards($pdo);
+
+            if (self::foreignKeyViolations($pdo) !== [] || self::integrityCheck($pdo) !== ['ok']) {
+                throw new RuntimeException('A migração v12 encontrou inconsistências no arquivo passivo.');
+            }
+
+            return;
+        }
+
+        $legacyRows = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll();
+        $legacyIds = array_map(static fn (array $row): int => (int) $row['id'], $legacyRows);
+        $sequence = self::sequenceFor($pdo, 'alunos_passivo');
+        $timestamp = gmdate('Y-m-d H:i:s');
+
+        self::createPassiveArchiveTable($pdo, 'alunos_passivo_v12');
+        $insert = $pdo->prepare(
+            'INSERT INTO alunos_passivo_v12
+                (id, aluno_origem_id, nome_completo, nome_normalizado, data_nascimento,
+                 numero, numero_normalizado, caixa, caixa_normalizada, ativo,
+                 localizacao_pendente, criado_em, atualizado_em, inativado_em,
+                 inativado_por, restaurado_em, restaurado_por, criado_por, atualizado_por)
+             VALUES
+                (:id, :student_id, :name, :normalized_name, :birth_date,
+                 :number, :normalized_number, :box, :normalized_box, :active,
+                 :location_pending, :created_at, :updated_at, :deactivated_at,
+                 :deactivated_by, :restored_at, :restored_by, :created_by, :updated_by)'
+        );
+
+        foreach ($legacyRows as $row) {
+            $name = (string) ($row['nome_completo'] ?? '');
+            $number = array_key_exists('numero', $row) && $row['numero'] !== null ? (string) $row['numero'] : null;
+            $box = array_key_exists('caixa', $row) && $row['caixa'] !== null ? (string) $row['caixa'] : null;
+            self::assertValidUtf8($name, 'nome');
+
+            if ($number !== null) {
+                self::assertValidUtf8($number, 'numero');
+            }
+
+            if ($box !== null) {
+                self::assertValidUtf8($box, 'caixa');
+            }
+
+            $normalizedName = $name === '' ? '' : TextNormalizer::searchKey($name);
+            $normalizedNumber = $number === null || trim($number) === '' ? null : TextNormalizer::searchKey($number);
+            $normalizedBox = $box === null || trim($box) === '' ? null : TextNormalizer::searchKey($box);
+            $active = isset($row['ativo']) && (int) $row['ativo'] === 0 ? 0 : 1;
+            $locationPending = $normalizedBox === null
+                ? 1
+                : (isset($row['localizacao_pendente']) && (int) $row['localizacao_pendente'] === 1 ? 1 : 0);
+
+            $insert->execute([
+                'id' => (int) $row['id'],
+                'student_id' => self::nullablePositiveInteger($row['aluno_origem_id'] ?? null),
+                'name' => $name,
+                'normalized_name' => $normalizedName,
+                'birth_date' => self::nullableString($row['data_nascimento'] ?? null),
+                'number' => $number,
+                'normalized_number' => $normalizedNumber,
+                'box' => $box,
+                'normalized_box' => $normalizedBox,
+                'active' => $active,
+                'location_pending' => $locationPending,
+                'created_at' => self::nullableString($row['criado_em'] ?? null) ?? $timestamp,
+                'updated_at' => self::nullableString($row['atualizado_em'] ?? null)
+                    ?? self::nullableString($row['criado_em'] ?? null) ?? $timestamp,
+                'deactivated_at' => self::nullableString($row['inativado_em'] ?? null),
+                'deactivated_by' => self::nullablePositiveInteger($row['inativado_por'] ?? null),
+                'restored_at' => self::nullableString($row['restaurado_em'] ?? null),
+                'restored_by' => self::nullablePositiveInteger($row['restaurado_por'] ?? null),
+                'created_by' => self::nullablePositiveInteger($row['criado_por'] ?? null),
+                'updated_by' => self::nullablePositiveInteger($row['atualizado_por'] ?? null),
+            ]);
+        }
+
+        if ((int) $pdo->query('SELECT COUNT(*) FROM alunos_passivo_v12')->fetchColumn() !== count($legacyRows)
+            || self::integerColumn($pdo, 'SELECT id FROM alunos_passivo_v12 ORDER BY id') !== $legacyIds) {
+            throw new RuntimeException('A migração v12 falhou na validação da cópia do arquivo passivo.');
+        }
+
+        $pdo->exec('DROP TABLE alunos_passivo');
+        $pdo->exec('ALTER TABLE alunos_passivo_v12 RENAME TO alunos_passivo');
+        self::restoreSequence($pdo, 'alunos_passivo', $sequence);
+        self::ensurePassiveArchiveIndexesAndGuards($pdo);
+
+        if ((int) $pdo->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn() !== count($legacyRows)
+            || self::integerColumn($pdo, 'SELECT id FROM alunos_passivo ORDER BY id') !== $legacyIds
+            || self::tableExists($pdo, 'alunos_passivo_v12')
+            || self::foreignKeyViolations($pdo) !== []
+            || self::integrityCheck($pdo) !== ['ok']) {
+            throw new RuntimeException('A migração v12 não preservou integralmente o arquivo passivo.');
+        }
+    }
+
+    private static function createPassiveArchiveTable(PDO $pdo, string $table): void
+    {
+        $pdo->exec(
+            "CREATE TABLE {$table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                aluno_origem_id INTEGER NULL,
+                nome_completo TEXT NOT NULL,
+                nome_normalizado TEXT NOT NULL,
+                data_nascimento TEXT NULL,
+                numero TEXT NULL,
+                numero_normalizado TEXT NULL,
+                caixa TEXT NULL,
+                caixa_normalizada TEXT NULL,
+                ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
+                localizacao_pendente INTEGER NOT NULL DEFAULT 0 CHECK (localizacao_pendente IN (0, 1)),
+                criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                inativado_em TEXT NULL,
+                inativado_por INTEGER NULL,
+                restaurado_em TEXT NULL,
+                restaurado_por INTEGER NULL,
+                criado_por INTEGER NULL,
+                atualizado_por INTEGER NULL,
+                FOREIGN KEY (aluno_origem_id) REFERENCES alunos(id) ON DELETE RESTRICT,
+                FOREIGN KEY (inativado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+                FOREIGN KEY (restaurado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+                FOREIGN KEY (criado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+                FOREIGN KEY (atualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+            )"
+        );
+    }
+
+    private static function normalizeExistingPassiveArchive(PDO $pdo): void
+    {
+        $update = $pdo->prepare(
+            'UPDATE alunos_passivo
+             SET nome_normalizado = :name, numero_normalizado = :number,
+                 caixa_normalizada = :box, localizacao_pendente = :pending
+             WHERE id = :id'
+        );
+
+        foreach ($pdo->query('SELECT id, nome_completo, numero, caixa, localizacao_pendente FROM alunos_passivo')->fetchAll() as $row) {
+            $name = (string) $row['nome_completo'];
+            $number = $row['numero'] === null ? null : (string) $row['numero'];
+            $box = $row['caixa'] === null ? null : (string) $row['caixa'];
+            self::assertValidUtf8($name, 'nome');
+            $normalizedBox = $box === null || trim($box) === '' ? null : TextNormalizer::searchKey($box);
+            $update->execute([
+                'name' => $name === '' ? '' : TextNormalizer::searchKey($name),
+                'number' => $number === null || trim($number) === '' ? null : TextNormalizer::searchKey($number),
+                'box' => $normalizedBox,
+                'pending' => $normalizedBox === null ? 1 : (int) $row['localizacao_pendente'],
+                'id' => (int) $row['id'],
+            ]);
+        }
+    }
+
+    private static function ensurePassiveArchiveIndexesAndGuards(PDO $pdo): void
+    {
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_nome_normalizado ON alunos_passivo (nome_normalizado)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_caixa_normalizada ON alunos_passivo (caixa_normalizada)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_caixa_numero ON alunos_passivo (caixa_normalizada, numero_normalizado)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_ativo ON alunos_passivo (ativo, nome_normalizado)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_passivo_aluno_origem ON alunos_passivo (aluno_origem_id)');
+        $pdo->exec(
+            'CREATE UNIQUE INDEX IF NOT EXISTS ux_passivo_aluno_origem_ativo
+             ON alunos_passivo (aluno_origem_id)
+             WHERE aluno_origem_id IS NOT NULL AND ativo = 1'
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_prevent_passive_delete
+             BEFORE DELETE ON alunos_passivo
+             BEGIN SELECT RAISE(ABORT, 'passive_physical_delete_forbidden'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_passive_active_insert
+             BEFORE INSERT ON alunos_passivo WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_passive_active'); END"
+        );
+        $pdo->exec(
+            "CREATE TRIGGER IF NOT EXISTS trg_validate_passive_active_update
+             BEFORE UPDATE OF ativo ON alunos_passivo WHEN NEW.ativo NOT IN (0, 1)
+             BEGIN SELECT RAISE(ABORT, 'invalid_passive_active'); END"
+        );
+    }
+
+    private static function assertValidUtf8(string $value, string $field): void
+    {
+        if (preg_match('//u', $value) !== 1) {
+            throw new RuntimeException("A migração v12 foi interrompida: o campo {$field} contém UTF-8 inválido.");
+        }
+    }
+
+    private static function nullableString(mixed $value): ?string
+    {
+        return $value === null ? null : (string) $value;
+    }
+
+    private static function nullablePositiveInteger(mixed $value): ?int
+    {
+        $integer = filter_var($value, FILTER_VALIDATE_INT);
+
+        return $integer !== false && (int) $integer > 0 ? (int) $integer : null;
+    }
+
+    private static function sequenceFor(PDO $pdo, string $table): ?int
+    {
+        $statement = $pdo->prepare('SELECT seq FROM sqlite_sequence WHERE name = :name');
+        $statement->execute(['name' => $table]);
+        $sequence = $statement->fetchColumn();
+
+        return $sequence === false ? null : (int) $sequence;
+    }
+
+    private static function restoreSequence(PDO $pdo, string $table, ?int $sequence): void
+    {
+        $delete = $pdo->prepare('DELETE FROM sqlite_sequence WHERE name IN (:name, :temporary)');
+        $delete->execute(['name' => $table, 'temporary' => $table . '_v12']);
+
+        if ($sequence !== null) {
+            $insert = $pdo->prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (:name, :sequence)');
+            $insert->execute(['name' => $table, 'sequence' => $sequence]);
+        }
+    }
+
+    /** @return list<int> */
+    private static function appliedVersions(PDO $pdo): array
+    {
+        if (!self::tableExists($pdo, 'schema_migrations')) {
+            return [];
+        }
+
+        return array_map(
+            static fn (mixed $value): int => (int) $value,
+            $pdo->query('SELECT version FROM schema_migrations ORDER BY version')->fetchAll(PDO::FETCH_COLUMN)
+        );
+    }
+
+    private static function addColumnIfMissing(PDO $pdo, string $table, string $column, string $definition): void
+    {
+        if (!self::columnExists($pdo, $table, $column)) {
+            $pdo->exec("ALTER TABLE {$table} ADD COLUMN {$column} {$definition}");
+        }
+    }
+
+    private static function columnExists(PDO $pdo, string $table, string $column): bool
+    {
+        $columns = $pdo->query("PRAGMA table_info({$table})")->fetchAll();
+
+        return in_array($column, array_column($columns, 'name'), true);
+    }
+
+    private static function createValidatedBackup(PDO $pdo, ?\BackupSnapshot $snapshot = null): ?string
     {
         $databases = $pdo->query('PRAGMA database_list')->fetchAll();
-        $row = array_values(array_filter($databases, static fn (array $item): bool => ($item['name'] ?? '') === 'main'))[0] ?? null;
-        $databasePath = is_array($row) ? (string) ($row['file'] ?? '') : '';
-
-        if ($databasePath === '' || $databasePath === ':memory:' || !is_file($databasePath)) {
-            return null;
-        }
-
+        $rows = array_values(array_filter($databases, static fn (array $row): bool => ($row['name'] ?? '') === 'main'));
+        $databasePath = (string) ($rows[0]['file'] ?? '');
+        if ($databasePath === '' || !is_file($databasePath)) { return null; }
         $directory = dirname($databasePath) . DIRECTORY_SEPARATOR . 'backups';
+        if (is_link($directory) || (!is_dir($directory) && !mkdir($directory,0700,true))) {
+            throw new RuntimeException('Destino privado de backup indisponível.');
+        }
+        $path = $directory . DIRECTORY_SEPARATOR . pathinfo($databasePath,PATHINFO_FILENAME)
+            . '-pre-migration-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(16)) . '.sqlite';
+        ($snapshot ?? new \BackupSnapshot())->create($path . '.gse', static function (string $temporary) use ($pdo): void {
+            $verification = null;
+            try {
+                $pdo->exec('VACUUM main INTO ' . $pdo->quote($temporary));
+                $verification = new PDO('sqlite:' . $temporary, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                if ($verification->query('PRAGMA integrity_check')->fetchColumn() !== 'ok'
+                    || $verification->query('PRAGMA foreign_key_check')->fetchAll() !== []) {
+                    throw new RuntimeException('Snapshot preventivo inválido.');
+                }
+            } finally { $verification = null; }
+        });
+        return $path . '.gse';
+    }
 
-        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-            throw new RuntimeException('Não foi possível criar o diretório seguro de backup da migração.');
+    private static function hasApplicationTables(PDO $pdo): bool
+    {
+        foreach (['usuarios', 'alunos', 'turmas', 'dvas'] as $table) {
+            if (self::tableExists($pdo, $table)) {
+                return true;
+            }
         }
 
-        $name = pathinfo($databasePath, PATHINFO_FILENAME)
-            . '-pre-migration-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.sqlite';
-        $backupPath = $directory . DIRECTORY_SEPARATOR . $name;
-        $pdo->exec('VACUUM main INTO ' . $pdo->quote($backupPath));
-
-        if (!is_file($backupPath) || filesize($backupPath) === 0) {
-            throw new RuntimeException('O backup preventivo da migração não pôde ser validado.');
-        }
-
-        $verification = new PDO('sqlite:' . $backupPath, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-
-        if ($verification->query('PRAGMA integrity_check')->fetchColumn() !== 'ok') {
-            throw new RuntimeException('O backup preventivo da migração falhou na verificação de integridade.');
-        }
-
-        if (DIRECTORY_SEPARATOR === '/') {
-            @chmod($directory, 0700);
-            @chmod($backupPath, 0600);
-        }
-
-        return $backupPath;
+        return false;
     }
 
     private static function tableExists(PDO $pdo, string $table): bool

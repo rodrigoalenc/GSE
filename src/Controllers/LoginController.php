@@ -18,8 +18,8 @@ final class LoginController extends Controller
 
     public function entrar(): void
     {
-        $email = mb_substr(Usuario::normalizarEmail((string) ($_POST['email'] ?? '')), 0, 254);
-        $senha = (string) ($_POST['senha'] ?? '');
+        $email = mb_substr(Usuario::normalizarEmail(input_string($_POST['email'] ?? '')), 0, 254);
+        $senha = input_string($_POST['senha'] ?? '');
 
         if (!Auth::attempt($email, $senha)) {
             http_response_code(422);

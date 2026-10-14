@@ -14,13 +14,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: PHP 8.3
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
         with:
           php-version: '8.3'
-          extensions: curl, mbstring, pdo_sqlite
+          extensions: curl, dom, fileinfo, intl, mbstring, sodium, pdo_sqlite, xml, xmlwriter
           coverage: none
           tools: composer:v2
 
@@ -36,8 +36,53 @@ jobs:
       - name: Verificar sintaxe PHP
         run: composer lint
 
+      - name: Análise estática (PHPStan nível 6)
+        run: composer analyse
+
       - name: PHPUnit
         run: composer test
 
       - name: Integração HTTP
         run: composer http-test
+
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Node 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+
+      - name: PHP para a aplicação fictícia do navegador
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: '8.3'
+          extensions: dom, fileinfo, intl, mbstring, sodium, pdo_sqlite, xml, xmlwriter
+          coverage: none
+          tools: composer:v2
+
+      - name: Dependências para downloads PDF reais
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Sintaxe e navegação no Chrome isolado
+        env:
+          GSE_BROWSER_EVIDENCE_DIR: ${{ runner.temp }}/gse-browser-evidence
+        run: |
+          node --check public/assets/js/app.js
+          browser_binary=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          "$browser_binary" --version
+          export BROWSER_BINARY="$browser_binary"
+          composer browser-test
+
+      - name: Preservar diagnóstico de falha do navegador
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-failure-diagnostics
+          path: ${{ runner.temp }}/gse-browser-evidence
+          if-no-files-found: ignore
+          retention-days: 7

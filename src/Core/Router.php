@@ -15,6 +15,45 @@ final class Router
             $this->route('POST', 'login/entrar', 'LoginController', 'entrar', false, false, true),
             $this->route('POST', 'login/sair', 'LoginController', 'sair', true, false, true),
             $this->route('GET', 'dashboard', 'DashboardController', 'index', true),
+            $this->route('GET', 'contrato', 'ContratoController', 'index', true),
+            $this->route('GET', 'estoque', 'EstoqueController', 'index', true),
+            $this->route('GET', 'contrato/criar', 'ContratoController', 'criar', true),
+            $this->route('POST', 'contrato/criar', 'ContratoController', 'criar', true),
+            $this->route('GET', 'contrato/detalhes/{id}', 'ContratoController', 'detalhes', true),
+            $this->route('GET', 'contrato/editar/{id}', 'ContratoController', 'editar', true),
+            $this->route('POST', 'contrato/editar/{id}', 'ContratoController', 'editar', true),
+            $this->route('POST', 'contrato/folha/{id}', 'ContratoController', 'folha', true),
+            $this->route('POST', 'contrato/editar-folha/{id}', 'ContratoController', 'editarFolha', true),
+            $this->route('POST', 'contrato/faturar/{id}', 'ContratoController', 'faturar', true),
+            $this->route('POST', 'contrato/produto/{id}', 'ContratoController', 'produto', true),
+            $this->route('POST', 'contrato/estoque/{id}', 'ContratoController', 'estoque', true),
+            $this->route('POST', 'contrato/conferir-abertura/{id}', 'ContratoController', 'conferirAbertura', true, true),
+            $this->route('POST', 'contrato/movimentar/{id}', 'ContratoController', 'movimentar', true),
+            $this->route('POST', 'contrato/excluir/{id}', 'ContratoController', 'excluir', true),
+            $this->route('POST', 'contrato/conciliar/{id}', 'ContratoController', 'conciliar', true, true),
+            $this->route('GET', 'contrato/historico/{id}', 'ContratoController', 'historico', true),
+            $this->route('GET', 'contrato/imprimir/{id}', 'ContratoController', 'imprimir', true),
+            $this->route('GET', 'relatorio', 'RelatorioController', 'index', true),
+            $this->route('GET', 'relatorio/csv', 'RelatorioController', 'csv', true),
+            $this->route('GET', 'relatorio/pdf', 'RelatorioController', 'pdf', true),
+            $this->route('GET', 'certidao', 'CertidaoController', 'index', true),
+            $this->route('GET', 'certidao/cadastrar', 'CertidaoController', 'cadastrar', true),
+            $this->route('POST', 'certidao/cadastrar', 'CertidaoController', 'cadastrar', true),
+            $this->route('GET', 'certidao/detalhes/{id}', 'CertidaoController', 'detalhes', true),
+            $this->route('GET', 'certidao/pdf/{id}', 'CertidaoController', 'pdf', true),
+            $this->route('GET', 'certidao/editar/{id}', 'CertidaoController', 'editar', true),
+            $this->route('POST', 'certidao/editar/{id}', 'CertidaoController', 'editar', true),
+            $this->route('GET', 'certidao/renovar/{id}', 'CertidaoController', 'renovar', true),
+            $this->route('POST', 'certidao/renovar/{id}', 'CertidaoController', 'renovar', true),
+            $this->route('POST', 'certidao/arquivar/{id}', 'CertidaoController', 'arquivar', true),
+            $this->route('POST', 'certidao/desarquivar/{id}', 'CertidaoController', 'desarquivar', true),
+            $this->route('POST', 'certidao/excluir/{id}', 'CertidaoController', 'excluir', true),
+            $this->route('GET', 'certidao/arquivadas', 'CertidaoController', 'arquivadas', true),
+            $this->route('GET', 'certidao/excluidas', 'CertidaoController', 'excluidas', true),
+            $this->route('GET', 'certidao/configurar', 'CertidaoController', 'configurar', true),
+            $this->route('POST', 'certidao/configurar', 'CertidaoController', 'configurar', true),
+            $this->route('GET', 'usuario/perfil', 'PerfilController', 'editar', true),
+            $this->route('POST', 'usuario/perfil', 'PerfilController', 'editar', true),
             $this->route('GET', 'usuario', 'UsuarioController', 'index', true, true),
             $this->route('GET', 'usuario/criar', 'UsuarioController', 'criar', true, true),
             $this->route('POST', 'usuario/criar', 'UsuarioController', 'criar', true, true),
@@ -24,6 +63,48 @@ final class Router
             $this->route('GET', 'senha/alterar', 'SenhaController', 'alterar', true, false, true),
             $this->route('POST', 'senha/alterar', 'SenhaController', 'alterar', true, false, true),
             $this->route('GET', 'auditoria', 'AuditoriaController', 'index', true, true),
+            $this->route('POST', 'auditoria', 'AuditoriaController', 'limpar', true, true),
+            $this->route('GET', 'backup', 'BackupController', 'index', true, true),
+            $this->route('POST', 'backup/criar', 'BackupController', 'criar', true, true),
+            $this->route('GET', 'backup/baixar/{nome}', 'BackupController', 'baixar', true, true),
+            $this->route('GET', 'aluno', 'AlunoController', 'index', true),
+            $this->route('GET', 'aluno/criar', 'AlunoController', 'criar', true),
+            $this->route('POST', 'aluno/criar', 'AlunoController', 'criar', true),
+            $this->route('GET', 'aluno/perfil/{id}', 'AlunoController', 'perfil', true),
+            $this->route('GET', 'aluno/editar/{id}', 'AlunoController', 'editar', true),
+            $this->route('POST', 'aluno/editar/{id}', 'AlunoController', 'editar', true),
+            $this->route('POST', 'aluno/status/{id}', 'AlunoController', 'status', true, true),
+            $this->route('GET', 'aluno/dva/{id}', 'AlunoController', 'dva', true),
+            $this->route('POST', 'aluno/dva/{id}', 'AlunoController', 'dva', true),
+            $this->route('GET', 'dva', 'AlunoController', 'painelDva', true),
+            $this->route('GET', 'passivo', 'PassivoController', 'index', true),
+            $this->route('GET', 'passivo/criar', 'PassivoController', 'criar', true),
+            $this->route('POST', 'passivo/criar', 'PassivoController', 'criar', true),
+            $this->route('GET', 'passivo/detalhes/{id}', 'PassivoController', 'detalhes', true),
+            $this->route('GET', 'passivo/editar/{id}', 'PassivoController', 'editar', true),
+            $this->route('POST', 'passivo/editar/{id}', 'PassivoController', 'editar', true),
+            $this->route('POST', 'passivo/excluir/{id}', 'PassivoController', 'excluir', true),
+            $this->route('POST', 'passivo/status/{id}', 'PassivoController', 'status', true, true),
+            $this->route('GET', 'passivo/inativos', 'PassivoController', 'inativos', true),
+            $this->route('GET', 'passivo/importar', 'PassivoController', 'importar', true, true),
+            $this->route('POST', 'passivo/importar/preview', 'PassivoController', 'previewImport', true, true),
+            $this->route('POST', 'passivo/importar/confirmar', 'PassivoController', 'confirmImport', true, true),
+            $this->route('GET', 'passivo/ferramentas', 'PassivoController', 'ferramentas', true, true),
+            $this->route('POST', 'passivo/ferramentas/enumerar/preview', 'PassivoController', 'previewEnumeration', true, true),
+            $this->route('POST', 'passivo/ferramentas/enumerar/confirmar', 'PassivoController', 'confirmEnumeration', true, true),
+            $this->route('POST', 'passivo/exportar', 'PassivoController', 'exportar', true),
+            $this->route('POST', 'aluno/arquivar-lote/selecionar', 'PassivoController', 'selecionarLote', true, true),
+            $this->route('GET', 'aluno/arquivar-lote', 'PassivoController', 'arquivarLote', true, true),
+            $this->route('POST', 'aluno/arquivar-lote/preview', 'PassivoController', 'previewLote', true, true),
+            $this->route('POST', 'aluno/arquivar-lote/confirmar', 'PassivoController', 'confirmarLote', true, true),
+            $this->route('GET', 'aluno/arquivar/{id}', 'PassivoController', 'arquivarAluno', true, true),
+            $this->route('POST', 'aluno/arquivar/{id}', 'PassivoController', 'arquivarAluno', true, true),
+            $this->route('GET', 'turma', 'TurmaController', 'index', true, true),
+            $this->route('GET', 'turma/criar', 'TurmaController', 'criar', true, true),
+            $this->route('POST', 'turma/criar', 'TurmaController', 'criar', true, true),
+            $this->route('GET', 'turma/editar/{id}', 'TurmaController', 'editar', true, true),
+            $this->route('POST', 'turma/editar/{id}', 'TurmaController', 'editar', true, true),
+            $this->route('POST', 'turma/status/{id}', 'TurmaController', 'status', true, true),
         ];
     }
 
@@ -52,7 +133,16 @@ final class Router
                 render_http_error(419, 'Sessão expirada', 'Atualize a página e tente enviar o formulário novamente.');
             }
 
-            $this->invoke($route, $params);
+            require_once __DIR__ . '/ActionBudget.php';
+            try {
+                if ($route['auth'] && preg_match('~(?:exportar|imprimir|download|baixar|preview|backup/criar|relatorio/(?:csv|pdf)|certidao/(?:pdf|cadastrar|renovar|editar))~', $path) === 1) {
+                    ActionBudget::consume(\src\Core\Database::getConnection(), (int) $_SESSION['usuario_id'], $route['pattern'], false);
+                }
+                $this->invoke($route, $params);
+            } catch (ActionLimitExceeded $exception) {
+                header('Retry-After: ' . $exception->retryAfter);
+                render_http_error(429, 'Muitas tentativas', $exception->getMessage());
+            }
 
             return;
         }
@@ -103,7 +193,10 @@ final class Router
         }
     }
 
-    /** @param array{controller:string,action:string} $route */
+    /**
+     * @param array{controller:string,action:string} $route
+     * @param array<string,string> $params
+     */
     private function invoke(array $route, array $params): void
     {
         $controllerName = $route['controller'];
@@ -139,6 +232,14 @@ final class Router
         foreach ($patternSegments as $index => $segment) {
             if (preg_match('/^\{([a-z][a-z0-9_]*)\}$/i', $segment, $match) === 1) {
                 $value = $pathSegments[$index];
+
+                if ($match[1] === 'nome' && $pattern === 'backup/baixar/{nome}') {
+                    if (preg_match('/\Aescola_backup_MANUAL_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(?:_[a-f0-9]{32})?\.db\.gse\z/D', $value) !== 1) {
+                        return null;
+                    }
+                    $params[$match[1]] = $value;
+                    continue;
+                }
 
                 if (($match[1] === 'id' && preg_match('/^[1-9][0-9]*$/', $value) !== 1)
                     || preg_match('/^[a-z0-9_-]+$/i', $value) !== 1) {

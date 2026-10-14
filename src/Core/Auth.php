@@ -34,8 +34,9 @@ final class Auth
         $usuarios = new Usuario();
         $usuario = $usuarios->buscarPorEmail($normalizedEmail);
         $hash = is_array($usuario) ? (string) ($usuario['senha'] ?? self::dummyPasswordHash()) : self::dummyPasswordHash();
-        $passwordLengthValid = mb_strlen($senha, 'UTF-8') <= PasswordPolicy::MAX_LENGTH && $senha !== '';
-        $senhaValida = $passwordLengthValid ? password_verify($senha, $hash) : false;
+        $passwordLengthValid = PasswordPolicy::inputValid($senha)
+            && !(preg_match('/^\$2[aby]\$/', $hash) === 1 && strlen($senha) > 72);
+        $senhaValida = $passwordLengthValid && PasswordPolicy::verify($senha, $hash);
 
         if (!$passwordLengthValid) {
             password_verify('invalid-password-placeholder', self::dummyPasswordHash());
@@ -68,7 +69,11 @@ final class Auth
         );
 
         if (PasswordPolicy::needsRehash((string) $usuario['senha'])) {
-            $usuarios->atualizarSenhaHash((int) $usuario['id'], PasswordPolicy::hash($senha));
+            try {
+                $usuarios->atualizarSenhaHash((int) $usuario['id'], PasswordPolicy::hash($senha), $hash);
+            } catch (PasswordHashException) {
+                // Opportunistic upgrade: keep the verified hash and authenticated session.
+            }
         }
 
         return true;
@@ -81,7 +86,7 @@ final class Auth
 
     private static function dummyPasswordHash(): string
     {
-        return defined('PASSWORD_ARGON2ID') ? self::DUMMY_ARGON2ID_HASH : self::DUMMY_DEFAULT_HASH;
+        return PasswordPolicy::argon2idAvailable() ? self::DUMMY_ARGON2ID_HASH : self::DUMMY_DEFAULT_HASH;
     }
 
     public static function check(): bool
@@ -110,6 +115,7 @@ final class Auth
         return true;
     }
 
+    /** @return array<string,mixed>|null */
     public static function user(): ?array
     {
         if (!self::check()) {

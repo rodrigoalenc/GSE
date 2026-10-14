@@ -11,7 +11,7 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login - Sistema Escolar</title>
-    <link rel="stylesheet" href="<?= e(url('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
+    <link rel="icon" type="image/png" href="<?= e(url('assets/image/logo_escola.png')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/login.css')) ?>">
 </head>
 <body class="login-container">
@@ -40,7 +40,7 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
             <label for="senha">Senha:</label>
             <div class="input-with-toggle">
                 <input type="password" id="senha" name="senha" autocomplete="current-password"
-                       maxlength="128" placeholder="Sua senha" required>
+                       data-password-max="128" placeholder="Sua senha" required>
                 <button class="toggle-password" type="button" data-password-toggle="senha" aria-label="Mostrar senha" title="Mostrar senha">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
@@ -51,6 +51,7 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
         </div>
 
         <button class="btn-login" type="submit">Entrar</button>
+        <details class="login-help"><summary><span>Esqueci minha senha</span></summary><p>Solicite ao administrador a redefinição da sua senha para recuperar o acesso.</p></details>
     </form>
 <script src="<?= e(url('assets/js/app.js')) ?>"></script>
 </body>

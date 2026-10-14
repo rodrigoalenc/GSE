@@ -17,6 +17,8 @@ require_once ROOT_PATH . '/src/Core/SecurityHeaders.php';
 require_once ROOT_PATH . '/src/Core/ErrorHandler.php';
 require_once ROOT_PATH . '/src/Core/SessionManager.php';
 require_once ROOT_PATH . '/src/Core/PasswordPolicy.php';
+require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
+require_once ROOT_PATH . '/src/Core/DvaStatus.php';
 require_once ROOT_PATH . '/src/Core/AuditLogger.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 require_once ROOT_PATH . '/src/Core/LoginThrottle.php';
@@ -62,11 +64,21 @@ define('BASE_URL', RequestContext::baseUrl());
 
 if (PHP_SAPI === 'cli-server') {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '';
+    $decodedStaticPath = str_replace('\\', '/', rawurldecode($path));
+    $isBackupDownload = preg_match('#^/backup/baixar/escola_backup_MANUAL_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:_[a-f0-9]{32})?\.db\.gse$#D', $decodedStaticPath) === 1;
+    if (preg_match('#^/uploads/certidoes(?:/|$)#i', $decodedStaticPath) === 1
+        || preg_match('#(?:^|/)\.#', $decodedStaticPath) === 1
+        || preg_match('#^/(?:src|vendor|tests|bin|database|backups|logs|storage|config)(?:/|$)#i', $decodedStaticPath) === 1
+        || (!$isBackupDownload && preg_match('/\.(?:env|sqlite3?|db|gse|sql|log|pem|key|bak|backup|lock|ini|json|ya?ml)(?:[-.]|$)/i', $decodedStaticPath) === 1)
+        || str_contains($decodedStaticPath, '..')) {
+        render_http_error(404, 'Documento indisponível', 'Utilize o acesso autenticado às certidões.');
+    }
     $staticFile = realpath(__DIR__ . $path);
     $publicRoot = realpath(__DIR__);
 
     if (
-        $staticFile !== false
+        !$isBackupDownload
+        && $staticFile !== false
         && $publicRoot !== false
         && ($staticFile === $publicRoot || str_starts_with($staticFile, $publicRoot . DIRECTORY_SEPARATOR))
         && is_file($staticFile)
@@ -102,5 +114,5 @@ if (isset($_SESSION['usuario_id'])) {
     }
 }
 
-$url = $_GET['url'] ?? parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '';
-(new Router())->dispatch((string) $url);
+$url = input_string($_GET['url'] ?? (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: ''));
+(new Router())->dispatch($url);

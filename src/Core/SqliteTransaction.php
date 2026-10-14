@@ -26,6 +26,18 @@ final class SqliteTransaction
         try {
             $pdo->exec('BEGIN IMMEDIATE');
             $started = true;
+            // Read under the write lock: another writer cannot revoke this identity
+            // between this check and the business commit. CLI jobs have no HTTP session.
+            if (PHP_SAPI !== 'cli' && isset($_SESSION['usuario_id'], $_SESSION['auth_version'])) {
+                $identity = $pdo->prepare('SELECT ativo,session_version,tipo FROM usuarios WHERE id=?');
+                $identity->execute([(int)$_SESSION['usuario_id']]);
+                $row = $identity->fetch(PDO::FETCH_ASSOC);
+                if ($row === false || (int)$row['ativo'] !== 1
+                    || (int)$row['session_version'] !== (int)$_SESSION['auth_version']
+                    || (string)$row['tipo'] !== (string)($_SESSION['usuario_tipo'] ?? '')) {
+                    throw new \DomainException('Sessão inválida. Faça login novamente.');
+                }
+            }
             $result = $operation($pdo);
             $pdo->exec('COMMIT');
             $started = false;

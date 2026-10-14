@@ -154,8 +154,8 @@ final class LoginThrottle
     private function keys(string $account, string $ip): array
     {
         return [
-            ['account', hash('sha256', mb_strtolower(trim($account), 'UTF-8'))],
-            ['ip', hash('sha256', trim($ip))],
+            ['account', hash_hmac('sha256', 'login-account:' . hash('sha256', mb_strtolower(trim($account), 'UTF-8')), DataProtection::keyring()['index'])],
+            ['ip', hash_hmac('sha256', 'login-ip:' . hash('sha256', trim($ip)), DataProtection::keyring()['index'])],
         ];
     }
 

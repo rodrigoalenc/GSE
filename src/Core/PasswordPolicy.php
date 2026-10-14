@@ -2,10 +2,36 @@
 
 declare(strict_types=1);
 
+final class PasswordHashException extends RuntimeException
+{
+}
+
+class PasswordHashRuntime
+{
+    /** @return list<string> */
+    public function algorithms(): array
+    {
+        return password_algos();
+    }
+
+    public function hash(#[SensitiveParameter] string $password, string $algorithm): string
+    {
+        return password_hash($password, $algorithm);
+    }
+}
+
 final class PasswordPolicy
 {
-    public const MIN_LENGTH = 12;
+    public const MIN_LENGTH = 15;
     public const MAX_LENGTH = 128;
+
+    // Tests replace this private native adapter by reflection; no environment switch.
+    private static ?PasswordHashRuntime $runtime = null;
+
+    private static function runtime(): PasswordHashRuntime
+    {
+        return self::$runtime ??= new PasswordHashRuntime();
+    }
 
     private const COMMON = [
         '123456789012', '123456789123', 'administrator', 'administrador', 'password1234',
@@ -16,11 +42,14 @@ final class PasswordPolicy
     /** @return list<string> */
     public static function validate(string $password, string $name = '', string $email = ''): array
     {
+        if (!mb_check_encoding($password, 'UTF-8') || str_contains($password, "\0")) {
+            return ['A senha deve conter texto UTF-8 válido, sem bytes nulos.'];
+        }
         $errors = [];
         $length = mb_strlen($password, 'UTF-8');
 
         if ($length < self::MIN_LENGTH) {
-            $errors[] = 'Use uma senha com pelo menos 12 caracteres.';
+            $errors[] = 'Use uma senha com pelo menos 15 caracteres.';
         }
 
         if ($length > self::MAX_LENGTH) {
@@ -44,27 +73,55 @@ final class PasswordPolicy
         return array_values(array_unique($errors));
     }
 
-    public static function hash(string $password): string
+    public static function argon2idAvailable(): bool
     {
-        $algorithm = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
-        $hash = password_hash($password, $algorithm);
+        $algorithms = self::runtime()->algorithms();
 
-        if ($hash === false && $algorithm !== PASSWORD_DEFAULT) {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
+        return in_array('argon2id', $algorithms, true);
+    }
+
+    public static function inputValid(#[SensitiveParameter] string $password): bool
+    {
+        // Legacy accounts can predate the current minimum length policy.
+        return $password !== '' && mb_check_encoding($password, 'UTF-8')
+            && !str_contains($password, "\0") && mb_strlen($password, 'UTF-8') <= self::MAX_LENGTH;
+    }
+
+    public static function verify(#[SensitiveParameter] string $password, string $hash): bool
+    {
+        if (!self::inputValid($password)
+            || (preg_match('/^\$2[aby]\$/', $hash) === 1 && strlen($password) > 72)) {
+            return false;
         }
 
-        if ($hash === false) {
-            throw new RuntimeException('Não foi possível proteger a senha.');
-        }
+        return password_verify($password, $hash);
+    }
 
-        return $hash;
+    public static function hash(#[SensitiveParameter] string $password): string
+    {
+        if (!self::inputValid($password)) {
+            throw new InvalidArgumentException('Entrada de senha inválida.');
+        }
+        if (!self::argon2idAvailable()) {
+            TechnicalLogger::error('password_hash_failed', ['cause' => 'argon2id_unavailable']);
+            throw new PasswordHashException('Não foi possível proteger a senha.');
+        }
+        try {
+            $hash = self::runtime()->hash($password, 'argon2id');
+            if (password_get_info($hash)['algoName'] !== 'argon2id') {
+                throw new RuntimeException('Unexpected hash algorithm.');
+            }
+
+            return $hash;
+        } catch (Throwable $exception) {
+            TechnicalLogger::error('password_hash_failed', ['cause' => 'argon2id_generation_failed', 'exception' => $exception::class]);
+            throw new PasswordHashException('Não foi possível proteger a senha.');
+        }
     }
 
     public static function needsRehash(string $hash): bool
     {
-        $algorithm = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
-
-        return password_needs_rehash($hash, $algorithm);
+        return self::argon2idAvailable() && password_needs_rehash($hash, 'argon2id');
     }
 
     private static function resemblesIdentity(string $password, string $name, string $email): bool

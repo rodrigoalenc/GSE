@@ -48,6 +48,10 @@ form.login h2 {
     letter-spacing: -0.03em;
 }
 
+.login-brand { margin-bottom: 14px; text-align: center; }
+.login-brand img { display: block; width: 64px; height: 64px; margin: 0 auto 8px; padding: 4px; object-fit: contain; background: #fff; border-radius: 16px; box-shadow: 0 12px 28px rgba(12, 53, 102, .16); }
+.login-brand p { margin: 0; color: var(--primary-color); font-size: .8rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+
 .form-group,
 .password-wrapper {
     margin-bottom: 18px;
@@ -86,8 +90,9 @@ form.login input:focus {
     align-items: center;
 }
 
-.input-with-toggle input {
-    padding-right: 46px !important;
+.input-with-toggle input,
+form.login .input-with-toggle input {
+    padding-right: 46px;
 }
 
 .toggle-password {
@@ -159,6 +164,14 @@ form.login .btn-login:hover {
     to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 480px) {
-    form.login { padding: 34px 24px; }
+.login-help { margin-top: 15px; text-align: center; }
+.login-help summary { list-style: none; color: #666; font-size: 1em; line-height: normal; cursor: pointer; }
+.login-help summary span { font-size: .9em; }
+.login-help summary::-webkit-details-marker { display: none; }
+.login-help p { margin: 12px 0 0; color: var(--text-muted); font-size: .9em; }
+form.login :focus-visible { outline: 3px solid #f4c95d; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+    form.login { animation: none; }
+    *, *::before, *::after { transition-duration: 0.01ms !important; }
 }

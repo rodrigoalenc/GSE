@@ -1,11 +1,25 @@
-# GSE — Módulo 1: Autenticação e Controle de Usuários
+# GSE — Módulos 1 a 5
 
-Entrega funcional e endurecida do Módulo 1 do Gestor de Secretaria Escolar:
+Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 
 - UC002 — controlar usuários;
 - UC003 — realizar login.
+- UC001 — cadastrar, consultar, editar e inativar alunos, turmas e DVAs;
+- RF006 — alertas consolidados de DVA por e-mail, quando habilitados;
+- UC006 — contratos, folhas, produtos e movimentação de estoque;
+- UC007 — relatórios de alunos e situação da DVA.
 
-O sistema usa PHP 8.3+, SQLite e MVC sem framework. Gestão de alunos, DVA, certidões, contratos, estoque e demais módulos acadêmicos não fazem parte desta entrega. Models e tabelas antigos desses domínios foram preservados para trabalho futuro, mas não possuem rotas nem telas publicadas.
+O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A revisão de 06/10/2026 preserva a migração v16 e acrescenta perfil próprio, snapshot SQLite que inclui o WAL e correção semântica do CI. A edição acadêmica de 34 páginas foi conferida literalmente. A base publicada em `d475b304` foi aprovada no CI Linux; alterações posteriores exigem validação correspondente ao novo código. As ambiguidades acadêmicas e o aceite institucional permanecem pendentes.
+
+## Módulo 4 — instalação e operação
+
+A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco da branch `Modulo5` chega à **v16**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. Funcionários e administradores autenticados podem consultar e administrar certidões, fornecedores e tipos. O aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
+
+- Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
+- PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
+- Avisos: `CERTIDAO_WARNING_DAYS=15`; `php bin/notify-certidoes.php` só envia em produção com `MAIL_ENABLED=true` e `CERTIDAO_MAIL_ENABLED=true`, após configurar SMTP e agendamento. Não depende do opt-in de DVA.
+- Inventário conservador: `php bin/certidoes-maintenance.php`. Migração de arquivos legados: `php bin/migrate-certidao-pdfs.php --source=CAMINHO_ABSOLUTO` simula, sem mover/apagar originais.
+- Backup operacional cobre **SQLite e PDFs**. Bloqueie os diretórios públicos legados no servidor antes da implantação.
 
 ## Arquitetura de segurança
 
@@ -17,19 +31,35 @@ Componentes principais:
 - `RequestContext` obtém host, HTTPS e IP sem confiar em headers de proxy por padrão;
 - `SessionManager` aplica timeout ocioso/absoluto e renovação do identificador;
 - `LoginThrottle` limita falhas por conta normalizada e IP;
-- `PasswordPolicy` valida frases-senha Unicode e usa Argon2id quando disponível;
+- `PasswordPolicy` valida frases-senha Unicode e exige Argon2id para novos hashes;
+- `TextNormalizer` gera nomes de exibição em NFC e chaves de comparação Unicode reutilizadas por alunos, turmas e migrações;
 - `AuditLogger` registra eventos de segurança em tabela separada do log técnico;
 - `DatabaseInitializer` aplica migrações versionadas, idempotentes e com backup preventivo;
+- `Aluno`, `Turma`, `Dva`, `Passivo`, `Certidao` e `Contrato` concentram a persistência dos módulos;
+- `DvaStatus` centraliza datas, filtros e o semáforo usado em telas, dashboard e notificações;
+- `DvaNotificationService` usa transporte injetável, entrega consolidada e idempotência diária;
 - trigger SQLite e transação `BEGIN IMMEDIATE`, executada por um helper com rollback explícito, protegem o último administrador ativo;
 - `SecurityHeaders` aplica CSP sem `unsafe-inline` e HSTS somente sob HTTPS reconhecido.
 
+## Identidade visual e acessibilidade
+
+A interface usa a identidade azul e o logo institucional da E.E. São José. Login, painel, usuários, senha, auditoria, backups, alunos, DVAs, turmas, passivo, certidões, contratos, estoque, relatórios e erros compartilham a organização visual do GSE. A sidebar expande por `hover` ou `focus-within` no desktop e dispõe de apresentação móvel. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`. A inspeção do código e os testes HTTP não substituem a validação visual e de acessibilidade no navegador.
+
 As decisões seguem as recomendações de [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) e [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) da OWASP, além das APIs nativas de senha do [manual do PHP](https://www.php.net/manual/en/book.password.php).
+
+## Módulo 5 — contratos, estoque e relatórios
+
+A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produtos, faturamento documental, duplicação e impressão. O estoque físico possui limites, abertura confirmada, entradas/saídas, estorno administrativo e histórico auditado; a quantidade contratada permanece distinta do saldo físico. Estoque antigo marcado como aberto sem comprovação exige conferência administrativa atual, com contagem, unidade, justificativa documental, revisão e operação transacional. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). Funcionários e administradores autenticados acessam contratos, estoque e relatórios; estornos, conciliação legada, conferência de abertura legada e correção de faturamento exigem administrador. O esquema atual é **v17**; a v15 implementa contratos/estoque e a v16 corrige indicadores de localização do Arquivo Passivo.
+
+Para desenvolver, instale dependências com `composer install`, habilite `intl`, `fileinfo`, `mbstring` e `pdo_sqlite`, e execute `composer check`. Dompdf 3.1.6 é gerenciado pelo Composer. Não aplique migração em dados institucionais sem backup e ensaio de restauração conjunto de SQLite e PDFs privados.
+
+O ajuste de segurança dos downloads libera a guarda de repetição após 3 segundos, permitindo novas exportações PDF/CSV e atualização da prévia sem recarregar a tela. Backups manuais e preventivos verificam a exclusão do snapshot em claro; uma pendência impede sucesso completo e preserva o backup criptografado concluído. Consulte a [limpeza offline de resíduos](SECURITY-OPERATIONS.md#limpeza-verificada-dos-snapshots) e os resultados locais em [SECURITY-VALIDATION.md](SECURITY-VALIDATION.md). A criptografia continua limitada ao nome/e-mail dos usuários e aos backups protegidos, sem cifrar todos os dados pessoais, o SQLite inteiro ou o disco.
 
 ## Requisitos
 
-- PHP 8.3 ou superior;
+- PHP 8.3 ou superior, com `argon2id` registrado em `password_algos()` tanto na CLI quanto no PHP-FPM;
 - Composer 2;
-- extensões `pdo`, `pdo_sqlite`, `mbstring`, `session`, `filter` e `hash`;
+- extensões `pdo`, `pdo_sqlite`, `intl`, `fileinfo`, `mbstring`, `session`, `filter` e `hash`, além das exigidas pelas dependências do Composer;
 - extensão `curl` apenas para o teste HTTP automatizado.
 
 ```bash
@@ -38,6 +68,8 @@ php -m
 composer --version
 ```
 
+`ext-intl` é obrigatória para normalização NFC consistente. Em Windows, habilite `extension=intl` no `php.ini`; em Linux, instale o pacote `php8.3-intl` ou o equivalente da distribuição antes do Composer.
+
 ## Desenvolvimento local
 
 ```bash
@@ -45,6 +77,8 @@ git clone https://github.com/rodrigoalenc/GSE.git
 cd GSE
 composer install
 ```
+
+Antes dos comandos de inicialização, crie o keyring externo e configure `GSE_KEYRING_PATH` seguindo [SECURITY-OPERATIONS.md](SECURITY-OPERATIONS.md). Para bancos existentes com usuários, use a migração explícita desse procedimento.
 
 No Windows:
 
@@ -87,21 +121,33 @@ Para automação controlada, `GSE_ADMIN_PASSWORD` pode ser fornecida apenas ao p
 
 Senhas definidas ou redefinidas por administrador também são temporárias e nunca são exibidas novamente pela aplicação.
 
+Funcionários e administradores acessam `/usuario/perfil` pelo próprio nome no rodapé do menu. Nome e e-mail só podem ser alterados para a conta da sessão, com senha atual e CSRF. A auditoria participa da mesma transação: se falhar, a alteração é desfeita. Alterar apenas o nome mantém a sessão; alterar o e-mail encerra todas as sessões anteriores e exige novo login. A troca de senha permanece em `/senha/alterar`. Perfil, situação e preferência de alertas continuam sob administração.
+
+Alertas de DVA são opt-in. O primeiro administrador inicia sem alertas; para uma escolha explícita já na criação, acrescente `--enable-dva-alerts`. A preferência também pode ser habilitada depois pela tela administrativa.
+
 ## Política de senhas
 
-- 12 a 128 caracteres Unicode;
+- 15 a 128 caracteres Unicode para novas definições; credenciais legadas continuam verificáveis;
 - espaços e frases-senha são permitidos;
 - não há exigência artificial de símbolo, maiúscula ou dígito;
 - senhas vazias, comuns ou muito semelhantes ao nome/e-mail são recusadas;
-- senhas nunca são truncadas;
-- hash preferencial Argon2id, com fallback para `PASSWORD_DEFAULT`;
+- senhas não são truncadas, normalizadas nem aparadas; UTF-8 inválido e bytes nulos são recusados;
+- novos hashes exigem Argon2id, com os custos nativos do PHP e sem fallback; indisponibilidade ou falha impede cadastro/reset/troca sem alteração parcial ou revogação de sessões;
 - login usa `password_verify()` e rehash transparente com `password_needs_rehash()`.
 
 O login apresenta sempre a mesma mensagem para conta inexistente, inativa, senha errada ou bloqueio interno.
 
+Hashes bcrypt legados continuam verificáveis com entradas de até 72 **bytes**, mesmo que a política mínima antiga fosse diferente. Entradas maiores são ambíguas e recebem a falha genérica, com limitação de tentativas e sem autenticação ou rehash. A mesma restrição vale para confirmação da senha atual. Senhas Argon2id acima de 72 bytes continuam verificadas integralmente, dentro dos 128 caracteres.
+
+Após login válido e integralmente verificável, hashes legados podem migrar para Argon2id, sem sobrescrever um reset concorrente. Se Argon2id estiver indisponível ou o rehash falhar, o hash anterior é preservado e o login válido continua; nunca há downgrade. O bcrypt fictício de comparação temporal não é usado para criar senhas.
+
+O hash bcrypt não revela o tamanho da senha original: não é possível identificar contas afetadas apenas pelo hash. Para uma conta cujo login seja recusado por senha longa, um administrador autorizado deve confirmar a identidade pelo procedimento institucional e redefinir uma senha temporária em **Usuários**, com auditoria e troca obrigatória. Não tente recuperar acesso truncando a senha. Se a conta afetada for o único administrador ativo, use o procedimento operacional supervisionado de recuperação de acesso; a CLI inicial recusa criar outro administrador enquanto houver um ativo. Não altere hashes diretamente nem desative essa proteção. Não há endpoint público de recuperação.
+
+Confira o suporte com `php -r "var_export(password_algos());"` e valide também o runtime web. A CLI de criação inicial encerra com código diferente de zero quando não pode gerar Argon2id e informa o requisito do ambiente.
+
 ## Rate limiting
 
-Falhas são controladas separadamente por hash da conta normalizada e por hash do IP. O padrão bloqueia a conta após 5 falhas e o IP após 40 falhas dentro de 15 minutos, com bloqueio temporário de 15 minutos. O atraso exponencial, limitado a 2 segundos, acompanha o histórico da conta para não penalizar coletivamente redes escolares sob NAT.
+Falhas são controladas separadamente por HMAC da conta normalizada e por HMAC do IP, com preservação dos orçamentos anteriores na v17. O padrão bloqueia a conta após 5 falhas e o IP após 40 falhas dentro de 15 minutos, com bloqueio temporário de 15 minutos. O atraso exponencial, limitado a 2 segundos, acompanha o histórico da conta para não penalizar coletivamente redes escolares sob NAT.
 
 Um login válido limpa somente o estado daquela conta. O histórico compartilhado do IP é preservado para que uma conta válida não permita contornar a proteção de rede. Os limites independentes mantêm proteção contra ataques distribuídos à mesma conta e evitam que cinco erros de uma pessoa bloqueiem toda a escola.
 
@@ -125,9 +171,45 @@ Uma senha alterada pelo próprio usuário encerra a sessão e exige novo login.
 
 Administradores acessam `/auditoria`, com paginação e filtros por ação, resultado e período. A interface é somente leitura. São registrados login válido/inválido/bloqueado, logout, expiração/invalidação de sessão, acesso administrativo negado, criação/alteração de conta, perfil, senha, ativação/inativação e bloqueios ligados ao próprio/último administrador.
 
+Alterações de alunos, DVAs, turmas, contas, senhas e preferência de alertas exigem auditoria na mesma transação que salva os dados. Se o registro obrigatório falhar, a alteração e suas versões são desfeitas. O cadastro de aluno com DVA inicial exige os dois eventos. Os controllers obtêm o autor da sessão; dados pessoais, senhas e hashes não são copiados para a descrição dos eventos. Tentativas recusadas e eventos de sessão continuam usando registro independente da transação de domínio.
+
 Cada evento registra horário UTC, ação, resultado, IDs aplicáveis, IP seguro, ID aleatório de requisição e descrição objetiva. Senhas, hashes, cookies, sessão completa e CSRF não são gravados.
 
 `AUDIT_RETENTION_DAYS` usa 365 dias por padrão e nunca aceita menos de 90. A escola deve aprovar a retenção conforme obrigações legais e administrativas. Para proteção adicional, exporte eventos para armazenamento externo imutável/SIEM.
+
+## Gestão de alunos e turmas
+
+Funcionários e administradores autenticados podem listar, pesquisar, filtrar, cadastrar, editar e consultar o perfil de alunos. Somente administradores podem inativar/reativar alunos e administrar turmas. Não existe rota de exclusão física: a situação do cadastro muda, enquanto os dados e o histórico permanecem preservados.
+
+Nome, nascimento, turma e telefones são validados no servidor. Telefones opcionais são normalizados para 10 ou 11 dígitos e só geram links independentes de WhatsApp após essa validação. A busca escapa `%`, `_` e `\`. `TextNormalizer` remove espaços externos, reduz sequências internas, converte para NFC e cria a chave minúscula com `mb_strtolower`, sem remover acentos nem modificar a capitalização do nome exibido. Um nome normalizado e nascimento coincidentes produzem um alerta de possível duplicidade tanto no cadastro quanto na edição e exigem confirmação explícita; consulta e gravação ocorrem na mesma transação `BEGIN IMMEDIATE`. Não há unicidade absoluta porque pessoas diferentes podem compartilhar esses dados.
+
+Turmas possuem nome, ano letivo e situação. A combinação `nome_normalizado + ano_letivo` é única, inclusive para diferenças de caixa acentuada ou representações Unicode canonicamente equivalentes. O nome original em NFC continua sendo exibido. Uma turma com alunos ativos não pode ser inativada até que esses alunos sejam remanejados ou inativados. Turmas legadas ficam com `ano_letivo` nulo para preenchimento administrativo: a migração não inventa datas históricas.
+
+## DVA, histórico e semáforo
+
+Uma DVA inicial é opcional. Renovar não altera o documento anterior: em uma transação `BEGIN IMMEDIATE`, a DVA vigente é arquivada e uma nova versão é inserida. Um índice único parcial garante no banco no máximo uma DVA ativa por aluno. Registros históricos não são excluídos, inclusive após a inativação do aluno.
+
+`DvaStatus` usa datas civis no fuso `APP_TIMEZONE` e classifica:
+
+- `sem_dva`: nenhum registro vigente;
+- `vencida`: vencimento anterior a hoje;
+- `vence_hoje`: vencimento igual a hoje;
+- `a_vencer`: de amanhã até `DVA_WARNING_DAYS` (30 por padrão), inclusive;
+- `vigente`: após esse limite.
+
+Datas vencidas podem ser registradas para correção histórica e são sinalizadas imediatamente. Timestamps de criação, substituição e auditoria são UTC.
+
+## Notificações opcionais de DVA
+
+O comando `php bin/notify-dva.php` funciona somente em CLI, consolida DVAs vencidas ou dentro de `DVA_EMAIL_WARNING_DAYS` e envia somente a administradores ativos que habilitaram a preferência. Migrações e criação por CLI mantêm essa opção em `0`; funcionários, contas rebaixadas e contas inativas não são destinatários. O e-mail não inclui telefone, nascimento nem observação integral. A execução do mesmo dia não duplica uma entrega já concluída; falhas parciais ficam aptas a nova tentativa. Testes usam transporte falso e nunca enviam e-mail real.
+
+O envio usa PHPMailer por SMTP. `tls` é mapeado para `PHPMailer::ENCRYPTION_STARTTLS`, `smtps` para `PHPMailer::ENCRYPTION_SMTPS` e `none` desativa também `SMTPAutoTLS`. Produção exige `tls` ou `smtps` e rejeita combinações incoerentes com as portas padrão; a validação de certificados não é relaxada. Com `MAIL_ENABLED=false`, o comando retorna zero sem abrir conexão. Sempre teste o SMTP institucional em homologação. Exemplo de cron diário:
+
+```cron
+25 7 * * * cd /var/www/gse && /usr/bin/php bin/notify-dva.php >> /var/log/gse/notify-dva.log 2>&1
+```
+
+Proteja o log do agendador e o `.env`; nunca coloque `MAIL_PASSWORD` no crontab ou no repositório. Em Windows, use o Agendador de Tarefas com o mesmo usuário restrito da aplicação e execute `php.exe bin\notify-dva.php` no diretório do projeto.
 
 ## Manutenção periódica
 
@@ -154,6 +236,7 @@ Proteja também o arquivo de log do cron e ajuste `/var/www/gse` ao caminho real
 |---|---|
 | `APP_ENV` | fallback `production` |
 | `APP_URL` | obrigatório e absoluto em produção |
+| `APP_TIMEZONE` | fuso das datas civis; padrão `America/Cuiaba` |
 | `APP_ALLOWED_HOSTS` | hosts adicionais separados por vírgula |
 | `DB_PATH` | arquivo SQLite fora de `public/` |
 | `LOG_PATH` | log técnico fora de `public/` |
@@ -169,12 +252,23 @@ Proteja também o arquivo de log do cron e ajuste `/var/www/gse` ao caminho real
 | `LOGIN_DELAY_BASE_MS` / `LOGIN_DELAY_MAX_MS` | `200` / `2000` |
 | `LOGIN_RETENTION_DAYS` | `7` |
 | `AUDIT_RETENTION_DAYS` | `365` (mínimo 90) |
+| `DVA_WARNING_DAYS` | `30`; limite visual do semáforo |
+| `DVA_EMAIL_WARNING_DAYS` | `15`; limite do resumo por e-mail |
+| `MAIL_ENABLED` | `false` por padrão |
+| `MAIL_HOST` / `MAIL_PORT` | servidor SMTP e porta (`587`) |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | credenciais SMTP, nunca versionadas |
+| `MAIL_ENCRYPTION` | `tls`, `smtps` ou `none` conforme o provedor |
+| `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | remetente institucional |
 | `DB_DIRECTORY_MODE` | Linux: `0700` ou `0750` |
 | `DB_FILE_MODE` | Linux: `0600` ou `0640` |
 
 Use `.env.production.example` como modelo sem credenciais.
 
 Para instalações antigas, `LOGIN_MAX_FAILURES` continua aceito como fallback somente do limite por conta e `LOGIN_WINDOW_SECONDS` como fallback da janela. O limite por IP nunca herda o valor baixo antigo: se `LOGIN_IP_MAX_FAILURES` estiver ausente ou inválido, usa 40. Migre para os nomes novos ao revisar a configuração.
+
+## Proteção v17
+
+Antes de iniciar a aplicação, configure um keyring privado externo e siga [o procedimento de segurança](SECURITY-OPERATIONS.md) para criação, simulação, migração, rotação e restauração. A nova camada cifra nome/e-mail dos usuários e novos backups; não cifra todo o SQLite nem os PDFs privados.
 
 ## Produção, HTTPS e proxy reverso
 
@@ -208,13 +302,58 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões. `php bin/init-db.php` pode ser repetido: cria esquema limpo ou atualiza banco legado sem apagar tabelas/Models futuros. A migração adiciona `ativo`, `atualizado_em`, `session_version`, `deve_alterar_senha`, `password_changed_at`, auditoria e tentativas. Um índice `COLLATE NOCASE` garante e-mail único no banco.
+`schema_migrations` controla versões individuais de 1 a 17. `php bin/init-db.php` exige `GSE_KEYRING_PATH` e pode ser repetido em bancos já protegidos; bancos existentes com usuários exigem a migração explícita v17 antes de abrir o HTTP. O inicializador cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação. A v15 acrescenta contratos/notas/produtos, valores em centavos, limites e movimentos de estoque, registro de operações e preservação dos valores legados. A v16 corrige indicadores de localização incompleta e impede novos registros completos sem caixa ou posição.
 
-Antes de alteração estrutural em banco existente, é criado um backup SQLite consistente em `backups/`, validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
+| Versão | Alteração |
+|---|---|
+| 1–4 | esquema base e hardening de usuários do Módulo 1 |
+| 5 | situação, atualização e inativação de alunos |
+| 6 | ano letivo, situação e timestamps de turmas |
+| 7 | DVA vigente/histórica e índice único parcial |
+| 8 | recurso de auditoria e preferência de alertas |
+| 9 | idempotência de notificações e triggers de integridade |
+| 10 | chaves de nomes em NFC/minúsculas, busca Unicode e unicidade de turmas por nome normalizado/ano |
+| 11 | reconstrução transacional de `turmas` e `alunos`, `nome_normalizado NOT NULL` e guards equivalentes de INSERT/UPDATE |
+| 12 | Arquivo Passivo, preservação de legado e exclusão lógica |
+| 13 | Certidões, PDFs privados, autoria, histórico e entregas diárias |
+| 14 | Revisão de fornecedores/tipos e tentativas de notificação |
+| 15 | Contratos/notas/produtos, estoque auditado, operações idempotentes e valores legados preservados |
+| 16 | Indicador de localização incompleta do passivo, guards de INSERT/UPDATE e índice, sem renumerar pastas |
+| 17 | Campos de usuários cifrados, índice HMAC único, contadores protegidos, orçamentos de confirmação e recibos de idempotência |
+
+Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
+
+Antes de alteração estrutural em banco existente, é criado um backup protegido secretstream em `backups/`, com snapshot SQLite temporário privado validado com `PRAGMA integrity_check`. O banco original nunca é substituído ou apagado. Se e-mails legados conflitarem apenas por caixa, a migração para com erro e preserva os dados para correção manual sobre uma cópia.
+
+`Sistema::criarBackupManual()` produz `.db.gse` com secretstream após usar `VACUUM INTO` sobre o `DB_PATH` configurado e valida integridade e chaves estrangeiras. Inclui registros confirmados ainda presentes no WAL; a cópia direta do arquivo principal pode perdê-los mesmo quando sua integridade é válida. O método retorna um nome único ou `false` e grava em `backups/` ao lado do banco, fora de `public`; com `DB_PATH=/var/lib/gse/escola.sqlite`, o destino é `/var/lib/gse/backups`. A listagem publica somente backups protegidos `.db.gse`; os legados em claro ficam preservados no disco e exigem proteção CLI antes de download. Esse snapshot cobre somente SQLite. Para o backup conjunto, pare todos os processos escritores e preserve SQLite, PDFs privados e a versão compatível do código no mesmo conjunto; ensaie a restauração independente antes de usar dados institucionais.
+
+Administradores acessam **Backups** no menu ou em `/backup`, depois de concluir a troca de senha temporária. A consulta não cria arquivos. Para gerar um snapshot, confirme sua senha atual e envie o formulário protegido por CSRF; a conta, o perfil e a versão da sessão são revalidados. A criação e o download exigem auditoria com autoria. Se a auditoria da criação falhar, somente o arquivo criado nessa tentativa é removido; backups anteriores são preservados. O download autenticado usa armazenamento privado e `no-store`, recusando nomes inválidos e links simbólicos. Essa tela gera somente o banco SQLite; a restauração e o backup conjunto de PDFs/código continuam sendo procedimentos operacionais externos.
+
+A v10 preenche `alunos.nome_normalizado` e `turmas.nome_normalizado` sem alterar nomes, IDs, vínculos ou DVAs. Antes do commit, compara contagens, IDs e o mapa `aluno_id → id_turma`, além de exigir `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`. Se duas turmas do mesmo ano se tornarem equivalentes após NFC e conversão Unicode para minúsculas, a migração faz rollback e informa os IDs envolvidos; não exclui, mescla, renomeia nem escolhe automaticamente qual registro prevalece. Corrija a colisão em uma cópia homologada e execute novamente.
+
+A v11 corrige a divergência deixada pela v10 em bancos atualizados, onde `nome_normalizado` podia continuar anulável. Sob `BEGIN IMMEDIATE`, ela recalcula as chaves com `TextNormalizer`, detecta colisões antes da substituição, cria tabelas com as mesmas colunas, defaults, checks e chaves estrangeiras do schema limpo, copia cada coluna explicitamente, preserva IDs, sequências de autoincremento, vínculos aluno/turma, vínculos DVA/aluno e todo o histórico da DVA. Os índices e triggers são recriados; tanto INSERT quanto UPDATE recusam chave nula, vazia ou formada apenas por whitespace Unicode. A normalização Unicode completa permanece no PHP, pois não é reproduzida de forma incompleta em SQL.
+
+O SQLite exige `foreign_keys=OFF` fora da transação para essa substituição de tabelas. O inicializador registra o estado anterior, restaura-o em `finally` mesmo sob exceção e só conclui depois de comparar os snapshots anteriores/posteriores, executar `PRAGMA foreign_key_check` e exigir `PRAGMA integrity_check=ok`. Qualquer erro, inclusive ao registrar a versão, desfaz tabelas, índices, triggers, dados e `user_version`, sem deixar `turmas_v11` ou `alunos_v11`. Datas já registradas são copiadas sem alteração. Se um schema muito antigo nunca tiver registrado `criado_em`/`atualizado_em` e contiver `NULL`, a v11 usa um único marco técnico da migração para satisfazer a estrutura obrigatória; esse valor não deve ser interpretado como data histórica do cadastro, e o backup preserva o estado original.
+
+Antes da produção, ensaie com uma cópia recente em homologação, com a mesma versão de PHP, `ext-intl` e SQLite. Interrompa escritas, execute `php bin/init-db.php` na cópia e valide:
+
+```sql
+PRAGMA user_version;       -- deve retornar 16 na branch Modulo5
+PRAGMA foreign_key_check;  -- não deve retornar linhas
+PRAGMA integrity_check;    -- deve retornar ok
+PRAGMA table_info(turmas);
+PRAGMA table_info(alunos); -- nome_normalizado deve ter notnull = 1
+```
+
+Compare também contagens, IDs, `alunos.id_turma`, `dvas.id_aluno`, datas e amostras do histórico com o relatório anterior à migração. Colisões Unicode interrompem a operação antes do rebuild; resolva-as administrativamente na cópia, sem mesclar ou renomear dados reais de forma automática, e repita o ensaio. Só então abra uma janela de manutenção em produção, confirme espaço para o backup `pre-migration`, encerre processos escritores, execute a mesma versão do artefato e repita todas as verificações.
+
+Bancos locais de teste que já executaram a versão v6 defeituosa anterior a esta correção podem ter perdido os vínculos e devem ser restaurados a partir do backup `pre-migration`; o sistema não tenta reconstruí-los por adivinhação.
 
 Mantenha backups fora do servidor, criptografados e com restauração testada. Backups locais, bancos e sidecars estão no `.gitignore`.
 
-## Rotas do Módulo 1
+Para rollback, mantenha a aplicação em manutenção e encerre todos os processos PHP e agendadores. Preserve uma cópia do estado que falhou, confirme `PRAGMA integrity_check=ok` no backup `pre-migration`, remova somente sidecars `-wal`/`-shm` depois de não haver conexões abertas e restaure SQLite e PDFs privados do mesmo snapshot, com a versão compatível do código. Reaplique permissões e execute `PRAGMA foreign_key_check`, `PRAGMA integrity_check` e `PRAGMA user_version` antes de reabrir o serviço. Faça o procedimento primeiro em homologação; o inicializador nunca restaura ou substitui automaticamente um banco existente.
+
+## Rotas explícitas
 
 | Método | Rota | Acesso |
 |---|---|---|
@@ -223,29 +362,81 @@ Mantenha backups fora do servidor, criptografados e com restauração testada. B
 | POST | `/login/sair` | autenticado + CSRF; permitido na troca obrigatória |
 | GET | `/dashboard` | autenticado após troca obrigatória |
 | GET/POST | `/senha/alterar` | autenticado; permitido na troca obrigatória |
+| GET/POST | `/usuario/perfil` | autenticado após troca obrigatória; senha atual e CSRF no POST |
 | GET | `/usuario` | administrador |
 | GET/POST | `/usuario/criar` | administrador |
 | GET/POST | `/usuario/editar/{id}` | administrador |
 | POST | `/usuario/status/{id}` | administrador + CSRF |
 | GET | `/auditoria` | administrador, somente leitura |
+| GET | `/backup` | administrador após troca obrigatória |
+| POST | `/backup/criar` | administrador + senha atual + CSRF |
+| GET | `/backup/baixar/{nome}` | administrador, arquivo privado e auditoria obrigatória |
+| GET | `/aluno` | autenticado |
+| GET/POST | `/aluno/criar` | autenticado |
+| GET | `/aluno/perfil/{id}` | autenticado |
+| GET/POST | `/aluno/editar/{id}` | autenticado |
+| POST | `/aluno/status/{id}` | administrador + CSRF |
+| GET/POST | `/aluno/dva/{id}` | autenticado |
+| GET | `/dva` | autenticado |
+| GET | `/turma` | administrador |
+| GET/POST | `/turma/criar` | administrador |
+| GET/POST | `/turma/editar/{id}` | administrador |
+| POST | `/turma/status/{id}` | administrador + CSRF |
 
-Rota desconhecida retorna 404, método incorreto 405, funcionário autenticado recebe 403 e visitante é redirecionado ao login.
+Rota desconhecida retorna 404 e método incorreto 405. Funcionário autenticado recebe 403 ao acessar recurso administrativo; visitante é redirecionado ao login nos recursos protegidos.
+
+## Módulo 3 — Arquivo Passivo
+
+O Arquivo Passivo corresponde à entrega original do Módulo 3 na v12. Nesta branch, os Módulos 1–5 estão implementados e o banco atual usa `PRAGMA user_version=16`, com versões 1–16 em `schema_migrations`.
+
+O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, enumeração transacional, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam, enumeram e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação acadêmica permanece pendente. Novos cadastros exigem caixa e posição; somente registros históricos incompletos podem continuar pendentes, sem localização inventada.
+
+O CSV usa `Nome;Data;Numero;Caixa`, UTF-8, no máximo 2 MiB e 5.000 linhas. Datas podem ser `YYYY-MM-DD` ou `DD/MM/YYYY`. A prévia expira em 15 minutos, pertence à sessão e ao administrador e só pode ser confirmada uma vez. O hash do arquivo e a análise do acervo são revalidados na confirmação. Linhas válidas são adicionadas em uma única transação; duplicidades, localizações ocupadas e erros são apresentados sem apagar o acervo.
+
+A migração v12 cria backup SQLite validado antes de escrever, executa `BEGIN IMMEDIATE`, copia colunas explicitamente, preserva IDs e `sqlite_sequence`, recalcula chaves de busca com `TextNormalizer::searchKey()`, marca `localizacao_pendente=1` quando a caixa legada está ausente e recria índices, FKs e o trigger contra `DELETE`. Colisões de caixa/número são preservadas para revisão; não são mescladas nem renumeradas. Um índice único parcial impede dois registros ativos para o mesmo `aluno_origem_id`.
+
+Homologue a v12 em uma cópia com a mesma versão de PHP, SQLite e `ext-intl`. Valide o backup em `backups/` ao lado do arquivo resolvido por `DB_PATH` (padrão `database/backups`), compare contagens/IDs/sequências, confirme a ausência de `alunos_passivo_v12` e execute:
+
+```sql
+PRAGMA user_version;       -- 16 nesta branch (12 na entrega original do Módulo 3)
+PRAGMA foreign_key_check;  -- nenhuma linha
+PRAGMA integrity_check;    -- ok
+```
+
+A v16 marca como pendentes registros sem caixa ou posição e impede indicação completa para localização vazia. Não altera nomes, datas, números, caixas, autoria ou vínculos. Registros pendentes permanecem consultáveis com o indicador amarelo “Localização pendente”, filtros próprios e identificação no TXT. A edição dos demais dados históricos mantém a pendência; a conclusão valida ambos os campos, conflitos e auditoria.
+
+Rotas adicionais:
+
+| Método | Rota | Acesso |
+|---|---|---|
+| GET | `/passivo`, `/passivo/detalhes/{id}` | autenticado |
+| GET/POST | `/passivo/criar`, `/passivo/editar/{id}` | autenticado |
+| POST | `/passivo/excluir/{id}` | autenticado + CSRF; apenas exclusão lógica |
+| GET | `/passivo/inativos` | autenticado; consulta dos excluídos |
+| POST | `/passivo/status/{id}` | administrador + CSRF |
+| GET/POST | `/passivo/importar*`, `/passivo/ferramentas*` | administrador + CSRF em POST |
+| POST | `/passivo/exportar` | autenticado + CSRF |
+| GET/POST | `/aluno/arquivar/{id}` | administrador + CSRF em POST |
 
 ## Testes e comandos Composer
 
 ```bash
 composer validate-project
 composer lint
+composer analyse
 composer test
 composer http-test
 composer maintenance
+composer notify-dva # somente após configurar MAIL_ENABLED
 composer security-check
 composer check
 ```
 
-PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, auditoria, headers, host/proxy/HTTPS, migração e SQLite. `tests/http-smoke.php` inicia servidores temporários e testa o fluxo HTTP real em Windows/Linux. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
+PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v17, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
-`.github/workflows/ci.yml` usa PHP 8.3 e `actions/checkout@v5`, e roda instalação limpa, validação estrita, auditoria, lint, PHPUnit e HTTP em pushes e pull requests. Qualquer etapa com falha interrompe o job. Nenhum baseline de análise estática foi criado; uma ferramenta estática poderá ser adotada em etapa própria, com correção real dos achados.
+As regressões de auditoria provocam falhas no log e conferem rollback dos dados, histórico, preferências e versões. A criação inicial do administrador é testada pela CLI, inclusive com dois processos concorrentes; um rehash tardio não pode desfazer um reset de senha. Os testes de backup cobrem WAL sem checkpoint, restauração independente, permissões, CSRF, confirmação de senha, arquivos inexistentes e falhas de auditoria na geração e no download. Testes de permissões POSIX e links simbólicos precisam executar no Linux.
+
+`composer analyse` executa PHPStan no nível 6 sobre o núcleo, controllers, Models ativos dos cinco módulos, serviços e comandos CLI. Views possuem uma verificação dedicada contra estilos, scripts e handlers inline. Não há baseline nem `ignoreErrors`. O workflow usa PHP 8.3, actions fixadas por SHA imutável e executa instalação limpa, validação estrita, auditoria, lint, PHPStan, PHPUnit e HTTP em pushes e pull requests.
 
 ## Roteiro de demonstração
 
@@ -255,20 +446,27 @@ PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, se
 4. Acesse `/dashboard` sem sessão e observe o redirecionamento.
 5. Entre e demonstre que somente troca de senha/logout estão disponíveis.
 6. Troque a senha e faça novo login.
-7. Mostre painel neutro, gestão de usuários e auditoria.
-8. Cadastre funcionário, demonstre e-mail `NOCASE`, senha temporária e 403 administrativo.
-9. Redefina senha/perfil/situação e demonstre invalidação da sessão alvo.
-10. Demonstre bloqueio da autoinativação e do último administrador.
-11. Execute `composer check`.
+7. Cadastre uma turma e um aluno com DVA inicial.
+8. Mostre perfil, WhatsApp validado, semáforo e filtros.
+9. Renove a DVA e confirme a versão anterior no histórico.
+10. Inative/reative o aluno e demonstre que não ocorre exclusão física.
+11. Cadastre funcionário, demonstre e-mail `NOCASE`, senha temporária, acesso a alunos e 403 para turma/status.
+12. Mostre dashboard integrado e auditoria filtrada por `student`, `dva` e `class`.
+13. Com transporte SMTP de homologação, execute `php bin/notify-dva.php` duas vezes e confirme idempotência.
+14. Execute `composer check`.
+15. Como administrador, abra **Backups**, confirme a senha atual, gere e baixe uma cópia do banco. Confira os eventos `backup.created` e `backup.downloaded` na auditoria; ensaie a restauração em ambiente separado.
 
 ## Limitações conhecidas e fora do escopo
 
 - não há MFA nem recuperação de senha por e-mail nesta etapa;
 - auditoria local não substitui SIEM/armazenamento imutável;
 - disponibilidade distribuída exigiria rate limiting e sessões em armazenamento compartilhado;
-- identidade visual institucional definitiva ainda depende da escola;
-- alunos, turmas, DVA, arquivo passivo, certidões, fornecedores, contratos, estoque, relatórios e notificações não têm telas/rotas funcionais nesta entrega.
+- alterações futuras do logo ou da identidade institucional dependem de aprovação da escola;
+- notificações dependem de um SMTP institucional configurado e de agendamento externo;
+- agenda e etiquetas não integram o escopo atual;
+- a edição acadêmica de 34 páginas foi lida; as ambiguidades de atores, exclusão lógica e PDF opcional, assim como a importação CSV aditiva em relação ao fluxo substitutivo descrito, exigem decisão acadêmica/institucional;
+- o aceite institucional e a validação de usabilidade com os usuários permanecem pendentes.
 
-O dashboard foi deliberadamente alterado para exibir somente informações do Módulo 1. Indicadores de alunos e DVA antecipavam entregas posteriores; seus Models e tabelas permanecem intactos.
+O painel apresenta indicadores e grupos de alunos por situação da DVA. O menu principal oferece acesso aos módulos implementados, incluindo contratos, estoque e relatórios.
 
-Antes de implantar, leia [SECURITY.md](SECURITY.md) e valide a instalação em homologação.
+Antes de implantar, homologue SMTP, Nginx/PHP-FPM, HTTPS e intranet no ambiente institucional, ensaie a restauração conjunta e obtenha o aceite escolar. Leia também [SECURITY.md](SECURITY.md).

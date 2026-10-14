@@ -1,0 +1,316 @@
+// Browser regression tests using a disposable headless Chrome profile and no npm dependencies.
+// Run: node tests/browser-contract-tabs.mjs
+// Set BROWSER_BINARY if Chrome/Chromium is installed elsewhere.
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {createServer} from 'node:http';
+import {access, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {basename, dirname, join, resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+export async function launchBrowser() {
+    const candidates = [process.env.BROWSER_BINARY, 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+        '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].filter(Boolean);
+    let binary;
+    for (const candidate of candidates) { try { await access(candidate); binary = candidate; break; } catch {} }
+    if (!binary) throw new Error('Chrome/Chromium unavailable; set BROWSER_BINARY to run browser tests.');
+    const profile = await mkdtemp(join(tmpdir(), 'gse-browser-'));
+    const child = spawn(binary, ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
+        '--remote-debugging-port=0', '--remote-allow-origins=*', `--user-data-dir=${profile}`, 'about:blank'], {stdio: 'ignore', windowsHide: true});
+    let socket;
+    const cleanup = async () => {
+        socket?.close();
+        child.kill();
+        await new Promise((done) => { if (child.exitCode !== null) done(); else { child.once('exit', done); setTimeout(done, 2000); } });
+        if (dirname(resolve(profile)) !== resolve(tmpdir()) || !basename(profile).startsWith('gse-browser-')) {
+            throw new Error('Refusing cleanup outside the generated browser profile directory.');
+        }
+        await rm(profile, {recursive: true, force: true, maxRetries: 5, retryDelay: 200}).catch(() => {});
+    };
+    try {
+        let portFile;
+        for (let attempt = 0; attempt < 100; attempt++) {
+            try { portFile = await readFile(join(profile, 'DevToolsActivePort'), 'utf8'); break; } catch {}
+            await new Promise((done) => setTimeout(done, 100));
+        }
+        if (!portFile) throw new Error('The isolated headless browser did not start.');
+        const [port, path] = portFile.trim().split(/\r?\n/);
+        socket = new WebSocket(`ws://127.0.0.1:${port}${path}`);
+        await new Promise((done, reject) => { socket.addEventListener('open', done, {once:true}); socket.addEventListener('error', reject, {once:true}); });
+        const pending = new Map();
+        const errors = [];
+        const consoleMessages = [];
+        const events = [];
+        let sequence = 0;
+        socket.addEventListener('message', ({data}) => {
+            const message = JSON.parse(data);
+            if (message.method?.startsWith('Browser.download') || message.method === 'Network.requestWillBeSent') events.push(message);
+            if (message.id && pending.has(message.id)) {
+                const {resolve, reject, timer} = pending.get(message.id); pending.delete(message.id); clearTimeout(timer);
+                if (message.error) reject(new Error(JSON.stringify(message.error))); else resolve(message.result);
+            }
+            if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails);
+            if (message.method === 'Runtime.consoleAPICalled') consoleMessages.push({type:message.params.type,
+                args:message.params.args.map(argument => argument.value ?? argument.description)});
+        });
+        const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
+            const id = ++sequence;
+            const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Timed out: ${method}`)); }, 15000);
+            pending.set(id, {resolve, reject, timer});
+            socket.send(JSON.stringify({id, method, params, ...(sessionId ? {sessionId} : {})}));
+        });
+        const newPage = async ({captureFailure: customCaptureFailure} = {}) => {
+            const {targetId} = await send('Target.createTarget', {url:'about:blank'});
+            const {sessionId} = await send('Target.attachToTarget', {targetId, flatten:true});
+            const command = (method, params) => send(method, params, sessionId);
+            await command('Page.enable'); await command('Runtime.enable');
+            const evaluate = async (expression) => {
+                const result = await command('Runtime.evaluate', {expression, returnByValue:true, awaitPromise:true, userGesture:true});
+                if (result.exceptionDetails) throw new Error(result.exceptionDetails.text + ': ' + result.exceptionDetails.exception?.description);
+                return result.result.value;
+            };
+            const captureFailure = async (label, context) => {
+                if (customCaptureFailure) return customCaptureFailure(label, context);
+                if (!process.env.GSE_BROWSER_EVIDENCE_DIR) return;
+                await mkdir(process.env.GSE_BROWSER_EVIDENCE_DIR, {recursive:true});
+                const prefix = join(process.env.GSE_BROWSER_EVIDENCE_DIR, `${label}-${Date.now()}`);
+                const state = await evaluate(`({url:location.href,viewport:{width:innerWidth,height:innerHeight},
+                    scroll:{x:scrollX,y:scrollY},focus:document.activeElement?.outerHTML,
+                    panels:[...document.querySelectorAll('[role="tabpanel"]')].map(panel=>({id:panel.id,hidden:panel.hidden,rect:panel.getBoundingClientRect().toJSON()})),
+                    dom:document.documentElement.outerHTML})`);
+                await writeFile(prefix+'.json', JSON.stringify({...context,...state,errors,console:consoleMessages}, null, 2));
+                const screenshot = await command('Page.captureScreenshot', {format:'png',captureBeyondViewport:false});
+                await writeFile(prefix+'.png', Buffer.from(screenshot.data,'base64'));
+            };
+            const until = async (expression) => {
+                for (let attempt=0; attempt<100; attempt++) { if (await evaluate(expression)) return; await new Promise((done)=>setTimeout(done,50)); }
+                await captureFailure('failed-condition', {expression});
+                throw new Error(`Browser condition not satisfied: ${expression}`);
+            };
+            const navigate = async (url) => {
+                const previousOrigin = await evaluate('performance.timeOrigin');
+                const navigation = await command('Page.navigate', {url});
+                if (navigation.errorText) throw new Error(navigation.errorText);
+                if (navigation.loaderId) await until(`performance.timeOrigin !== ${JSON.stringify(previousOrigin)}`);
+                await until('document.readyState === "complete"');
+            };
+            const click = async (selector, modifiers = 0) => {
+                const lookup = `document.querySelector(${JSON.stringify(selector)})`;
+                await until(`${lookup} !== null && ${lookup}.getClientRects().length > 0 && !${lookup}.disabled`);
+                await evaluate(`${lookup}.scrollIntoView({block:'center',inline:'center'})`);
+                // A pending hashchange can scroll again after scrollIntoView. Two frames alone
+                // did not ensure the third-note link was inside the viewport at mouse dispatch.
+                let previous, rect;
+                for (let attempt=0; attempt<100; attempt++) {
+                    const current = await evaluate(`(() => { const element=${lookup}; const r=element.getBoundingClientRect();
+                        const x=r.x+r.width/2,y=r.y+r.height/2,hit=document.elementFromPoint(x,y);
+                        return {x,y,width:r.width,height:r.height,available:r.width>0&&r.height>0&&!element.disabled&&!!hit&&(element===hit||element.contains(hit))}; })()`);
+                    if (current.available && previous && current.x===previous.x && current.y===previous.y
+                        && current.width===previous.width && current.height===previous.height) { rect={x:current.x,y:current.y}; break; }
+                    if (!current.available) await evaluate(`${lookup}.scrollIntoView({block:'center',inline:'center'})`);
+                    previous=current.available ? current : null;
+                    await new Promise(done=>setTimeout(done,50));
+                }
+                if (!rect) {
+                    await captureFailure('unavailable-click', {selector});
+                    throw new Error(`Browser click target is not stable and available: ${selector}`);
+                }
+                await command('Input.dispatchMouseEvent', {type:'mousePressed', button:'left', clickCount:1, modifiers, ...rect});
+                await command('Input.dispatchMouseEvent', {type:'mouseReleased', button:'left', clickCount:1, modifiers, ...rect});
+            };
+            return {command, evaluate, until, navigate, click, captureFailure, targetId};
+        };
+        return {newPage, errors, consoleMessages, events, command:send, cleanup};
+    } catch (error) { await cleanup(); throw error; }
+}
+
+async function run() {
+    const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
+    const appScript = await readFile(process.env.GSE_TEST_APP_JS || join(root, 'public/assets/js/app.js'));
+    const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Contract tab regression</title>
+        <style>section{min-height:1800px}h2{padding-top:700px}details{margin:100px 0}</style>
+        <script src="/app.js" defer></script><nav data-contract-tabs>${[1,2,3].map(id=>`<a href="#folha-${id}">Nota ${id}</a>`).join('')}</nav>
+        ${[1,2,3].map(id=>`<section id="folha-${id}"><h2>Nota ${id}</h2><a href="#add-product-${id}" data-open-details>Adicionar Produto</a>
+        <a href="#billing-note-${id}" data-open-details>Faturamento</a><a href="#%E0%A4%A" data-open-details>Invalid fragment</a>
+        <details id="add-product-${id}"><summary>Produto</summary><input name="nome"><button data-close-details="add-product-${id}">Fechar</button></details>
+        <details id="billing-note-${id}"><summary>Faturamento</summary><input name="data"></details>
+        <table><tbody><tr id="item-actions-${id}" class="contract-item-expanded" hidden><td><details id="move-item-${id}"><summary>Movimento</summary><input name="quantidade"></details></td></tr></tbody></table>
+        <button data-contract-item-toggle="item-actions-${id}" aria-expanded="false">Editar</button></section>`).join('')}
+        <form id="contract-create"><label>Orçamento<input id="valor" name="valor" value="1000,00"></label>
+        <div data-contract-builder><div data-contract-sheets><div data-contract-sheet>
+        <h4>Nota <span data-sheet-number>1</span></h4><label>Observações<textarea name="folhas[0][observacao]"></textarea></label>
+        <button type="button" data-remove-sheet>Remover nota</button><div data-contract-products><div data-contract-product>
+        <label>Produto<input name="folhas[0][produtos][0][nome]" required></label>
+        <label>Marca<input name="folhas[0][produtos][0][marca]"></label>
+        <label>Unidade<select name="folhas[0][produtos][0][unidade]" data-contract-unit required><option value="UN" selected>UN</option><option value="K">K</option><option value="Litros">Litros</option></select></label>
+        <label>Quantidade<input name="folhas[0][produtos][0][quantidade]" type="number" min="1" required></label>
+        <label>Preço<input name="folhas[0][produtos][0][preco]" required></label>
+        <button type="button" data-remove-product>Remover produto</button></div></div>
+        <button type="button" data-add-product>Adicionar produto</button></div></div>
+        <button type="button" data-add-sheet>Adicionar nota</button><strong data-items-total></strong><strong data-budget-left></strong></div>
+        <button type="submit" data-submit-contract>Salvar pedido</button></form></html>`;
+    const server = createServer((request, response) => { response.setHeader('Content-Type', request.url === '/app.js' ? 'text/javascript; charset=utf-8':'text/html; charset=utf-8'); response.end(request.url === '/app.js' ? appScript : html); });
+    await new Promise(done=>server.listen(0,'127.0.0.1',done));
+    const base = `http://127.0.0.1:${server.address().port}/`;
+    let browser;
+    let checks=0;
+    const check=(value, expected, message)=>{assert.deepEqual(value,expected,message); checks++;};
+    try {
+        browser=await launchBrowser();
+        const page=await browser.newPage();
+        const state=()=>page.evaluate(`[...document.querySelectorAll('[role="tabpanel"]')].map(p=>({hidden:p.hidden,visible:p.getBoundingClientRect().height>0}))`);
+        const selected=id=>[{hidden:id!==1,visible:id===1},{hidden:id!==2,visible:id===2},{hidden:id!==3,visible:id===3}];
+        await page.navigate(base);
+        check(await state(), selected(1), 'Initial note');
+        await page.click(`[data-contract-tabs] a[href="#folha-2"]`); await page.until(`location.hash === '#folha-2'`);
+        await page.evaluate('history.back()'); await page.until(`location.hash === '' && !document.getElementById('folha-1').hidden`);
+        check(await state(),selected(1),'Back to base URL restores initial note');
+        await page.evaluate('history.forward()'); await page.until(`location.hash === '#folha-2' && !document.getElementById('folha-2').hidden`);
+        check(await state(),selected(2),'Forward from base URL restores second note');
+        for (const id of [2,3]) {
+            await page.click(`[data-contract-tabs] a[href="#folha-${id}"]`);
+            await page.until(`location.hash === '#folha-${id}'`);
+            for (const form of ['add-product','billing-note']) {
+                await page.click(`#folha-${id} a[href="#${form}-${id}"]`);
+                await page.until(`location.hash === '#${form}-${id}'`);
+                await page.evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))');
+                check(await state(), selected(id), 'Internal link retains its ancestor note');
+                check(await page.evaluate(`document.getElementById('${form}-${id}').open`),true,'Internal form is open');
+                await page.until(`document.activeElement.closest('details')?.id === '${form}-${id}'`);
+                check(await page.evaluate(`document.activeElement.closest('details')?.id`),`${form}-${id}`,'Input receives focus');
+            }
+        }
+        // Reproduce a later fragment scroll overtaking the helper's initial scroll.
+        await page.evaluate(`(() => {
+            document.getElementById('add-product-3').open=false;
+            window.delayedFragmentScroll=false;
+            const opener=document.querySelector('#folha-3 a[href="#add-product-3"]');
+            const original=opener.scrollIntoView;
+            opener.scrollIntoView=function(options) {
+                original.call(this,options); this.scrollIntoView=original;
+                requestAnimationFrame(()=>requestAnimationFrame(()=>{window.scrollTo(0,46); window.delayedFragmentScroll=true;}));
+            };
+        })()`);
+        await page.click('#folha-3 a[href="#add-product-3"]');
+        await page.until(`location.hash === '#add-product-3'`);
+        check(await page.evaluate('window.delayedFragmentScroll'),true,'A delayed fragment scroll completes before the real click');
+        check(await page.evaluate(`document.getElementById('add-product-3').open`),true,'Third-note product opener remains clickable after a delayed scroll');
+        const historyLength = await page.evaluate('history.length');
+        await page.click('[data-close-details="add-product-3"]');
+        check(await page.evaluate(`document.getElementById('add-product-3').open`),false,'Close button collapses product form');
+        check(await state(),selected(3),'Closing form keeps third note');
+        check(await page.evaluate('location.hash'),'#folha-3','Closing form removes stale form fragment');
+        check(await page.evaluate('history.length'),historyLength,'Closing form replaces existing history entry');
+        check(await page.evaluate(`document.activeElement.getAttribute('href')`),'#add-product-3','Close returns focus to opener');
+        await page.navigate(base+'#billing-note-2');
+        check(await state(),selected(2),'Direct form URL selects its note');
+        check(await page.evaluate(`document.getElementById('billing-note-2').open`),true,'Direct form URL opens form');
+        check(await page.evaluate(`Math.abs(document.getElementById('billing-note-2').getBoundingClientRect().top)<2`),true,'Direct form URL scrolls to visible form');
+        await page.click(`#folha-2 a[href='#%E0%A4%A']`);
+        await page.until(`location.hash === '#%E0%A4%A'`);
+        check(await state(),selected(2),'Malformed fragment retains current note');
+        await page.evaluate(`location.hash='#missing'`); await page.until(`location.hash==='#missing'`);
+        check(await state(),selected(2),'Missing target retains note');
+        await page.evaluate(`location.hash='#move-item-3'`); await page.until(`document.getElementById('move-item-3').open`);
+        check(await state(),selected(3),'Nested editor URL selects note');
+        check(await page.evaluate(`document.getElementById('item-actions-3').hidden`),false,'Nested editor row is visible');
+        check(await page.evaluate(`document.querySelector('[data-contract-item-toggle="item-actions-3"]').getAttribute('aria-expanded')`),'true','Editor button state');
+        await page.click(`[data-contract-tabs] a[href='#folha-2']`); await page.until(`location.hash==='#folha-2'`);
+        await page.evaluate('history.back()'); await page.until(`location.hash==='#move-item-3'`);
+        check(await state(),selected(3),'History back restores note');
+        check(await page.evaluate(`Math.abs(document.getElementById('move-item-3').getBoundingClientRect().top)<2`),true,'History back scrolls to visible nested form');
+        await page.evaluate('history.forward()'); await page.until(`location.hash==='#folha-2'`);
+        check(await state(),selected(2),'History forward restores note');
+        await page.click(`[data-contract-tabs] a[href='#folha-3']`,2);
+        await page.evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))');
+        check(await state(),selected(2),'Ctrl+click opens a separate tab without changing current note');
+        await page.evaluate(`document.querySelector('[aria-selected="true"]').focus()`);
+        for (const [key,id] of [['ArrowRight',3],['Home',1],['End',3],['ArrowLeft',2]]) {
+            await page.command('Input.dispatchKeyEvent',{type:'keyDown',key,code:key});
+            await page.command('Input.dispatchKeyEvent',{type:'keyUp',key,code:key});
+            await page.until(`location.hash==='#folha-${id}'`);
+            check(await state(),selected(id),'Keyboard selects note');
+            check(await page.evaluate(`document.activeElement.getAttribute('aria-selected')`),'true','Keyboard focus stays on selected tab');
+        }
+        await page.evaluate(`location.hash='#billing-note-2'`); await page.until(`location.hash==='#billing-note-2'`);
+        await page.evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))');
+        await page.command('Page.printToPDF',{printBackground:true});
+        check(await state(),selected(2),'Actual browser PDF print restores selected note');
+        await page.evaluate(`window.dispatchEvent(new Event('beforeprint'))`);
+        check(await state(),selected(0).map(()=>({hidden:false,visible:true})),'All notes visible while printing');
+        await page.evaluate(`window.dispatchEvent(new Event('afterprint'))`);
+        check(await state(),selected(2),'After printing selected note is restored');
+        await page.evaluate(`location.hash='#invalid'; window.dispatchEvent(new Event('beforeprint')); window.dispatchEvent(new Event('afterprint'))`);
+        check(await state(),selected(2),'Print with invalid hash retains note');
+
+        const builder = '#contract-create';
+        const sheet = (index) => `${builder} [data-contract-sheet]:nth-child(${index + 1})`;
+        const product = (sheetIndex, productIndex) => `${sheet(sheetIndex)} [data-contract-product]:nth-child(${productIndex + 1})`;
+        const key = async (name, keyCode) => {
+            const event = {key:name,code:name,windowsVirtualKeyCode:keyCode,nativeVirtualKeyCode:keyCode};
+            await page.command('Input.dispatchKeyEvent',{type:'keyDown',...event});
+            await page.command('Input.dispatchKeyEvent',{type:'keyUp',...event});
+        };
+        const chooseUnit = async (selector, unit) => {
+            await page.click(`${selector} select`);
+            await key('Home',36);
+            for (let index=0; index<(unit==='Litros' ? 2 : 1); index++) await key('ArrowDown',40);
+            await key('Enter',13);
+            await page.until(`document.querySelector(${JSON.stringify(selector+' select')}).value===${JSON.stringify(unit)}`);
+        };
+        const fillProduct = async (selector, name) => {
+            for (const [field,value] of [['nome',name],['quantidade','1'],['preco','2,00']]) {
+                await page.click(`${selector} input[name$="[${field}]"]`);
+                await page.command('Input.insertText',{text:value});
+            }
+        };
+        await page.evaluate(`(() => { window.contractSubmissions=[]; document.getElementById('contract-create').addEventListener('submit',event=>{event.preventDefault(); window.contractSubmissions.push([...new FormData(event.currentTarget)]);}); })()`);
+        check(await page.evaluate(`[...document.querySelector('${builder} select').options].map(option=>option.value)`),['UN','K','Litros'],'New products offer the requested unit choices');
+        await fillProduct(product(0,0),'Produto inicial');
+        await chooseUnit(product(0,0),'Litros');
+        check(await page.evaluate(`document.querySelector('${product(0,0)} select').value`),'Litros','Keyboard selects Litros');
+        await page.click(`${sheet(0)} [data-add-product]`);
+        check(await page.evaluate(`document.querySelector('${product(0,1)} select').value`),'UN','A new product starts with UN after cloning a Litros product');
+        await fillProduct(product(0,1),'Produto em K');
+        await chooseUnit(product(0,1),'K');
+        await page.click(`${builder} [data-add-sheet]`);
+        check(await page.evaluate(`document.querySelector('${product(1,0)} select').value`),'UN','A new note starts with UN after cloning a filled note');
+        await fillProduct(product(1,0),'Segunda nota');
+        await chooseUnit(product(1,0),'Litros');
+        await page.click(`${builder} [data-add-sheet]`);
+        check(await page.evaluate(`document.querySelector('${product(2,0)} select').value`),'UN','Another new note starts with UN');
+        await fillProduct(product(2,0),'Terceira nota');
+        await chooseUnit(product(2,0),'K');
+        let submissions=0;
+        const submittedProducts = async () => {
+            await page.click(`${builder} [data-submit-contract]`);
+            await page.until(`window.contractSubmissions.length===${++submissions}`);
+            check(await page.evaluate(`(() => { const entries=window.contractSubmissions.at(-1); return new Set(entries.map(([name])=>name)).size===entries.length; })()`),true,'Submitted fields have unique names');
+            return page.evaluate(`window.contractSubmissions.at(-1).filter(([name])=>/\\[(nome|unidade)\\]$/.test(name))`);
+        };
+        check(await submittedProducts(),[
+            ['folhas[0][produtos][0][nome]','Produto inicial'],['folhas[0][produtos][0][unidade]','Litros'],
+            ['folhas[0][produtos][1][nome]','Produto em K'],['folhas[0][produtos][1][unidade]','K'],
+            ['folhas[1][produtos][0][nome]','Segunda nota'],['folhas[1][produtos][0][unidade]','Litros'],
+            ['folhas[2][produtos][0][nome]','Terceira nota'],['folhas[2][produtos][0][unidade]','K'],
+        ],'Submission assigns each chosen unit to its product and note');
+        await page.click(`${product(0,0)} [data-remove-product]`);
+        check(await submittedProducts(),[
+            ['folhas[0][produtos][0][nome]','Produto em K'],['folhas[0][produtos][0][unidade]','K'],
+            ['folhas[1][produtos][0][nome]','Segunda nota'],['folhas[1][produtos][0][unidade]','Litros'],
+            ['folhas[2][produtos][0][nome]','Terceira nota'],['folhas[2][produtos][0][unidade]','K'],
+        ],'Removing the first product preserves the surviving selection and submitted index');
+        await page.click(`${sheet(0)} [data-remove-sheet]`);
+        check(await submittedProducts(),[
+            ['folhas[0][produtos][0][nome]','Segunda nota'],['folhas[0][produtos][0][unidade]','Litros'],
+            ['folhas[1][produtos][0][nome]','Terceira nota'],['folhas[1][produtos][0][unidade]','K'],
+        ],'Removing the first note preserves the surviving selections and submitted indexes');
+        check(browser.errors,[],'No browser JavaScript exceptions');
+        console.log(`Browser contract navigation and builder: ${checks} checks passed (real Chrome clicks, history, keyboard, visibility, print lifecycle and submitted unit choices).`);
+    } finally { await browser?.cleanup(); await new Promise(done=>server.close(done)); }
+}
+
+if (process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
+    run().catch(error=>{console.error(error); process.exitCode=1;});
+}

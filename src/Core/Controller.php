@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 abstract class Controller
 {
-    protected function view(string $view, array $data = [], bool $useLayout = true): void
+    /** @param array<string,mixed> $viewData */
+    protected function view(string $view, array $viewData = [], bool $useLayout = true): void
     {
         $viewFile = ROOT_PATH . '/src/Views/' . trim($view, '/') . '.php';
 
@@ -12,7 +13,7 @@ abstract class Controller
             throw new RuntimeException("View nao encontrada: {$view}");
         }
 
-        extract($data, EXTR_SKIP);
+        extract($viewData, EXTR_SKIP);
 
         if (!$useLayout) {
             require $viewFile;

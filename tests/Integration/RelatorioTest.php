@@ -14,8 +14,9 @@ final class RelatorioTest extends DatabaseTestCase
         $this->insertAlunoComDva('Aluno Vencido', date('Y-m-d', strtotime('-2 days')), $idTurma);
         $this->insertAlunoComDva('Aluno A Vencer', date('Y-m-d', strtotime('+5 days')), $idTurma);
         $this->insertAlunoComDva('Aluno Vigente', date('Y-m-d', strtotime('+60 days')), $idTurma);
-        $this->pdo->prepare('INSERT INTO alunos (nome_completo, data_nascimento, id_turma) VALUES (?, ?, ?)')
-            ->execute(['Aluno Sem DVA', '2010-01-01', $idTurma]);
+        $this->pdo->prepare(
+            'INSERT INTO alunos (nome_completo, nome_normalizado, data_nascimento, id_turma) VALUES (?, ?, ?, ?)'
+        )->execute(['Aluno Sem DVA', 'aluno sem dva', '2010-01-01', $idTurma]);
 
         $relatorio = new \Relatorio();
 

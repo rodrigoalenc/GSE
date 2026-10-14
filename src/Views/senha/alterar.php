@@ -1,4 +1,9 @@
 <div class="usuario-form-card">
+    <section class="page-intro user-page-intro">
+        <p class="hero-kicker">Segurança da conta</p>
+        <h2><?= $obrigatoria ? 'Substitua sua senha temporária' : 'Defina uma nova senha' ?></h2>
+        <p>A alteração encerra as sessões anteriores e exige uma nova autenticação.</p>
+    </section>
     <?php if ($obrigatoria): ?>
         <div class="warning-message" role="status">
             Esta é uma senha temporária. Altere-a antes de acessar as demais áreas.
@@ -19,17 +24,18 @@
     <section class="relatorio">
         <form class="usuario-form" method="post" action="<?= e(url('senha/alterar')) ?>">
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+            <h3>Alterar senha</h3>
 
             <label for="senha_atual">Senha atual:</label>
-            <input type="password" id="senha_atual" name="senha_atual" maxlength="128" autocomplete="current-password" required autofocus>
+            <input type="password" id="senha_atual" name="senha_atual" data-password-max="128" autocomplete="current-password" required autofocus>
 
             <label for="nova_senha">Nova senha:</label>
-            <input type="password" id="nova_senha" name="nova_senha" maxlength="128" autocomplete="new-password" required>
+            <input type="password" id="nova_senha" name="nova_senha" data-password-max="128" data-password-min="15" autocomplete="new-password" required>
 
             <label for="confirmar_senha">Confirmar nova senha:</label>
-            <input type="password" id="confirmar_senha" name="confirmar_senha" maxlength="128" autocomplete="new-password" required>
+            <input type="password" id="confirmar_senha" name="confirmar_senha" data-password-max="128" autocomplete="new-password" required>
 
-            <small class="form-help password-guidance">Use de 12 a 128 caracteres. Frases-senha, espaços e caracteres Unicode são aceitos. Evite senhas comuns e dados do seu nome ou e-mail.</small>
+            <small class="form-help password-guidance">Use de 15 a 128 caracteres. Frases-senha, espaços e caracteres Unicode são aceitos. Evite senhas comuns e dados do seu nome ou e-mail.</small>
 
             <div class="form-actions">
                 <button class="btn-primary" type="submit">Alterar senha</button>

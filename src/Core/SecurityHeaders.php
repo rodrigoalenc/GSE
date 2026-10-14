@@ -12,7 +12,7 @@ final class SecurityHeaders
             'X-Content-Type-Options' => 'nosniff',
             'Referrer-Policy' => 'same-origin',
             'Permissions-Policy' => 'geolocation=(), microphone=(), camera=()',
-            'Content-Security-Policy' => "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'",
+            'Content-Security-Policy' => "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-src 'self' blob:; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'",
             'X-Request-ID' => RequestContext::requestId(),
         ];
 

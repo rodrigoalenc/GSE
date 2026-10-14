@@ -6,13 +6,16 @@ final class UsuarioController extends Controller
 {
     public function index(): void
     {
-        $termo = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100, 'UTF-8');
-        $usuarios = (new Usuario())->listar($termo);
+        $termo = mb_substr(trim(input_string($_GET['q'] ?? '')), 0, 100, 'UTF-8');
+        $page = filter_var($_GET['pagina'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
+        $page = min($page, 100);
+        $usuarios = (new Usuario())->listar($termo, $page);
 
         $this->view('usuarios/index', [
             'title' => 'Gerenciar Usuários',
             'usuarios' => $usuarios,
             'termo' => $termo,
+            'page' => $page,
         ]);
     }
 
@@ -25,15 +28,15 @@ final class UsuarioController extends Controller
             $erros = $this->validar($dados, true);
             $model = new Usuario();
 
-            if (!$erros && $model->cadastrar($dados['nome'], $dados['email'], $dados['senha'], $dados['tipo'], true)) {
-                $created = $model->buscarPorEmail($dados['email']);
-                AuditLogger::record(
-                    'user.created',
-                    AuditLogger::SUCCESS,
-                    (int) $_SESSION['usuario_id'],
-                    is_array($created) ? (int) $created['id'] : null,
-                    'Conta criada com senha temporária.'
-                );
+            if (!$erros && $model->cadastrar(
+                $dados['nome'],
+                $dados['email'],
+                $dados['senha'],
+                $dados['tipo'],
+                true,
+                $dados['recebe_alertas_dva'],
+                (int) $_SESSION['usuario_id']
+            )) {
                 $this->redirectWithFlash('usuario', 'success', 'Usuário cadastrado. A senha informada é temporária e deverá ser alterada no primeiro acesso.');
             }
 
@@ -79,6 +82,7 @@ final class UsuarioController extends Controller
             'tipo' => (string) $usuario['tipo'],
             'senha' => '',
             'confirmar_senha' => '',
+            'recebe_alertas_dva' => (int) ($usuario['recebe_alertas_dva'] ?? 0) === 1,
         ];
         $erros = [];
 
@@ -87,24 +91,18 @@ final class UsuarioController extends Controller
             $erros = $this->validar($dados, false);
             $novaSenha = $dados['senha'] !== '' ? $dados['senha'] : null;
 
-            if (!$erros && $model->atualizar((int) $usuarioId, $dados['nome'], $dados['email'], $dados['tipo'], $novaSenha)) {
+            if (!$erros && $model->atualizar(
+                (int) $usuarioId,
+                $dados['nome'],
+                $dados['email'],
+                $dados['tipo'],
+                $novaSenha,
+                $dados['recebe_alertas_dva'],
+                (int) $_SESSION['usuario_id']
+            )) {
                 $actor = (int) $_SESSION['usuario_id'];
                 $target = (int) $usuarioId;
-                $securityChange = false;
-
-                if ((string) $usuario['nome'] !== $dados['nome'] || (string) $usuario['email'] !== $dados['email']) {
-                    AuditLogger::record('user.identity_updated', AuditLogger::SUCCESS, $actor, $target, 'Nome ou e-mail da conta alterado.');
-                }
-
-                if ((string) $usuario['tipo'] !== $dados['tipo']) {
-                    AuditLogger::record('user.role_updated', AuditLogger::SUCCESS, $actor, $target, 'Perfil de acesso alterado.');
-                    $securityChange = true;
-                }
-
-                if ($novaSenha !== null) {
-                    AuditLogger::record('password.reset', AuditLogger::SUCCESS, $actor, $target, 'Senha temporária definida pelo administrador.');
-                    $securityChange = true;
-                }
+                $securityChange = (string) $usuario['tipo'] !== $dados['tipo'] || $novaSenha !== null;
 
                 if ($actor === $target && $securityChange) {
                     SessionManager::terminate();
@@ -195,13 +193,6 @@ final class UsuarioController extends Controller
             );
         }
 
-        AuditLogger::record(
-            $ativoRaw === 1 ? 'user.activated' : 'user.deactivated',
-            AuditLogger::SUCCESS,
-            (int) $_SESSION['usuario_id'],
-            (int) $usuarioId,
-            $ativoRaw === 1 ? 'Conta ativada.' : 'Conta inativada.'
-        );
         $this->redirectWithFlash(
             'usuario',
             'success',
@@ -209,17 +200,23 @@ final class UsuarioController extends Controller
         );
     }
 
+    /** @return array<string,mixed> */
     private function dadosDoFormulario(): array
     {
         return [
-            'nome' => mb_substr(trim((string) ($_POST['nome'] ?? '')), 0, 151, 'UTF-8'),
-            'email' => mb_substr(Usuario::normalizarEmail((string) ($_POST['email'] ?? '')), 0, 255, 'UTF-8'),
-            'tipo' => mb_substr((string) ($_POST['tipo'] ?? Usuario::PERFIL_FUNCIONARIO), 0, 30, 'UTF-8'),
-            'senha' => (string) ($_POST['senha'] ?? ''),
-            'confirmar_senha' => (string) ($_POST['confirmar_senha'] ?? ''),
+            'nome' => mb_substr(trim(input_string($_POST['nome'] ?? '')), 0, 151, 'UTF-8'),
+            'email' => mb_substr(Usuario::normalizarEmail(input_string($_POST['email'] ?? '')), 0, 255, 'UTF-8'),
+            'tipo' => mb_substr(input_string($_POST['tipo'] ?? Usuario::PERFIL_FUNCIONARIO), 0, 30, 'UTF-8'),
+            'senha' => input_string($_POST['senha'] ?? ''),
+            'confirmar_senha' => input_string($_POST['confirmar_senha'] ?? ''),
+            'recebe_alertas_dva' => isset($_POST['recebe_alertas_dva']),
         ];
     }
 
+    /**
+     * @param array<string,mixed> $dados
+     * @return list<string>
+     */
     private function validar(array $dados, bool $senhaObrigatoria): array
     {
         $erros = [];

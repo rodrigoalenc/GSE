@@ -4,6 +4,19 @@ declare(strict_types=1);
 
 define('ROOT_PATH', dirname(__DIR__));
 
+require_once ROOT_PATH . '/tests/Support/Keyring.php';
+$inheritedTestKey = (string) getenv('GSE_KEYRING_PATH');
+if (is_file($inheritedTestKey) && str_starts_with(basename(dirname($inheritedTestKey)), 'gse-unit-keys-')
+    && realpath(dirname(dirname($inheritedTestKey))) === realpath(sys_get_temp_dir())) {
+    $_ENV['GSE_KEYRING_PATH'] = $inheritedTestKey;
+} else {
+    $testKeyDirectory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gse-unit-keys-' . bin2hex(random_bytes(8));
+    $testKeyPath = test_keyring($testKeyDirectory);
+    $_ENV['GSE_KEYRING_PATH'] = $testKeyPath;
+    putenv('GSE_KEYRING_PATH=' . $testKeyPath);
+    register_shutdown_function(static function () use ($testKeyPath, $testKeyDirectory): void { @unlink($testKeyPath); @unlink($testKeyPath . '.rotation.lock'); @rmdir($testKeyDirectory); });
+}
+
 $_ENV['APP_ENV'] = 'testing';
 $_ENV['LOGIN_DELAY_BASE_MS'] = '0';
 $_ENV['LOGIN_DELAY_MAX_MS'] = '0';
@@ -24,6 +37,8 @@ require_once ROOT_PATH . '/src/Core/TechnicalLogger.php';
 require_once ROOT_PATH . '/src/Core/SecurityHeaders.php';
 require_once ROOT_PATH . '/src/Core/SessionManager.php';
 require_once ROOT_PATH . '/src/Core/PasswordPolicy.php';
+require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
+require_once ROOT_PATH . '/src/Core/DvaStatus.php';
 require_once ROOT_PATH . '/src/Core/AuditLogger.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 require_once ROOT_PATH . '/src/Core/LoginThrottle.php';
@@ -37,13 +52,22 @@ require_once ROOT_PATH . '/src/Model/Usuario.php';
 require_once ROOT_PATH . '/src/Core/Auth.php';
 require_once ROOT_PATH . '/src/Model/Auditoria.php';
 require_once ROOT_PATH . '/src/Model/Aluno.php';
+require_once ROOT_PATH . '/src/Model/Dva.php';
+require_once ROOT_PATH . '/src/Model/Turma.php';
+require_once ROOT_PATH . '/src/Mail/MailTransport.php';
+require_once ROOT_PATH . '/src/Mail/PhpMailerTransport.php';
+require_once ROOT_PATH . '/src/Services/DvaNotificationService.php';
+require_once ROOT_PATH . '/src/Services/PassivoCsvService.php';
 require_once ROOT_PATH . '/src/Model/Painel.php';
 require_once ROOT_PATH . '/src/Model/Pedido.php';
+require_once ROOT_PATH . '/src/Model/Contrato.php';
+require_once ROOT_PATH . '/src/Model/RelatorioAlunos.php';
 require_once ROOT_PATH . '/src/Model/Certidao.php';
 require_once ROOT_PATH . '/src/Model/Passivo.php';
 require_once ROOT_PATH . '/src/Model/Relatorio.php';
 require_once ROOT_PATH . '/src/Model/Sistema.php';
 require_once ROOT_PATH . '/tests/Support/DatabaseTestCase.php';
+require_once ROOT_PATH . '/tests/Support/PasswordRuntime.php';
 
 $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 

@@ -35,17 +35,30 @@ final class TechnicalLogger
         }
     }
 
+    /** @param array<string,mixed> $context */
     public static function error(string $event, array $context = []): void
+    {
+        self::write('error', $event, $context);
+    }
+
+    /** @param array<string,mixed> $context */
+    public static function info(string $event, array $context = []): void
+    {
+        self::write('info', $event, $context);
+    }
+
+    /** @param array<string,mixed> $context */
+    private static function write(string $level, string $event, array $context = []): void
     {
         $record = [
             'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
-            'level' => 'error',
+            'level' => $level,
             'event' => self::clean($event, 80),
             'request_id' => class_exists(RequestContext::class, false) ? RequestContext::requestId() : null,
         ];
 
         foreach ($context as $key => $value) {
-            if (!is_string($key) || preg_match('/pass|secret|token|cookie|session|authorization/i', $key)) {
+            if (preg_match('/pass|secret|token|cookie|session|authorization|key|email|nome/i', $key)) {
                 continue;
             }
 
@@ -88,6 +101,7 @@ final class TechnicalLogger
             $value
         ) ?? '';
 
+        $value = preg_replace('/(?:gse1:[A-Za-z0-9_-]+:[A-Za-z0-9+\/=]+|\$argon2id\$[^\s]+|\$2[aby]\$[^\s]+|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i', '[REDACTED]', $value) ?? '';
         return mb_substr(trim($value), 0, $limit);
     }
 

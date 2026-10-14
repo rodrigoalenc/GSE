@@ -1,4 +1,4 @@
-<div class="usuarios-toolbar">
+<div class="usuarios-toolbar relatorio">
     <a class="btn-primary" href="<?= e(url('usuario/criar')) ?>">+ Novo Usuário</a>
     <form class="usuario-search" method="get" action="<?= e(url('usuario')) ?>" role="search">
         <label class="visually-hidden" for="q">Pesquisar por nome ou e-mail</label>
@@ -22,6 +22,7 @@
                         <th>E-mail</th>
                         <th>Tipo</th>
                         <th>Situação</th>
+                        <th>Alertas DVA</th>
                         <th class="col-acoes">Ações</th>
                     </tr>
                     </thead>
@@ -32,6 +33,7 @@
                             <td><?= e((string) $item['email']) ?></td>
                             <td><span class="badge-perfil <?= $item['tipo'] === Usuario::PERFIL_ADMINISTRADOR ? 'badge-admin' : 'badge-funcionario' ?>"><?= e(nome_perfil((string) $item['tipo'])) ?></span></td>
                             <td><span class="badge-status <?= (int) $item['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $item['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span></td>
+                            <td><span class="badge-alerta <?= (int) $item['recebe_alertas_dva'] === 1 ? 'badge-alerta-on' : 'badge-alerta-off' ?>"><?= (int) $item['recebe_alertas_dva'] === 1 ? 'Habilitados' : 'Desabilitados' ?></span></td>
                             <td class="col-acoes">
                                 <a class="btn-acao btn-editar" href="<?= e(url('usuario/editar/' . (int) $item['id'])) ?>">✏️ Editar</a>
                                 <form class="inline-form" method="post" action="<?= e(url('usuario/status/' . (int) $item['id'])) ?>" data-confirm-status="<?= (int) $item['ativo'] === 1 ? 'Inativar este usuário?' : 'Ativar este usuário?' ?>">
@@ -49,3 +51,10 @@
             </div>
         <?php endif; ?>
 </section>
+
+<nav aria-label="Páginas de usuários">
+<?php if ($page > 1): ?><a href="<?= e(url('usuario?q='.rawurlencode($termo).'&pagina='.($page-1))) ?>">Anterior</a><?php endif; ?>
+<?php if (count($usuarios) === 50 && $page < 100): ?><a href="<?= e(url('usuario?q='.rawurlencode($termo).'&pagina='.($page+1))) ?>">Próxima</a><?php endif; ?>
+</nav>
+
+<?php if ($page === 100): ?><p>Refine a pesquisa para consultar outros usuários.</p><?php endif; ?>

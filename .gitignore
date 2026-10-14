@@ -3,6 +3,7 @@
 !/.env.example
 !/.env.production.example
 /.phpunit.cache/
+/.phpstan-cache/
 /vendor/
 /logs/
 *.log
@@ -18,8 +19,14 @@
 *.db-journal
 *.sqlite-journal
 *.sqlite3-journal
+*.certidao-notify.lock
 /database/backups/
 *.backup
+*.gse
+*.rotation.lock
+*-keys.json
 *.bak
 *.old
+/.local-qa/
+/storage/
 /docs/
