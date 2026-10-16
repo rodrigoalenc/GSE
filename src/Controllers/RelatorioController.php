@@ -69,13 +69,17 @@ final class RelatorioController extends Controller
     private function pdfHtml(array $result): string
     {
         $escape=static fn(?string $text): string => htmlspecialchars((string)$text,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-        $html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>body{font-family:DejaVu Sans,sans-serif;color:#17324d;font-size:10px}h1{color:#155185;font-size:17px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccd5dd;text-align:left;padding:5px}th{background:#dceaf5}tr{page-break-inside:avoid}</style></head><body><h1>Relatório de alunos e DVA</h1>';
+        $html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>body{font-family:DejaVu Sans,sans-serif;color:#17324d;font-size:10px}h1{color:#155185;font-size:17px}.dva-expired-heading{margin:14px 0;padding:12px 14px;color:#991b1b;background:#fff1f2;border:1px solid #fecaca;border-left:5px solid #b91c1c;font-size:18px;font-weight:bold}.dva-expired{color:#991b1b;font-weight:bold}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccd5dd;text-align:left;padding:5px}th{background:#dceaf5}tr{page-break-inside:avoid}</style></head><body><h1>Relatório de alunos e DVA</h1>';
+        if ($result['filters']['dva'] === DvaStatus::VENCIDA) {
+            $html.='<div class="dva-expired-heading">DVA Vencida</div>';
+        }
         $now=new DateTimeImmutable('now',new DateTimeZone(Config::string('APP_TIMEZONE','America/Cuiaba')));
         $html.='<p>Gerado em '.$now->format('d/m/Y H:i').' · '.$result['total'].' resultado(s). Dados do momento da geração.</p>';
-        $html.='<p>Filtros: turma '.$escape($result['filters']['turma'] ?: 'todas').' · DVA '.$escape($result['filters']['dva'] ?: 'todas').' · aluno '.$escape($result['filters']['ativo']).'</p>';
+        $html.='<p>Filtros: turma '.$escape($result['filters']['turma'] ?: 'todas').' · Situação da DVA: '.$escape($result['filters']['dva'] === '' ? 'Todas' : DvaStatus::label($result['filters']['dva'])).' · alunos '.$escape(match ($result['filters']['ativo']) { '1' => 'Ativos', '0' => 'Inativos', default => 'Todos' }).'</p>';
         $html.='<table><thead><tr><th>Aluno</th><th>Turma</th><th>Nascimento</th><th>Vencimento</th><th>DVA</th></tr></thead><tbody>';
         foreach ($result['items'] as $row) {
-            $html.='<tr><td>'.$escape($row['nome_completo']).'</td><td>'.$escape($row['nome_turma'] ?? 'Sem turma').'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_nascimento'])).'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_vencimento'])).'</td><td>'.$escape(DvaStatus::label($row['dva_status'])).'</td></tr>';
+            $statusClass = $row['dva_status'] === DvaStatus::VENCIDA ? ' class="dva-expired"' : '';
+            $html.='<tr><td>'.$escape($row['nome_completo']).'</td><td>'.$escape($row['nome_turma'] ?? 'Sem turma').'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_nascimento'])).'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_vencimento'])).'</td><td'.$statusClass.'>'.$escape(DvaStatus::label($row['dva_status'])).'</td></tr>';
         }
         return $html.'</tbody></table></body></html>';
     }

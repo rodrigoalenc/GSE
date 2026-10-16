@@ -83,21 +83,23 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
 
     <div class="cert-meta"><p><?= $state === 'corrente' ? 'Visualizando' : 'Exibindo' ?> <strong><?= (int) $result['total'] ?></strong> <?= $state === 'corrente' ? 'registros distribuídos entre fornecedores e tipos ativos.' : 'certidões no histórico atual.' ?></p><span><?php if ($state === 'corrente'): ?><?= count($result['items']) ?> cartões visíveis<?php else: ?><?= $filters['ano'] === '' || $filters['ano'] === 'todos' ? 'Visão completa do arquivo' : 'Filtro: ' . e($filters['ano']) ?><?php endif; ?></span></div>
     <?php ob_start(); ?>
-        <details class="cert-advanced-filters <?= $state !== 'corrente' ? 'cert-history-options' : '' ?>">
+        <details class="cert-panel cert-advanced-filters <?= $state !== 'corrente' ? 'cert-history-options' : '' ?>">
             <summary>Mais filtros e opções de consulta</summary>
+            <div class="cert-advanced-body">
             <?php if ($state !== 'corrente'): ?><?= $mainControls ?><?php endif; ?>
             <form method="get" action="<?= e(url($route)) ?>" class="cert-filters">
-                <div><label for="busca">Buscar fornecedor, tipo ou nº</label><input id="busca" name="busca" maxlength="150" value="<?= e($filters['busca']) ?>"></div>
+                <div><label for="busca">Buscar fornecedor, tipo ou nº</label><input id="busca" name="busca" maxlength="150" placeholder="Fornecedor, tipo ou número" value="<?= e($filters['busca']) ?>"></div>
                 <div><label for="tipo">Tipo de certidão</label><select id="tipo" name="tipo"><option value="">Todos</option><?php foreach ($tipos as $option): ?><option value="<?= (int) $option['id'] ?>" <?= (string) $option['id'] === $filters['tipo'] ? 'selected' : '' ?>><?= e($option['nome']) ?></option><?php endforeach; ?></select></div>
                 <div><label for="validade">Validade</label><select id="validade" name="validade"><option value="">Todas</option><?php foreach (CertidaoStatus::LABELS as $key => $label): ?><option value="<?= e($key) ?>" <?= $filters['validade'] === $key ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
                 <div><label for="ano">Ano de vencimento</label><input id="ano" name="ano" inputmode="numeric" maxlength="4" placeholder="Todos os anos" value="<?= e($filters['ano'] === 'todos' ? '' : $filters['ano']) ?>"></div>
                 <?php if ($filters['fornecedor'] !== ''): ?><input type="hidden" name="fornecedor" value="<?= e($filters['fornecedor']) ?>"><?php endif; ?>
                 <?php if ($filters['pendencias'] === '1'): ?><input type="hidden" name="pendencias" value="1"><?php endif; ?>
-                <div class="cert-filter-actions"><button class="btn-primary" type="submit">Filtrar</button><a href="<?= e(url($route)) ?>">Limpar filtros</a></div>
+                <div class="cert-filter-actions"><button class="btn-primary" type="submit">Filtrar</button><a class="btn-secondary" href="<?= e(url($route)) ?>">Limpar filtros</a></div>
             </form>
             <p id="pending-help" class="cert-muted">Pendências: vencidas, vencem hoje, a vencer até <?= e($displayDate($dates->limit())) ?> ou com data de vencimento inválida. Combina com os outros filtros. O PDF é opcional.</p>
             <p class="cert-muted">Consulta: <?= e($title) ?> · <?= $filters['pendencias'] === '1' ? 'Somente pendências ativado' : 'Pendências e regulares' ?> · <?= count(array_filter(array_diff_key($filters, ['estado' => true]), static fn ($v) => $v !== '')) ?> filtros preenchidos.</p>
             <nav class="cert-actions" aria-label="Outras consultas"><a href="<?= e(url('certidao/excluidas')) ?>">Certidões excluídas</a><?php if ($state !== 'corrente'): ?><a href="<?= e(url('certidao/cadastrar')) ?>">Nova certidão</a><a href="<?= e(url('certidao/configurar')) ?>">Fornecedores e tipos</a><a href="<?= e(url('certidao/arquivadas')) ?>">Arquivo histórico</a><?php endif; ?></nav>
+            </div>
         </details>
     <?php $advancedFilters = ob_get_clean(); ?>
     <?php if ($result['items'] === [] && $state === 'corrente'): ?>

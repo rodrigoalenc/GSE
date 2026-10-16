@@ -40,9 +40,9 @@ $flashClass = [
     <link rel="stylesheet" href="<?= e(url('assets/css/painel.css')) ?>">
     <?php if ($contractActive || $stockActive || $reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/modulo5.css')) ?>"><?php endif; ?>
     <?php if ($contractActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/contratos.css')) ?>"><?php endif; ?>
-    <?php if ($reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/relatorios.css')) ?>"><?php endif; ?>
+    <?php if ($reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/relatorios.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/relatorios.css'), 0, 12))) ?>"><?php endif; ?>
     <?php if ($certActive): ?>
-        <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css')) ?>">
+        <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/certidoes.css'), 0, 12))) ?>">
     <?php endif; ?>
     <?php if ($usersActive || $profileActive || $auditActive || $backupActive || $passwordActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/usuarios.css')) ?>">
@@ -52,7 +52,7 @@ $flashClass = [
     <?php endif; ?>
     <?php if ($dashboardActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/dashboard.css')) ?>"><?php endif; ?>
     <?php if ($passiveActive): ?>
-        <link rel="stylesheet" href="<?= e(url('assets/css/passivo.css')) ?>">
+        <link rel="stylesheet" href="<?= e(url('assets/css/passivo.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/passivo.css'), 0, 12))) ?>">
     <?php endif; ?>
 </head>
 <body>

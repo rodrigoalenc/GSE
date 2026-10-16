@@ -155,5 +155,6 @@
 .report-secondary-actions button { flex: 1; }
 .report-limits { margin: 18px 0 0; color: var(--text-muted); font-size: .85rem; }
 .report-preview { margin-top: 24px; }
+.report-preview .report-expired-heading { padding: 12px 16px; color: #991b1b; background: #fff1f2; border: 1px solid #fecaca; border-left: 5px solid #b91c1c; border-radius: 8px; font-size: 1.2rem; }
 .report-preview .tabela-filtrada { min-width: 760px; }
 @media print { .relatorio-hero, .box-relatorio { display: none !important; } }
