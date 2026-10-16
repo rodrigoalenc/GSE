@@ -84,6 +84,7 @@ final class TemplateSecurityTest extends TestCase
             'total' => 3,
             'page' => 1,
             'pages' => 1,
+            'per_page' => 20,
         ];
 
         ob_start();

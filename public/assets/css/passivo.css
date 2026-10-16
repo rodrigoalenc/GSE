@@ -50,6 +50,15 @@
 .passivo-box-navigation a { display: inline-flex; align-items: center; min-height: 38px; padding: 7px 12px; color: #16508f; background: #fff; border: 1px solid #dbe5f0; border-radius: 10px; }
 .passivo-box-navigation a.active { color: #fff; background: #16508f; border-color: #16508f; }
 .passivo-name { color: #0c3566; font-weight: 750; }
+.passivo-pagination-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
+.passivo-page-summary { margin: 0; color: #526174; font-size: .9rem; }
+.passivo-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.passivo-pagination a,
+.passivo-pagination span { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 10px; color: #16508f; background: #fff; font-weight: 700; text-decoration: none; }
+.passivo-pagination a:hover { background: #eef6ff; border-color: #16508f; }
+.passivo-pagination a:focus-visible { outline: 3px solid #2c7ed6; outline-offset: 2px; }
+.passivo-pagination a[aria-current="page"] { color: #fff; background: #16508f; border-color: #16508f; }
+.passivo-pagination span[aria-disabled="true"] { color: #69788c; background: #f2f6fa; }
 .passivo-status { display: inline-flex; padding: 5px 9px; border: 1px solid transparent; border-radius: 999px; font-size: .82rem; font-weight: 750; white-space: nowrap; }
 .passivo-status.active { color: #166534; background: #edf9f0; border-color: #c9ebd0; }
 .passivo-status.pending { color: #713f12; background: #fff7d6; border-color: #e8c765; }

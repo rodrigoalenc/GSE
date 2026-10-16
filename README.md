@@ -121,7 +121,7 @@ O comando gera uma senha temporária aleatória, mostra-a uma única vez e marca
 
 Para automação controlada, `GSE_ADMIN_PASSWORD` pode ser fornecida apenas ao processo CLI. Não coloque senha em argumentos, `.env`, scripts versionados ou logs. A senha fornecida continua temporária.
 
-Senhas definidas ou redefinidas por administrador também são temporárias e nunca são exibidas novamente pela aplicação.
+Senhas definidas ou redefinidas por administrador para outras contas são temporárias e nunca são exibidas novamente pela aplicação. Ao editar a própria conta em **Usuários**, a troca exige a senha atual e grava a nova senha como definitiva: encerra as sessões anteriores, mas não exige outra troca no próximo login. O mesmo vale para **Meu perfil → Alterar senha**.
 
 Funcionários e administradores acessam `/usuario/perfil` pelo próprio nome no rodapé do menu. Nome e e-mail só podem ser alterados para a conta da sessão, com senha atual e CSRF. A auditoria participa da mesma transação: se falhar, a alteração é desfeita. Alterar apenas o nome mantém a sessão; alterar o e-mail encerra todas as sessões anteriores e exige novo login. A troca de senha permanece em `/senha/alterar`. Perfil, situação e preferência de alertas continuam sob administração.
 

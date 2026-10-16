@@ -388,8 +388,18 @@ try {
     checkHttp(request('GET', $baseUrl . '/contrato/editar/' . $contractId, $cookieAdmin)['status'] === 404, 'Contrato excluído não oferece edição');
     $reportPdf = request('GET', $baseUrl . '/relatorio/pdf', $cookieAdmin);
     checkHttp($reportPdf['status'] === 200 && str_starts_with($reportPdf['body'], '%PDF-'), 'PDF de relatório válido');
+    checkHttp(str_starts_with($reportPdf['headers']['content-disposition'] ?? '', 'inline;')
+        && str_contains($reportPdf['headers']['content-type'] ?? '', 'application/pdf')
+        && str_contains($reportPdf['headers']['cache-control'] ?? '', 'no-store'), 'PDF permite visualização no navegador sem cache dos dados');
+    $reportPdfDownload = request('GET', $baseUrl . '/relatorio/pdf?baixar=1', $cookieAdmin);
+    checkHttp($reportPdfDownload['status'] === 200 && str_starts_with($reportPdfDownload['body'], '%PDF-')
+        && str_starts_with($reportPdfDownload['headers']['content-disposition'] ?? '', 'attachment;'), 'Download explícito do relatório PDF continua disponível');
+    $reportPage = request('GET', $baseUrl . '/relatorio', $cookieAdmin);
+    checkHttp(str_contains($reportPage['body'], 'target="_blank" rel="noopener"')
+        && str_contains($reportPage['body'], 'Visualizar PDF') && str_contains($reportPage['body'], 'Baixar PDF'), 'Gerador oferece visualização em nova aba e download separado');
     $reportCsv = request('GET', $baseUrl . '/relatorio/csv', $cookieAdmin);
     checkHttp($reportCsv['status'] === 200 && str_starts_with($reportCsv['body'], "\xEF\xBB\xBF"), 'CSV de relatório com BOM UTF-8');
+    checkHttp(str_starts_with($reportCsv['headers']['content-disposition'] ?? '', 'attachment;'), 'CSV continua sendo baixado');
 
     $createPage = request('GET', $baseUrl . '/usuario/criar', $cookieAdmin);
     $employeeTemporaryPassword = 'Inicial funcionário HTTP 2026';
@@ -939,8 +949,10 @@ try {
     require __DIR__ . '/http-certidoes.php';
     require __DIR__ . '/http-passivo-batch.php';
     require __DIR__ . '/http-passivo-renumeracao.php';
+    require __DIR__ . '/http-passivo-paginacao.php';
     require __DIR__ . '/http-contrato-certidoes.php';
     require __DIR__ . '/http-profile.php';
+    require __DIR__ . '/http-user-password.php';
     require __DIR__ . '/http-audit-backups.php';
     require __DIR__ . '/http-security-hardening.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);

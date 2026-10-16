@@ -94,6 +94,7 @@
 
 <section class="relatorio" aria-labelledby="passivo-results-title">
     <div class="section-head"><div><h2 id="passivo-results-title"><?= $filters['ativo'] === '0' ? 'Registros excluídos do acervo ativo' : ($filters['caixa'] !== '' ? 'Conteúdo da caixa ' . e($filters['caixa']) : 'Registros encontrados') ?></h2><p><?= $filters['ativo'] === '0' ? 'Os dados e o histórico estão preservados. A restauração depende de um administrador.' : 'Consulte os registros ou abra os detalhes para editar e excluir do acervo ativo.' ?></p></div></div>
+    <?php $paginationPosition = 'início'; require __DIR__ . '/paginacao.php'; ?>
     <div class="table-scroll">
         <table class="tabela-filtrada passivo-table">
             <thead><tr><th>Nome</th><th>Data de nascimento</th><th>Número</th><th>Caixa</th><th>Situação</th><th>Ações</th></tr></thead>
@@ -125,12 +126,5 @@
         </table>
     </div>
 
-    <?php if ($result['pages'] > 1): ?>
-        <nav class="pagination" aria-label="Paginação do Arquivo Passivo">
-        <?php for ($page = max(1, $result['page'] - 2); $page <= min($result['pages'], $result['page'] + 2); $page++): ?>
-            <?php $query = http_build_query(['q' => $filters['q'], 'caixa' => $filters['caixa'], 'localizacao' => $filters['localizacao'], 'ativo' => $filters['ativo'] === '' ? 'todos' : $filters['ativo'], 'ordem' => $filters['ordem'], 'page' => $page]); ?>
-            <a class="<?= $page === $result['page'] ? 'active' : '' ?>" <?= $page === $result['page'] ? 'aria-current="page"' : '' ?> href="<?= e(url('passivo?' . $query)) ?>"><?= e((string) $page) ?></a>
-        <?php endfor; ?>
-        </nav>
-    <?php endif; ?>
+    <?php $paginationPosition = 'fim'; require __DIR__ . '/paginacao.php'; ?>
 </section>

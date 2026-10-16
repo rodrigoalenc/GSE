@@ -1,5 +1,6 @@
 <?php
 $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
+$editingSelf = $editingSelf ?? false;
 ?>
 <div class="usuario-form-card<?= $edicao ? ' usuario-form-card-edit' : '' ?>">
         <?php if ($erros): ?>
@@ -29,11 +30,18 @@ $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
                             <option value="funcionario" <?= $dados['tipo'] === 'funcionario' ? 'selected' : '' ?>>Funcionário</option>
                             <option value="administrador" <?= $dados['tipo'] === 'administrador' ? 'selected' : '' ?>>Administrador</option>
                         </select></div>
-                        <div class="senha-opcional"><label for="senha">Redefinir Senha (Opcional):</label><div class="usuario-edit-password-row">
+                        <div class="senha-opcional"><label for="senha"><?= $editingSelf ? 'Alterar minha senha (opcional):' : 'Redefinir senha temporária (opcional):' ?></label><div class="usuario-edit-password-row">
                             <input type="password" id="senha" name="senha" autocomplete="new-password" data-password-max="128" data-password-min="15" placeholder="Nova senha" title="Deixe em branco para manter a senha atual">
                             <label class="usuario-confirm-label"><span class="visually-hidden">Confirmar senha:</span><input type="password" id="confirmar_senha" name="confirmar_senha" autocomplete="new-password" data-password-max="128" placeholder="Confirmar senha"></label>
                         </div></div>
                     </div>
+                    <?php if ($editingSelf): ?>
+                        <label for="senha_atual">Senha atual (necessária ao definir uma nova senha):</label>
+                        <input type="password" id="senha_atual" name="senha_atual" autocomplete="current-password" data-password-max="128">
+                        <p class="form-help">Sua nova senha será definitiva. Após salvar, entre novamente com ela.</p>
+                    <?php else: ?>
+                        <p class="form-help">A senha redefinida para outro usuário é temporária e deverá ser trocada no próximo acesso.</p>
+                    <?php endif; ?>
                     <?php else: ?>
                     <div class="usuario-password-grid">
                         <div>
@@ -61,7 +69,7 @@ $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
                     <div class="form-actions">
                         <button type="submit"><?= $edicao ? 'Salvar Alterações' : 'Salvar' ?></button>
                         <a class="cancelar" href="<?= e(url('usuario')) ?>">Cancelar</a>
-                        <details class="usuario-access-help"><summary>Orientações de acesso</summary><p>Use de 15 a 128 caracteres. Frases-senha, espaços e caracteres Unicode são aceitos; senhas comuns ou semelhantes ao nome/e-mail são recusadas.<?= $edicao ? ' Deixe os dois campos em branco para manter a senha atual.' : '' ?> A senha definida por administrador será temporária. Alterações de perfil e senha invalidam as sessões anteriores.</p></details>
+                        <details class="usuario-access-help"><summary>Orientações de acesso</summary><p>Use de 15 a 128 caracteres. Frases-senha, espaços e caracteres Unicode são aceitos; senhas comuns ou semelhantes ao nome/e-mail são recusadas.<?= $edicao ? ' Deixe os campos de nova senha e confirmação em branco para manter a senha atual.' : '' ?> <?= $editingSelf ? 'A alteração da própria senha exige confirmação da senha atual.' : 'A senha definida para outro usuário será temporária.' ?> Alterações de perfil e senha invalidam as sessões anteriores.</p></details>
                     </div>
                 </form>
         </section>

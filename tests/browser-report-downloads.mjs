@@ -1,7 +1,7 @@
 // Real authenticated forms and download bytes, using only disposable synthetic data.
 import assert from 'node:assert/strict';
 import {spawn, spawnSync} from 'node:child_process';
-import {mkdtemp, mkdir, readFile, rm} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:net';
 import {tmpdir} from 'node:os';
 import {basename, dirname, join, resolve} from 'node:path';
@@ -47,7 +47,17 @@ try {
     await page.click('.btn-login');
     await page.until(`location.pathname==='/dashboard' && document.readyState==='complete'`);
     await page.navigate(base+'/relatorio');
-    const form = '[data-report-generator]', main = form+' .btn-gerar';
+    await page.command('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+    check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Report actions fit a mobile screen');
+    if (process.env.GSE_BROWSER_EVIDENCE_DIR) {
+        await mkdir(process.env.GSE_BROWSER_EVIDENCE_DIR,{recursive:true});
+        await page.evaluate(`document.querySelector('.btn-gerar').scrollIntoView({block:'center'})`);
+        await page.evaluate('new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))');
+        const {data} = await page.command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+        await writeFile(join(process.env.GSE_BROWSER_EVIDENCE_DIR,'report-preview-mobile.png'),Buffer.from(data,'base64'));
+    }
+    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+    const form = '[data-report-generator]', main = form+' .btn-gerar', pdfDownload = '[data-report-pdf-download]';
     const idle = async () => {
         await page.until(`!document.querySelector('${form}').hasAttribute('aria-busy') && !document.querySelector('[data-submit-status]')`);
         check(await page.evaluate(`document.body.textContent.includes('Processando…')`),false,'No permanent processing message');
@@ -70,19 +80,48 @@ try {
     const origin = await page.evaluate('performance.timeOrigin');
     await page.evaluate(`document.querySelector('#turma').value='1'; document.querySelector('#dva').value='vigente';
         document.querySelector('${main}').name='acao'; document.querySelector('${main}').value='gerar';`);
+    check(await page.evaluate(`document.querySelector('${main}').textContent`),'Visualizar PDF','PDF is presented as a preview action');
     await page.click(main);
+    await page.click(main);
+    let previewTarget;
+    for (let i=0;i<100;i++) {
+        const {targetInfos} = await browser.command('Target.getTargets');
+        previewTarget = targetInfos.find(target=>target.type==='page' && target.url.startsWith(base+'/relatorio/pdf?'));
+        if (previewTarget) break;
+        await new Promise(done=>setTimeout(done,50));
+    }
+    assert.ok(previewTarget,'PDF opens in a new browser tab'); checks++;
+    check(Object.fromEntries(new URL(previewTarget.url).searchParams),{turma:'1',dva:'vigente',ativo:'1',formato:'pdf',acao:'gerar'},'PDF preview preserves filters and submitter name/value');
+    const {sessionId:previewSession} = await browser.command('Target.attachToTarget',{targetId:previewTarget.targetId,flatten:true});
+    let previewReady = false;
+    for (let i=0;i<100;i++) {
+        const state = await browser.command('Runtime.evaluate',{expression:'document.contentType',returnByValue:true},previewSession);
+        if (state.result.value==='application/pdf') {previewReady=true;break;}
+        await new Promise(done=>setTimeout(done,50));
+    }
+    check(previewReady,true,'New tab displays a PDF document');
+    await idle();
+    check(began().length,0,'Visualizing a PDF does not download a file');
+    check(await page.evaluate('performance.timeOrigin'),origin,'PDF preview keeps the generator page open');
+    const {targetInfos:afterPreview} = await browser.command('Target.getTargets');
+    check(afterPreview.filter(target=>target.type==='page' && target.url.startsWith(base+'/relatorio/pdf?')).length,1,'Immediate repeated preview click opens one tab');
+    await browser.command('Target.closeTarget',{targetId:previewTarget.targetId});
+
+    await page.click(pdfDownload);
     check(await page.evaluate(`document.querySelector('${form}').getAttribute('aria-busy')`),'true','PDF locks the form immediately');
-    await page.click(main);
+    await page.click(pdfDownload);
     const pdf = await waitDownload(1);
-    check(pdf.bytes.subarray(0,5).toString(),'%PDF-','Main PDF button downloads a real PDF');
+    check(pdf.bytes.subarray(0,5).toString(),'%PDF-','Explicit PDF download button downloads a real PDF');
     await new Promise(done=>setTimeout(done,250));
     check(began().length,1,'Immediate repeated PDF click produces one download');
     check(reportRequests().length,1,'Immediate repeated PDF click sends one request');
-    check(Object.fromEntries(new URL(pdf.event.url).searchParams),{turma:'1',dva:'vigente',ativo:'1',formato:'pdf',acao:'gerar'},'PDF preserves filters and submitter name/value');
+    check(Object.fromEntries(new URL(pdf.event.url).searchParams),{turma:'1',dva:'vigente',ativo:'1',formato:'pdf',baixar:'1'},'Explicit PDF download preserves filters and requests attachment');
     await idle();
     check(await page.evaluate('performance.timeOrigin'),origin,'PDF releases without a reload');
 
     await page.click(`${form} [name="formato"][value="csv"]`);
+    check(await page.evaluate(`document.querySelector('${main}').textContent`),'Baixar CSV','Selecting CSV updates the main action');
+    check(await page.evaluate(`document.querySelector('${form}').target`),'_self','CSV does not open an empty tab');
     await page.evaluate(`document.querySelector('#turma').value='2'; document.querySelector('#ativo').value='0';`);
     await page.click(main); await page.click(main);
     const csv = await waitDownload(2);
@@ -110,7 +149,7 @@ try {
     await page.evaluate('history.back()');
     await page.until(`location.pathname==='/relatorio' && location.search==='' && document.readyState==='complete'`);
     await idle();
-    await page.click(main);
+    await page.click(pdfDownload);
     check((await waitDownload(4)).bytes.subarray(0,5).toString(),'%PDF-','Back navigation leaves the form reusable');
     await idle();
     await page.click(`${form} [name="formato"][value="csv"]`);
@@ -159,7 +198,7 @@ try {
     await idle();
     check(browser.errors,[],'No JavaScript errors');
     check(/PHP (?:Warning|Fatal error|Parse error)/.test(serverErrors),false,'No PHP warnings');
-    console.log(`Browser report downloads: ${checks} checks passed (real PDF/CSV/TXT, synthetic data).`);
+    console.log(`Browser report preview/downloads: ${checks} checks passed (PDF in new tab, real PDF/CSV/TXT downloads, synthetic data).`);
 } finally {
     await browser?.cleanup();
     if (server && server.exitCode===null) {

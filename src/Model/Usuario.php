@@ -123,7 +123,8 @@ class Usuario extends Model
         string $tipo,
         ?string $novaSenha = null,
         ?bool $recebeAlertasDva = null,
-        ?int $actorId = null
+        ?int $actorId = null,
+        #[SensitiveParameter] ?string $senhaAtual = null
     ): bool {
         $this->lastErrorCode = null;
         $nome = trim($nome);
@@ -135,8 +136,12 @@ class Usuario extends Model
             return false;
         }
 
+        $ownPasswordChange = $novaSenha !== null && $actorId === $id;
+        if ($ownPasswordChange) {
+            ActionBudget::consume(self::$pdo, $id, 'password');
+        }
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $nome, $email, $tipo, $novaSenha, $recebeAlertasDva, $actorId): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $nome, $email, $tipo, $novaSenha, $recebeAlertasDva, $actorId, $senhaAtual, $ownPasswordChange): bool {
                 $atual = $this->buscarPorId($id);
 
                 if (!$atual) {
@@ -155,6 +160,17 @@ class Usuario extends Model
                     $this->lastErrorCode = 'invalid_password';
 
                     return false;
+                }
+
+                if ($ownPasswordChange && $novaSenha !== null) {
+                    if ((int) $atual['ativo'] !== 1 || !PasswordPolicy::verify($senhaAtual ?? '', (string) $atual['senha'])) {
+                        $this->lastErrorCode = 'current_password_invalid';
+                        return false;
+                    }
+                    if (PasswordPolicy::verify($novaSenha, (string) $atual['senha'])) {
+                        $this->lastErrorCode = 'password_reused';
+                        return false;
+                    }
                 }
 
                 $privilegeChanged = (string) $atual['tipo'] !== $tipo;
@@ -183,8 +199,10 @@ class Usuario extends Model
                 }
 
                 if ($novaSenha !== null) {
-                    $sql .= ', senha = :senha, deve_alterar_senha = 1, password_changed_at = NULL';
+                    $sql .= ', senha = :senha, deve_alterar_senha = :temporary, password_changed_at = :password_changed';
                     $params['senha'] = PasswordPolicy::hash($novaSenha);
+                    $params['temporary'] = $ownPasswordChange ? 0 : 1;
+                    $params['password_changed'] = $ownPasswordChange ? gmdate('Y-m-d H:i:s') : null;
                 }
 
                 $sql .= ' WHERE id = :id';
@@ -199,8 +217,8 @@ class Usuario extends Model
                         'Perfil de acesso alterado.', 'user', $id);
                 }
                 if ($novaSenha !== null) {
-                    AuditLogger::recordRequired($pdo, 'password.reset', AuditLogger::SUCCESS, $actorId, $id,
-                        'Senha temporária definida pelo administrador.', 'user', $id);
+                    AuditLogger::recordRequired($pdo, $ownPasswordChange ? 'password.changed' : 'password.reset', AuditLogger::SUCCESS, $actorId, $id,
+                        $ownPasswordChange ? 'Senha alterada pelo próprio usuário.' : 'Senha temporária definida pelo administrador.', 'user', $id);
                 }
                 if ($alertsChanged) {
                     $this->recordDvaAlertsChange($pdo, $actorId, $id, $alertsAfter === 1);

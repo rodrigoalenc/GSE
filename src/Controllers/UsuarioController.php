@@ -90,6 +90,7 @@ final class UsuarioController extends Controller
             $dados = $this->dadosDoFormulario();
             $erros = $this->validar($dados, false);
             $novaSenha = $dados['senha'] !== '' ? $dados['senha'] : null;
+            $senhaAtual = input_string($_POST['senha_atual'] ?? '');
 
             if (!$erros && $model->atualizar(
                 (int) $usuarioId,
@@ -98,7 +99,8 @@ final class UsuarioController extends Controller
                 $dados['tipo'],
                 $novaSenha,
                 $dados['recebe_alertas_dva'],
-                (int) $_SESSION['usuario_id']
+                (int) $_SESSION['usuario_id'],
+                $senhaAtual
             )) {
                 $actor = (int) $_SESSION['usuario_id'];
                 $target = (int) $usuarioId;
@@ -123,6 +125,8 @@ final class UsuarioController extends Controller
                 $erros[] = match ($code) {
                     'duplicate_email' => 'O e-mail informado já está em uso.',
                     'last_active_admin' => 'A alteração foi bloqueada: o sistema deve manter um administrador ativo.',
+                    'current_password_invalid' => 'Para alterar sua própria senha, informe a senha atual corretamente.',
+                    'password_reused' => 'A nova senha deve ser diferente da senha atual.',
                     default => 'Não foi possível atualizar o usuário.',
                 };
 
@@ -148,6 +152,7 @@ final class UsuarioController extends Controller
             'erros' => $erros,
             'edicao' => true,
             'usuarioId' => (int) $usuarioId,
+            'editingSelf' => (int) $usuarioId === (int) $_SESSION['usuario_id'],
         ]);
     }
 

@@ -96,4 +96,23 @@ final class SessionLifecycleTest extends DatabaseTestCase
         $this->assertTrue(\Auth::attempt('primeiro@example.test', 'Frase definitiva 2027'));
         $this->assertFalse(\Auth::mustChangePassword());
     }
+
+    public function testAdministratorChangingOwnPasswordInUserEditorDoesNotRequireAnotherChange(): void
+    {
+        $id = $this->insertUsuario('Admin Edicao Propria');
+        $model = new \Usuario();
+        $before = $model->buscarPorId($id);
+        $this->assertTrue(\Auth::attempt((string) $before['email'], 'Frase segura 2026'));
+        $this->assertTrue($model->atualizar($id, (string) $before['nome'], (string) $before['email'], 'administrador',
+            'Nova frase definitiva 2027', null, $id, 'Frase segura 2026'));
+        $after = $model->buscarPorId($id);
+        $this->assertSame(0, (int) $after['deve_alterar_senha']);
+        $this->assertNotNull($after['password_changed_at']);
+        $this->assertSame((int) $before['session_version'] + 1, (int) $after['session_version']);
+        $this->assertFalse(\Auth::check());
+        $this->assertTrue(\Auth::attempt((string) $after['email'], 'Nova frase definitiva 2027'));
+        $this->assertFalse(\Auth::mustChangePassword());
+        $this->assertSame(['login.success', 'password.changed', 'session.invalidated', 'login.success'],
+            $this->pdo->query('SELECT action FROM security_audit ORDER BY id')->fetchAll(\PDO::FETCH_COLUMN));
+    }
 }

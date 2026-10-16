@@ -35,7 +35,8 @@ final class RelatorioController extends Controller
         $now=new DateTimeImmutable('now',new DateTimeZone(Config::string('APP_TIMEZONE','America/Cuiaba')));
         $filename='relatorio-alunos-dva-'.$now->format('Ymd').'.'.$format;
         header('Cache-Control: private, no-store'); header('X-Content-Type-Options: nosniff');
-        header('Content-Disposition: attachment; filename="'.$filename.'"');
+        $disposition = $format === 'pdf' && input_string($_GET['baixar'] ?? '') !== '1' ? 'inline' : 'attachment';
+        header('Content-Disposition: '.$disposition.'; filename="'.$filename.'"');
         if ($format==='csv') {
             header('Content-Type: text/csv; charset=UTF-8');
             $stream=fopen('php://output','wb');

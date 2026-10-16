@@ -362,6 +362,37 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
             . $this->pdo->quote($action) . " BEGIN SELECT RAISE(ABORT, 'forced_user_audit_failure'); END");
     }
 
+    public function testOwnPasswordEditRequiresCurrentPasswordAndRejectsReuseWithoutMutations(): void
+    {
+        $id = $this->insertUsuario('Autor senha propria');
+        $model = new \Usuario();
+        $before = $model->buscarPorId($id);
+        $snapshot = $this->snapshot();
+        foreach ([null, 'Senha atual incorreta'] as $current) {
+            $this->assertFalse($model->atualizar($id, 'Nome a preservar', (string) $before['email'], 'administrador',
+                'Nova frase definitiva 2027', null, $id, $current));
+            $this->assertSame('current_password_invalid', $model->lastErrorCode());
+            $this->assertSame($snapshot, $this->snapshot());
+        }
+        $this->assertFalse($model->atualizar($id, (string) $before['nome'], (string) $before['email'], 'administrador',
+            'Frase segura 2026', null, $id, 'Frase segura 2026'));
+        $this->assertSame('password_reused', $model->lastErrorCode());
+        $this->assertSame($snapshot, $this->snapshot());
+    }
+
+    public function testOwnPasswordAuditFailureRollsBackIdentityPasswordAndSessionVersion(): void
+    {
+        $id = $this->insertUsuario('Autor senha atomica');
+        $model = new \Usuario();
+        $before = $model->buscarPorId($id);
+        $snapshot = $this->snapshot();
+        $this->rejectAudit('password.changed');
+        $this->assertFalse($model->atualizar($id, 'Nome a preservar', (string) $before['email'], 'administrador',
+            'Nova frase definitiva 2027', null, $id, 'Frase segura 2026'));
+        $this->assertSame('database_error', $model->lastErrorCode());
+        $this->assertSame($snapshot, $this->snapshot());
+    }
+
     /** @return list<array<string,mixed>> */
     private function events(): array
     {

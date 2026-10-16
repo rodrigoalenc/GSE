@@ -26,12 +26,13 @@ const fixture = (mode = 'state') => {
 };
 const temporaryPassword = 'á'.repeat(40) + ' frase temporária';
 const permanentPassword = '\u{1F9D1}'.repeat(100) + ' frase definitiva';
+const editorPassword = 'Frase própria definitiva 2028';
 let server, browser, page, originalFailure, activeMode;
 let checks = 0;
 const check = (value, expected, message) => {assert.deepEqual(value, expected, message); checks++;};
 const redact = (value, sensitiveValues = []) => {
     let text = String(value);
-    for (const secret of [temporaryPassword, permanentPassword, 'L'.repeat(72), ...sensitiveValues].filter(Boolean).sort((a,b)=>b.length-a.length)) {
+    for (const secret of [temporaryPassword, permanentPassword, editorPassword, 'L'.repeat(72), ...sensitiveValues].filter(Boolean).sort((a,b)=>b.length-a.length)) {
         text = text.split(secret).join('[REDACTED]');
     }
     return text.replace(/\$(?:argon2(?:id|i)\$[^\s"<>]+|2[aby]\$[^\s"<>]+)/g, '[REDACTED HASH]')
@@ -207,9 +208,28 @@ try {
     })()`);
     check(submission, [false,true,false,true,false], 'Cancelled submit stays available; duplicate is blocked; submitter and bfcache recovery work');
     await fill('#perfil-senha-atual', '');
+    await go('/usuario/editar/1');
+    check(await page.evaluate(`document.body.textContent.includes('Sua nova senha será definitiva')`),true,'Own user editor explains the definitive password');
+    const beforeOwnEdit = fixture();
+    await fill('#senha', editorPassword);
+    await fill('#confirmar_senha', editorPassword);
+    await fill('#senha_atual', 'Senha atual incorreta');
+    await submit('/usuario/editar/1');
+    check(await page.evaluate(`document.body.textContent.includes('informe a senha atual corretamente')`),true,'Own editor rejects an incorrect current password');
+    check(fixture(),beforeOwnEdit,'Rejected own edit leaves account and session unchanged');
+    check(await page.evaluate(`['senha_atual','senha','confirmar_senha'].every(id=>document.getElementById(id).value==='')`),true,'Rejected edit clears every password field');
+    await fill('#senha', editorPassword);
+    await fill('#confirmar_senha', editorPassword);
+    await fill('#senha_atual', permanentPassword);
+    await submit('/usuario/editar/1');
+    check(await page.evaluate('location.pathname'),'/login','Own editor ends the session after a password change');
+    check(fixture().users[0].deve_alterar_senha,0,'Own editor saves a definitive password');
+    check(fixture().users[0].session_version,beforeOwnEdit.users[0].session_version+1,'Own editor invalidates previous sessions');
+    await login('admin@example.test',editorPassword);
+    check(await page.evaluate('location.pathname'),'/dashboard','Login after own edit does not request another password change');
     const log = await readFile(environment.LOG_PATH,'utf8');
     assert.ok(log.includes('argon2id_unavailable') && log.includes('argon2id_generation_failed'), 'Both runtime failures reached the application');
-    for (const secret of [temporaryPassword, permanentPassword, 'Artificial private detail']) assert.ok(!log.includes(secret));
+    for (const secret of [temporaryPassword, permanentPassword, editorPassword, 'Artificial private detail']) assert.ok(!log.includes(secret));
     check(/\$argon2id\$|\$2[aby]\$/.test(log), false, 'Technical log contains no password hashes');
     check(browser.errors.length, 0, 'No browser exceptions; failure evidence redacts their details');
     console.log(`Browser password security: ${checks} checks passed (login, mandatory change, runtime failures, session preservation and profile).`);

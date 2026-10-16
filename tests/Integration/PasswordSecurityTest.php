@@ -82,6 +82,9 @@ final class PasswordSecurityTest extends DatabaseTestCase
             $this->assertSame($before, $this->snapshot());
             $this->assertFalse($model->atualizar($id, 'Nome alterado', 'alterado@example.test', 'administrador', 'Nova frase segura 2027', true));
             $this->assertSame($before, $this->snapshot());
+            $this->assertFalse($model->atualizar($id, 'Nome alterado', 'alterado@example.test', 'administrador', 'Nova frase segura 2027', true,
+                $id, 'Frase segura 2026'));
+            $this->assertSame($before, $this->snapshot());
             $this->assertFalse($model->alterarSenha($id, 'Frase segura 2026', 'Nova frase segura 2027'));
             $this->assertSame($before, $this->snapshot());
         }

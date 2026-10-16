@@ -434,10 +434,18 @@ if (contractTabs) {
 
 const reportGenerator = document.querySelector('[data-report-generator]');
 if (reportGenerator) {
-    reportGenerator.addEventListener('submit', (event) => {
-        if (event.submitter?.hasAttribute('formaction')) return;
+    const updateReportAction = () => {
         const format = reportGenerator.querySelector('[name="formato"]:checked')?.value;
         reportGenerator.action = format === 'csv' ? reportGenerator.dataset.csvUrl : reportGenerator.dataset.pdfUrl;
+        reportGenerator.target = format === 'csv' ? '_self' : '_blank';
+        const button = reportGenerator.querySelector('.btn-gerar');
+        if (button) button.textContent = format === 'csv' ? 'Baixar CSV' : 'Visualizar PDF';
+    };
+    reportGenerator.querySelectorAll('[name="formato"]').forEach((input) => input.addEventListener('change', updateReportAction));
+    updateReportAction();
+    reportGenerator.addEventListener('submit', (event) => {
+        if (event.submitter?.hasAttribute('formaction')) return;
+        updateReportAction();
     });
 }
 
