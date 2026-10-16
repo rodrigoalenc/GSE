@@ -21,6 +21,8 @@ A migração **v14** do módulo protege a revisão de fornecedores/tipos e regis
 - Inventário conservador: `php bin/certidoes-maintenance.php`. Migração de arquivos legados: `php bin/migrate-certidao-pdfs.php --source=CAMINHO_ABSOLUTO` simula, sem mover/apagar originais.
 - Backup operacional cobre **SQLite e PDFs**. Bloqueie os diretórios públicos legados no servidor antes da implantação.
 
+As ações **Visualizar PDF** abrem uma nova aba nas certidões correntes, arquivadas e excluídas, nos detalhes, na edição e nos relatórios. As rotas `/certidao/pdf/{id}` e `/relatorio/pdf` enviam `Content-Disposition: inline` por padrão; **Baixar PDF** solicita `baixar=1` para download explícito. Os PDFs das certidões mantêm autenticação, verificação de integridade e `Cache-Control: private, no-store` em ambos os modos.
+
 ## Arquitetura de segurança
 
 O front controller `public/index.php` valida o ambiente, host, HTTPS e proxy, inicializa logs, sessão e migrações e entrega a requisição a uma tabela explícita de rotas. Novos métodos públicos de Controller não ficam acessíveis automaticamente.

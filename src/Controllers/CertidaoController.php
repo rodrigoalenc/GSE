@@ -70,7 +70,8 @@ final class CertidaoController extends Controller
             if (hash_file('sha256',$path) !== $record['pdf_sha256'] || filesize($path) !== (int)$record['pdf_bytes']) { throw new DomainException('Documento com integridade pendente.'); }
         } catch (Throwable) { render_http_error(404,'PDF indisponível','Documento pendente de revisão ou migração para armazenamento privado.','certidao/detalhes/'.$id); }
         header('Content-Type: application/pdf');
-        header('Content-Disposition: attachment; filename="certidao-' . (int)$record['id'] . '.pdf"');
+        $disposition = self::input($_GET, 'baixar') === '1' ? 'attachment' : 'inline';
+        header('Content-Disposition: ' . $disposition . '; filename="certidao-' . (int)$record['id'] . '.pdf"');
         header('X-Content-Type-Options: nosniff'); header('Cache-Control: private, no-store');
         header('Content-Length: ' . (string)filesize($path));
         session_write_close(); readfile($path);

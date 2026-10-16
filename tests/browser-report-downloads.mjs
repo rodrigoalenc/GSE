@@ -196,9 +196,62 @@ try {
     await page.evaluate(`new Promise(done=>setTimeout(done,Math.max(0,submissionTimes[0]+3100-performance.now())))`);
     check(await page.evaluate(`document.querySelector('${form}').getAttribute('aria-busy')`),'true','pageshow cancels the older timer without releasing a newer guard');
     await idle();
+
+    const viewDocument = async (selector, type = 'application/pdf') => {
+        const href = await page.evaluate(`document.querySelector(${JSON.stringify(selector)}).href`);
+        const previousDownloads = began().length;
+        await page.click(selector);
+        let target;
+        for (let i=0;i<100;i++) {
+            const {targetInfos} = await browser.command('Target.getTargets');
+            target = targetInfos.find(info=>info.type==='page' && info.targetId!==page.targetId && info.url===href);
+            if (target) break;
+            await new Promise(done=>setTimeout(done,50));
+        }
+        assert.ok(target,`Document opens in a new tab: ${selector}`); checks++;
+        const {sessionId} = await browser.command('Target.attachToTarget',{targetId:target.targetId,flatten:true});
+        let contentType;
+        for (let i=0;i<100;i++) {
+            const {result} = await browser.command('Runtime.evaluate',{expression:'document.contentType',returnByValue:true},sessionId);
+            contentType = result.value;
+            if (contentType===type) break;
+            await new Promise(done=>setTimeout(done,50));
+        }
+        check(contentType,type,'Document is displayed by the browser');
+        check(began().length,previousDownloads,'Viewing a document does not start a download');
+        await browser.command('Target.closeTarget',{targetId:target.targetId});
+    };
+    for (const [path, selector] of [
+        ['/certidao','.cert-link-pdf'],
+        ['/certidao/detalhes/1','.cert-detail-pdf'],
+        ['/certidao/editar/1','.cert-existing-pdf a[target="_blank"]'],
+        ['/certidao/arquivadas?ano=todos','.cert-archive-pdf[target="_blank"]'],
+        ['/certidao/excluidas','.cert-archive-pdf[target="_blank"]'],
+    ]) {
+        await page.navigate(base+path);
+        await viewDocument(selector);
+    }
+    await page.navigate(base+'/certidao/detalhes/1');
+    await page.click('a[href$="?baixar=1"]');
+    check((await waitDownload(11)).bytes,await readFile(join(temporary,'preview.pdf')),'Explicit certificate download preserves the original PDF bytes');
+    await page.command('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+    check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Certificate preview/download actions fit mobile');
+    await page.navigate(base+'/certidao/editar/1');
+    check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Existing PDF actions fit the mobile edit form');
+    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+    await page.navigate(base+'/certidao/cadastrar');
+    await page.command('DOM.setFileInputFiles',{files:[join(temporary,'preview.pdf')],backendNodeId:(await page.command('DOM.describeNode',{
+        objectId:(await page.command('Runtime.evaluate',{expression:'document.querySelector("[data-pdf-input]")'})).result.objectId,
+    })).node.backendNodeId});
+    await page.until(`!document.querySelector('[data-pdf-open]').hidden && document.querySelector('[data-pdf-frame]').src.startsWith('blob:')`);
+    await viewDocument('[data-pdf-open]');
+    await page.navigate(base+'/contrato/detalhes/1');
+    await viewDocument('.contract-print-link','text/html');
+    await viewDocument('a[href*="/contrato/imprimir/1?folha="]','text/html');
+    check(began().length,11,'Only explicit downloads save files across reports, certificates, attachments and print views');
     check(browser.errors,[],'No JavaScript errors');
     check(/PHP (?:Warning|Fatal error|Parse error)/.test(serverErrors),false,'No PHP warnings');
-    console.log(`Browser report preview/downloads: ${checks} checks passed (PDF in new tab, real PDF/CSV/TXT downloads, synthetic data).`);
+    console.log(`Browser document preview/downloads: ${checks} checks passed (reports, certificate matrix/details/edit/history, attachment preview, order/note printing and explicit downloads).`);
 } finally {
     await browser?.cleanup();
     if (server && server.exitCode===null) {

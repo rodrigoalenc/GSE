@@ -33,6 +33,21 @@ if (in_array($argv[1] ?? '', ['seed', 'seed-reports'], true)) {
         $pdo->exec("INSERT INTO turmas(id,nome_turma,nome_normalizado) VALUES(1,'Turma fictícia A','turma fictícia a'),(2,'Turma fictícia B','turma fictícia b')");
         $pdo->exec('UPDATE alunos SET id_turma=CASE WHEN id<=10 THEN 1 ELSE 2 END');
         $pdo->exec("UPDATE dvas SET data_vencimento=date('now','+365 days')");
+        require_once ROOT_PATH . '/vendor/autoload.php';
+        $pdf = new \Dompdf\Dompdf();
+        $pdf->loadHtml('<h1>Certidao ficticia para conferencia</h1><p>Somente dados sinteticos.</p>');
+        $pdf->render();
+        $pdfPath = $fixtureDirectory . '/preview.pdf';
+        file_put_contents($pdfPath, $pdf->output());
+        $type = (new Certidao())->saveOption('tipo', null, 'Tipo fictício para visualizar PDF', true, 1);
+        $supplier = (int) $pdo->query('SELECT id FROM lista_fornecedores ORDER BY id LIMIT 1')->fetchColumn();
+        $certificate = $pdo->prepare("INSERT INTO certidoes(id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,
+            pdf_privado,pdf_nome,pdf_bytes,pdf_sha256,arquivado,excluido_em) VALUES(?,?,date('now'),date('now','+30 days'),?,?,?,?,?,?)");
+        foreach (['corrente', 'arquivada', 'excluida'] as $state) {
+            $stored = (new CertidaoStorage())->importLocal($pdfPath, 'Certidao ficticia.pdf');
+            $certificate->execute([$supplier, $type, $stored['key'], $stored['name'], $stored['bytes'], $stored['hash'],
+                $state === 'arquivada' ? 1 : 0, $state === 'excluida' ? gmdate('Y-m-d H:i:s') : null]);
+        }
     }
     $passive = $pdo->prepare('INSERT INTO alunos_passivo(nome_completo,nome_normalizado,caixa,caixa_normalizada,numero,numero_normalizado,ativo,aluno_origem_id) VALUES(?,?,?,?,?,?,?,?)');
     foreach ([['2', '3', 1, null], ['2', '15', 0, null], ['10', '1', 1, 32]] as [$box, $number, $active, $origin]) {

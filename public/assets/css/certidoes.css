@@ -544,6 +544,8 @@
 .cert-confirm-delete button:hover { color:#fff; background:#ad3129; border-color:#ad3129; }
 
 .cert-existing-pdf { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:15px; border:1px solid #dbe5f0; border-radius:14px; }
+.cert-pdf-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.cert-existing-pdf .cert-pdf-actions { flex-shrink:0; }
 .cert-existing-pdf.available { color:#065f46; background:#d1fae5; border-color:#a7f3d0; }
 .cert-existing-pdf.missing { color:#526276; background:#f7fafe; }
 .cert-existing-pdf a { display:inline-flex; padding:7px 14px; color:#fff; background:#1f8f4d; border-radius:6px; font-size:.9rem; font-weight:700; white-space:nowrap; }

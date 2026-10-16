@@ -41,10 +41,33 @@ checkHttp($pendingMatrix['status']===200 && str_contains($pendingMatrix['body'],
 checkHttp(request('GET',$baseUrl.'/certidao?documentos[1][bad]=1',$cookieEmployee)['status']===200,'Paginação rejeita estrutura inesperada sem erro interno');
 $details=request('GET',$baseUrl.'/certidao/detalhes/'.$certId,$cookieEmployee);
 checkHttp($details['status']===200 && str_contains($details['body'],'&lt;script&gt;'),'Detalhes escapam observações');
+$checkCertificatePdfActions = static function (array $response, string $context, bool $expectDownload = true): void {
+    $document = new DOMDocument();
+    @$document->loadHTML('<?xml encoding="UTF-8">' . $response['body']);
+    $xpath = new DOMXPath($document);
+    $previews = $xpath->query('//a[contains(@href,"/certidao/pdf/") and not(contains(@href,"baixar="))]');
+    $valid = $response['status'] === 200 && $previews->length > 0;
+    foreach ($previews as $link) {
+        $valid = $valid && $link->getAttribute('target') === '_blank'
+            && str_contains($link->getAttribute('rel'), 'noopener') && !$link->hasAttribute('download');
+    }
+    checkHttp($valid, $context . ': visualizar PDF abre em nova aba');
+    if ($expectDownload) {
+        checkHttp($xpath->query('//a[contains(@href,"/certidao/pdf/") and contains(@href,"baixar=1")]')->length > 0,
+            $context . ': download tem ação separada');
+    }
+};
+$checkCertificatePdfActions($matrix, 'Matriz', false);
+$checkCertificatePdfActions($details, 'Detalhes');
+$checkCertificatePdfActions(request('GET',$baseUrl.'/certidao/editar/'.$certId,$cookieEmployee), 'Edição');
 $pdf=request('GET',$baseUrl.'/certidao/pdf/'.$certId,$cookieEmployee);
-checkHttp($pdf['status']===200 && str_starts_with($pdf['body'],'%PDF-') && str_contains($pdf['headers']['content-disposition'] ?? '','attachment') && str_contains($pdf['headers']['cache-control'] ?? '','no-store'),'PDF protegido com download e no-store');
+checkHttp($pdf['status']===200 && str_starts_with($pdf['body'],'%PDF-') && str_starts_with($pdf['headers']['content-disposition'] ?? '','inline;') && str_contains($pdf['headers']['cache-control'] ?? '','no-store')
+    && ($pdf['headers']['content-type'] ?? '') === 'application/pdf' && ($pdf['headers']['x-content-type-options'] ?? '') === 'nosniff'
+    && $pdf['body'] === file_get_contents($certFile), 'PDF protegido abre no navegador sem cache e preserva os bytes originais');
+$pdfDownload=request('GET',$baseUrl.'/certidao/pdf/'.$certId.'?baixar=1',$cookieEmployee);
+checkHttp($pdfDownload['status']===200 && $pdfDownload['body']===$pdf['body'] && str_starts_with($pdfDownload['headers']['content-disposition'] ?? '','attachment;'), 'Baixar PDF da certidão exige ação explícita');
 checkHttp(request('GET',$baseUrl.'/certidao/pdf/'.$certId,$cookieAdmin)['status']===200,'Administrador consulta PDF');
-foreach (['certidao','certidao/detalhes/'.$certId,'certidao/pdf/'.$certId,'certidao/configurar','certidao/arquivadas','certidao/excluidas'] as $route) { checkHttp(request('GET',$baseUrl.'/'.$route,$cookieGuest)['status']===302,'Visitante bloqueado em '.$route); }
+foreach (['certidao','certidao/detalhes/'.$certId,'certidao/pdf/'.$certId,'certidao/pdf/'.$certId.'?baixar=1','certidao/configurar','certidao/arquivadas','certidao/excluidas'] as $route) { checkHttp(request('GET',$baseUrl.'/'.$route,$cookieGuest)['status']===302,'Visitante bloqueado em '.$route); }
 checkHttp(request('GET',$baseUrl.'/storage/certidoes/'.$privateKey,$cookieGuest)['status']===404,'Nome privado não abre por URL direta');
 checkHttp(request('GET',$baseUrl.'/certidao/excluir/'.$certId,$cookieEmployee)['status']===405,'GET não exclui certidão');
 checkHttp(request('POST',$baseUrl.'/certidao/excluir/'.$certId,$cookieEmployee,['_csrf_token'=>'bad'])['status']===419,'CSRF protege certidões');
@@ -59,6 +82,7 @@ $new=$certDb->query('SELECT * FROM certidoes ORDER BY id DESC LIMIT 1')->fetch()
 checkHttp($renewed['status']===302 && (int)$new['anterior_id']===$certId && (int)$certDb->query('SELECT arquivado FROM certidoes WHERE id='.$certId)->fetchColumn()===1,'Renovação mantém vínculo e arquiva a selecionada');
 checkHttp(request('GET',$baseUrl.'/certidao/pdf/'.$certId,$cookieEmployee)['body']===$pdf['body'],'PDF anterior continua acessível');
 $archivedPage=request('GET',$baseUrl.'/certidao/arquivadas?ano=todos',$cookieEmployee);
+$checkCertificatePdfActions($archivedPage, 'Arquivadas');
 checkHttp($archivedPage['status']===200 && str_contains($archivedPage['body'],'Histórico completo das certidões movimentadas') && str_contains($archivedPage['body'],'Registros no filtro') && str_contains($archivedPage['body'],'cert-archive-table') && str_contains($archivedPage['body'],'Todos os Anos') && str_contains($archivedPage['body'],'#cert-desarquivar') && !str_contains($archivedPage['body'],'data-cert-fullscreen-filter='),'Histórico de todos os anos usa tabela, filtro e retorno à matriz');
 checkHttp(str_contains(request('GET',$baseUrl.'/certidao/arquivadas?ano=2026',$cookieEmployee)['body'],'cert-archive-table') && str_contains(request('GET',$baseUrl.'/certidao/arquivadas?ano=2025',$cookieEmployee)['body'],'Nenhuma certidão encontrada'),'Filtro de ano consulta o histórico paginado');
 $excludedPage=request('GET',$baseUrl.'/certidao/excluidas',$cookieEmployee);
@@ -78,6 +102,12 @@ request('POST',$baseUrl.'/certidao/excluir/'.$newId,$cookieEmployee,['_csrf_toke
 checkHttp($certDb->query('SELECT excluido_em FROM certidoes WHERE id='.$newId)->fetchColumn()!==null,'Funcionário exclui logicamente');
 checkHttp(request('GET',$baseUrl.'/certidao/editar/'.$newId,$cookieEmployee)['status']===409,'Registro excluído não oferece edição');
 checkHttp(request('GET',$baseUrl.'/certidao/excluidas',$cookieEmployee)['status']===200 && request('GET',$baseUrl.'/certidao/pdf/'.$newId,$cookieEmployee)['status']===200,'Exclusão preserva consulta e documento');
+$checkCertificatePdfActions(request('GET',$baseUrl.'/certidao/excluidas',$cookieEmployee), 'Excluídas');
+foreach (['', '?baixar=1'] as $mode) {
+    $historicalPdf=request('GET',$baseUrl.'/certidao/pdf/'.$newId.$mode,$cookieEmployee);
+    checkHttp($historicalPdf['body']===$pdf['body'] && str_starts_with($historicalPdf['headers']['content-disposition'] ?? '', $mode === '' ? 'inline;' : 'attachment;'),
+        'PDF excluído preserva visualização e download explícito');
+}
 // Two authenticated users loaded revision 1; administrator then deactivates it.
 $configEmployee=request('GET',$baseUrl.'/certidao/configurar',$cookieEmployee);
 $configAdmin=request('GET',$baseUrl.'/certidao/configurar',$cookieAdmin);
@@ -99,7 +129,9 @@ $employeeId=(int)$certDb->query("SELECT id FROM usuarios WHERE tipo='funcionario
 $certDb->exec('UPDATE usuarios SET deve_alterar_senha=1 WHERE id='.$employeeId);
 $blocked=request('GET',$baseUrl.'/certidao/pdf/'.$newId,$cookieEmployee);
 checkHttp($blocked['status']===302 && str_contains($blocked['headers']['location'] ?? '','senha/alterar'),'Troca obrigatória bloqueia PDF');
+checkHttp(request('GET',$baseUrl.'/certidao/pdf/'.$newId.'?baixar=1',$cookieEmployee)['status']===302,'Troca obrigatória também bloqueia download explícito');
 $certDb->exec('UPDATE usuarios SET deve_alterar_senha=0,ativo=0 WHERE id='.$employeeId);
 checkHttp(request('GET',$baseUrl.'/certidao/pdf/'.$newId,$cookieEmployee)['status']===302,'Conta inativa perde acesso ao PDF');
+checkHttp(request('GET',$baseUrl.'/certidao/pdf/'.$newId.'?baixar=1',$cookieEmployee)['status']===302,'Conta inativa também perde o download explícito');
 $certDb->exec('UPDATE usuarios SET ativo=1 WHERE id='.$employeeId);
 $certDb=null;

@@ -4,7 +4,7 @@
     <form method="post" enctype="multipart/form-data" action="<?= e(url($path)) ?>" class="cert-form">
         <?php if ($mode === 'editar'): ?><div class="cert-existing-pdf <?= !empty($record['pdf_privado']) ? 'available' : 'missing' ?>">
             <span><?= !empty($record['pdf_privado']) ? 'Consulte o PDF atual desta certidão.' : (!empty($record['arquivo_pdf']) ? 'O PDF legado aguarda migração para o armazenamento privado.' : 'Esta certidão não possui PDF anexado.') ?></span>
-            <?php if (!empty($record['pdf_privado'])): ?><a href="<?= e(url('certidao/pdf/' . (int) $record['id'])) ?>">Baixar PDF</a><?php endif; ?>
+            <?php if (!empty($record['pdf_privado'])): ?><div class="cert-pdf-actions"><a href="<?= e(url('certidao/pdf/' . (int) $record['id'])) ?>" target="_blank" rel="noopener">Visualizar PDF</a><a href="<?= e(url('certidao/pdf/' . (int) $record['id'] . '?baixar=1')) ?>">Baixar PDF</a></div><?php endif; ?>
         </div><?php endif; ?>
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="revisao" value="<?= e((string) ($data['revisao'] ?? '')) ?>">
