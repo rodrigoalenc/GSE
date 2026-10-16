@@ -8,6 +8,7 @@ $date = static function (?string $value): string {
     } catch (Exception) { return 'Data indisponível'; }
 };
 ?>
+<?php require __DIR__ . '/certidoes-alerta.php'; ?>
 <?php if ($summary !== null): ?>
 <section class="contract-overview" aria-label="Visão geral dos pedidos cadastrados">
     <div><h2>Visão geral dos pedidos cadastrados</h2><p>Use esta tela para acompanhar rapidamente os pedidos, a quantidade de notas e o valor total já registrado.</p></div>

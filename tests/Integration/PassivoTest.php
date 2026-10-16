@@ -232,24 +232,26 @@ final class PassivoTest extends DatabaseTestCase
         $this->assertSame('active_student', $model->lastErrorCode());
     }
 
-    public function testEnumerationUsesOnlySelectedBoxAndPreservesExistingNumbers(): void
+    public function testEnumerationRenumbersAllActiveRecordsAlphabeticallyInSelectedBox(): void
     {
         $actor = $this->insertUsuario('Admin Enumeracao');
         $model = new \Passivo();
-        $model->cadastrar(['nome_completo' => 'Zeta', 'data_nascimento' => '', 'numero' => '7', 'caixa' => 'A'], $actor);
+        $zeta = $model->cadastrar(['nome_completo' => 'Zeta', 'data_nascimento' => '', 'numero' => '7', 'caixa' => 'A'], $actor);
         $ana = $this->legacyPending('Ana', 'A');
         $bia = $this->legacyPending('Bia', 'A');
         $other = $this->legacyPending('Outra', 'B');
 
         $preview = $model->previewEnumeracao('a');
         $this->assertIsArray($preview);
-        $this->assertSame([$ana, $bia], array_column($preview['assignments'], 'id'));
-        $this->assertSame(['8', '9'], array_column($preview['assignments'], 'numero'));
-        $this->assertSame(2, $model->aplicarEnumeracao('A', $preview['assignments'], $actor));
-        $this->assertSame('8', $model->buscarPorId($ana)['numero']);
-        $this->assertSame('9', $model->buscarPorId($bia)['numero']);
+        $this->assertSame([$ana, $bia, $zeta], array_column($preview['assignments'], 'id'));
+        $this->assertSame(['1', '2', '3'], array_column($preview['assignments'], 'numero'));
+        $this->assertSame([null, null, '7'], array_column($preview['assignments'], 'numero_anterior'));
+        $this->assertSame(3, $model->aplicarEnumeracao('A', $preview['assignments'], $actor));
+        $this->assertSame('1', $model->buscarPorId($ana)['numero']);
+        $this->assertSame('2', $model->buscarPorId($bia)['numero']);
+        $this->assertSame('3', $model->buscarPorId($zeta)['numero']);
         $this->assertNull($model->buscarPorId($other)['numero']);
-        $this->assertCount(3, $model->listarParaTxt('A'));
+        $this->assertSame(['Ana', 'Bia', 'Zeta'], array_column($model->listarParaTxt('A'), 'nome_completo'));
     }
 
     public function testValidationRejectsFutureDateInvalidUtf8AndMalformedLocation(): void
@@ -363,7 +365,7 @@ final class PassivoTest extends DatabaseTestCase
         }
     }
 
-    public function testEnumerationContinuesAfterHistoricalMaximumBeyondIntegerRangeAndRejectsStalePreview(): void
+    public function testEnumerationIgnoresInactiveHistoricalNumbersAndRejectsChangedActiveMembership(): void
     {
         $actor = $this->insertUsuario('Admin Historico Numeracao');
         $model = new \Passivo();
@@ -373,23 +375,23 @@ final class PassivoTest extends DatabaseTestCase
         $id = $this->legacyPending('Pasta a numerar', 'A');
         $preview = $model->previewEnumeracao('A');
         $this->assertIsArray($preview);
-        $this->assertSame('1000000000000000000000', $preview['assignments'][0]['numero']);
+        $this->assertSame('1', $preview['assignments'][0]['numero']);
         $another = $model->cadastrar(['nome_completo' => 'Novo histórico concorrente', 'caixa' => 'A', 'numero' => '1000000000000000000001'], $actor);
         $this->assertIsInt($another);
-        $this->assertTrue($model->definirAtivo($another, false, $actor));
         $this->assertFalse($model->aplicarEnumeracao('A', $preview['assignments'], $actor));
         $this->assertSame('preview_changed', $model->lastErrorCode());
         $this->assertNull($model->buscarPorId($id)['numero']);
+        $this->assertTrue($model->definirAtivo($another, false, $actor));
         $preview = $model->previewEnumeracao('A');
         $this->assertIsArray($preview);
-        $this->assertSame('1000000000000000000002', $preview['assignments'][0]['numero']);
+        $this->assertSame('1', $preview['assignments'][0]['numero']);
         $this->assertSame(1, $model->aplicarEnumeracao('A', $preview['assignments'], $actor));
         $this->assertSame('000999999999999999999999', $model->buscarPorId($history)['numero']);
         $this->assertSame(0, (int) $model->buscarPorId($id)['localizacao_pendente']);
         $this->assertSame($actor, (int) $model->buscarPorId($id)['atualizado_por']);
     }
 
-    public function testEnumerationDetectsFortyDigitOverflowAndPreservesUnnumberedRecord(): void
+    public function testEnumerationRestartsAtOneRegardlessOfHistoricalNumberLength(): void
     {
         $actor = $this->insertUsuario('Admin Limite Enumeracao');
         $model = new \Passivo();
@@ -397,10 +399,102 @@ final class PassivoTest extends DatabaseTestCase
         $this->assertIsInt($history);
         $this->assertTrue($model->definirAtivo($history, false, $actor));
         $id = $this->legacyPending('Pasta sem posição', 'A');
-        $this->assertFalse($model->previewEnumeracao('A'));
-        $this->assertSame('number_range_overflow', $model->lastErrorCode());
-        $this->assertNull($model->buscarPorId($id)['numero']);
-        $this->assertSame(1, (int) $model->buscarPorId($id)['localizacao_pendente']);
+        $preview = $model->previewEnumeracao('A');
+        $this->assertIsArray($preview);
+        $this->assertSame('1', $preview['assignments'][0]['numero']);
+        $this->assertSame(1, $model->aplicarEnumeracao('A', $preview['assignments'], $actor));
+        $this->assertSame('1', $model->buscarPorId($id)['numero']);
+        $this->assertSame(0, (int) $model->buscarPorId($id)['localizacao_pendente']);
+        $this->assertSame(str_repeat('9', 40), $model->buscarPorId($history)['numero']);
+    }
+
+    public function testNumberedBoxIsSortedIgnoringAccentsAndCaseWithStableTies(): void
+    {
+        $actor = $this->insertUsuario('Admin Ordem Alfabetica');
+        $model = new \Passivo();
+        $zeta = $this->legacyPending('Zeta', 'A', '1');
+        $erica = $this->legacyPending('Érica', 'A', '3');
+        $ana = $this->legacyPending('ana', 'A', '2');
+        $alvaro = $this->legacyPending('Álvaro', 'A', '9');
+        $tie = $this->legacyPending('ALVARO', 'A', '4');
+        $other = $this->legacyPending('Outra caixa', 'B', '1');
+        $inactive = $this->legacyPending('Antes de todos', 'A', '5');
+        $this->pdo->exec('UPDATE alunos_passivo SET ativo = 0 WHERE id = ' . $inactive);
+        $before = $this->pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll();
+
+        $preview = $model->previewEnumeracao('A');
+        $this->assertIsArray($preview);
+        $this->assertSame([$alvaro, $tie, $ana, $erica, $zeta], array_column($preview['assignments'], 'id'));
+        $this->assertSame(['1', '2', '3', '4', '5'], array_column($preview['assignments'], 'numero'));
+        $this->assertSame($before, $this->pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(), 'Prévia não escreve no acervo.');
+        $this->assertSame(5, $model->aplicarEnumeracao('A', $preview['assignments'], $actor));
+        $this->assertSame(['Álvaro', 'ALVARO', 'ana', 'Érica', 'Zeta'], array_column($model->listarParaTxt('A'), 'nome_completo'));
+        $this->assertSame('1', $model->buscarPorId($other)['numero']);
+        $this->assertSame('5', $model->buscarPorId($inactive)['numero']);
+    }
+
+    public function testEnumerationSwapsOccupiedPositionsWithoutIntermediateCollisions(): void
+    {
+        $actor = $this->insertUsuario('Admin Troca Posicoes');
+        $model = new \Passivo();
+        $ana = $this->legacyPending('Ana', 'A', '2');
+        $zeta = $this->legacyPending('Zeta', 'A', '1');
+        $this->pdo->exec('CREATE UNIQUE INDEX test_unique_active_position ON alunos_passivo(caixa_normalizada, numero_normalizado) WHERE ativo = 1 AND numero_normalizado IS NOT NULL');
+        $preview = $model->previewEnumeracao('A');
+        $this->assertIsArray($preview);
+        $this->assertSame(2, $model->aplicarEnumeracao('A', $preview['assignments'], $actor));
+        $this->assertSame('1', $model->buscarPorId($ana)['numero']);
+        $this->assertSame('2', $model->buscarPorId($zeta)['numero']);
+    }
+
+    public function testEnumerationRepairsDuplicatedLegacyPositions(): void
+    {
+        $actor = $this->insertUsuario('Admin Posicoes Legadas');
+        $model = new \Passivo();
+        $this->legacyPending('Zeta', 'A', '7');
+        $this->legacyPending('Ana', 'A', '7');
+        $preview = $model->previewEnumeracao('A');
+        $this->assertIsArray($preview);
+        $this->assertSame(['7', '7'], array_column($preview['assignments'], 'numero_anterior'));
+        $this->assertSame(2, $model->aplicarEnumeracao('A', $preview['assignments'], $actor));
+        $this->assertSame(['1', '2'], array_column($model->listarParaTxt('A'), 'numero'));
+    }
+
+    public function testEnumerationRejectsChangedNumbersEvenWhenAlphabeticalOrderIsUnchanged(): void
+    {
+        $actor = $this->insertUsuario('Admin Previa Alterada');
+        $model = new \Passivo();
+        $ana = $this->legacyPending('Ana', 'A', '8');
+        $this->legacyPending('Zeta', 'A', '9');
+        $preview = $model->previewEnumeracao('A');
+        $this->assertIsArray($preview);
+        $this->pdo->exec("UPDATE alunos_passivo SET numero = '10', numero_normalizado = '10' WHERE id = " . $ana);
+        $before = $this->pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll();
+        $this->assertFalse($model->aplicarEnumeracao('A', $preview['assignments'], $actor));
+        $this->assertSame('preview_changed', $model->lastErrorCode());
+        $this->assertSame($before, $this->pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll());
+    }
+
+    public function testFailedRenumberingRollsBackAllExistingPositionsAndMetadata(): void
+    {
+        $actor = $this->insertUsuario('Admin Rollback Renumeracao');
+        $model = new \Passivo();
+        $this->legacyPending('Ana', 'A', '2');
+        $this->legacyPending('Zeta', 'A', '1');
+        $this->pdo->exec('UPDATE alunos_passivo SET localizacao_pendente = 0');
+        $before = $this->pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll();
+        foreach (['write', 'audit'] as $failure) {
+            $trigger = $failure === 'write'
+                ? "CREATE TRIGGER fail_renumber BEFORE UPDATE OF numero ON alunos_passivo WHEN NEW.numero = '2' BEGIN SELECT RAISE(ABORT, 'forced'); END"
+                : "CREATE TRIGGER fail_renumber BEFORE INSERT ON security_audit WHEN NEW.action = 'passive.enumerated' BEGIN SELECT RAISE(ABORT, 'forced'); END";
+            $this->pdo->exec($trigger);
+            $preview = $model->previewEnumeracao('A');
+            $this->assertIsArray($preview);
+            $this->assertFalse($model->aplicarEnumeracao('A', $preview['assignments'], $actor));
+            $this->assertSame($before, $this->pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll());
+            $this->assertSame(0, (int) $this->pdo->query('SELECT COUNT(*) FROM security_audit')->fetchColumn());
+            $this->pdo->exec('DROP TRIGGER fail_renumber');
+        }
     }
 
     public function testUnicodeBlankHistoricalPositionIsPreservedDuringEditAndCanBeEnumerated(): void

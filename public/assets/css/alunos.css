@@ -467,6 +467,16 @@
 .student-selection-cell input[type="checkbox"]:disabled { cursor: not-allowed; }
 .student-selection-unavailable { display: block; margin-top: 5px; color: #69788c; font-size: .75rem; line-height: 1.3; }
 .student-table tr.student-row-selected td { background: #eef6ff; }
+.student-import-counts { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.student-import-counts > span { flex: 1 1 170px; padding: 14px 16px; background: #f0f7ff; border: 1px solid #cde2f8; border-radius: 12px; color: #526174; }
+.student-import-counts strong { display: block; color: #0c3566; font-size: 1.4rem; }
+.student-import-table { max-height: 540px; margin: 18px 0; }
+.student-import-table table { min-width: 760px; }
+.student-import-table th:first-child { min-width: 180px; }
+.student-import-table th:nth-child(2) { min-width: 110px; }
+.student-import-table th:nth-child(3) { min-width: 170px; }
+.student-import-table th { position: sticky; top: 0; z-index: 1; }
+.student-import-table td { white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 560px) {
     .student-batch-actions { width: 100%; }
     .student-batch-actions button { flex: 1 1 100%; }

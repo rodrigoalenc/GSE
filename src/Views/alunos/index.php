@@ -21,6 +21,7 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
         <a class="btn-primary" href="<?= e(url('aluno/criar')) ?>">+ Novo Aluno</a>
         <a class="btn-secondary" href="<?= e(url('dva')) ?>">Painel de DVAs</a>
         <?php if (Auth::isAdmin()): ?>
+            <a class="btn-secondary" href="<?= e(url('aluno/importar')) ?>">Importar alunos (PDF)</a>
             <a class="btn-secondary" href="<?= e(url('turma')) ?>">Gerenciar turmas</a>
         <?php endif; ?>
     </div>

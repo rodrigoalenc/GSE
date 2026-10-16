@@ -74,6 +74,9 @@ final class AuditPresentation
         'session.invalidated' => 'Sessão - Invalidada',
         'student.created' => 'Cadastrar Aluno',
         'student.deactivated' => 'Inativar Aluno',
+        'student.import_completed' => 'Alunos - Importar PDF',
+        'student.import_previewed' => 'Alunos - Conferir Importação',
+        'student.import_failed' => 'Alunos - Falha na Importação',
         'student.reactivated' => 'Reativar Aluno',
         'student.status_failed' => 'Alterar Situação do Aluno',
         'student.updated' => 'Editar Aluno',
@@ -108,6 +111,7 @@ final class AuditPresentation
         'produto' => 'Item do contrato',
         'relatorio' => 'Relatório de alunos e DVA',
         'student' => 'Aluno',
+        'student_import' => 'Importação de alunos',
         'tipo' => 'Tipo de certidão',
         'user' => 'Usuário',
     ];

@@ -8,9 +8,37 @@ require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 use src\Core\SqliteTransaction;
 
 require_once ROOT_PATH . '/src/Core/RequestReceipt.php';
+require_once ROOT_PATH . '/src/Services/ContratoCertidaoService.php';
 
+/** @phpstan-import-type ExpiredCertificate from ContratoCertidaoService */
 final class Contrato extends Model
 {
+    public function __construct(private readonly ?CertidaoStatus $certificateDates = null)
+    {
+        parent::__construct();
+    }
+
+    private function certificateRules(): ContratoCertidaoService
+    {
+        return new ContratoCertidaoService(self::getConexao(), $this->certificateDates);
+    }
+
+    /** @return list<ExpiredCertificate> */
+    public function expiredCertificates(?int $supplierId): array
+    {
+        return $supplierId === null ? [] : $this->certificateRules()->expired($supplierId);
+    }
+
+    /** @return array<int,list<ExpiredCertificate>> */
+    public function expiredCertificateGroups(): array
+    {
+        $groups = [];
+        foreach ($this->certificateRules()->expired() as $certificate) {
+            $groups[$certificate['id_fornecedor']][] = $certificate;
+        }
+        return $groups;
+    }
+
     public static function integer(mixed $value, int $min = 0, int $max = 1000000000): int
     {
         if (!is_string($value) && !is_int($value)) { throw new DomainException('Número inválido.'); }
@@ -131,6 +159,7 @@ final class Contrato extends Model
         $title = $this->title($title); $cents = self::cents($money); $supplierId = $this->supplier($supplier, null);
         return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($title,$cents,$supplierId,$actor,$requestToken): int {
             $result = RequestReceipt::run($pdo,$actor,'contract.create',$requestToken,[$title,$cents,$supplierId], function () use ($pdo,$title,$cents,$supplierId,$actor): int {
+                $this->certificateRules()->assertCanCreate($supplierId);
                 $query = $pdo->prepare('INSERT INTO pedidos(titulo,valor_total,valor_centavos,qtd_paginas,id_fornecedor) VALUES(?,?,?,?,?)');
                 $query->execute([$title,$cents/100,$cents,1,$supplierId]);
                 $id = (int) $pdo->lastInsertId();
@@ -184,6 +213,7 @@ final class Contrato extends Model
         if ($allocated > $cents) { throw new DomainException('Itens ultrapassam o valor contratado.'); }
         return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($title,$cents,$supplierId,$validated,$actor,$requestToken): int {
             $result = RequestReceipt::run($pdo,$actor,'contract.create',$requestToken,[$title,$cents,$supplierId,$validated], function () use ($pdo,$title,$cents,$supplierId,$actor,$validated): int {
+                $this->certificateRules()->assertCanCreate($supplierId);
                 $pdo->prepare('INSERT INTO pedidos(titulo,valor_total,valor_centavos,qtd_paginas,id_fornecedor) VALUES(?,?,?,?,?)')
                     ->execute([$title,$cents/100,$cents,count($validated),$supplierId]);
                 $id = (int)$pdo->lastInsertId();
@@ -255,6 +285,7 @@ final class Contrato extends Model
     {
         return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id,$note,$revision,$actor,$copyId,$key): int {
             $contract = $this->find($id); $this->active($contract);
+            $this->certificateRules()->assertCanCreate($contract['id_fornecedor'] === null ? null : (int) $contract['id_fornecedor']);
             if ((int)$contract['revisao'] !== $revision) { throw new DomainException('Contrato alterado por outra pessoa. Atualize a página.'); }
             $copy = $copyId === null ? null : $this->sheet($id,$copyId);
             if ($copy !== null && $copy['excluido_em'] !== null) { throw new DomainException('Folha excluída não pode ser duplicada.'); }

@@ -34,7 +34,7 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(95, $routes);
+        $this->assertCount(98, $routes);
         $routeKeys = array_map(static fn (array $route): string => $route['method'] . ' ' . $route['pattern'], $routes);
         $this->assertCount(count($routes), array_unique($routeKeys), 'Cada método/caminho deve ter uma única autorização.');
         $auditRoutes = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === 'auditoria'));
@@ -51,6 +51,18 @@ final class CoreSecurityTest extends TestCase
             $this->assertTrue($profileRoute['auth']);
             $this->assertFalse($profileRoute['admin']);
             $this->assertFalse($profileRoute['password_change']);
+        }
+        foreach ([
+            'aluno/importar' => 'GET',
+            'aluno/importar/preview' => 'POST',
+            'aluno/importar/confirmar' => 'POST',
+        ] as $path => $method) {
+            $importRoute = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === $path));
+            $this->assertCount(1, $importRoute);
+            $this->assertSame($method, $importRoute[0]['method']);
+            $this->assertTrue($importRoute[0]['auth']);
+            $this->assertTrue($importRoute[0]['admin']);
+            $this->assertFalse($importRoute[0]['password_change']);
         }
         foreach ([
             'aluno/arquivar-lote' => 'GET',

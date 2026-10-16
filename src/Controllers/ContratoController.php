@@ -116,7 +116,17 @@ final class ContratoController extends Controller
         $page=filter_var($_GET['pagina'] ?? 1,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 1;
         $status=($_GET['situacao'] ?? 'ativos') === 'excluidos' ? 'excluidos' : 'ativos';
         $model=$this->model();
-        $this->view('contratos/index',['title'=>'Gerenciar Pedidos','search'=>$search,'status'=>$status,'result'=>$model->list($search,$page,$status),'summary'=>$status==='ativos' ? $model->summary($search) : null]);
+        $result=$model->list($search,$page,$status);
+        $certificateGroups=$model->expiredCertificateGroups();
+        $warnings=[]; $suppliers=[];
+        foreach ($result['items'] as $record) {
+            $supplierId=(int)($record['id_fornecedor'] ?? 0);
+            if (!isset($suppliers[$supplierId])) {
+                array_push($warnings,...($certificateGroups[$supplierId] ?? []));
+                $suppliers[$supplierId]=true;
+            }
+        }
+        $this->view('contratos/index',['title'=>'Gerenciar Pedidos','search'=>$search,'status'=>$status,'result'=>$result,'summary'=>$status==='ativos' ? $model->summary($search) : null,'certificateWarnings'=>$warnings,'certificateGroups'=>$certificateGroups]);
     }
 
     public function criar(): void
@@ -136,7 +146,10 @@ final class ContratoController extends Controller
         }
         $draft=$_SESSION['contract_draft'] ?? [];
         unset($_SESSION['contract_draft']);
-        $this->view('contratos/form',['title'=>'Cadastrar Novo Pedido','record'=>null,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
+        $draft=is_array($draft)?$draft:[];
+        $supplierId=filter_var($draft['fornecedor'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: null;
+        $model=$this->model();
+        $this->view('contratos/form',['title'=>'Cadastrar Novo Pedido','record'=>null,'suppliers'=>$model->suppliers(),'draft'=>$draft,'certificateWarnings'=>$model->expiredCertificates($supplierId),'certificateGroups'=>$model->expiredCertificateGroups()]);
     }
 
     public function editar(string $id): void
@@ -154,7 +167,7 @@ final class ContratoController extends Controller
         if ($record['excluido_em']!==null) { render_http_error(404,'Contrato excluído','O contrato está disponível apenas para consulta.','contrato'); }
         $draft=$_SESSION['contract_edit_draft_'.$id] ?? [];
         unset($_SESSION['contract_edit_draft_'.$id]);
-        $this->view('contratos/form',['title'=>'✏️ Editar Dados Gerais #'.$record['id'],'record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[]]);
+        $this->view('contratos/form',['title'=>'✏️ Editar Dados Gerais #'.$record['id'],'record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[],'certificateWarnings'=>$this->model()->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
     }
 
     public function detalhes(string $id): void
@@ -177,7 +190,7 @@ final class ContratoController extends Controller
             $draft['current']=$current ?? [];
             $draft['conflict']=$draft['unavailable'] || $draft['revision']===null || $draft['revision']!==(int)$current['revisao'];
         }
-        $this->view('contratos/detalhes',['title'=>'Detalhes do Pedido','headerMeta'=>'ID: #'.$id.' | Registrado em: '.$registeredText,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin(),'draft'=>$draft,'formContext'=>ContractFormDraft::context($draft['context'] ?? null)]);
+        $this->view('contratos/detalhes',['title'=>'Detalhes do Pedido','headerMeta'=>'ID: #'.$id.' | Registrado em: '.$registeredText,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin(),'draft'=>$draft,'formContext'=>ContractFormDraft::context($draft['context'] ?? null),'certificateWarnings'=>$model->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
     }
 
     public function folha(string $id): void

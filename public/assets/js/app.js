@@ -1,3 +1,34 @@
+document.querySelectorAll('[data-contract-certificate-form]').forEach((form) => {
+    const supplier = form.querySelector('[name="fornecedor"]');
+    const alert = document.querySelector('[data-contract-certificate-alert][data-certificate-report]');
+    const submit = form.querySelector('[data-contract-create-submit]');
+    if (!supplier || !alert || !submit) return;
+    let report;
+    try { report = JSON.parse(alert.dataset.certificateReport); } catch { return; }
+    const list = alert.querySelector('[data-contract-certificate-list]');
+    const update = () => {
+        const expired = Array.isArray(report[supplier.value]) ? report[supplier.value] : [];
+        list.replaceChildren();
+        expired.forEach((certificate) => {
+            const item = document.createElement('li');
+            const date = certificate.data_vencimento.split('-').reverse().join('/');
+            const link = document.createElement('a');
+            link.href = `${alert.dataset.certificateDetailsBase}${certificate.id}`;
+            link.textContent = certificate.tipo_certidao;
+            item.append(link, document.createTextNode(` — ${certificate.fornecedor} — vencida em ${date}.`));
+            list.append(item);
+        });
+        alert.hidden = expired.length === 0;
+        submit.disabled = expired.length > 0;
+        return expired.length === 0;
+    };
+    supplier.addEventListener('change', update);
+    form.addEventListener('submit', (event) => {
+        if (!update()) { event.preventDefault(); alert.scrollIntoView({block: 'center'}); }
+    });
+    update();
+});
+
 const certWorkspace = document.getElementById('cert-workspace');
 document.querySelectorAll('[data-cert-auto-submit]').forEach((select) => {
     select.addEventListener('change', () => select.form.requestSubmit());

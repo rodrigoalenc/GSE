@@ -1,5 +1,5 @@
 <?php if ($errors !== []): ?><div class="error-message" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
-<?php if ($editing): ?><section class="page-intro passivo-edit-intro"><h2>Atualize os dados do registro com segurança</h2><p>Revise a localização física antes de alterar caixa ou posição. A numeração existente é preservada pela enumeração.</p></section><?php endif; ?>
+<?php if ($editing): ?><section class="page-intro passivo-edit-intro"><h2>Atualize os dados do registro com segurança</h2><p>Revise a localização física antes de alterar caixa ou posição. A ferramenta de renumeração reorganiza todos os registros ativos da caixa em ordem alfabética.</p></section><?php endif; ?>
 <?php if (!empty($locationPending)): ?><div class="warning-message" role="status">Localização pendente. Você pode corrigir os demais dados e manter os campos históricos vazios. Informe caixa e posição para concluir a localização.</div><?php endif; ?>
 
 <section class="relatorio passivo-form-shell<?= $editing ? ' passivo-edit-shell' : '' ?>">

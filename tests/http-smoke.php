@@ -934,9 +934,12 @@ try {
         'Administrador limpa somente logs antigos e registra a própria operação');
     unset($oldAuditCount);
     $auditDb = null;
+    require __DIR__ . '/http-alunos-import.php';
     require __DIR__ . '/http-contract-drafts.php';
     require __DIR__ . '/http-certidoes.php';
     require __DIR__ . '/http-passivo-batch.php';
+    require __DIR__ . '/http-passivo-renumeracao.php';
+    require __DIR__ . '/http-contrato-certidoes.php';
     require __DIR__ . '/http-profile.php';
     require __DIR__ . '/http-audit-backups.php';
     require __DIR__ . '/http-security-hardening.php';

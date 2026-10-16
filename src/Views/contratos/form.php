@@ -4,10 +4,11 @@ $old=static fn(mixed $value): string => is_string($value) ? $value : '';
 $renderUnitSelect = require __DIR__.'/unit-select.php';
 $formSheets=$record===null && isset($draft['folhas']) && is_array($draft['folhas']) && $draft['folhas']!==[] ? $draft['folhas'] : [['observacao'=>'','produtos'=>[['nome'=>'','marca'=>'','unidade'=>'UN','quantidade'=>'','preco'=>'']]]];
 ?>
+<?php $dynamicCertificateGuard = $record === null; require __DIR__ . '/certidoes-alerta.php'; ?>
 <?php if ($record !== null): ?><div class="contract-edit-back"><a class="btn-secondary" href="<?= e(url('contrato/detalhes/' . $record['id'])) ?>">Voltar</a></div><?php endif; ?>
 <section class="relatorio contract-form-panel <?= $record !== null ? 'contract-edit-panel' : '' ?>">
     <?php if ($record!==null && $draft!==[]): ?><div class="warning-message" role="status"><strong>A tentativa anterior não foi salva.</strong> Os dados atuais do contrato estão no formulário abaixo. Compare antes de reenviar.<br>Texto digitado: <?= e($old($draft['titulo'] ?? '')) ?> · Valor: <?= e($old($draft['valor'] ?? '')) ?> · Fornecedor ID: <?= e($old($draft['fornecedor'] ?? '')) ?></div><?php endif; ?>
-    <form method="post" action="<?= e(url($record===null ? 'contrato/criar' : 'contrato/editar/'.$record['id'])) ?>">
+    <form method="post" action="<?= e(url($record===null ? 'contrato/criar' : 'contrato/editar/'.$record['id'])) ?>" <?= $record===null ? 'data-contract-certificate-form' : '' ?>>
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <?php if ($record===null): ?><input type="hidden" name="_request_token" value="<?= e(bin2hex(random_bytes(16))) ?>"><?php endif; ?>
         <?php if ($record!==null): ?><input type="hidden" name="revisao" value="<?= (int)$record['revisao'] ?>"><?php endif; ?>
@@ -31,6 +32,6 @@ $formSheets=$record===null && isset($draft['folhas']) && is_array($draft['folhas
             <div class="modulo5-budget" role="status"><p>Soma dos Produtos: <strong data-items-total>R$ 0,00</strong></p><p>Saldo (Orçamento - Produtos): <strong data-budget-left>R$ 0,00</strong></p></div>
         </div>
         <?php endif; ?>
-        <button class="btn btn-primary" type="submit"><?= $record !== null ? 'Salvar Alterações' : '💾 Salvar Pedido' ?></button><a class="btn btn-secondary" href="<?= e(url('contrato')) ?>">Cancelar</a>
+        <button class="btn btn-primary" type="submit" <?= $record===null ? 'data-contract-create-submit' : '' ?> <?= $record===null && $creationBlocked ? 'disabled' : '' ?>><?= $record !== null ? 'Salvar Alterações' : '💾 Salvar Pedido' ?></button><a class="btn btn-secondary" href="<?= e(url('contrato')) ?>">Cancelar</a>
     </form>
 </section>

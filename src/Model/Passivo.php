@@ -903,7 +903,7 @@ final class Passivo extends Model
         }
     }
 
-    /** @return array{caixa:string,assignments:list<array{id:int,nome:string,numero:string}>}|false */
+    /** @return array{caixa:string,assignments:list<array{id:int,nome:string,numero:string,numero_anterior:?string}>}|false */
     public function previewEnumeracao(string $box): array|false
     {
         $this->lastErrorCode = null;
@@ -914,62 +914,33 @@ final class Passivo extends Model
         }
 
         $all = self::$pdo->prepare(
-            'SELECT id, nome_completo, numero, numero_normalizado, ativo
-             FROM alunos_passivo WHERE caixa_normalizada = :box
+            'SELECT id, nome_completo, numero
+             FROM alunos_passivo WHERE caixa_normalizada = :box AND ativo = 1
              ORDER BY nome_normalizado, id'
         );
         $all->execute(['box' => $boxKey['key']]);
         $rows = $all->fetchAll();
 
-        if (!array_filter($rows, static fn (array $row): bool => (int) $row['ativo'] === 1)) {
+        if ($rows === []) {
             $this->lastErrorCode = 'box_not_found';
 
             return false;
         }
 
-        $used = [];
-        $maximum = $this->maximumArchiveNumber($rows);
-
-        foreach ($rows as $row) {
-            $number = TextNormalizer::displayName((string) ($row['numero'] ?? ''));
-
-            if ($number === '' || (int) $row['ativo'] !== 1) {
-                continue;
-            }
-
-            $key = (string) $row['numero_normalizado'];
-
-            if (isset($used[$key])) {
-                $this->lastErrorCode = 'location_conflict';
-
-                return false;
-            }
-
-            $used[$key] = true;
-
-        }
-
         $assignments = [];
-        $next = $this->nextArchiveNumber($maximum);
-
-        foreach ($rows as $row) {
-            if ((int) $row['ativo'] !== 1 || TextNormalizer::displayName((string) ($row['numero'] ?? '')) !== '') {
-                continue;
-            }
-
-            if (strlen($next) > self::NUMBER_MAX_LENGTH) {
-                $this->lastErrorCode = 'number_range_overflow';
-                return false;
-            }
-
-            $assignments[] = ['id' => (int) $row['id'], 'nome' => (string) $row['nome_completo'], 'numero' => $next];
-            $next = $this->nextArchiveNumber($next);
+        foreach ($rows as $index => $row) {
+            $assignments[] = [
+                'id' => (int) $row['id'],
+                'nome' => (string) $row['nome_completo'],
+                'numero' => (string) ($index + 1),
+                'numero_anterior' => $row['numero'] === null ? null : (string) $row['numero'],
+            ];
         }
 
         return ['caixa' => $boxKey['display'], 'assignments' => $assignments];
     }
 
-    /** @param list<array{id:int,nome:string,numero:string}> $assignments */
+    /** @param list<array{id:int,nome:string,numero:string,numero_anterior:?string}> $assignments */
     public function aplicarEnumeracao(string $box, array $assignments, int $actorId): int|false
     {
         $this->lastErrorCode = null;
@@ -992,39 +963,21 @@ final class Passivo extends Model
                     $this->lastErrorCode = 'preview_changed';
                     return false;
                 }
-                $select = $pdo->prepare(
-                    "SELECT numero FROM alunos_passivo
-                     WHERE id = :id AND ativo = 1 AND caixa_normalizada = :box"
+                // Libera as posições dentro da mesma transação para permitir trocas
+                // (por exemplo, 1 -> 2 e 2 -> 1), sem colisões intermediárias.
+                $clear = $pdo->prepare(
+                    'UPDATE alunos_passivo SET numero = NULL, numero_normalizado = NULL, localizacao_pendente = 1
+                     WHERE ativo = 1 AND caixa_normalizada = :box'
                 );
+                $clear->execute(['box' => $boxKey['key']]);
+                if ($clear->rowCount() !== count($assignments)) {
+                    throw new RuntimeException('A caixa mudou durante a renumeração.');
+                }
                 $update = $pdo->prepare(
                     'UPDATE alunos_passivo SET numero = :number, numero_normalizado = :normalized, localizacao_pendente = 0,
                          atualizado_em = :now, atualizado_por = :actor
-                     WHERE id = :id'
+                     WHERE id = :id AND ativo = 1 AND caixa_normalizada = :box'
                 );
-                $seen = [];
-
-                foreach ($assignments as $assignment) {
-                    $id = $assignment['id'];
-                    $number = $assignment['numero'];
-
-                    if ($id < 1 || preg_match('/^[1-9][0-9]*$/', $number) !== 1 || isset($seen[$number])) {
-                        $this->lastErrorCode = 'preview_changed';
-
-                        return false;
-                    }
-
-                    $select->execute(['id' => $id, 'box' => $boxKey['key']]);
-                    $current = $select->fetchColumn();
-
-                    if ($current === false || TextNormalizer::displayName((string) $current) !== ''
-                        || $this->locationConflict($pdo, $boxKey['key'], $number, $id)) {
-                        $this->lastErrorCode = 'preview_changed';
-
-                        return false;
-                    }
-
-                    $seen[$number] = true;
-                }
 
                 $now = gmdate('Y-m-d H:i:s');
 
@@ -1035,12 +988,16 @@ final class Passivo extends Model
                         'now' => $now,
                         'actor' => $actorId,
                         'id' => $assignment['id'],
+                        'box' => $boxKey['key'],
                     ]);
+                    if ($update->rowCount() !== 1) {
+                        throw new RuntimeException('Não foi possível renumerar um registro da caixa.');
+                    }
                 }
 
                 AuditLogger::recordRequired(
                     $pdo, 'passive.enumerated', AuditLogger::SUCCESS, $actorId, null,
-                    sprintf('Enumeração concluída para %d registros.', count($assignments)), 'passive_box'
+                    sprintf('Renumeração alfabética concluída para %d registros ativos.', count($assignments)), 'passive_box'
                 );
 
                 return count($assignments);

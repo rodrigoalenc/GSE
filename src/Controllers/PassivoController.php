@@ -281,7 +281,7 @@ final class PassivoController extends Controller
         }
 
         $model = new Passivo();
-        /** @var list<array{id:int,nome:string,numero:string}> $assignments */
+        /** @var list<array{id:int,nome:string,numero:string,numero_anterior:?string}> $assignments */
         $assignments = array_values($preview['assignments']);
         $count = $model->aplicarEnumeracao((string) $preview['caixa'], $assignments, $this->actorId());
 
@@ -293,7 +293,7 @@ final class PassivoController extends Controller
             $this->redirectWithFlash('passivo/ferramentas', 'danger', $model->validationMessage($model->lastErrorCode()));
         }
 
-        $this->redirectWithFlash('passivo?caixa=' . rawurlencode((string) $preview['caixa']), 'success', sprintf('%d registro(s) numerado(s).', $count));
+        $this->redirectWithFlash('passivo?' . http_build_query(['caixa' => (string) $preview['caixa'], 'ordem' => 'numero']), 'success', sprintf('%d registro(s) ordenado(s) alfabeticamente e renumerado(s) a partir de 1.', $count));
     }
 
     public function exportar(): never
