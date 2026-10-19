@@ -125,6 +125,36 @@
     border-radius: 8px;
     font: inherit;
 }
+.usuario-form .input-with-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.usuario-form .input-with-toggle input {
+    margin-bottom: 0;
+    padding-right: 46px;
+}
+.usuario-form .toggle-password {
+    position: absolute;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+}
+.usuario-form .toggle-password:hover {
+    color: var(--primary-color);
+    background: rgba(12, 53, 102, 0.05);
+}
 .usuario-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .senha-opcional { padding: 15px; background: #f8f9fa; border: 1px dashed #cccccc; border-radius: 8px; }
 .senha-opcional input { margin-bottom: 0; }

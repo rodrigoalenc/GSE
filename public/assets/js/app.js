@@ -221,6 +221,7 @@ document.querySelectorAll('[data-password-toggle]').forEach((button) => {
 
         button.innerHTML = svg;
         button.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
+        button.setAttribute('title', showing ? 'Mostrar senha' : 'Ocultar senha');
     });
 });
 
