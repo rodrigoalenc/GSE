@@ -15,7 +15,7 @@ require_once __DIR__ . '/BackupSnapshot.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 17;
+    private const LATEST_VERSION = 18;
 
     public static function initialize(PDO $pdo, bool $allowSecurityMigration = false): void
     {
@@ -138,8 +138,15 @@ final class DatabaseInitializer
             15 => self::migrateContractsAndStock($pdo),
             16 => self::migratePassiveLocationCompleteness($pdo),
             17 => self::migrateDataProtection($pdo),
+            18 => self::migrateContractAdditives($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
+    }
+
+    private static function migrateContractAdditives(PDO $pdo): void
+    {
+        // Existing notes retain their original classification and monetary history.
+        self::addColumnIfMissing($pdo, 'pedido_paginas', 'aditivo', 'INTEGER NOT NULL DEFAULT 0 CHECK (aditivo IN (0, 1))');
     }
 
     private static function migrateDataProtection(PDO $pdo): void

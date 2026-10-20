@@ -12,6 +12,7 @@ final class ContractFormDraft
         'editar-produto' => ['nome'=>150,'marca'=>100,'unidade'=>30,'quantidade'=>32,'preco'=>32],
         'observacao' => ['observacao'=>2000],
         'nova-folha' => ['observacao'=>2000],
+        'novo-aditivo' => ['observacao'=>2000],
         'estoque' => ['minimo'=>32,'maximo'=>32,'abertura'=>32,'confirmar_abertura'=>1],
         'conferir-abertura' => ['quantidade'=>32,'unidade'=>30,'minimo'=>32,'maximo'=>32,'motivo'=>180,'confirmar'=>1],
         'movimentar' => ['tipo'=>10,'quantidade'=>32,'motivo'=>300],

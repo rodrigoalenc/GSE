@@ -58,7 +58,7 @@ checkHttp(str_contains($guardDetails['body'], 'Fiscal &lt;script&gt;certidao-tes
 $guardDom = new DOMDocument();
 @$guardDom->loadHTML($guardDetails['body']);
 $guardXPath = new DOMXPath($guardDom);
-checkHttp($guardXPath->query('//form[contains(@action,"/contrato/folha/")]//button')->length === 3
+checkHttp($guardXPath->query('//form[contains(@action,"/contrato/folha/")]//button')->length === 4
     && $guardXPath->query('//form[contains(@action,"/contrato/folha/")]//button[not(@disabled)]')->length === 0,
     'Novas notas e duplicações ficam desabilitadas somente no pedido afetado');
 $guardListA = request('GET', $baseUrl . '/contrato?busca=' . rawurlencode('Guarda certidão A'), $cookieAdmin);
@@ -86,6 +86,14 @@ foreach ([false, true] as $guardCopy) {
         && ($guardCopy || str_contains($guardDraft['body'], 'Nota recusada preservada')),
         $guardCopy ? 'Recusa de duplicação explica o vencimento' : 'Recusa de nova nota explica o vencimento e mantém o preenchimento');
 }
+$guardAdditiveFields=contractDraftFields($guardDetails['body'],'new-additive');
+$guardAdditiveFields['observacao']='Aditivo recusado preservado';
+$guardAdditiveResponse=request('POST',$baseUrl.'/contrato/folha/'.$guardId,$cookieAdmin,$guardAdditiveFields);
+$guardAdditiveRecovery=contractDraftRecovery($guardAdditiveResponse,$cookieAdmin);
+checkHttp($guardBefore===$guardState() && str_contains($guardAdditiveRecovery['body'],'certidões vencidas')
+    && str_ends_with($guardAdditiveResponse['headers']['location'] ?? '','#new-additive')
+    && contractDraftFields($guardAdditiveRecovery['body'],'new-additive')['observacao']==='Aditivo recusado preservado',
+    'Certidão vencida bloqueia POST de aditivo e preserva a observação no formulário correto');
 $guardOtherNote = request('POST', $baseUrl . '/contrato/folha/' . $guardGoodId, $cookieAdmin, [
     '_csrf_token' => csrf($guardGoodDetails['body']), 'observacao' => 'Nota de fornecedor regular', 'revisao' => '1', 'copiar' => '', 'chave' => '',
 ]);

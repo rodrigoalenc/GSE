@@ -118,6 +118,30 @@ final class Contrato extends Model
         return $query->fetchAll();
     }
 
+    /** @return array{original_limit:?int,additive_limit:?int,original_allocated:?int,additive_allocated:?int,total_allocated:?int,has_additive:bool,legacy:bool,final_limit:?int,remaining:?int,original_remaining:?int,additive_remaining:?int} */
+    public function allocationSummary(int $contractId): array
+    {
+        $contract=$this->find($contractId);
+        $allocation=$this->allocationGroups($contractId);
+        $originalLimit=$contract['valor_centavos']===null ? null : (int)$contract['valor_centavos'];
+        $additiveLimit=$originalLimit===null ? null : intdiv($originalLimit,4);
+        $originalAllocated=$allocation[0]['pending'] ? null : $allocation[0]['total'];
+        $additiveAllocated=$allocation[1]['pending'] ? null : $allocation[1]['total'];
+        $total=$originalAllocated===null || $additiveAllocated===null ? null : $originalAllocated+$additiveAllocated;
+        $query=self::$pdo->prepare('SELECT 1 FROM pedido_paginas WHERE id_pedido=? AND aditivo=1 AND excluido_em IS NULL LIMIT 1');
+        $query->execute([$contractId]);
+        $hasAdditive=$query->fetchColumn()!==false;
+        $finalLimit=$originalLimit===null ? null : $originalLimit+($hasAdditive ? intdiv($originalLimit,4) : 0);
+        return [
+            'original_limit'=>$originalLimit,'additive_limit'=>$additiveLimit,
+            'original_allocated'=>$originalAllocated,'additive_allocated'=>$additiveAllocated,'total_allocated'=>$total,
+            'has_additive'=>$hasAdditive,'legacy'=>$originalLimit===null || $total===null,'final_limit'=>$finalLimit,
+            'remaining'=>$finalLimit===null || $total===null ? null : $finalLimit-$total,
+            'original_remaining'=>$originalLimit===null || $originalAllocated===null ? null : $originalLimit-$originalAllocated,
+            'additive_remaining'=>$additiveLimit===null || $additiveAllocated===null ? null : $additiveLimit-$additiveAllocated,
+        ];
+    }
+
     /** @return list<array<string,mixed>> */
     public function items(int $contractId): array
     {
@@ -242,9 +266,7 @@ final class Contrato extends Model
             $old = $this->find($id);
             $this->active($old);
             $supplierId = $this->supplier($supplier, $old['id_fornecedor'] === null ? null : (int)$old['id_fornecedor']);
-            $allocated = $this->allocated($id);
-            if ($allocated === null) { throw new DomainException('Valores legados precisam de conciliação antes desta alteração.'); }
-            if ($cents < $allocated) { throw new DomainException('Valor contratado menor que o já distribuído.'); }
+            $this->assertAllocationLimits($id,$cents);
             $query = $pdo->prepare('UPDATE pedidos SET titulo=?,valor_total=?,valor_centavos=?,id_fornecedor=?,revisao=revisao+1 WHERE id=? AND revisao=?');
             $query->execute([$title,$cents/100,$cents,$supplierId,$id,$revision]);
             if ($query->rowCount() !== 1) { throw new DomainException('Contrato alterado por outra pessoa. Atualize a página.'); }
@@ -258,8 +280,12 @@ final class Contrato extends Model
         if ($quantity<1 || $quantity>1000000 || $cents>intdiv(PHP_INT_MAX,$quantity)) { throw new DomainException('Quantidade ou preço fora do limite.'); }
         SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$itemId,$quantity,$cents,$revision,$actor): void {
             $item=$this->item($contractId,$itemId); $this->active($this->find($contractId));
+            $this->activeItemSheet($contractId,(int)$item['numero_pagina']);
+            if ($item['excluido_em']!==null) { throw new DomainException('Produto excluído não pode ser conciliado.'); }
             if ($item['total_centavos']!==null || (int)$item['revisao']!==$revision) { throw new DomainException('Item já conciliado ou alterado.'); }
             $pdo->prepare('UPDATE pedido_produtos SET quantidade_contratada=?,preco_centavos=?,total_centavos=?,revisao=revisao+1 WHERE id=?')->execute([$quantity,$cents,$quantity*$cents,$itemId]);
+            $contract=$this->find($contractId);
+            if ($contract['valor_centavos']!==null) { $this->assertAllocationLimits($contractId,(int)$contract['valor_centavos'],false); }
             $q=$pdo->prepare('SELECT COUNT(*) FROM pedido_produtos WHERE id_pedido=? AND numero_pagina=? AND excluido_em IS NULL AND total_centavos IS NULL');
             $q->execute([$contractId,$item['numero_pagina']]);
             if ((int)$q->fetchColumn()===0) { $this->recalculate($contractId,(int)$item['numero_pagina']); }
@@ -274,39 +300,40 @@ final class Contrato extends Model
         SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($id,$cents,$revision,$actor): void {
             $contract=$this->find($id); $this->active($contract);
             if ($contract['valor_centavos']!==null || (int)$contract['revisao']!==$revision) { throw new DomainException('Contrato já conciliado ou alterado.'); }
-            $allocated=$this->allocated($id);
-            if ($allocated===null || $allocated>$cents) { throw new DomainException('Concilie os itens e revise a divergência antes do contrato.'); }
+            $this->assertAllocationLimits($id,$cents);
             $pdo->prepare('UPDATE pedidos SET valor_centavos=?,revisao=revisao+1 WHERE id=?')->execute([$cents,$id]);
             $this->audit($pdo,'legacy_contract_reconciled','contrato',$id,$actor);
         });
     }
 
-    public function addSheet(int $id, string $note, int $revision, int $actor, ?int $copyId = null, ?string $key = null): int
+    public function addSheet(int $id, string $note, int $revision, int $actor, ?int $copyId = null, ?string $key = null, bool $additive = false): int
     {
-        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id,$note,$revision,$actor,$copyId,$key): int {
+        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id,$note,$revision,$actor,$copyId,$key,$additive): int {
             $contract = $this->find($id); $this->active($contract);
             $this->certificateRules()->assertCanCreate($contract['id_fornecedor'] === null ? null : (int) $contract['id_fornecedor']);
             if ((int)$contract['revisao'] !== $revision) { throw new DomainException('Contrato alterado por outra pessoa. Atualize a página.'); }
             $copy = $copyId === null ? null : $this->sheet($id,$copyId);
             if ($copy !== null && $copy['excluido_em'] !== null) { throw new DomainException('Folha excluída não pode ser duplicada.'); }
+            $isAdditive=$copy === null ? $additive : (int)$copy['aditivo']===1;
+            if ($isAdditive) { $this->ensureAllocation($id,0,true); }
             if ($copy !== null) {
                 if ($key === null || preg_match('/^[a-f0-9]{32}$/D',$key)!==1) { throw new DomainException('Chave de duplicação inválida. Atualize o formulário.'); }
                 $pdo->prepare('INSERT INTO modulo5_operacoes(idempotencia,tipo,recurso_id,usuario_id,criado_em) VALUES(?,?,?,?,?)')->execute([$key,'duplicar_folha',$copyId,$actor,gmdate('Y-m-d H:i:s')]);
             }
             $number = (int)$pdo->query('SELECT COALESCE(MAX(numero_pagina),0)+1 FROM pedido_paginas WHERE id_pedido=' . $id)->fetchColumn();
-            $pdo->prepare('INSERT INTO pedido_paginas(id_pedido,numero_pagina,valor_pagina,valor_centavos,observacao) VALUES(?,?,0,0,?)')->execute([$id,$number,$copy === null ? mb_substr(trim($note),0,2000) : $copy['observacao']]);
+            $pdo->prepare('INSERT INTO pedido_paginas(id_pedido,numero_pagina,valor_pagina,valor_centavos,observacao,aditivo) VALUES(?,?,0,0,?,?)')->execute([$id,$number,$copy === null ? mb_substr(trim($note),0,2000) : $copy['observacao'],$isAdditive ? 1 : 0]);
             $sheetId = (int)$pdo->lastInsertId();
             if ($copy !== null) {
                 foreach ($this->items($id) as $item) {
                     if ((int)$item['numero_pagina'] !== (int)$copy['numero_pagina'] || $item['excluido_em'] !== null) { continue; }
                     if ($item['total_centavos'] === null) { throw new DomainException('Item legado precisa de conciliação antes da cópia.'); }
-                    $this->ensureAllocation($id,(int)$item['total_centavos']);
+                    $this->ensureAllocation($id,(int)$item['total_centavos'],$isAdditive);
                     $pdo->prepare('INSERT INTO pedido_produtos(id_pedido,numero_pagina,nome_produto,marca,unidade,quantidade,valor_unitario,valor_total,quantidade_contratada,preco_centavos,total_centavos) VALUES(?,?,?,?,?,?,?,?,?,?,?)')->execute([$id,$number,$item['nome_produto'],$item['marca'],$item['unidade'],$item['quantidade'],$item['valor_unitario'],$item['valor_total'],$item['quantidade_contratada'],$item['preco_centavos'],$item['total_centavos']]);
                 }
                 $this->recalculate($id,$number);
             }
             $pdo->prepare('UPDATE pedidos SET qtd_paginas=qtd_paginas+1,revisao=revisao+1 WHERE id=?')->execute([$id]);
-            $this->audit($pdo,$copy === null ? 'sheet_created' : 'sheet_duplicated','contrato',$id,$actor);
+            $this->audit($pdo,$copy === null ? ($isAdditive ? 'additive_sheet_created' : 'sheet_created') : 'sheet_duplicated','contrato',$id,$actor);
             return $sheetId;
         });
     }
@@ -325,7 +352,7 @@ final class Contrato extends Model
             $quantity=self::integer($data['quantidade'] ?? null,1,1000000);
             $price=self::cents($data['preco'] ?? null);
             if ($price > intdiv(PHP_INT_MAX,$quantity)) { throw new DomainException('Total fora do limite.'); }
-            $total=$quantity*$price; $this->ensureAllocation($contractId,$total);
+            $total=$quantity*$price; $this->ensureAllocation($contractId,$total,(int)$sheet['aditivo']===1);
             $query=$pdo->prepare('INSERT INTO pedido_produtos(id_pedido,numero_pagina,nome_produto,marca,unidade,quantidade,valor_unitario,valor_total,quantidade_contratada,preco_centavos,total_centavos) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
             $query->execute([$contractId,$sheet['numero_pagina'],$name,$brand,$unit,$quantity,$price/100,$total/100,$quantity,$price,$total]);
             $itemId=(int)$pdo->lastInsertId();
@@ -341,6 +368,7 @@ final class Contrato extends Model
     {
         SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($contractId,$itemId,$data,$revision,$actor): void {
             $old=$this->item($contractId,$itemId); $this->active($this->find($contractId));
+            $sheet=$this->activeItemSheet($contractId,(int)$old['numero_pagina']);
             if ($old['excluido_em'] !== null || (int)$old['revisao'] !== $revision || $old['total_centavos'] === null) { throw new DomainException('Produto alterado ou legado pendente.'); }
             $name=$this->title((string)($data['nome'] ?? ''));
             $brand=mb_substr(trim((string)($data['marca'] ?? '')),0,100);
@@ -350,7 +378,7 @@ final class Contrato extends Model
             $price=self::cents($data['preco'] ?? null);
             if ($price > intdiv(PHP_INT_MAX,$quantity)) { throw new DomainException('Total fora do limite.'); }
             $total=$quantity*$price;
-            $this->ensureAllocation($contractId,$total-(int)$old['total_centavos']);
+            $this->ensureAllocation($contractId,$total-(int)$old['total_centavos'],(int)$sheet['aditivo']===1);
             if ($unit !== $old['unidade']) {
                 $movement = $pdo->prepare('SELECT 1 FROM estoque_movimentos WHERE produto_id=? LIMIT 1');
                 $movement->execute([$itemId]);
@@ -560,18 +588,54 @@ final class Contrato extends Model
         return $q->fetch() ?: throw new DomainException('Produto não pertence ao contrato.');
     }
 
-    private function allocated(int $contractId): ?int
+    /** @return array<string,mixed> */
+    private function activeItemSheet(int $contractId,int $number): array
     {
-        $q=self::$pdo->prepare('SELECT COUNT(*) AS n, COUNT(total_centavos) AS converted, COALESCE(SUM(total_centavos),0) AS total FROM pedido_produtos WHERE id_pedido=? AND excluido_em IS NULL');
-        $q->execute([$contractId]); $row=$q->fetch();
-        return (int)$row['n']===(int)$row['converted'] ? (int)$row['total'] : null;
+        $q=self::$pdo->prepare('SELECT * FROM pedido_paginas WHERE id_pedido=? AND numero_pagina=? AND excluido_em IS NULL');
+        $q->execute([$contractId,$number]);
+        return $q->fetch() ?: throw new DomainException('Produto sem nota ativa vinculada ao pedido.');
     }
 
-    private function ensureAllocation(int $contractId,int $extra): void
+    /** @return array{0:array{total:int,pending:bool},1:array{total:int,pending:bool}} */
+    private function allocationGroups(int $contractId): array
     {
-        $contract=$this->find($contractId); $allocated=$this->allocated($contractId);
-        if ($allocated===null || $contract['valor_centavos']===null) { throw new DomainException('Valores legados precisam de conciliação antes de incluir itens.'); }
-        if ($allocated+$extra>(int)$contract['valor_centavos']) { throw new DomainException('Itens ultrapassam o valor contratado.'); }
+        $groups=[['total'=>0,'pending'=>false],['total'=>0,'pending'=>false]];
+        $q=self::$pdo->prepare('SELECT COALESCE(pg.aditivo,0) AS aditivo, COALESCE(SUM(i.total_centavos),0) AS total,
+            SUM(CASE WHEN i.total_centavos IS NULL OR pg.id IS NULL THEN 1 ELSE 0 END) AS pending
+            FROM pedido_produtos i LEFT JOIN pedido_paginas pg ON pg.id_pedido=i.id_pedido AND pg.numero_pagina=i.numero_pagina
+            WHERE i.id_pedido=? AND i.excluido_em IS NULL AND (pg.id IS NULL OR pg.excluido_em IS NULL)
+            GROUP BY COALESCE(pg.aditivo,0)');
+        $q->execute([$contractId]);
+        foreach ($q->fetchAll() as $row) {
+            $index=(int)$row['aditivo']===1 ? 1 : 0;
+            $groups[$index]=['total'=>(int)$row['total'],'pending'=>(int)$row['pending']>0];
+        }
+        return $groups;
+    }
+
+    private function assertAllocationLimits(int $contractId,int $limit,bool $requireComplete=true): void
+    {
+        $groups=$this->allocationGroups($contractId);
+        if ($requireComplete && ($groups[0]['pending'] || $groups[1]['pending'])) {
+            throw new DomainException('Valores legados precisam de conciliação antes desta alteração.');
+        }
+        $this->assertGroupLimits($groups[0]['total'],$groups[1]['total'],$limit);
+    }
+
+    private function assertGroupLimits(int $original,int $additive,int $limit): void
+    {
+        if ($original>$limit) { throw new DomainException('Itens das notas comuns ultrapassam o teto original do pedido.'); }
+        if ($additive>intdiv($limit,4)) { throw new DomainException('Aditivos ultrapassam o limite total de 25% do teto original do pedido.'); }
+    }
+
+    private function ensureAllocation(int $contractId,int $extra,bool $additive): void
+    {
+        $contract=$this->find($contractId); $groups=$this->allocationGroups($contractId);
+        if ($groups[0]['pending'] || $groups[1]['pending'] || $contract['valor_centavos']===null) {
+            throw new DomainException('Valores legados precisam de conciliação antes de incluir itens.');
+        }
+        $groups[$additive ? 1 : 0]['total']+=$extra;
+        $this->assertGroupLimits($groups[0]['total'],$groups[1]['total'],(int)$contract['valor_centavos']);
     }
 
     private function recalculate(int $contractId,int $number): void

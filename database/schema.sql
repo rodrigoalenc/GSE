@@ -181,6 +181,7 @@ CREATE TABLE IF NOT EXISTS pedido_paginas (
     valor_pagina REAL NOT NULL DEFAULT 0,
     observacao TEXT NULL,
     data_faturamento TEXT NULL,
+    aditivo INTEGER NOT NULL DEFAULT 0 CHECK (aditivo IN (0, 1)),
     FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE,
     UNIQUE (id_pedido, numero_pagina)
 );

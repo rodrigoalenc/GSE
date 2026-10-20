@@ -25,6 +25,7 @@ final class AuditPresentation
         'class.reactivated' => 'Reativar Turma',
         'class.status_change_blocked' => 'Alterar Situação da Turma',
         'class.updated' => 'Editar Turma',
+        'contrato.additive_sheet_created' => 'Contrato - Cadastrar Aditivo',
         'contrato.created' => 'Contrato - Cadastrar',
         'contrato.deleted' => 'Contrato - Excluir',
         'contrato.item_created' => 'Contrato - Cadastrar Produto',
@@ -118,6 +119,7 @@ final class AuditPresentation
 
     /** @var array<string,string> */
     private const CONTRACT_DESCRIPTIONS = [
+        'additive_sheet_created' => 'Nota de aditivo cadastrada no contrato.',
         'created' => 'Contrato cadastrado.',
         'deleted' => 'Registro excluído no módulo de contratos.',
         'item_created' => 'Item cadastrado no contrato.',

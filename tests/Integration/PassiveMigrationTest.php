@@ -45,7 +45,7 @@ final class PassiveMigrationTest extends TestCase
         DatabaseInitializer::initialize($pdo, true);
         DatabaseInitializer::initialize($pdo, true);
 
-        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(18, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([4, 9, 15], array_map('intval', $pdo->query('SELECT id FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_COLUMN)));
         $this->assertSame(20, (int) $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn());
         $this->assertSame('jose legado', $pdo->query('SELECT nome_normalizado FROM alunos_passivo WHERE id = 4')->fetchColumn());
@@ -156,7 +156,7 @@ final class PassiveMigrationTest extends TestCase
             $this->assertSame($before[$index], $row);
         }
         $this->assertSame($sequence, $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn());
-        $this->assertSame(17, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(18, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 16')->fetchColumn());
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());

@@ -50,9 +50,9 @@ final class ContratoController extends Controller
             } else {
                 foreach ($sheets as $candidate) { if ((int)$candidate['id']===$sheetId) { $sheet=$candidate; break; } }
             }
-            if ($operation==='nova-folha') {
+            if (in_array($operation,['nova-folha','novo-aditivo'],true)) {
                 if (($_POST['copiar'] ?? '')!=='') { return null; }
-                return ['operation'=>$operation,'sheet'=>0,'item'=>0,'target'=>$activeContract ? 'new-note' : 'draft-review'];
+                return ['operation'=>$operation,'sheet'=>0,'item'=>0,'target'=>$activeContract ? ($operation==='novo-aditivo' ? 'new-additive' : 'new-note') : 'draft-review'];
             }
             if ($sheet===null) { return null; }
             $sheetId=(int)$sheet['id']; $itemId=$item===null ? 0 : (int)$item['id'];
@@ -182,7 +182,7 @@ final class ContratoController extends Controller
         if ($draft!==null) {
             $current=$record;
             if ($draft['item']!==0) { $current=null; foreach ($items as $item) { if ((int)$item['id']===$draft['item']) { $current=$item; break; } } }
-            elseif (!in_array($draft['operation'],['adicionar-produto','nova-folha'],true)) { $current=null; foreach ($sheets as $sheet) { if ((int)$sheet['id']===$draft['sheet']) { $current=$sheet; break; } } }
+            elseif (!in_array($draft['operation'],['adicionar-produto','nova-folha','novo-aditivo'],true)) { $current=null; foreach ($sheets as $sheet) { if ((int)$sheet['id']===$draft['sheet']) { $current=$sheet; break; } } }
             $availableSheet=$draft['sheet']===0;
             foreach ($sheets as $sheet) { if ((int)$sheet['id']===$draft['sheet'] && $sheet['excluido_em']===null) { $availableSheet=true; break; } }
             $draft['unavailable']=$current===null || $current['excluido_em']!==null || $record['excluido_em']!==null || !$availableSheet
@@ -190,14 +190,17 @@ final class ContratoController extends Controller
             $draft['current']=$current ?? [];
             $draft['conflict']=$draft['unavailable'] || $draft['revision']===null || $draft['revision']!==(int)$current['revisao'];
         }
-        $this->view('contratos/detalhes',['title'=>'Detalhes do Pedido','headerMeta'=>'ID: #'.$id.' | Registrado em: '.$registeredText,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin(),'draft'=>$draft,'formContext'=>ContractFormDraft::context($draft['context'] ?? null),'certificateWarnings'=>$model->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
+        $this->view('contratos/detalhes',['title'=>'Detalhes do Pedido','headerMeta'=>'ID: #'.$id.' | Registrado em: '.$registeredText,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'allocation'=>$model->allocationSummary($contractId),'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin(),'draft'=>$draft,'formContext'=>ContractFormDraft::context($draft['context'] ?? null),'certificateWarnings'=>$model->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
     }
 
     public function folha(string $id): void
     {
-        $this->run('contrato/detalhes/'.$id,function() use ($id): void {
-            $this->model()->addSheet(Contrato::integer($id,1),$this->field('observacao'),$this->number('revisao'),$this->actor(),$this->field('copiar')==='' ? null : $this->number('copiar'),$this->field('chave'));
-        },'nova-folha');
+        $this->run('contrato/detalhes/'.$id,function() use ($id): string {
+            $additive=$this->field('aditivo');
+            if (!in_array($additive,['','1'],true)) { throw new DomainException('Tipo de nota inválido.'); }
+            $sheet=$this->model()->addSheet(Contrato::integer($id,1),$this->field('observacao'),$this->number('revisao'),$this->actor(),$this->field('copiar')==='' ? null : $this->number('copiar'),$this->field('chave'),$additive==='1');
+            return 'contrato/detalhes/'.$id.'#folha-'.$sheet;
+        },($_POST['aditivo'] ?? '')==='1' ? 'novo-aditivo' : 'nova-folha');
     }
     public function editarFolha(string $id): void
     {
@@ -284,6 +287,6 @@ final class ContratoController extends Controller
         $sheet=isset($_GET['folha']) ? filter_var($_GET['folha'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : null;
         $sheets=$model->sheets($contractId); $items=$model->items($contractId);
         if (isset($_GET['folha']) && ($sheet===false || !in_array($sheet,array_column($sheets,'id'),false))) { render_http_error(404,'Folha indisponível','Folha não encontrada.'); }
-        $this->view('contratos/imprimir',['record'=>$record,'sheets'=>$sheets,'items'=>$items,'sheetId'=>$sheet],false);
+        $this->view('contratos/imprimir',['record'=>$record,'sheets'=>$sheets,'items'=>$items,'allocation'=>$model->allocationSummary($contractId),'sheetId'=>$sheet],false);
     }
 }

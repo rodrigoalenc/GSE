@@ -119,6 +119,12 @@ $draftBillingConfirmed=array_replace(contractDraftFields($draftBillingMissingRec
 $draftBillingConfirmedResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingConfirmed);
 checkHttp(!str_contains($draftBillingConfirmedResponse['headers']['location'],'rascunho=')
     && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn()==='2026-10-02','Funcionário confirma o primeiro faturamento com checkbox e data válida');
+$draftBilledStock=request('GET',$baseUrl.'/estoque?busca=Produto%203',$cookieEmployee);
+checkHttp($draftBilledStock['status']===200
+    && str_contains($draftBilledStock['body'],'contrato/detalhes/'.$draftContract.'#stock-config-'.$draftProduct3)
+    && (int)$draftDb->query('SELECT estoque_inicializado FROM pedido_produtos WHERE id='.$draftProduct3)->fetchColumn()===0
+    && (int)$draftDb->query('SELECT COUNT(*) FROM estoque_movimentos WHERE produto_id='.$draftProduct3)->fetchColumn()===0,
+    'Nota faturada mantém estoque físico pendente e oferece atalho para conferir a abertura');
 $draftEmployeeCorrectionPage=request('GET',$draftUrl,$cookieEmployee);
 $draftEmployeeCorrection=contractDraftFields($draftEmployeeCorrectionPage['body'],'billing-note-'.$draftNote3);
 unset($draftEmployeeCorrection['faturado']);
@@ -167,6 +173,12 @@ checkHttp($draftSaved['status']===302 && !str_contains($draftSaved['headers']['l
 $draftStockPage=request('GET',$draftUrl,$cookieEmployee);
 $draftOpening=array_replace(contractDraftFields($draftStockPage['body'],'stock-config-'.$draftProduct1),['minimo'=>'0','maximo'=>'20','abertura'=>'5','confirmar_abertura'=>'1']);
 request('POST',$baseUrl.'/contrato/estoque/'.$draftContract,$cookieEmployee,$draftOpening);
+$draftOpenedStock=request('GET',$baseUrl.'/estoque?busca=Pedido%20HTTP%20rascunhos',$cookieEmployee);
+checkHttp($draftOpenedStock['status']===200
+    && str_contains($draftOpenedStock['body'],'contrato/detalhes/'.$draftContract.'#move-stock-'.$draftProduct1)
+    && !str_contains($draftOpenedStock['body'],'contrato/detalhes/'.$draftContract.'#stock-config-'.$draftProduct1)
+    && contractDraftElement(request('GET',$draftUrl,$cookieEmployee)['body'],'move-stock-'.$draftProduct1)->tagName==='details',
+    'Estoque com abertura confirmada oferece atalho para o formulário existente de entradas e saídas');
 $draftUnitLockedPage=request('GET',$draftUrl,$cookieEmployee);
 $draftUnitLocked=array_replace(contractDraftFields($draftUnitLockedPage['body'],'edit-product-'.$draftProduct1),['unidade'=>'K']);
 $draftUnitLockedRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/produto/'.$draftContract,$cookieEmployee,$draftUnitLocked),$cookieEmployee);
