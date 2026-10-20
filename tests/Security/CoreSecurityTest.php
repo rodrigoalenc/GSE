@@ -34,7 +34,7 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(98, $routes);
+        $this->assertCount(108, $routes);
         $routeKeys = array_map(static fn (array $route): string => $route['method'] . ' ' . $route['pattern'], $routes);
         $this->assertCount(count($routes), array_unique($routeKeys), 'Cada método/caminho deve ter uma única autorização.');
         $auditRoutes = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === 'auditoria'));
@@ -81,6 +81,17 @@ final class CoreSecurityTest extends TestCase
         $this->assertTrue($stockReview[0]['admin']);
         $this->assertSame('POST', $stockReview[0]['method']);
         $this->assertTrue($stockReview[0]['auth']);
+        foreach (['estoque/iniciar/{id}','estoque/receber/{id}','estoque/consumir/{id}','estoque/alertas/{id}','contrato/recebimento/{id}'] as $path) {
+            $stockRoutes=array_values(array_filter($routes,static fn(array $route): bool=>$route['pattern']===$path));
+            $this->assertSame(['GET','POST'],array_column($stockRoutes,'method'));
+            foreach ($stockRoutes as $route) {
+                $this->assertTrue($route['auth']);
+                $this->assertFalse($route['admin']);
+                $this->assertFalse($route['password_change']);
+            }
+            $this->assertSame(['id'=>'42'],$match->invoke($router,$path,str_replace('{id}','42',$path)));
+            $this->assertNull($match->invoke($router,$path,str_replace('{id}','invalid',$path)));
+        }
         $unarchive = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === 'certidao/desarquivar/{id}'));
         $this->assertCount(1, $unarchive);
         $this->assertSame('POST', $unarchive[0]['method']);

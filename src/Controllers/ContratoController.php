@@ -234,17 +234,96 @@ final class ContratoController extends Controller
     {
         $this->run('contrato/detalhes/'.$id,function() use ($id): void {
             $open=$this->field('abertura');
-            if ($open!=='' && $this->field('confirmar_abertura')!=='1') { throw new DomainException('Confirme expressamente o saldo de abertura, inclusive quando for zero.'); }
-            if ($open==='' && $this->field('confirmar_abertura')==='1') { throw new DomainException('Informe o saldo de abertura confirmado.'); }
-            $this->model()->configureStock(Contrato::integer($id,1),$this->number('produto'),$this->number('minimo',0),$this->number('maximo'),$this->number('revisao'),$this->actor(),$open==='' ? null : $this->number('abertura',0),$this->field('chave'),Auth::isAdmin());
+            if ($open!=='' && $this->field('confirmar_abertura')!=='1') { throw new DomainException('Confirme a quantidade inicial, inclusive quando for zero.'); }
+            if ($open==='' && $this->field('confirmar_abertura')==='1') { throw new DomainException('Informe a quantidade inicial confirmada.'); }
+            $this->model()->configureStock(Contrato::integer($id,1),$this->number('produto'),$this->field('minimo')==='' ? null : $this->number('minimo',0),$this->field('maximo')==='' ? null : $this->number('maximo'),$this->number('revisao'),$this->actor(),$open==='' ? null : $this->number('abertura',0),$this->field('chave'),Auth::isAdmin());
         },'estoque');
+    }
+
+    public function recebimento(string $id): void
+    {
+        $contractId=$this->routeId($id); $model=$this->model(); $record=$this->existing($contractId);
+        $posting=($_SERVER['REQUEST_METHOD'] ?? 'GET')==='POST';
+        $sheetId=filter_var(($posting ? $_POST : $_GET)['folha'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $sheet=null;
+        foreach ($model->sheets($contractId) as $candidate) { if ((int)$candidate['id']===$sheetId) { $sheet=$candidate; break; } }
+        if ($record['excluido_em']!==null || $sheet===null || $sheet['excluido_em']!==null) {
+            render_http_error(404,'Nota indisponível','Escolha uma nota ativa para registrar o recebimento.','contrato/detalhes/'.$contractId);
+        }
+        $items=array_values(array_filter($model->items($contractId),static fn(array $item): bool =>
+            (int)$item['numero_pagina']===(int)$sheet['numero_pagina'] && $item['excluido_em']===null));
+        $quantities=[]; $revisions=[];
+        foreach ($items as $item) {
+            $itemId=(int)$item['id'];
+            $ready=(int)$item['estoque_inicializado']===1 && (int)$item['abertura_sem_comprovacao']===0;
+            $quantities[$itemId]=$ready ? (string)($item['quantidade_contratada'] ?? $item['quantidade']) : '0';
+            $revisions[$itemId]=(string)$item['revisao'];
+        }
+        $saved=$_SESSION['stock_note_previews'] ?? [];
+        $previews=is_array($saved) ? array_filter($saved,static fn(mixed $preview): bool => is_array($preview) && (int)($preview['created'] ?? 0)>=time()-1800) : [];
+        $_SESSION['stock_note_previews']=$previews;
+        $key=bin2hex(random_bytes(16)); $preview=null; $error='';
+        if ($posting) {
+            try {
+                $key=$this->field('chave');
+                if (preg_match('/^[a-f0-9]{32}$/D',$key)!==1) { throw new DomainException('Formulário inválido. Reabra o recebimento da nota.'); }
+                $stage=$this->field('etapa');
+                if ($stage==='confirmar' || $stage==='editar') {
+                    $saved=$previews[$key] ?? null;
+                    if (!is_array($saved) || ($saved['contract'] ?? null)!==$contractId || ($saved['sheet'] ?? null)!==$sheetId) {
+                        throw new DomainException('A confirmação expirou. Revise as quantidades antes de confirmar.');
+                    }
+                    foreach ($saved['lines'] as $line) { $quantities[$line['id']]=(string)$line['quantity']; }
+                    if ($stage==='confirmar') {
+                        $model->receiveSheet($contractId,$sheetId,$saved['lines'],$key,$this->actor());
+                        $this->redirectWithFlash('contrato/detalhes/'.$contractId.'#folha-'.$sheetId,'success','Recebimento registrado. A quantidade disponível foi atualizada.');
+                    }
+                    $key=bin2hex(random_bytes(16));
+                } elseif ($stage==='revisar') {
+                    $input=$_POST['quantidades'] ?? null; $postedRevisions=$_POST['revisoes'] ?? null;
+                    if (!is_array($input) || !is_array($postedRevisions) || count($input)!==count($items) || count($postedRevisions)!==count($items)) {
+                        throw new DomainException('A lista de produtos mudou ou está incompleta. Reabra o recebimento da nota.');
+                    }
+                    foreach ($items as $item) {
+                        $itemId=(int)$item['id']; $raw=$input[$itemId] ?? null;
+                        if (is_string($raw) && mb_check_encoding($raw,'UTF-8') && !str_contains($raw,"\0")) { $quantities[$itemId]=mb_substr($raw,0,32,'UTF-8'); }
+                    }
+                    $lines=[]; $rows=[]; $hasReceipt=false;
+                    foreach ($items as $item) {
+                        $itemId=(int)$item['id']; $quantity=Contrato::integer($input[$itemId] ?? null,0);
+                        if (Contrato::integer($postedRevisions[$itemId] ?? null,1)!==(int)$item['revisao']) {
+                            throw new DomainException('A quantidade disponível ou o produto mudou. As quantidades digitadas foram mantidas; confira os dados atuais e revise novamente.');
+                        }
+                        $ready=(int)$item['estoque_inicializado']===1 && (int)$item['abertura_sem_comprovacao']===0;
+                        if ($quantity>0 && !$ready) { throw new DomainException('Confirme a quantidade inicial de '.$item['nome_produto'].' na tela Estoque antes de registrar o recebimento.'); }
+                        $after=(int)$item['saldo']+$quantity;
+                        if ($after>1000000000) { throw new DomainException('A quantidade disponível ultrapassaria o limite permitido.'); }
+                        if ($quantity>0 && $item['estoque_maximo']!==null && $after>(int)$item['estoque_maximo']) {
+                            throw new DomainException('O recebimento de '.$item['nome_produto'].' ultrapassaria o máximo configurado. Confira a quantidade ou os alertas de estoque.');
+                        }
+                        $lines[]=['id'=>$itemId,'revision'=>(int)$item['revisao'],'quantity'=>$quantity];
+                        if ($quantity>0) { $hasReceipt=true; $rows[]=['item'=>$item,'quantity'=>$quantity,'after'=>$after]; }
+                    }
+                    if (!$hasReceipt) { throw new DomainException('Informe a quantidade recebida de pelo menos um produto.'); }
+                    $preview=['contract'=>$contractId,'sheet'=>$sheetId,'lines'=>$lines,'rows'=>$rows,'created'=>time()];
+                    $_SESSION['stock_note_previews'][$key]=$preview;
+                    while (count($_SESSION['stock_note_previews'])>10) { array_shift($_SESSION['stock_note_previews']); }
+                } else { throw new DomainException('Etapa de recebimento inválida.'); }
+            } catch (DomainException $exception) { $error=$exception->getMessage(); }
+            catch (PDOException $exception) {
+                TechnicalLogger::error('contract_receipt_database_error',['exception'=>$exception::class]);
+                $error='Não foi possível registrar o recebimento. As quantidades foram mantidas; confira e tente novamente.';
+            }
+        }
+        $this->view('contratos/recebimento',['title'=>'Registrar recebimento','record'=>$record,'sheet'=>$sheet,'items'=>$items,
+            'quantities'=>$quantities,'revisions'=>$revisions,'key'=>$key,'preview'=>$preview,'error'=>$error,'isAdmin'=>Auth::isAdmin()]);
     }
     public function conferirAbertura(string $id): void
     {
         $this->requireAdmin();
         $this->run('contrato/detalhes/'.$id,function() use ($id): void {
             $this->model()->recoverOldOpening(Contrato::integer($id,1),$this->number('produto'),$this->number('quantidade',0),
-                $this->field('unidade'),$this->number('minimo',0),$this->number('maximo'),$this->number('revisao'),
+                $this->field('unidade'),$this->field('minimo')==='' ? null : $this->number('minimo',0),$this->field('maximo')==='' ? null : $this->number('maximo'),$this->number('revisao'),
                 $this->actor(),$this->field('motivo'),$this->field('chave'),$this->field('confirmar')==='1');
         },'conferir-abertura');
     }
@@ -278,7 +357,7 @@ final class ContratoController extends Controller
         $item=$this->routeId($id); $model=$this->model();
         try { $product=$model->itemForHistory($item); }
         catch (DomainException) { render_http_error(404,'Produto não encontrado','O produto solicitado não existe.','contrato'); }
-        $this->view('contratos/historico',['title'=>'Histórico do produto #'.$id,'product'=>$product,'movements'=>$model->movements($item)]);
+        $this->view('contratos/historico',['title'=>'Histórico do produto #'.$id,'product'=>$product,'movements'=>$model->stockHistory($item)]);
     }
     public function imprimir(string $id): void
     {

@@ -946,6 +946,8 @@ try {
     $auditDb = null;
     require __DIR__ . '/http-alunos-import.php';
     require __DIR__ . '/http-contract-drafts.php';
+    require __DIR__ . '/http-stock-actions.php';
+    require __DIR__ . '/http-stock-receipts.php';
     require __DIR__ . '/http-contract-additives.php';
     require __DIR__ . '/http-certidoes.php';
     require __DIR__ . '/http-passivo-batch.php';

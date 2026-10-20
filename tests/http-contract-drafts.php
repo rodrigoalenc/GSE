@@ -38,6 +38,18 @@ function contractDraftRecovery(array $response,string $cookie): array
     return request('GET',$response['headers']['location'],$cookie);
 }
 
+/** Legacy endpoints remain covered even though their forms are no longer in the daily workflow.
+ * @return array<string,string>
+ */
+function contractDraftLegacyStockFields(string $html,string $formId,int $product): array
+{
+    if (str_contains($html,'id="'.$formId.'"')) { return contractDraftFields($html,$formId); }
+    $edit=contractDraftFields($html,'edit-product-'.$product);
+    return ['_csrf_token'=>$edit['_csrf_token'],'_form_context'=>$edit['_form_context'],'produto'=>(string)$product,
+        'revisao'=>$edit['revisao'],'chave'=>bin2hex(random_bytes(16)),'minimo'=>'0','maximo'=>'20',
+        'abertura'=>'','confirmar_abertura'=>'','tipo'=>'entrada','quantidade'=>'','motivo'=>''];
+}
+
 $draftCreatePage=request('GET',$baseUrl.'/contrato/criar',$cookieAdmin);
 $draftCreate=request('POST',$baseUrl.'/contrato/criar',$cookieAdmin,[
     '_csrf_token'=>csrf($draftCreatePage['body']),'_request_token'=>hiddenValue($draftCreatePage['body'],'_request_token',32),'titulo'=>'Pedido HTTP rascunhos','valor'=>'100,00','fornecedor'=>'',
@@ -99,7 +111,9 @@ $draftFailures=[
     ['estoque','stock-config-'.$draftProduct1,['minimo'=>'0','maximo'=>'20','abertura'=>'4','confirmar_abertura'=>''],'abertura','4'],
 ];
 foreach ($draftFailures as [$endpoint,$formId,$changes,$field,$expected]) {
-    $page=request('GET',$draftUrl,$cookieEmployee); $data=array_replace(contractDraftFields($page['body'],$formId),$changes);
+    $page=request('GET',$draftUrl,$cookieEmployee);
+    $fields=str_starts_with($formId,'stock-config-') ? contractDraftLegacyStockFields($page['body'],$formId,$draftProduct1) : contractDraftFields($page['body'],$formId);
+    $data=array_replace($fields,$changes);
     $draftValidationFailure=request('POST',$baseUrl.'/contrato/'.$endpoint.'/'.$draftContract,$cookieEmployee,$data);
     $recovery=contractDraftRecovery($draftValidationFailure,$cookieEmployee);
     checkHttp(contractDraftElement($recovery['body'],$formId)->hasAttribute('open') && contractDraftFields($recovery['body'],$formId)[$field]===$expected,'Preenchimento recuperado: '.$formId.' / '.$field);
@@ -121,10 +135,10 @@ checkHttp(!str_contains($draftBillingConfirmedResponse['headers']['location'],'r
     && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn()==='2026-10-02','Funcionário confirma o primeiro faturamento com checkbox e data válida');
 $draftBilledStock=request('GET',$baseUrl.'/estoque?busca=Produto%203',$cookieEmployee);
 checkHttp($draftBilledStock['status']===200
-    && str_contains($draftBilledStock['body'],'contrato/detalhes/'.$draftContract.'#stock-config-'.$draftProduct3)
+    && str_contains($draftBilledStock['body'],'estoque/iniciar/'.$draftProduct3)
     && (int)$draftDb->query('SELECT estoque_inicializado FROM pedido_produtos WHERE id='.$draftProduct3)->fetchColumn()===0
     && (int)$draftDb->query('SELECT COUNT(*) FROM estoque_movimentos WHERE produto_id='.$draftProduct3)->fetchColumn()===0,
-    'Nota faturada mantém estoque físico pendente e oferece atalho para conferir a abertura');
+    'Nota faturada mantém estoque físico pendente e oferece a confirmação da quantidade inicial no estoque');
 $draftEmployeeCorrectionPage=request('GET',$draftUrl,$cookieEmployee);
 $draftEmployeeCorrection=contractDraftFields($draftEmployeeCorrectionPage['body'],'billing-note-'.$draftNote3);
 unset($draftEmployeeCorrection['faturado']);
@@ -171,21 +185,22 @@ checkHttp($draftSaved['status']===302 && !str_contains($draftSaved['headers']['l
 
 // Opening confirmation is still mandatory, and movement failures retain the selected operation.
 $draftStockPage=request('GET',$draftUrl,$cookieEmployee);
-$draftOpening=array_replace(contractDraftFields($draftStockPage['body'],'stock-config-'.$draftProduct1),['minimo'=>'0','maximo'=>'20','abertura'=>'5','confirmar_abertura'=>'1']);
+$draftOpening=array_replace(contractDraftLegacyStockFields($draftStockPage['body'],'stock-config-'.$draftProduct1,$draftProduct1),['minimo'=>'0','maximo'=>'20','abertura'=>'5','confirmar_abertura'=>'1']);
 request('POST',$baseUrl.'/contrato/estoque/'.$draftContract,$cookieEmployee,$draftOpening);
 $draftOpenedStock=request('GET',$baseUrl.'/estoque?busca=Pedido%20HTTP%20rascunhos',$cookieEmployee);
 checkHttp($draftOpenedStock['status']===200
-    && str_contains($draftOpenedStock['body'],'contrato/detalhes/'.$draftContract.'#move-stock-'.$draftProduct1)
-    && !str_contains($draftOpenedStock['body'],'contrato/detalhes/'.$draftContract.'#stock-config-'.$draftProduct1)
-    && contractDraftElement(request('GET',$draftUrl,$cookieEmployee)['body'],'move-stock-'.$draftProduct1)->tagName==='details',
-    'Estoque com abertura confirmada oferece atalho para o formulário existente de entradas e saídas');
+    && str_contains($draftOpenedStock['body'],'estoque/receber/'.$draftProduct1)
+    && str_contains($draftOpenedStock['body'],'estoque/consumir/'.$draftProduct1)
+    && !str_contains($draftOpenedStock['body'],'estoque/iniciar/'.$draftProduct1)
+    && !str_contains(request('GET',$draftUrl,$cookieEmployee)['body'],'id="move-stock-'.$draftProduct1.'"'),
+    'Estoque confirmado oferece receber e consumir na tela central, sem formulário antigo no pedido');
 $draftUnitLockedPage=request('GET',$draftUrl,$cookieEmployee);
 $draftUnitLocked=array_replace(contractDraftFields($draftUnitLockedPage['body'],'edit-product-'.$draftProduct1),['unidade'=>'K']);
 $draftUnitLockedRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/produto/'.$draftContract,$cookieEmployee,$draftUnitLocked),$cookieEmployee);
 checkHttp(str_contains($draftUnitLockedRecovery['body'],'Unidade não pode mudar após movimentações.')
     && $draftDb->query('SELECT unidade FROM pedido_produtos WHERE id='.$draftProduct1)->fetchColumn()==='un','Seleção diferente não altera unidade de produto com movimento histórico');
 $draftMovePage=request('GET',$draftUrl,$cookieEmployee);
-$draftMove=array_replace(contractDraftFields($draftMovePage['body'],'move-stock-'.$draftProduct1),['tipo'=>'saida','quantidade'=>'6','motivo'=>'<Destino recusado>']);
+$draftMove=array_replace(contractDraftLegacyStockFields($draftMovePage['body'],'move-stock-'.$draftProduct1,$draftProduct1),['tipo'=>'saida','quantidade'=>'6','motivo'=>'<Destino recusado>']);
 $draftMoveRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/movimentar/'.$draftContract,$cookieEmployee,$draftMove),$cookieEmployee);
 $draftRecoveredMove=contractDraftFields($draftMoveRecovery['body'],'move-stock-'.$draftProduct1);
 checkHttp(contractDraftElement($draftMoveRecovery['body'],'move-stock-'.$draftProduct1)->hasAttribute('open')
@@ -207,7 +222,7 @@ checkHttp($draftLegacySuccess['status']===302 && !str_contains($draftLegacySucce
 $draftLegacyClosed=contractDraftRecovery($draftLegacyFailure,$cookieAdmin);
 $draftClosedElement=contractDraftElement($draftLegacyClosed['body'],'old-opening-'.$draftProduct3);
 checkHttp($draftClosedElement->hasAttribute('open') && $draftClosedElement->getElementsByTagName('form')->length===0
-    && str_contains($draftClosedElement->textContent,'A abertura já foi conferida.')
+    && str_contains($draftClosedElement->textContent,'A quantidade inicial já foi conferida.')
     && str_contains($draftClosedElement->textContent,'<Documento da tentativa antiga>') && str_contains($draftClosedElement->textContent,'5'),'Conferência concluída por outro operador mantém tentativa visível e impede nova recuperação');
 $draftBeforeReplay=(int)$draftDb->query('SELECT COUNT(*) FROM estoque_movimentos WHERE produto_id='.$draftProduct3)->fetchColumn();
 $draftLegacyReplay=request('POST',$baseUrl.'/contrato/conferir-abertura/'.$draftContract,$cookieAdmin,$draftLegacyDataB);
@@ -228,7 +243,10 @@ checkHttp((int)$draftDb->query('SELECT COUNT(*) FROM estoque_movimentos WHERE pr
 $draftZero=array_replace(contractDraftFields($draftAuditRecovery['body'],'old-opening-'.$draftProduct2),['quantidade'=>'0','confirmar'=>'1']);
 $draftZeroResponse=request('POST',$baseUrl.'/contrato/conferir-abertura/'.$draftContract,$cookieAdmin,$draftZero);
 $draftZeroPage=request('GET',$draftZeroResponse['headers']['location'],$cookieAdmin);
-checkHttp(!str_contains($draftZeroResponse['headers']['location'],'rascunho=') && str_contains($draftZeroPage['body'],'Saldo zero confirmado'),'Contagem física zero continua sendo uma abertura confirmada explícita');
+checkHttp(!str_contains($draftZeroResponse['headers']['location'],'rascunho=')
+    && (int)$draftDb->query('SELECT estoque_inicializado FROM pedido_produtos WHERE id='.$draftProduct2)->fetchColumn()===1
+    && (int)$draftDb->query("SELECT COUNT(*) FROM modulo5_operacoes WHERE recurso_id=".$draftProduct2." AND tipo='abertura_zero_conferida'")->fetchColumn()===1,
+    'Contagem física zero continua sendo uma quantidade confirmada explícita');
 
 // Exclusion after loading the form, even before its submission, preserves the attempt for consultation.
 $draftBeforeDeletion=request('GET',$draftUrl,$cookieEmployee);

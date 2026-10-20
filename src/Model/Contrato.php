@@ -158,6 +158,24 @@ final class Contrato extends Model
         return $query->fetchAll();
     }
 
+    /** @return list<array<string,mixed>> */
+    public function stockHistory(int $itemId): array
+    {
+        $history=$this->movements($itemId);
+        $query=self::$pdo->prepare("SELECT NULL AS id,i.id AS produto_id,'abertura' AS tipo,0 AS quantidade,
+            CASE WHEN o.tipo='abertura_zero_conferida' THEN 'Contagem física atual confirmada' ELSE 'Quantidade inicial confirmada' END AS motivo,
+            o.usuario_id,o.criado_em,o.idempotencia,NULL AS movimento_original_id,gse_name(u.nome,u.id) AS usuario,
+            i.nome_produto,i.unidade,i.numero_pagina,p.id AS contrato_id,p.titulo AS contrato_titulo
+            FROM modulo5_operacoes o JOIN pedido_produtos i ON i.id=o.recurso_id
+            JOIN pedidos p ON p.id=i.id_pedido JOIN usuarios u ON u.id=o.usuario_id
+            WHERE o.recurso_id=? AND o.tipo IN ('abertura_estoque','abertura_zero_conferida')
+            AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.idempotencia=o.idempotencia)");
+        $query->execute([$itemId]);
+        $history=array_merge($history,$query->fetchAll());
+        usort($history,static fn(array $a,array $b): int=>strcmp((string)$b['criado_em'],(string)$a['criado_em']) ?: (int)$b['id']<=>(int)$a['id']);
+        return $history;
+    }
+
     /** @return array<string,mixed> */
     public function itemForHistory(int $itemId): array
     {
@@ -170,11 +188,11 @@ final class Contrato extends Model
     public function stockList(string $search='',int $page=1): array
     {
         $term='%'.str_replace(['\\','%','_'],['\\\\','\\%','\\_'],mb_substr(trim($search),0,100)).'%';
-        $from=" FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido WHERE p.excluido_em IS NULL AND i.excluido_em IS NULL AND (i.nome_produto LIKE ? ESCAPE '\\' OR p.titulo LIKE ? ESCAPE '\\')";
-        $count=self::$pdo->prepare('SELECT COUNT(*)'.$from); $count->execute([$term,$term]); $total=(int)$count->fetchColumn();
+        $from=" FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido WHERE p.excluido_em IS NULL AND i.excluido_em IS NULL AND EXISTS(SELECT 1 FROM pedido_paginas pg WHERE pg.id_pedido=i.id_pedido AND pg.numero_pagina=i.numero_pagina AND pg.excluido_em IS NULL) AND (i.nome_produto LIKE ? ESCAPE '\\' OR i.marca LIKE ? ESCAPE '\\' OR p.titulo LIKE ? ESCAPE '\\')";
+        $count=self::$pdo->prepare('SELECT COUNT(*)'.$from); $count->execute([$term,$term,$term]); $total=(int)$count->fetchColumn();
         $pages=max(1,(int)ceil($total/20)); $page=max(1,min($page,$pages));
-        $q=self::$pdo->prepare("SELECT i.*,p.titulo,COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, CASE WHEN i.estoque_inicializado=1 AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id) AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id AND o.tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida')) THEN 1 ELSE 0 END AS abertura_sem_comprovacao".$from.' ORDER BY i.id DESC LIMIT 20 OFFSET ?');
-        $q->bindValue(1,$term); $q->bindValue(2,$term); $q->bindValue(3,($page-1)*20,PDO::PARAM_INT); $q->execute();
+        $q=self::$pdo->prepare("SELECT i.*,p.titulo,COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, EXISTS(SELECT 1 FROM modulo5_valores_legados v WHERE v.tabela='pedido_produtos' AND v.registro_id=i.id) AS legado, CASE WHEN i.estoque_inicializado=1 AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id) AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id AND o.tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida')) THEN 1 ELSE 0 END AS abertura_sem_comprovacao".$from.' ORDER BY i.id DESC LIMIT 20 OFFSET ?');
+        $q->bindValue(1,$term); $q->bindValue(2,$term); $q->bindValue(3,$term); $q->bindValue(4,($page-1)*20,PDO::PARAM_INT); $q->execute();
         return ['items'=>$q->fetchAll(),'total'=>$total,'page'=>$page,'pages'=>$pages];
     }
 
@@ -417,42 +435,60 @@ final class Contrato extends Model
         });
     }
 
-    public function configureStock(int $contractId, int $itemId, int $minimum, int $maximum, int $revision, int $actor, ?int $opening = null, ?string $key = null, bool $admin = false): void
+    public function initializeStock(int $contractId,int $itemId,int $quantity,int $revision,int $actor,string $key,bool $admin=false): void
+    {
+        SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$itemId,$quantity,$revision,$actor,$key,$admin): void {
+            $item=$this->item($contractId,$itemId);
+            $this->writeStockConfiguration($pdo,$contractId,$itemId,
+                $item['estoque_minimo']===null ? null : (int)$item['estoque_minimo'],
+                $item['estoque_maximo']===null ? null : (int)$item['estoque_maximo'],
+                $revision,$actor,$quantity,$key,$admin);
+        });
+    }
+
+    public function configureStock(int $contractId, int $itemId, ?int $minimum, ?int $maximum, int $revision, int $actor, ?int $opening = null, ?string $key = null, bool $admin = false): void
     {
         SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($contractId,$itemId,$minimum,$maximum,$revision,$actor,$opening,$key,$admin): void {
-            $item=$this->item($contractId,$itemId); $this->active($this->find($contractId));
-            if ($item['excluido_em'] !== null || (int)$item['revisao'] !== $revision) { throw new DomainException('Produto alterado por outra pessoa. Atualize a página.'); }
-            if ($minimum < 0 || $maximum < $minimum || $maximum > 1000000000) { throw new DomainException('Limites de estoque incoerentes.'); }
-            $balance=$this->balance($itemId);
-            if ($balance > $maximum) { throw new DomainException('Máximo inferior ao saldo atual.'); }
-            if ($opening !== null && (int)$item['estoque_inicializado'] === 1) { throw new DomainException('Estoque já inicializado.'); }
-            if ($opening !== null && !$admin) {
-                $q=$pdo->prepare("SELECT 1 FROM modulo5_valores_legados WHERE tabela='pedido_produtos' AND registro_id=? LIMIT 1");
-                $q->execute([$itemId]);
-                if ($q->fetchColumn()) { throw new DomainException('Abertura de item legado exige administrador.'); }
-            }
-            if ($opening !== null && ($opening < 0 || $opening > $maximum)) { throw new DomainException('Saldo de abertura inválido.'); }
-            if ($opening !== null) {
-                if ($key === null || preg_match('/^[a-f0-9]{32}$/D',$key)!==1) { throw new DomainException('Chave de abertura inválida. Atualize o formulário.'); }
-                $pdo->prepare('INSERT INTO modulo5_operacoes(idempotencia,tipo,recurso_id,usuario_id,criado_em) VALUES(?,?,?,?,?)')->execute([$key,'abertura_estoque',$itemId,$actor,gmdate('Y-m-d H:i:s')]);
-            }
-            $pdo->prepare('UPDATE pedido_produtos SET estoque_minimo=?,estoque_maximo=?,estoque_inicializado=?,revisao=revisao+1 WHERE id=?')
-                ->execute([$minimum,$maximum,$opening === null ? (int)$item['estoque_inicializado'] : 1,$itemId]);
-            if ($opening !== null && $opening > 0) {
-                $this->insertMovement($pdo,$itemId,'abertura',$opening,'Saldo de abertura conferido',$actor,$key ?? '',null);
-            }
-            $this->audit($pdo,$opening === null ? 'stock_configured' : 'stock_opened','produto',$itemId,$actor);
+            $this->writeStockConfiguration($pdo,$contractId,$itemId,$minimum,$maximum,$revision,$actor,$opening,$key,$admin);
         });
+    }
+
+    private function writeStockConfiguration(PDO $pdo,int $contractId,int $itemId,?int $minimum,?int $maximum,int $revision,int $actor,?int $opening,?string $key,bool $admin): void
+    {
+        $item=$this->item($contractId,$itemId); $this->active($this->find($contractId));
+        $this->activeItemSheet($contractId,(int)$item['numero_pagina']);
+        if ($item['excluido_em'] !== null || (int)$item['revisao'] !== $revision) { throw new DomainException('Produto alterado por outra pessoa. Atualize a página.'); }
+        $this->validateStockLimits($minimum,$maximum);
+        $balance=$this->balance($itemId);
+        if ($maximum !== null && $balance > $maximum) { throw new DomainException('Máximo inferior ao saldo atual.'); }
+        if ($opening !== null && (int)$item['estoque_inicializado'] === 1) { throw new DomainException('Estoque já inicializado.'); }
+        if ($opening !== null && !$admin) {
+            $q=$pdo->prepare("SELECT 1 FROM modulo5_valores_legados WHERE tabela='pedido_produtos' AND registro_id=? LIMIT 1");
+            $q->execute([$itemId]);
+            if ($q->fetchColumn()) { throw new DomainException('Abertura de item legado exige administrador.'); }
+        }
+        if ($opening !== null && ($opening < 0 || $opening > 1000000000 || ($maximum !== null && $opening > $maximum))) { throw new DomainException('Quantidade inicial inválida.'); }
+        if ($opening !== null) {
+            if ($key === null || preg_match('/^[a-f0-9]{32}$/D',$key)!==1) { throw new DomainException('Chave de abertura inválida. Atualize o formulário.'); }
+            $pdo->prepare('INSERT INTO modulo5_operacoes(idempotencia,tipo,recurso_id,usuario_id,criado_em) VALUES(?,?,?,?,?)')->execute([$key,'abertura_estoque',$itemId,$actor,gmdate('Y-m-d H:i:s')]);
+        }
+        $pdo->prepare('UPDATE pedido_produtos SET estoque_minimo=?,estoque_maximo=?,estoque_inicializado=?,revisao=revisao+1 WHERE id=?')
+            ->execute([$minimum,$maximum,$opening === null ? (int)$item['estoque_inicializado'] : 1,$itemId]);
+        if ($opening !== null && $opening > 0) {
+            $this->insertMovement($pdo,$itemId,'abertura',$opening,'Quantidade inicial conferida',$actor,$key ?? '',null);
+        }
+        $this->audit($pdo,$opening === null ? 'stock_configured' : 'stock_opened','produto',$itemId,$actor);
     }
 
     public function confirmOldZeroOpening(int $contractId,int $itemId,int $revision,int $actor,string $reason,string $key): void
     {
         $item=$this->item($contractId,$itemId);
         $this->recoverOldOpening($contractId,$itemId,0,(string)$item['unidade'],
-            (int)$item['estoque_minimo'],(int)$item['estoque_maximo'],$revision,$actor,$reason,$key,true);
+            $item['estoque_minimo']===null ? null : (int)$item['estoque_minimo'],
+            $item['estoque_maximo']===null ? null : (int)$item['estoque_maximo'],$revision,$actor,$reason,$key,true);
     }
 
-    public function recoverOldOpening(int $contractId,int $itemId,int $physicalQuantity,string $unit,int $minimum,int $maximum,int $revision,int $actor,string $reason,string $key,bool $physicalCountConfirmed=false): void
+    public function recoverOldOpening(int $contractId,int $itemId,int $physicalQuantity,string $unit,?int $minimum,?int $maximum,int $revision,int $actor,string $reason,string $key,bool $physicalCountConfirmed=false): void
     {
         $reason=trim($reason);
         if (!$physicalCountConfirmed) { throw new DomainException('Confirme expressamente a contagem física atual e a unidade.'); }
@@ -460,8 +496,8 @@ final class Contrato extends Model
             throw new DomainException('Descreva a conferência e o documento de apoio em 10 a 180 caracteres.');
         }
         if (!mb_check_encoding($unit,'UTF-8') || $unit==='' || mb_strlen($unit)>30 || preg_match('/[\p{C}]/u',$unit)) { throw new DomainException('Unidade da contagem inválida.'); }
-        if ($minimum<0 || $maximum<$minimum || $maximum>1000000000) { throw new DomainException('Limites de estoque incoerentes.'); }
-        if ($physicalQuantity<0 || $physicalQuantity>$maximum) { throw new DomainException('Contagem física fora dos limites do estoque.'); }
+        $this->validateStockLimits($minimum,$maximum);
+        if ($physicalQuantity<0 || $physicalQuantity>1000000000 || ($maximum!==null && $physicalQuantity>$maximum)) { throw new DomainException('Contagem física fora dos limites do estoque.'); }
         if (preg_match('/^[a-f0-9]{32}$/D',$key)!==1) { throw new DomainException('Chave de confirmação inválida.'); }
         SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$itemId,$physicalQuantity,$unit,$minimum,$maximum,$revision,$actor,$reason,$key): void {
             $q=$pdo->prepare("SELECT 1 FROM usuarios WHERE id=? AND tipo='administrador' AND ativo=1"); $q->execute([$actor]);
@@ -490,7 +526,7 @@ final class Contrato extends Model
             $q=$pdo->prepare('UPDATE pedido_produtos SET estoque_minimo=?,estoque_maximo=?,revisao=revisao+1 WHERE id=? AND revisao=?');
             $q->execute([$minimum,$maximum,$itemId,$revision]);
             if ($q->rowCount()!==1) { throw new DomainException('Estoque alterado por outra pessoa. Atualize a página.'); }
-            $description='Contagem atual: '.$physicalQuantity.' '.$unit.'; limites: '.$minimum.' a '.$maximum.'; documento: '.$reason;
+            $description='Contagem atual: '.$physicalQuantity.' '.$unit.'; limites: '.($minimum===null ? 'sem mínimo' : $minimum).' a '.($maximum===null ? 'sem máximo' : $maximum).'; documento: '.$reason;
             AuditLogger::recordRequired($pdo,$physicalQuantity===0 ? 'contrato.old_zero_opening_confirmed' : 'contrato.old_opening_recovered',
                 AuditLogger::SUCCESS,$actor,null,$description,'produto',$itemId);
         });
@@ -500,6 +536,7 @@ final class Contrato extends Model
     {
         SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($contractId,$itemId,$type,$quantity,$reason,$key,$actor,$revision,$originalId): void {
             $item=$this->item($contractId,$itemId); $this->active($this->find($contractId));
+            $this->activeItemSheet($contractId,(int)$item['numero_pagina']);
             if ($item['excluido_em'] !== null || (int)$item['estoque_inicializado'] !== 1) { throw new DomainException('Estoque não inicializado ou produto indisponível.'); }
             $q=$pdo->prepare("SELECT 1 FROM estoque_movimentos WHERE produto_id=? UNION SELECT 1 FROM modulo5_operacoes WHERE recurso_id=? AND tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida') LIMIT 1");
             $q->execute([$itemId,$itemId]);
@@ -517,10 +554,55 @@ final class Contrato extends Model
             } elseif ($originalId !== null) { throw new DomainException('Referência indevida.'); }
             else { $quantity=$type === 'saida' ? -$quantity : $quantity; }
             $next=$this->balance($itemId)+$quantity;
-            if ($next<0 || $next>(int)$item['estoque_maximo']) { throw new DomainException('Saldo insuficiente ou acima do máximo.'); }
+            if ($next<0 || $next>1000000000 || ($item['estoque_maximo']!==null && $next>(int)$item['estoque_maximo'])) { throw new DomainException('Saldo insuficiente ou acima do máximo.'); }
             $this->insertMovement($pdo,$itemId,$type,$quantity,$reason,$actor,$key,$originalId);
             $pdo->prepare('UPDATE pedido_produtos SET revisao=revisao+1 WHERE id=?')->execute([$itemId]);
             $this->audit($pdo,'stock_'.$type,'produto',$itemId,$actor);
+        });
+    }
+
+    /** @param array<mixed> $lines */
+    public function receiveSheet(int $contractId,int $sheetId,array $lines,string $key,int $actor): void
+    {
+        if ($lines===[]) { throw new DomainException('Informe os produtos para receber.'); }
+        $normalized=[];
+        $hasReceipt=false;
+        foreach ($lines as $line) {
+            if (!is_array($line)) { throw new DomainException('Produto de recebimento inválido.'); }
+            $itemId=self::integer($line['id'] ?? null,1);
+            if (isset($normalized[$itemId])) { throw new DomainException('Produto repetido no recebimento.'); }
+            $quantity=self::integer($line['quantity'] ?? null);
+            $normalized[$itemId]=['id'=>$itemId,'revision'=>self::integer($line['revision'] ?? null,1),'quantity'=>$quantity];
+            $hasReceipt=$hasReceipt || $quantity>0;
+        }
+        if (!$hasReceipt) { throw new DomainException('Informe a quantidade recebida de pelo menos um produto.'); }
+        ksort($normalized);
+        SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$sheetId,$normalized,$key,$actor): void {
+            RequestReceipt::run($pdo,$actor,'stock.sheet_receive',$key,[$contractId,$sheetId,array_values($normalized)],function() use ($pdo,$contractId,$sheetId,$normalized,$key,$actor): int {
+                $this->active($this->find($contractId));
+                $sheet=$this->sheet($contractId,$sheetId);
+                if ($sheet['excluido_em']!==null) { throw new DomainException('Nota indisponível para recebimento.'); }
+                foreach ($normalized as $line) {
+                    $item=$this->item($contractId,$line['id']);
+                    if ($item['excluido_em']!==null || (int)$item['numero_pagina']!==(int)$sheet['numero_pagina']) {
+                        throw new DomainException('Produto não pertence à nota ativa.');
+                    }
+                    if ((int)$item['revisao']!==$line['revision']) { throw new DomainException('Estoque alterado por outra pessoa. Confira novamente o recebimento.'); }
+                    if ($line['quantity']===0) { continue; }
+                    if ((int)$item['estoque_inicializado']!==1) { throw new DomainException('Confirme a quantidade inicial do produto em Estoque antes de registrar o recebimento.'); }
+                    $q=$pdo->prepare("SELECT 1 FROM estoque_movimentos WHERE produto_id=? UNION SELECT 1 FROM modulo5_operacoes WHERE recurso_id=? AND tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida') LIMIT 1");
+                    $q->execute([$line['id'],$line['id']]);
+                    if (!$q->fetchColumn()) { throw new DomainException('Quantidade inicial antiga sem comprovação. Solicite a conferência administrativa.'); }
+                    $next=$this->balance($line['id'])+$line['quantity'];
+                    if ($next>1000000000 || ($item['estoque_maximo']!==null && $next>(int)$item['estoque_maximo'])) { throw new DomainException('O recebimento ultrapassa o máximo permitido para o produto.'); }
+                    $movementKey=substr(hash('sha256','sheet-receive:'.$actor.':'.$key.':'.$line['id']),0,32);
+                    $this->insertMovement($pdo,$line['id'],'entrada',$line['quantity'],'Recebimento da nota '.$sheet['numero_pagina'].' do pedido '.$contractId,$actor,$movementKey,null);
+                    $pdo->prepare('UPDATE pedido_produtos SET revisao=revisao+1 WHERE id=?')->execute([$line['id']]);
+                    $this->audit($pdo,'stock_entrada','produto',$line['id'],$actor);
+                }
+                $this->audit($pdo,'sheet_received','folha',$sheetId,$actor);
+                return $sheetId;
+            });
         });
     }
 
@@ -650,6 +732,15 @@ final class Contrato extends Model
     {
         $q=self::$pdo->prepare('SELECT COALESCE(SUM(quantidade),0) FROM estoque_movimentos WHERE produto_id=?'); $q->execute([$itemId]);
         return (int)$q->fetchColumn();
+    }
+
+    private function validateStockLimits(?int $minimum,?int $maximum): void
+    {
+        if (($minimum!==null && ($minimum<0 || $minimum>1000000000))
+            || ($maximum!==null && ($maximum<0 || $maximum>1000000000))
+            || ($minimum!==null && $maximum!==null && $maximum<$minimum)) {
+            throw new DomainException('Limites de estoque incoerentes.');
+        }
     }
 
     private function insertMovement(PDO $pdo,int $itemId,string $type,int $quantity,string $reason,int $actor,string $key,?int $original): void

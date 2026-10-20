@@ -1,0 +1,42 @@
+.stock-table { min-width: 760px; }
+.stock-table th, .stock-table td { padding: 16px; vertical-align: middle; }
+.stock-product-source { display: block; margin-top: 6px; color: #61738b; font-weight: 400; }
+.stock-row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.stock-row-actions .btn { white-space: nowrap; min-height: 36px; display: inline-flex; align-items: center; }
+.stock-status { display: inline-block; padding: 5px 10px; border-radius: 8px; background: #edf3f8; color: #294461; }
+.stock-status-low { color: #744c00; background: #fff0c2; }
+.stock-alerts summary { cursor: pointer; font-size: 1.1rem; font-weight: 700; color: #163d68; }
+.stock-alerts>p { margin-top: 16px; }
+.stock-alert-list { list-style: none; margin: 0; padding: 0; }
+.stock-alert-list li { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 0; border-top: 1px solid #dbe4ef; }
+.stock-alert-list .btn { flex-shrink: 0; }
+.stock-form-card { max-width: 720px; }
+.stock-form-card h2 { overflow-wrap: anywhere; }
+.stock-action-form { display: grid; gap: 18px; }
+.stock-action-form label { display: grid; gap: 8px; max-width: 360px; font-weight: 600; }
+.stock-action-form input[type=number] { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #b9c9dd; border-radius: 8px; }
+.stock-action-form label span { font-size: .9rem; font-weight: 400; color: #61738b; }
+.stock-action-form details label { margin-top: 16px; }
+.stock-action-form details summary { cursor: pointer; }
+.stock-action-form>.btn { justify-self: start; }
+.stock-form-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.stock-confirmation { padding: 18px; background: #edf5ff; border-left: 4px solid #2766a7; border-radius: 8px; }
+.stock-confirmation p { margin: 0; line-height: 1.7; }
+.stock-history-totals { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.stock-history-totals p { padding: 12px 16px; background: #edf3f8; border-radius: 8px; }
+.stock-history-totals strong { display: block; color: #163d68; font-size: 1.2rem; }
+@media (max-width: 600px) {
+    .stock-alert-list li { align-items: flex-start; flex-direction: column; }
+    .stock-form-card { padding: 18px; }
+    .stock-form-actions { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 700px) {
+    .relatorio .stock-table, .relatorio .stock-receipt-table { display: block; min-width: 0; width: 100%; }
+    .stock-table thead, .stock-receipt-table thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+    .stock-table tbody, .stock-receipt-table tbody { display: block; }
+    .stock-table tbody tr, .stock-receipt-table tbody tr { display: block; margin-bottom: 16px; padding: 10px; border: 1px solid #dbe4ef; border-radius: 10px; }
+    .stock-table tbody td, .stock-receipt-table tbody td { display: block; padding: 8px; border: 0; overflow-wrap: anywhere; }
+    .stock-table td[data-label]::before, .stock-receipt-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 4px; color: #61738b; font-size: .85rem; font-weight: 600; }
+    .stock-row-actions .btn { min-height: 42px; }
+    .stock-receipt-table input[type=number] { width: 100%; min-height: 44px; padding: 10px; border: 1px solid #b9c9dd; border-radius: 8px; }
+}
