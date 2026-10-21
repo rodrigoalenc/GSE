@@ -74,7 +74,6 @@ $labelClass = static fn (array $class): string => (string) $class['nome_turma']
 <?php if ($type === 'progressao'): ?>
 <section class="relatorio movement-panel" aria-labelledby="movement-senior-title">
     <div class="section-head"><div><h2 id="movement-senior-title">Conferência para liberar a progressão</h2><p>Depois de enviar os concluintes ao Arquivo Passivo, confira os alunos do 3º ano que permanecerão ativos por reprovação.</p></div><span class="result-pill"><?= $state['pendentes'] > 0 ? 'Identificação das séries pendente' : ($state['liberada'] ? 'Conferência concluída' : 'Conferência pendente') ?></span></div>
-    <?php if (!$state['liberada']): ?><p><a class="btn-secondary" href="<?= e(url($menuPath . '&tipo=passivo')) ?>">Mandar concluintes para o passivo</a></p><?php endif; ?>
     <?php if ($state['liberada']): ?><p class="success-message">Progressão liberada para <?= e((string) $year) ?>. <?= e((string) count($state['alunos'])) ?> aluno(s) do 3º ano permanecem ativos por reprovação. Alunos que chegaram ao 3º ano pela progressão deste ciclo não entram nessa conferência.</p><?php endif; ?>
     <?php if (!$showReview): ?><a class="btn-secondary" href="<?= e(url($basePath . '&revisar=1#movement-senior-title')) ?>">Revisar alunos do 3º ano</a><?php endif; ?>
     <?php if ($showReview): ?>
