@@ -11,7 +11,7 @@ $showReview = !$state['liberada'] || input_string($_GET['revisar'] ?? '') === '1
 $labelClass = static fn (array $class): string => (string) $class['nome_turma']
     . ($class['ano_letivo'] ? ' — ' . $class['ano_letivo'] : ' — ano letivo não informado');
 ?>
-<link rel="stylesheet" href="<?= e(url('assets/css/alunos-movimentacao.css')) ?>">
+<link rel="stylesheet" href="<?= e(url('assets/css/alunos-movimentacao.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/alunos-movimentacao.css'), 0, 12))) ?>">
 <section class="page-intro">
     <p class="hero-kicker">Gestão de alunos · Movimentar alunos</p><h2 <?= $type !== '' ? 'data-movement-action' : '' ?>><?= e($actions[$type][0] ?? 'Movimentar alunos') ?></h2>
     <p><?= e($actions[$type][1] ?? 'Escolha o que deseja fazer com os alunos.') ?></p>

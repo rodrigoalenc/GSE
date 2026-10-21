@@ -12,6 +12,18 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const temporary = await mkdtemp(join(tmpdir(), 'gse-movement-browser-'));
 const sessions = join(temporary, 'sessions');
 await mkdir(sessions);
+// Emulate the stale CDN response observed after deploying the new action menu.
+// Updated assets with a versioned URL must bypass this old, unversioned entry.
+const router = join(temporary, 'cached-assets-router.php');
+await writeFile(router, `<?php
+if (parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) === '/assets/css/alunos-movimentacao.css' && !isset($_GET['v'])) {
+    header('Content-Type: text/css');
+    header('Cache-Control: public, max-age=14400');
+    echo '.movement-panel { min-width: 0; } /* cached stylesheet before action cards */';
+    return true;
+}
+return require ${JSON.stringify(join(root, 'public/index.php').replaceAll('\\', '/'))};
+`);
 const environment = {...process.env, GSE_KEYRING_PATH:await testKeyring(temporary), APP_ENV:'testing', APP_URL:'', APP_ALLOWED_HOSTS:'', FORCE_HTTPS:'false',
     DB_PATH:join(temporary,'fixture.sqlite'), LOG_PATH:join(temporary,'technical.log'),
     CERTIDAO_STORAGE_PATH:join(temporary,'certidoes'), CERTIDAO_MAIL_ENABLED:'false', MAIL_ENABLED:'false',
@@ -29,7 +41,7 @@ try {
     await new Promise(done => reservation.listen(0,'127.0.0.1',done));
     const port = reservation.address().port;
     await new Promise(done => reservation.close(done));
-    server = spawn(process.env.PHP_BINARY || 'php', ['-d',`session.save_path=${sessions}`,'-S',`127.0.0.1:${port}`,'-t','public','public/index.php'],
+    server = spawn(process.env.PHP_BINARY || 'php', ['-d',`session.save_path=${sessions}`,'-S',`127.0.0.1:${port}`,'-t','public',router],
         {cwd:root,env:environment,windowsHide:true,stdio:['ignore','ignore','pipe']});
     server.stderr.on('data', chunk => { serverErrors += chunk; });
     const base = `http://127.0.0.1:${port}`;
@@ -67,6 +79,16 @@ try {
     check(await page.evaluate(`document.querySelector('.movement-controls, #movement-senior-title, #movement-selection-title, #movement-archive-title')===null`),true,'Entry shows only the action choice');
     for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
         await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        check(await page.evaluate(`(() => {
+            const cards=[...document.querySelectorAll('[data-movement-choice]')];
+            return cards.every(card => {
+                const [title,description,open]=[...card.children].map(child=>child.getBoundingClientRect());
+                return title.bottom<=description.top && description.bottom<=open.top && card.scrollWidth<=card.clientWidth;
+            }) && cards.every((card,index) => cards.slice(index+1).every(other => {
+                const a=card.getBoundingClientRect(),b=other.getBoundingClientRect();
+                return a.right<=b.left || b.right<=a.left || a.bottom<=b.top || b.bottom<=a.top;
+            }));
+        })()`),true,`Cards remain readable and separate with a stale CDN entry at ${width}x${height}`);
         check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Action choices fit ${width}x${height}`);
         await shot(`movimentacao-escolher-${width}x${height}`);
     }
