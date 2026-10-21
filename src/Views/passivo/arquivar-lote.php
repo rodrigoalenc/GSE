@@ -35,7 +35,7 @@ $batchBirthDate = static function (?string $value): string {
 </section>
 
 <section class="relatorio passivo-form-shell passivo-batch-box-shell" aria-labelledby="batch-box-title">
-    <div class="section-head"><div><h2 id="batch-box-title">2. Escolher a caixa</h2><p>Os números serão atribuídos automaticamente depois da maior posição numérica já usada nesta caixa. Os números existentes permanecerão iguais.</p></div></div>
+    <div class="section-head"><div><h2 id="batch-box-title">2. Escolher a caixa</h2><p>Os alunos serão numerados automaticamente em ordem alfabética. Uma nova caixa continua a sequência do acervo; uma caixa existente continua depois do maior número já usado nela.</p></div></div>
     <form class="passivo-form" method="post" action="<?= e(url('aluno/arquivar-lote/preview')) ?>" data-archive-batch-box>
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="selecao" value="<?= e($selectionToken) ?>">

@@ -58,7 +58,6 @@
     <div class="passivo-toolbar-actions">
         <a class="btn-primary" href="<?= e(url('passivo/criar')) ?>">Novo registro</a>
         <?php if ($canAdminister): ?>
-            <a class="btn-secondary" href="<?= e(url('passivo/ferramentas')) ?>">Ferramentas</a>
             <a class="btn-secondary" href="<?= e(url('passivo/importar')) ?>">Importar CSV</a>
         <?php endif; ?>
         <a class="btn-secondary" href="<?= e(url('passivo/inativos')) ?>">Ver excluídos (<?= e((string) $summary['inativos']) ?>)</a>
@@ -94,6 +93,15 @@
 
 <section class="relatorio" aria-labelledby="passivo-results-title">
     <div class="section-head"><div><h2 id="passivo-results-title"><?= $filters['ativo'] === '0' ? 'Registros excluídos do acervo ativo' : ($filters['caixa'] !== '' ? 'Conteúdo da caixa ' . e($filters['caixa']) : 'Registros encontrados') ?></h2><p><?= $filters['ativo'] === '0' ? 'Os dados e o histórico estão preservados. A restauração depende de um administrador.' : 'Consulte os registros ou abra os detalhes para editar e excluir do acervo ativo.' ?></p></div></div>
+    <?php if ($filters['caixa'] !== ''): ?>
+    <div class="passivo-toolbar-actions">
+        <form id="passivo-export-form" method="post" data-submit-download="true" action="<?= e(url('passivo/exportar')) ?>">
+            <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+            <input id="exportar-caixa" type="hidden" name="caixa" value="<?= e($filters['caixa']) ?>">
+            <button class="btn-secondary" type="submit">Exportar lista da caixa (TXT)</button>
+        </form>
+    </div>
+    <?php endif; ?>
     <?php $paginationPosition = 'início'; require __DIR__ . '/paginacao.php'; ?>
     <div class="table-scroll">
         <table class="tabela-filtrada passivo-table">

@@ -162,11 +162,21 @@ try {
     check(new URL((await waitDownload(6)).event.url).pathname,'/relatorio/csv','Submission without a submitter uses the form action');
     await idle();
 
-    await page.navigate(base+'/passivo/ferramentas');
+    await page.navigate(base+'/passivo');
     const exportForm = 'form[data-submit-download="true"]';
-    await page.click(exportForm+' button');
-    check(await page.evaluate(`document.querySelector('${exportForm}').hasAttribute('aria-busy')`),false,'Invalid export never acquires the repeat guard');
-    await page.evaluate(`document.querySelector('#exportar-caixa').value='2'`);
+    check(await page.evaluate(`document.querySelector('${exportForm}')===null`),true,'Export appears after choosing a box');
+    await page.navigate(base+'/passivo?caixa=2&ordem=numero');
+    check(await page.evaluate(`!document.querySelector('a[href$="/passivo/ferramentas"]') && document.querySelector('#exportar-caixa').value==='2'`),true,'Selected box offers direct TXT export without tools');
+    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
+        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Direct box export fits ${width}x${height}`);
+        if (process.env.GSE_BROWSER_EVIDENCE_DIR) {
+            await page.evaluate(`document.querySelector('#passivo-export-form').scrollIntoView({block:'center'})`);
+            const {data} = await page.command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+            await writeFile(join(process.env.GSE_BROWSER_EVIDENCE_DIR,`passivo-exportar-${width}x${height}.png`),Buffer.from(data,'base64'));
+        }
+    }
+    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
     await page.click(exportForm+' button'); await page.click(exportForm+' button');
     const txt = await waitDownload(7);
     check(new URL(txt.event.url).pathname,'/passivo/exportar','Other annotated download form keeps its action');

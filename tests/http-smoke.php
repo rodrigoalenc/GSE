@@ -568,22 +568,8 @@ try {
         && str_contains($pendingExport['body'], '[Localização pendente]'),
         'Edição histórica preserva posição vazia e pendência aparece em filtro e exportação');
 
-    $tools = request('GET', $baseUrl . '/passivo/ferramentas', $cookieAdmin);
-    $enumerationPreview = request('POST', $baseUrl . '/passivo/ferramentas/enumerar/preview', $cookieAdmin, [
-        '_csrf_token' => csrf($tools['body']),
-        'caixa' => 'CX-HTTP',
-    ]);
-    checkHttp($enumerationPreview['status'] === 302 && str_contains($enumerationPreview['headers']['location'] ?? '', 'preview='), 'Prévia de enumeração usa PRG');
-    $enumerationLocation = $enumerationPreview['headers']['location'] ?? '';
-    $enumerationPage = request('GET', str_starts_with($enumerationLocation, 'http') ? $enumerationLocation : $baseUrl . $enumerationLocation, $cookieAdmin);
-    $enumerationConfirmed = request('POST', $baseUrl . '/passivo/ferramentas/enumerar/confirmar', $cookieAdmin, [
-        '_csrf_token' => csrf($enumerationPage['body']),
-        'preview_token' => hiddenValue($enumerationPage['body'], 'preview_token'),
-    ]);
-    checkHttp($enumerationConfirmed['status'] === 302, 'Enumeração transacional confirmada');
-    checkHttp($verification->query('SELECT numero FROM alunos_passivo WHERE id = 1')->fetchColumn() === '1'
-        && (int) $verification->query('SELECT localizacao_pendente FROM alunos_passivo WHERE id = 1')->fetchColumn() === 0,
-        'Enumeração preenche posição histórica e conclui localização');
+    checkHttp($verification->query('SELECT numero FROM alunos_passivo WHERE id = 1')->fetchColumn() === null,
+        'Consulta preserva posição histórica pendente sem renumeração manual');
 
     $passiveEdit = request('GET', $baseUrl . '/passivo/editar/1', $cookieAdmin);
     $passiveEdited = request('POST', $baseUrl . '/passivo/editar/1', $cookieAdmin, [
@@ -654,7 +640,7 @@ try {
     ]);
     checkHttp($formulaCreated['status'] === 302, 'Cadastro de valor para proteção de fórmula na exportação');
 
-    $tools = request('GET', $baseUrl . '/passivo/ferramentas', $cookieAdmin);
+    $tools = request('GET', $baseUrl . '/passivo?caixa=CX-HTTP', $cookieAdmin);
     $invalidExportCsrf = request('POST', $baseUrl . '/passivo/exportar', $cookieAdmin, [
         '_csrf_token' => 'invalid',
         'caixa' => 'CX-HTTP',
@@ -715,8 +701,6 @@ try {
     foreach ([
         '/passivo/importar/preview' => 'prévia de importação',
         '/passivo/importar/confirmar' => 'confirmação de importação',
-        '/passivo/ferramentas/enumerar/preview' => 'prévia de enumeração',
-        '/passivo/ferramentas/enumerar/confirmar' => 'confirmação de enumeração',
         '/passivo/exportar' => 'exportação',
     ] as $path => $operation) {
         $getMutation = request('GET', $baseUrl . $path, $cookieAdmin);
@@ -873,14 +857,14 @@ try {
         request('POST', $baseUrl . '/passivo/importar/confirmar', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'preview_token' => str_repeat('a', 64)])['status'] === 403,
         'Funcionário não confirma importação pela URL direta'
     );
-    checkHttp(request('GET', $baseUrl . '/passivo/ferramentas', $cookieEmployee)['status'] === 403, 'Funcionário não acessa ferramentas do passivo');
+    checkHttp(request('GET', $baseUrl . '/passivo/ferramentas', $cookieEmployee)['status'] === 404, 'Ferramentas do passivo foram removidas');
     checkHttp(
-        request('POST', $baseUrl . '/passivo/ferramentas/enumerar/preview', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'caixa' => 'CX-HTTP'])['status'] === 403,
-        'Funcionário não enumera caixas pela URL direta'
+        request('POST', $baseUrl . '/passivo/ferramentas/enumerar/preview', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'caixa' => 'CX-HTTP'])['status'] === 404,
+        'Rota de prévia de enumeração foi removida'
     );
     checkHttp(
-        request('POST', $baseUrl . '/passivo/ferramentas/enumerar/confirmar', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'preview_token' => str_repeat('b', 64)])['status'] === 403,
-        'Funcionário não confirma enumeração pela URL direta'
+        request('POST', $baseUrl . '/passivo/ferramentas/enumerar/confirmar', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'preview_token' => str_repeat('b', 64)])['status'] === 404,
+        'Rota de confirmação de enumeração foi removida'
     );
     checkHttp(request('GET', $baseUrl . '/aluno/arquivar/1', $cookieEmployee)['status'] === 403, 'Funcionário não acessa envio de aluno ao passivo');
     checkHttp(
@@ -951,7 +935,7 @@ try {
     require __DIR__ . '/http-contract-additives.php';
     require __DIR__ . '/http-certidoes.php';
     require __DIR__ . '/http-passivo-batch.php';
-    require __DIR__ . '/http-passivo-renumeracao.php';
+    require __DIR__ . '/http-passivo-automatico.php';
     require __DIR__ . '/http-passivo-paginacao.php';
     require __DIR__ . '/http-contrato-certidoes.php';
     require __DIR__ . '/http-profile.php';

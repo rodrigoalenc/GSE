@@ -235,12 +235,23 @@ final class MovimentacaoAlunosTest extends DatabaseTestCase
             ob_end_clean();
         }
         $this->assertStringNotContainsString('Não há alunos ativos do 3º ano', $html);
+        $this->assertStringNotContainsString('name="passivo_turma"', $html);
+        $this->assertStringContainsString('Identifique as séries antes de concluir a conferência', $html);
+        $this->assertStringNotContainsString('action="' . \url('aluno/movimentar/conferencia') . '"', $html);
+        $type = 'passivo';
+        ob_start();
+        try {
+            require ROOT_PATH . '/src/Views/alunos/movimentar.php';
+            $html = (string) ob_get_contents();
+        } finally {
+            ob_end_clean();
+        }
         $this->assertStringContainsString('name="passivo_turma"', $html);
         $this->assertStringContainsString('name="movimentacao_turma" value="' . $this->destination . '"', $html);
         $this->assertStringContainsString('aria-label="Enviar Reprovado terceiro ao Arquivo Passivo" checked', $html);
-        $this->assertLessThan(strpos($html, 'id="movement-series-title"'), strpos($html, 'id="movement-archive-title"'));
-        $this->assertStringContainsString('Identifique as séries antes de concluir a conferência', $html);
-        $this->assertStringNotContainsString('action="' . \url('aluno/movimentar/conferencia') . '"', $html);
+        $this->assertStringNotContainsString('id="movement-series-title"', $html);
+        $this->assertStringNotContainsString('id="movement-senior-title"', $html);
+        $this->assertStringNotContainsString('id="movement-selection-title"', $html);
         $this->assertSame(1, (int) (new \Aluno())->buscarPorId($this->senior)['ativo']);
         $this->assertFalse($this->service->confirmarConferencia($year, $state['fingerprint'], $this->admin));
         $this->assertSame('unclassified_classes', $this->service->lastErrorCode());

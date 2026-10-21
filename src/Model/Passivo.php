@@ -39,7 +39,9 @@ final class Passivo extends Model
         $orders = [
             'nome' => 'p.nome_normalizado ASC, p.id ASC',
             'numero' => "CASE WHEN p.numero GLOB '[0-9]*' AND p.numero NOT GLOB '*[^0-9]*' THEN 0 ELSE 1 END,
-                         CAST(p.numero AS INTEGER) ASC, p.numero_normalizado ASC, p.nome_normalizado ASC, p.id ASC",
+                         CASE WHEN p.numero GLOB '[0-9]*' AND p.numero NOT GLOB '*[^0-9]*' THEN LENGTH(LTRIM(p.numero,'0')) END,
+                         CASE WHEN p.numero GLOB '[0-9]*' AND p.numero NOT GLOB '*[^0-9]*' THEN LTRIM(p.numero,'0') END,
+                         p.numero_normalizado ASC, p.nome_normalizado ASC, p.id ASC",
             'caixa' => 'p.caixa_normalizada COLLATE PASSIVO_CAIXA ASC, p.numero_normalizado ASC, p.nome_normalizado ASC, p.id ASC',
             'recente' => 'p.criado_em DESC, p.id DESC',
         ];
@@ -499,6 +501,10 @@ final class Passivo extends Model
             return false;
         }
 
+        usort($students, static fn (array $left, array $right): int =>
+            strcmp(TextNormalizer::searchKey((string) $left['nome_completo']), TextNormalizer::searchKey((string) $right['nome_completo']))
+            ?: ((int) $left['id'] <=> (int) $right['id']));
+
         $linked = self::$pdo->prepare("SELECT 1 FROM alunos_passivo
             WHERE ativo = 1 AND aluno_origem_id IN ({$placeholders}) LIMIT 1");
         $linked->execute($ids);
@@ -645,7 +651,9 @@ final class Passivo extends Model
         if ($rows !== []) {
             $key['display'] = TextNormalizer::displayName((string) $rows[0]['caixa']);
         }
-        $maximum = $this->maximumArchiveNumber($rows);
+        $maximum = $boxMode === 'nova'
+            ? $this->maximumArchiveNumber(self::$pdo->query('SELECT numero FROM alunos_passivo'))
+            : $this->maximumArchiveNumber($rows);
         $next = $this->nextArchiveNumber($maximum);
         $first = $next;
         $assignments = [];
@@ -664,14 +672,14 @@ final class Passivo extends Model
             $assignments[] = array_merge($student, ['numero' => $next]);
             $next = $this->nextArchiveNumber($next);
         }
-        $fingerprint = hash('sha256', json_encode([$key, $boxMode, $students, $rows, $assignments], JSON_THROW_ON_ERROR));
+        $fingerprint = hash('sha256', json_encode([$key, $boxMode, $students, $rows, $maximum, $assignments], JSON_THROW_ON_ERROR));
         return ['caixa' => $key['display'], 'tipo_caixa' => $boxMode, 'alunos' => $assignments,
             'fingerprint' => $fingerprint, 'primeiro_numero' => $first,
             'ultimo_numero' => $assignments[count($assignments) - 1]['numero'], 'total' => count($assignments)];
     }
 
-    /** @param list<array<string,mixed>> $rows */
-    private function maximumArchiveNumber(array $rows): string
+    /** @param iterable<array<string,mixed>> $rows */
+    private function maximumArchiveNumber(iterable $rows): string
     {
         $maximum = '0';
         foreach ($rows as $row) {
@@ -1022,7 +1030,9 @@ final class Passivo extends Model
             "SELECT numero, nome_completo, localizacao_pendente FROM alunos_passivo
              WHERE ativo = 1 AND caixa_normalizada = :box
              ORDER BY CASE WHEN numero GLOB '[0-9]*' AND numero NOT GLOB '*[^0-9]*' THEN 0 ELSE 1 END,
-                      CAST(numero AS INTEGER), numero_normalizado, nome_normalizado, id"
+                      CASE WHEN numero GLOB '[0-9]*' AND numero NOT GLOB '*[^0-9]*' THEN LENGTH(LTRIM(numero,'0')) END,
+                      CASE WHEN numero GLOB '[0-9]*' AND numero NOT GLOB '*[^0-9]*' THEN LTRIM(numero,'0') END,
+                      numero_normalizado, nome_normalizado, id"
         );
         $statement->execute(['box' => $boxKey['key']]);
         $rows = $statement->fetchAll();

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 // Included by http-smoke.php; all fixtures use its disposable database.
+require_once dirname(__DIR__) . '/src/Core/TextNormalizer.php';
 $paginationDb = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $paginationInsert = $paginationDb->prepare('INSERT INTO alunos_passivo(nome_completo,nome_normalizado,caixa,caixa_normalizada,numero,numero_normalizado,ativo) VALUES(?,?,?,?,?,?,?)');
 $paginationBox = 'CX-PAG & 1';

@@ -8,6 +8,57 @@ use Tests\Support\DatabaseTestCase;
 
 final class PassiveBatchArchiveTest extends DatabaseTestCase
 {
+    public function testNovaCaixaContinuaNumeracaoAnteriorEOrdenaNomesComAcentos(): void
+    {
+        $actor = $this->insertUsuario('Admin Sequencia Automatica');
+        $model = new \Passivo();
+        $old = $model->cadastrar(['nome_completo' => 'Arquivo anterior', 'caixa' => '64', 'numero' => '000850'], $actor);
+        $this->assertIsInt($old);
+        $this->assertTrue($model->definirAtivo($old, false, $actor));
+        $before = $model->buscarPorId($old);
+        $zeta = $this->insertBatchStudent('Zeta Silva');
+        $erica = $this->insertBatchStudent('Érica Souza');
+        $ana = $this->insertBatchStudent('Ana Souza');
+        $alvaro = $this->insertBatchStudent('Álvaro Souza');
+        $plan = $model->previewArquivamentoLote([$zeta, $erica, $ana, $alvaro], '65', 'nova');
+        $this->assertIsArray($plan);
+        $this->assertSame('851', $plan['primeiro_numero']);
+        $this->assertSame(['Álvaro Souza', 'Ana Souza', 'Érica Souza', 'Zeta Silva'], array_column($plan['alunos'], 'nome_completo'));
+        $this->assertSame(['851', '852', '853', '854'], array_column($plan['alunos'], 'numero'));
+        $result = $model->arquivarAlunosLote([$zeta, $erica, $ana, $alvaro], '65', 'nova', $plan['fingerprint'], $actor);
+        $this->assertIsArray($result);
+        $this->assertSame($before, $model->buscarPorId($old));
+        $this->assertSame(['851', '852', '853', '854'], array_column($model->listarParaTxt('65'), 'numero'));
+    }
+
+    public function testOutraCaixaAvancandoSequenciaInvalidaPreviaDaNovaCaixa(): void
+    {
+        $actor = $this->insertUsuario('Admin Concorrencia Sequencia');
+        $model = new \Passivo();
+        $this->assertIsInt($model->cadastrar(['nome_completo' => 'Anterior', 'caixa' => '10', 'numero' => '850'], $actor));
+        $id = $this->insertBatchStudent('Aluno Nova Caixa');
+        $plan = $model->previewArquivamentoLote([$id], '11', 'nova');
+        $this->assertIsArray($plan);
+        $this->assertIsInt($model->cadastrar(['nome_completo' => 'Concorrente', 'caixa' => '12', 'numero' => '851'], $actor));
+        $this->assertFalse($model->arquivarAlunosLote([$id], '11', 'nova', $plan['fingerprint'], $actor));
+        $this->assertSame(1, (int) (new \Aluno())->buscarPorId($id)['ativo']);
+        $this->assertSame([], $model->paginate(['caixa' => '11'])['items']);
+        $updated = $model->previewArquivamentoLote([$id], '11', 'nova');
+        $this->assertSame('852', $updated['primeiro_numero']);
+    }
+
+    public function testSequenciaEExportacaoPreservamNumerosAcimaDoLimiteInteiro(): void
+    {
+        $actor = $this->insertUsuario('Admin Sequencia Grande');
+        $model = new \Passivo();
+        $this->assertIsInt($model->cadastrar(['nome_completo' => 'Anterior grande', 'caixa' => '20', 'numero' => str_repeat('9', 19) . '8'], $actor));
+        $ids = [$this->insertBatchStudent('Ana Grande'), $this->insertBatchStudent('Bia Grande')];
+        $plan = $model->previewArquivamentoLote($ids, '21', 'nova');
+        $this->assertIsArray($plan);
+        $this->assertIsArray($model->arquivarAlunosLote($ids, '21', 'nova', $plan['fingerprint'], $actor));
+        $this->assertSame([str_repeat('9', 20), '1' . str_repeat('0', 20)], array_column($model->listarParaTxt('21'), 'numero'));
+    }
+
     public function testPreviewIsReadOnlyAndConfirmationArchivesActiveAndInactiveStudentsAtomically(): void
     {
         $actor = $this->insertUsuario('Admin Lote Passivo');

@@ -1,4 +1,11 @@
 .movement-panel { min-width: 0; }
+.movement-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 20px; }
+.movement-choice.relatorio { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 28px; min-width: 0; color: #173b63; text-decoration: none; border: 1px solid #d4dfed; }
+.movement-choice strong { font-size: 1.25rem; }
+.movement-choice span { line-height: 1.6; }
+.movement-choice .movement-choice-open { margin-top: auto; padding-top: 8px; font-weight: 700; color: #14599e; }
+.movement-choice:hover, .movement-choice:focus-visible { border-color: #245cc6; background: #f2f7fe; }
+.movement-choice:focus-visible { outline: 3px solid #245cc6; outline-offset: 3px; }
 .movement-panel .movement-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: end; gap: 16px; margin-bottom: 16px; }
 .movement-panel label:not(.movement-check) { display: block; margin-bottom: 6px; }
 .movement-panel select, .movement-panel input:not([type="checkbox"]):not([type="hidden"]) { width: 100%; max-width: 100%; min-width: 0; }

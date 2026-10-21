@@ -1,5 +1,11 @@
 <?php
-$basePath = 'aluno/movimentar?ano=' . $year;
+$menuPath = 'aluno/movimentar?ano=' . $year;
+$basePath = $menuPath . '&tipo=' . $type;
+$actions = [
+    'passivo' => ['Mandar para o passivo', 'Escolha a turma e os alunos que serão enviados ao Arquivo Passivo.'],
+    'progressao' => ['Progredir turma', 'Avance os alunos uma série, escolhendo uma turma de destino existente.'],
+    'regressao' => ['Regredir turma', 'Retorne os alunos uma série, escolhendo uma turma de destino existente.'],
+];
 $showSetup = $configure;
 $showReview = !$state['liberada'] || input_string($_GET['revisar'] ?? '') === '1';
 $labelClass = static fn (array $class): string => (string) $class['nome_turma']
@@ -7,17 +13,27 @@ $labelClass = static fn (array $class): string => (string) $class['nome_turma']
 ?>
 <link rel="stylesheet" href="<?= e(url('assets/css/alunos-movimentacao.css')) ?>">
 <section class="page-intro">
-    <p class="hero-kicker">Gestão de alunos</p><h2>Movimentar alunos</h2>
-    <p>Progrida ou regrida uma série usando as turmas existentes. Cadastros, DVAs e nomes das turmas são preservados.</p>
-    <a class="btn-secondary" href="<?= e(url('aluno')) ?>">Voltar para Gestão de alunos</a>
+    <p class="hero-kicker">Gestão de alunos · Movimentar alunos</p><h2 <?= $type !== '' ? 'data-movement-action' : '' ?>><?= e($actions[$type][0] ?? 'Movimentar alunos') ?></h2>
+    <p><?= e($actions[$type][1] ?? 'Escolha o que deseja fazer com os alunos.') ?></p>
+    <?php if ($type !== ''): ?><a class="btn-secondary" data-movement-back href="<?= e(url($menuPath)) ?>">Escolher outra ação</a><?php else: ?><a class="btn-secondary" href="<?= e(url('aluno')) ?>">Voltar para Gestão de alunos</a><?php endif; ?>
 </section>
 
+<?php if ($type === ''): ?>
+<nav class="movement-choices" aria-label="Escolha a ação de movimentação">
+    <?php foreach ($actions as $action => [$label, $description]): ?>
+    <a class="relatorio movement-choice" data-movement-choice="<?= e($action) ?>" href="<?= e(url($menuPath . '&tipo=' . $action)) ?>"><strong><?= e($label) ?></strong><span><?= e($description) ?></span><span class="movement-choice-open" aria-hidden="true">Abrir →</span></a>
+    <?php endforeach; ?>
+</nav>
+<?php elseif ($type === 'passivo'): ?>
+<?php require ROOT_PATH . '/src/Views/alunos/movimentar-passivo.php'; ?>
+<?php else: ?>
 <section class="relatorio movement-panel">
     <form class="movement-controls" method="get" action="<?= e(url('aluno/movimentar')) ?>">
+        <input type="hidden" name="tipo" value="<?= e($type) ?>">
         <div><label for="movement-year">Ano de referência</label><input id="movement-year" name="ano" type="number" min="2000" max="<?= e((string) ((int) date('Y') + 5)) ?>" value="<?= e((string) $year) ?>" required></div>
         <div><button class="btn-secondary" type="submit">Abrir ano</button></div>
     </form>
-    <p class="form-help">Use o ano em que a movimentação será aplicada, por exemplo, 2027. A conferência e o controle de progressões são separados por ano. O ano letivo cadastrado nas turmas não é alterado.</p>
+    <p class="form-help">Use o ano em que a movimentação será aplicada, por exemplo, 2027. <?= $type === 'progressao' ? 'A conferência e o controle de progressões são separados por ano.' : 'O histórico da regressão usará esse ano de referência.' ?> O ano letivo cadastrado nas turmas não é alterado.</p>
 </section>
 
 <?php if (is_array($preview)): ?>
@@ -29,21 +45,20 @@ $labelClass = static fn (array $class): string => (string) $class['nome_turma']
     <?php endforeach; ?>
     </tbody></table></div>
     <form method="post" action="<?= e(url('aluno/movimentar/confirmar')) ?>">
-        <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ano" value="<?= e((string) $preview['ano']) ?>"><input type="hidden" name="preview_token" value="<?= e($previewToken) ?>">
+        <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ano" value="<?= e((string) $preview['ano']) ?>"><input type="hidden" name="tipo" value="<?= e($type) ?>"><input type="hidden" name="preview_token" value="<?= e($previewToken) ?>">
         <label class="movement-check"><input type="checkbox" name="confirmar" value="1" required> Conferi os alunos e autorizo a movimentação para a turma de destino exibida.</label>
-        <div class="form-actions"><button class="btn-primary" type="submit">Confirmar movimentação de <?= e((string) count($preview['ids'])) ?> aluno(s)</button><a class="btn-secondary" href="<?= e(url($basePath . '&' . http_build_query(['tipo' => $preview['tipo'], 'turma' => $preview['alunos'][0]['id_turma']]))) ?>">Voltar e refazer a seleção</a></div>
+        <div class="form-actions"><button class="btn-primary" type="submit">Confirmar movimentação de <?= e((string) count($preview['ids'])) ?> aluno(s)</button><a class="btn-secondary" href="<?= e(url($basePath . '&' . http_build_query(['turma' => $preview['alunos'][0]['id_turma']]))) ?>">Voltar e refazer a seleção</a></div>
     </form>
 </section>
 <?php endif; ?>
 
-<?php require ROOT_PATH . '/src/Views/alunos/movimentar-passivo.php'; ?>
-
 <section class="relatorio movement-panel" aria-labelledby="movement-series-title">
-    <div class="section-head"><div><h2 id="movement-series-title">Séries para progressão e regressão</h2><p>Identifique as séries para conferir o avanço ou retorno de uma série. O envio ao Arquivo Passivo acima funciona diretamente pela turma escolhida.</p></div>
+    <div class="section-head"><div><h2 id="movement-series-title">Séries das turmas</h2><p>Identifique a série das turmas de origem e destino para conferir a movimentação.</p></div>
     <?php if (!$showSetup): ?><a class="btn-secondary" href="<?= e(url($basePath . '&configurar=1#movement-series-title')) ?>">Identificar séries das turmas</a><?php endif; ?></div>
-    <?php if ($state['pendentes'] > 0): ?><p class="warning-message" role="status"><?= e((string) $state['pendentes']) ?> aluno(s) ativo(s) estão em turmas sem série identificada ou sem turma. Identifique as séries abaixo; para alunos sem turma, ajuste o cadastro em Gestão de alunos antes de liberar a progressão.</p><?php endif; ?>
+    <?php if ($state['pendentes'] > 0): ?><p class="warning-message" role="status"><?= e((string) $state['pendentes']) ?> aluno(s) ativo(s) estão em turmas sem série identificada ou sem turma. Use “Identificar séries das turmas” para informar as séries; para alunos sem turma, ajuste o cadastro em Gestão de alunos.</p><?php endif; ?>
     <?php if ($showSetup): ?>
     <form method="post" action="<?= e(url('aluno/movimentar/series')) ?>">
+        <input type="hidden" name="tipo" value="<?= e($type) ?>">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ano" value="<?= e((string) $year) ?>">
         <div class="table-scroll"><table class="tabela-filtrada"><thead><tr><th>Turma cadastrada</th><th>Alunos ativos</th><th>Série</th></tr></thead><tbody>
         <?php foreach ($classes as $class): ?>
@@ -56,8 +71,10 @@ $labelClass = static fn (array $class): string => (string) $class['nome_turma']
     <?php endif; ?>
 </section>
 
+<?php if ($type === 'progressao'): ?>
 <section class="relatorio movement-panel" aria-labelledby="movement-senior-title">
     <div class="section-head"><div><h2 id="movement-senior-title">Conferência para liberar a progressão</h2><p>Depois de enviar os concluintes ao Arquivo Passivo, confira os alunos do 3º ano que permanecerão ativos por reprovação.</p></div><span class="result-pill"><?= $state['pendentes'] > 0 ? 'Identificação das séries pendente' : ($state['liberada'] ? 'Conferência concluída' : 'Conferência pendente') ?></span></div>
+    <?php if (!$state['liberada']): ?><p><a class="btn-secondary" href="<?= e(url($menuPath . '&tipo=passivo')) ?>">Mandar concluintes para o passivo</a></p><?php endif; ?>
     <?php if ($state['liberada']): ?><p class="success-message">Progressão liberada para <?= e((string) $year) ?>. <?= e((string) count($state['alunos'])) ?> aluno(s) do 3º ano permanecem ativos por reprovação. Alunos que chegaram ao 3º ano pela progressão deste ciclo não entram nessa conferência.</p><?php endif; ?>
     <?php if (!$showReview): ?><a class="btn-secondary" href="<?= e(url($basePath . '&revisar=1#movement-senior-title')) ?>">Revisar alunos do 3º ano</a><?php endif; ?>
     <?php if ($showReview): ?>
@@ -78,17 +95,18 @@ $labelClass = static fn (array $class): string => (string) $class['nome_turma']
         <?php endif; ?>
     <?php endif; ?>
 </section>
+<?php endif; ?>
 
 <section class="relatorio movement-panel" aria-labelledby="movement-selection-title">
-    <div class="section-head"><div><h2 id="movement-selection-title">2. Selecionar alunos e destino</h2><p>Escolha uma turma para listar todos os seus alunos ativos ou pesquise pelo nome. Marque somente os alunos que deseja movimentar.</p></div></div>
+    <div class="section-head"><div><h2 id="movement-selection-title">Selecionar alunos e destino</h2><p>Escolha uma turma para listar todos os seus alunos ativos ou pesquise pelo nome. Marque somente os alunos que deseja movimentar.</p></div></div>
     <form class="movement-controls" method="get" action="<?= e(url('aluno/movimentar')) ?>">
         <input type="hidden" name="ano" value="<?= e((string) $year) ?>">
-        <div><label for="movement-type">Operação</label><select id="movement-type" name="tipo"><option value="progressao" <?= $type === 'progressao' ? 'selected' : '' ?>>Progressão de uma série</option><option value="regressao" <?= $type === 'regressao' ? 'selected' : '' ?>>Regressão de uma série</option></select></div>
+        <input type="hidden" name="tipo" value="<?= e($type) ?>">
         <div><label for="movement-source">Turma de origem</label><select id="movement-source" name="turma"><option value="0">Pesquisar em todas as turmas</option><?php foreach ($classes as $class): ?><option value="<?= e((string) $class['id']) ?>" <?= $classId === (int) $class['id'] ? 'selected' : '' ?>><?= e($labelClass($class)) ?></option><?php endforeach; ?></select></div>
         <div><label for="movement-search">Nome do aluno</label><input id="movement-search" name="q" maxlength="100" value="<?= e($search) ?>"></div>
         <div><button class="btn-secondary" type="submit">Listar alunos</button></div>
     </form>
-    <?php if ($type === 'progressao' && !$state['liberada']): ?><p class="warning-message">A progressão ficará disponível após a conferência do 3º ano. Para uma correção de série, escolha “Regressão de uma série” e clique em “Listar alunos”.</p><?php endif; ?>
+    <?php if ($type === 'progressao' && !$state['liberada']): ?><p class="warning-message">A progressão ficará disponível após a conferência do 3º ano.</p><?php endif; ?>
     <form method="post" action="<?= e(url('aluno/movimentar/preview')) ?>" data-movement-selection>
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ano" value="<?= e((string) $year) ?>"><input type="hidden" name="tipo" value="<?= e($type) ?>"><input type="hidden" name="turma" value="<?= e((string) $classId) ?>"><input type="hidden" name="q" value="<?= e($search) ?>">
         <div class="movement-selection-actions"><strong><?= e((string) count($students)) ?> aluno(s) na lista</strong><button class="btn-secondary" type="button" data-movement-select-all hidden>Marcar todos da lista</button><button class="btn-secondary" type="button" data-movement-clear hidden>Desmarcar todos</button><span data-movement-count role="status" aria-live="polite">Nenhum aluno selecionado.</span></div>
@@ -101,4 +119,5 @@ $labelClass = static fn (array $class): string => (string) $class['nome_turma']
         <div class="form-actions"><button class="btn-primary" type="submit" <?= $type === 'progressao' && !$state['liberada'] ? 'disabled' : '' ?>>Conferir alunos selecionados</button><?php if ($classId > 0): ?><button class="btn-secondary" type="submit" name="turma_inteira" value="1" <?= $type === 'progressao' && !$state['liberada'] ? 'disabled' : '' ?>>Conferir turma inteira, incluindo alunos fora da busca</button><?php endif; ?></div>
     </form>
 </section>
+<?php endif; ?>
 <script src="<?= e(url('assets/js/alunos-movimentacao.js')) ?>" defer></script>

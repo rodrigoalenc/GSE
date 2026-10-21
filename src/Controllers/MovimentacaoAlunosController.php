@@ -12,7 +12,8 @@ final class MovimentacaoAlunosController extends Controller
         $year = $this->year();
         $class = max(0, (int) input_string($_GET['turma'] ?? '0'));
         $search = mb_substr(trim(input_string($_GET['q'] ?? '')), 0, 100, 'UTF-8');
-        $type = input_string($_GET['tipo'] ?? 'progressao') === 'regressao' ? 'regressao' : 'progressao';
+        $type = input_string($_GET['tipo'] ?? '');
+        $type = in_array($type, ['passivo', 'progressao', 'regressao'], true) ? $type : '';
         $archiveClass = max(0, (int) input_string($_GET['passivo_turma'] ?? '0'));
         $classes = $service->turmas();
         if ($archiveClass > 0 && !in_array($archiveClass, array_map(static fn (array $item): int => (int) $item['id'], $classes), true)) {
@@ -34,18 +35,23 @@ final class MovimentacaoAlunosController extends Controller
         }
         $token = input_string($_GET['preview'] ?? '');
         $preview = $this->getPreview($token);
+        if ($preview !== null) {
+            $type = $preview['tipo'];
+        } elseif ($type === '' && $archiveClass > 0) {
+            $type = 'passivo';
+        }
         if ($token !== '' && $preview === null) {
             definir_flash('warning', 'A prévia expirou ou já foi confirmada. Selecione os alunos novamente.');
         }
         $this->view('alunos/movimentar', [
             'title' => 'Movimentar alunos', 'year' => $year, 'classes' => $classes,
             'state' => $service->conferencia($year), 'series' => MovimentacaoAlunos::series(),
-            'students' => $class > 0 || $search !== '' ? $service->alunos($class, $search) : [],
+            'students' => in_array($type, ['progressao', 'regressao'], true) && ($class > 0 || $search !== '') ? $service->alunos($class, $search) : [],
             'classId' => $class, 'search' => $search, 'type' => $type,
             'configure' => input_string($_GET['configurar'] ?? '') === '1',
             'preview' => $preview, 'previewToken' => $token,
             'archiveClassId' => $archiveClass,
-            'archiveStudents' => $archiveClass > 0 ? $service->alunos($archiveClass) : [],
+            'archiveStudents' => $type === 'passivo' && $archiveClass > 0 ? $service->alunos($archiveClass) : [],
             'archiveAfter' => input_string($_GET['arquivados'] ?? '') === '1',
             'archiveSelected' => $archiveSelected,
         ]);
@@ -95,7 +101,7 @@ final class MovimentacaoAlunosController extends Controller
         }
         $token = bin2hex(random_bytes(16));
         $_SESSION['student_move_previews'][$token] = ['actor' => $this->actor(), 'created_at' => time(), 'plan' => $plan];
-        redirect($this->path() . '&preview=' . $token . '#movement-preview');
+        redirect($this->path($type) . '&preview=' . $token . '#movement-preview');
     }
 
     public function confirmar(): void
@@ -111,7 +117,7 @@ final class MovimentacaoAlunosController extends Controller
         $service = new MovimentacaoAlunos();
         $result = $service->confirmar($preview, $this->actor(), $token);
         unset($_SESSION['student_move_previews'][$token]);
-        $this->redirectWithFlash($this->path(), $result !== false ? 'success' : 'danger',
+        $this->redirectWithFlash($this->path($preview['tipo']), $result !== false ? 'success' : 'danger',
             $result !== false ? sprintf('%d aluno(s) movimentado(s). O histórico está disponível no perfil de cada aluno.', count($preview['ids'])) : $service->errorMessage());
     }
 
@@ -130,9 +136,11 @@ final class MovimentacaoAlunosController extends Controller
         return $year;
     }
 
-    private function path(): string
+    private function path(string $type = ''): string
     {
-        return 'aluno/movimentar?ano=' . $this->year();
+        $type = $type !== '' ? $type : input_string($_POST['tipo'] ?? 'progressao');
+        $type = in_array($type, ['progressao', 'regressao'], true) ? $type : 'progressao';
+        return 'aluno/movimentar?ano=' . $this->year() . '&tipo=' . $type;
     }
 
     private function expirePreviews(): void

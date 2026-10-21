@@ -1,7 +1,8 @@
 <section class="relatorio movement-panel" aria-labelledby="movement-archive-title">
-    <div class="section-head"><div><h2 id="movement-archive-title">1. Enviar turma ao Arquivo Passivo</h2><p>Escolha a turma e confira os alunos. Desmarque os reprovados e quem deve continuar ativo.</p></div></div>
+    <div class="section-head"><div><h2 id="movement-archive-title">Escolher turma para enviar ao passivo</h2><p>Escolha a turma e confira os alunos. Desmarque os reprovados e quem deve continuar ativo.</p></div></div>
     <form class="movement-controls" method="get" action="<?= e(url('aluno/movimentar')) ?>" data-movement-archive-class>
         <input type="hidden" name="ano" value="<?= e((string) $year) ?>">
+        <input type="hidden" name="tipo" value="passivo">
         <div><label for="movement-archive-class">Turma para enviar ao passivo</label><select id="movement-archive-class" name="passivo_turma" required><option value="">Selecione uma turma cadastrada</option><?php foreach ($classes as $class): ?><option value="<?= e((string) $class['id']) ?>" <?= $archiveClassId === (int) $class['id'] ? 'selected' : '' ?>><?= e($labelClass($class)) ?> — <?= e((string) $class['alunos_ativos']) ?> ativo(s)</option><?php endforeach; ?></select></div>
         <div><button class="btn-secondary" type="submit">Listar alunos da turma</button></div>
     </form>

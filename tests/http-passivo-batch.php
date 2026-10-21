@@ -85,6 +85,8 @@ foreach (['selecionar', 'preview', 'confirmar'] as $operation) {
 }
 checkHttp(request('GET', $baseUrl . '/aluno/arquivar-lote?selecao=' . str_repeat('a', 64), $cookieGuest)['status'] === 302, 'Visitante nao acessa selecao do lote');
 
+$batchNumberBase = (int) $batchDb->query("SELECT COALESCE(MAX(CAST(numero AS INTEGER)),0) FROM alunos_passivo WHERE numero GLOB '[0-9]*' AND numero NOT GLOB '*[^0-9]*'")->fetchColumn();
+$batchExpectedNumbers = array_map(static fn (int $offset): string => (string) ($batchNumberBase + $offset), [1, 2, 3]);
 $batchNew = $batchPrepare($batchIds, 'CX-LOTE-HTTP', 'nova');
 checkHttp(str_contains($batchNew['body'], '&lt;script&gt;') && !str_contains($batchNew['body'], '<script>teste</script>'), 'Previa de lote escapa nomes dos alunos');
 checkHttp($batchStudentStates($batchIds) === $batchInitialStates && $batchPassiveCount() === $batchInitialCount, 'Previa HTTP nao inativa nem arquiva alunos');
@@ -106,7 +108,7 @@ $batchConfirmation = ['_csrf_token' => csrf($batchNew['body']), 'selecao' => $ba
 $batchSaved = request('POST', $baseUrl . '/aluno/arquivar-lote/confirmar', $cookieAdmin, $batchConfirmation);
 checkHttp($batchSaved['status'] === 302 && str_contains($batchSaved['headers']['location'] ?? '', '/passivo') && str_contains($batchSaved['headers']['location'] ?? '', 'ordem=numero'), 'Confirmacao redireciona ao arquivo passivo com ordem de numeracao');
 $batchArchives = $batchDb->query("SELECT aluno_origem_id,numero FROM alunos_passivo WHERE caixa_normalizada='cx-lote-http' ORDER BY CAST(numero AS INTEGER)")->fetchAll();
-checkHttp(array_column($batchArchives, 'aluno_origem_id') === [$batchAna, $batchBia, $batchZeta] && array_column($batchArchives, 'numero') === ['1', '2', '3'], 'Lote novo atribui posicoes consecutivas por nome');
+checkHttp(array_column($batchArchives, 'aluno_origem_id') === [$batchAna, $batchBia, $batchZeta] && array_column($batchArchives, 'numero') === $batchExpectedNumbers, 'Lote novo atribui posicoes consecutivas por nome continuando o acervo');
 checkHttp(array_column($batchStudentStates($batchIds), 'ativo') === [0, 0, 0] && (int) $batchDb->query('SELECT ativo FROM alunos WHERE id=' . $batchOutsider)->fetchColumn() === 1, 'Confirmacao inativa selecionados e ignora IDs forjados no POST');
 checkHttp((int) $batchDb->query("SELECT COUNT(*) FROM alunos_passivo WHERE caixa_normalizada='cx-forjada-http'")->fetchColumn() === 0, 'Confirmacao usa somente a caixa armazenada na previa');
 checkHttp($batchDb->query('SELECT * FROM dvas ORDER BY id')->fetchAll() === $batchDvas, 'Arquivamento HTTP preserva integralmente DVAs e historico');
@@ -117,12 +119,13 @@ $batchRepeated = request('POST', $baseUrl . '/aluno/arquivar-lote/confirmar', $c
 checkHttp($batchRepeated['status'] === 302 && $batchPassiveCount() === $batchCountAfter && (int) $batchDb->query("SELECT COUNT(*) FROM security_audit WHERE action='passive.batch_archived'")->fetchColumn() === $batchAuditAfter, 'Reenvio da mesma confirmacao nao duplica alunos nem auditoria');
 
 $batchInsertPassive('Arquivo inativo numerado ficticio', 'CX-LOTE-HTTP', '00009', false);
+$batchExistingBase = max(9, $batchNumberBase + 3);
 $batchExistingBia = $batchInsertStudent('Lote Existente HTTP Bia');
 $batchExistingAna = $batchInsertStudent('Lote Existente HTTP Ana');
 $batchExisting = $batchPrepare([$batchExistingBia, $batchExistingAna], 'CX-LOTE-HTTP', 'existente');
 $batchExistingConfirm = request('POST', $baseUrl . '/aluno/arquivar-lote/confirmar', $cookieAdmin, ['_csrf_token' => csrf($batchExisting['body']), 'selecao' => $batchExisting['selecao'], 'preview_token' => $batchExisting['preview_token'], 'confirmar' => '1']);
 $batchExistingNumbers = $batchDb->query('SELECT numero FROM alunos_passivo WHERE aluno_origem_id IN (' . $batchExistingAna . ',' . $batchExistingBia . ') ORDER BY CAST(numero AS INTEGER)')->fetchAll();
-checkHttp($batchExistingConfirm['status'] === 302 && array_column($batchExistingNumbers, 'numero') === ['10', '11'], 'Caixa existente continua depois do maior numero incluindo arquivo inativo');
+checkHttp($batchExistingConfirm['status'] === 302 && array_column($batchExistingNumbers, 'numero') === [(string) ($batchExistingBase + 1), (string) ($batchExistingBase + 2)], 'Caixa existente continua depois do maior numero incluindo arquivo inativo');
 
 $batchStaleAna = $batchInsertStudent('Lote Concorrente HTTP Ana');
 $batchStaleBia = $batchInsertStudent('Lote Concorrente HTTP Bia');

@@ -44,7 +44,7 @@ try {
     const go = async path => { await page.navigate(base+path); await page.until(`document.readyState==='complete'`); };
     const fill = async (selector, text) => { await page.click(selector);await page.command('Input.insertText',{text}); };
     const setValue = async (selector,value) => page.evaluate(`document.querySelector(${JSON.stringify(selector)}).value=${JSON.stringify(value)}`);
-    const awaitMovement = () => page.until(`location.pathname==='/aluno/movimentar' && document.readyState==='complete' && !!document.querySelector('#movement-senior-title')`);
+    const awaitMovement = () => page.until(`location.pathname==='/aluno/movimentar' && document.readyState==='complete' && !!document.querySelector('[data-movement-action]')`);
     const submit = async selector => {
         const origin = await page.evaluate('performance.timeOrigin');
         await page.click(selector);
@@ -63,6 +63,15 @@ try {
     await go('/aluno');
     check(await page.evaluate(`!!document.querySelector('a[href$="/aluno/movimentar"]')`),true,'Administrator sees entry button');
     await go('/aluno/movimentar?ano=2027');
+    check(await page.evaluate(`[...document.querySelectorAll('[data-movement-choice]')].map(link=>link.querySelector('strong').textContent)`),['Mandar para o passivo','Progredir turma','Regredir turma'],'Entry offers the three requested actions');
+    check(await page.evaluate(`document.querySelector('.movement-controls, #movement-senior-title, #movement-selection-title, #movement-archive-title')===null`),true,'Entry shows only the action choice');
+    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
+        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Action choices fit ${width}x${height}`);
+        await shot(`movimentacao-escolher-${width}x${height}`);
+    }
+    await page.click('[data-movement-choice="progressao"]');await awaitMovement();
+    check(await page.evaluate(`document.querySelector('#movement-archive-title')===null`),true,'Progression contains no archive form');
     check(await page.evaluate(`document.querySelector('.movement-controls button[type="submit"]').textContent.trim()`),'Abrir ano','Movement screen renders');
     check(await page.evaluate(`(() => {const section=document.querySelector('#movement-senior-title').closest('section');
         return section.textContent.includes('Identifique as séries antes de concluir a conferência') && !section.textContent.includes('Não há alunos ativos do 3º ano');})()`),true,'Unclassified classes never display a false absence of senior pupils');
@@ -74,6 +83,10 @@ try {
         await shot(`movimentacao-series-pendentes-${width}x${height}`);
     }
     await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+    await page.click('[data-movement-back]');
+    await page.until(`!!document.querySelector('[data-movement-choice="passivo"]')`);
+    await page.click('[data-movement-choice="passivo"]');await awaitMovement();
+    check(await page.evaluate(`document.querySelector('#movement-senior-title, #movement-series-title, #movement-selection-title, #movement-year')===null`),true,'Archiving contains only the selected action');
     check(await page.evaluate(`document.querySelector('form[action$="/movimentar/series"]')===null`),true,'Grade configuration is not forced before class archiving');
     // Every new mutating route rejects GET and invalid CSRF.
     for (const action of ['series','conferencia','preview','confirmar']) {
@@ -123,13 +136,14 @@ try {
     check(await page.evaluate(`document.querySelector('#movement-archive-class').value`),'3','Archive returns to the selected class');
     check(await page.evaluate(`document.querySelectorAll('form[action$="/arquivar-lote/selecionar"] input[name="alunos[]"]:checked').length`),0,'Remaining pupils are not preselected again after archiving');
     check(fixture().students.map(s=>s.ativo),[1,1,0,1],'Graduate is archived and repeater stays active');
-    await go('/aluno/movimentar?ano=2027&configurar=1');
+    check(await page.evaluate(`new URL(location.href).searchParams.get('tipo')`),'passivo','Archive confirmation stays in the archive action');
+    await go('/aluno/movimentar?ano=2027&tipo=progressao&configurar=1');
     for (const [id,serie] of [[1,'10'],[2,'11'],[3,'12']]) await setValue(`#series-${id}`,serie);
     await submit('form[action$="/movimentar/series"] button[type="submit"]');await awaitMovement();
     check(await page.evaluate(`document.querySelector('form[action$="/movimentar/preview"] button[type="submit"]').disabled`),true,'Progression is still blocked before senior review');
     await page.click('form[action$="/movimentar/conferencia"] input[name="confirmar"]');
     await submit('form[action$="/movimentar/conferencia"] button[type="submit"]');await awaitMovement();
-    await go('/aluno/movimentar?ano=2027&turma=1');
+    await go('/aluno/movimentar?ano=2027&tipo=progressao&turma=1');
     await page.until(`!document.querySelector('[data-movement-select-all]').hidden`);
     await page.click('form[action$="/movimentar/preview"] [data-movement-select-all]');
     check(await page.evaluate(`document.querySelectorAll('form[action$="/movimentar/preview"] input[name="alunos[]"]:checked').length`),2,'Select whole displayed class');
@@ -151,20 +165,30 @@ try {
     await go('/aluno/perfil/1');
     check(await page.evaluate(`document.body.textContent.includes('Histórico de movimentações de série')`),true,'Profile displays movement history');
     await go('/aluno/movimentar?ano=2028&turma=2&tipo=regressao');
+    check(await page.evaluate(`document.querySelector('#movement-senior-title, #movement-archive-title, #movement-type')===null`),true,'Regression has no senior review, archive form, or repeated operation selector');
+    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
+        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        await page.evaluate('scrollTo(0,0)');
+        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Regression fits ${width}x${height}`);
+        await shot(`movimentacao-regredir-${width}x${height}`);
+    }
+    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
     await page.click('form[action$="/movimentar/preview"] input[name="alunos[]"]');
     await setValue('#movement-destination','1');
     await submit('form[action$="/movimentar/preview"] button[type="submit"]');
     await page.until(`!!document.querySelector('#movement-preview')`);
     await page.click('form[action$="/movimentar/confirmar"] input[name="confirmar"]');
     await submit('form[action$="/movimentar/confirmar"] button[type="submit"]');await awaitMovement();
+    check(await page.evaluate(`new URL(location.href).searchParams.get('tipo')`),'regressao','Regression confirmation stays in the regression action');
     const final = fixture();
     check(final.students.map(s=>s.id_turma),[1,1,3,3],'Regression works without senior review in the selected year');
     check(final.classes,initial.classes,'Existing class names and school years are preserved');
     check(final.dvas,initial.dvas,'All DVA records are preserved');
     // The explicit whole-class button must also include pupils outside a name search.
+    await go('/aluno/movimentar?ano=2028&tipo=progressao');
     await page.click('form[action$="/movimentar/conferencia"] input[name="confirmar"]');
     await submit('form[action$="/movimentar/conferencia"] button[type="submit"]');await awaitMovement();
-    await go('/aluno/movimentar?ano=2028&turma=1&q=Aprovado');
+    await go('/aluno/movimentar?ano=2028&tipo=progressao&turma=1&q=Aprovado');
     check(await page.evaluate(`document.querySelectorAll('form[action$="/movimentar/preview"] input[name="alunos[]"]').length`),1,'Name search narrows the visible class roster');
     await setValue('#movement-destination','2');
     await submit('button[name="turma_inteira"]');

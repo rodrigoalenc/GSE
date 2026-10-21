@@ -212,12 +212,12 @@ try {
     await page.click('[data-archive-batch-box] button[type="submit"]');
     await page.until(`document.querySelector('.passivo-batch-confirm-form') !== null`);
     await page.until(`document.readyState === 'complete'`);
-    check(await page.evaluate(`[...document.querySelectorAll('.passivo-preview tbody tr td:first-child')].map(n=>n.textContent.trim())`), ['1','2'], 'New box starts at one');
+    check(await page.evaluate(`[...document.querySelectorAll('.passivo-preview tbody tr td:first-child')].map(n=>n.textContent.trim())`), ['18','19'], 'New box continues after the previous box');
     await page.click('.passivo-batch-confirm-form input[name="confirmar"]');
     await page.click('.passivo-batch-confirm-form button[type="submit"]');
     await page.until(`location.pathname === '/passivo'`);
     const finalResult = fixture('inspect');
-    check(finalResult.passivo.slice(-2).map(p=>[p.aluno_origem_id,p.caixa,p.numero]), [[2,'25','1'],[33,'25','2']], 'New box persists both origins');
+    check(finalResult.passivo.slice(-2).map(p=>[p.aluno_origem_id,p.caixa,p.numero]), [[2,'25','18'],[33,'25','19']], 'New box persists both origins with continuing numbers');
     check(finalResult.alunos.find(a=>a.id===33), initial.alunos.find(a=>a.id===33), 'Existing inactivation metadata preserved');
     check(finalResult.dvas, initial.dvas, 'DVAs unchanged after both batches');
     await go('/aluno', '[data-student-archive-selection]');

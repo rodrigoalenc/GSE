@@ -214,88 +214,6 @@ final class PassivoController extends Controller
         $this->redirectWithFlash('passivo', 'success', sprintf('%d registro(s) importado(s) sem apagar o acervo atual.', $count));
     }
 
-    public function ferramentas(): void
-    {
-        $token = input_string($_GET['preview'] ?? '');
-        $previews = $_SESSION['passivo_enumeration_previews'] ?? [];
-        $preview = preg_match('/^[a-f0-9]{64}$/', $token) === 1 && is_array($previews)
-            && isset($previews[$token]) && is_array($previews[$token])
-            ? $previews[$token]
-            : null;
-
-        if (is_array($preview) && ((int) ($preview['actor_id'] ?? 0) !== $this->actorId()
-            || (int) ($preview['expires_at'] ?? 0) < time())) {
-            unset($_SESSION['passivo_enumeration_previews'][$token]);
-            $preview = null;
-        }
-
-        $this->view('passivo/ferramentas', [
-            'title' => 'Ferramentas de Caixa',
-            'boxes' => (new Passivo())->caixas(),
-            'preview' => $preview,
-            'previewToken' => $preview === null ? '' : $token,
-        ]);
-    }
-
-    public function previewEnumeration(): void
-    {
-        $model = new Passivo();
-        $preview = $model->previewEnumeracao(input_string($_POST['caixa'] ?? ''));
-
-        if ($preview === false) {
-            AuditLogger::record(
-                'passive.enumeration_previewed', AuditLogger::FAILURE, $this->actorId(), null,
-                'Prévia de enumeração recusada.', 'passive_box'
-            );
-            $this->redirectWithFlash('passivo/ferramentas', 'danger', $model->validationMessage($model->lastErrorCode()));
-        }
-
-        $token = bin2hex(random_bytes(32));
-        $_SESSION['passivo_enumeration_previews'][$token] = [
-            'actor_id' => $this->actorId(),
-            'expires_at' => time() + 900,
-            'caixa' => $preview['caixa'],
-            'assignments' => $preview['assignments'],
-        ];
-        AuditLogger::record(
-            'passive.enumeration_previewed', AuditLogger::SUCCESS, $this->actorId(), null,
-            sprintf('Prévia de enumeração gerada para %d registros.', count($preview['assignments'])), 'passive_box'
-        );
-        redirect('passivo/ferramentas?preview=' . $token);
-    }
-
-    public function confirmEnumeration(): void
-    {
-        $token = input_string($_POST['preview_token'] ?? '');
-        $previews = $_SESSION['passivo_enumeration_previews'] ?? [];
-        $preview = preg_match('/^[a-f0-9]{64}$/', $token) === 1 && is_array($previews)
-            && isset($previews[$token]) && is_array($previews[$token])
-            ? $previews[$token]
-            : null;
-        unset($_SESSION['passivo_enumeration_previews'][$token]);
-
-        if (!is_array($preview) || (int) ($preview['actor_id'] ?? 0) !== $this->actorId()
-            || (int) ($preview['expires_at'] ?? 0) < time()
-            || !is_array($preview['assignments'] ?? null)) {
-            $this->redirectWithFlash('passivo/ferramentas', 'danger', 'A prévia expirou ou já foi utilizada.');
-        }
-
-        $model = new Passivo();
-        /** @var list<array{id:int,nome:string,numero:string,numero_anterior:?string}> $assignments */
-        $assignments = array_values($preview['assignments']);
-        $count = $model->aplicarEnumeracao((string) $preview['caixa'], $assignments, $this->actorId());
-
-        if ($count === false) {
-            AuditLogger::record(
-                'passive.enumerated', AuditLogger::FAILURE, $this->actorId(), null,
-                'Enumeração de caixa não concluída.', 'passive_box'
-            );
-            $this->redirectWithFlash('passivo/ferramentas', 'danger', $model->validationMessage($model->lastErrorCode()));
-        }
-
-        $this->redirectWithFlash('passivo?' . http_build_query(['caixa' => (string) $preview['caixa'], 'ordem' => 'numero']), 'success', sprintf('%d registro(s) ordenado(s) alfabeticamente e renumerado(s) a partir de 1.', $count));
-    }
-
     public function exportar(): never
     {
         $box = input_string($_POST['caixa'] ?? '');
@@ -487,7 +405,7 @@ final class PassivoController extends Controller
         if (!isset($batch['movimentacao_ano'])) {
             return 'aluno';
         }
-        $query = ['ano' => (int) $batch['movimentacao_ano']];
+        $query = ['ano' => (int) $batch['movimentacao_ano'], 'tipo' => 'passivo'];
         if (isset($batch['movimentacao_turma'])) {
             $query['passivo_turma'] = (int) $batch['movimentacao_turma'];
             if ($selection !== '') {
