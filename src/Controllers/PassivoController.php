@@ -385,6 +385,7 @@ final class PassivoController extends Controller
         }
         $token = bin2hex(random_bytes(32));
         $movementYear = filter_var($_POST['movimentacao_ano'] ?? null, FILTER_VALIDATE_INT);
+        $movementClass = filter_var($_POST['movimentacao_turma'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $_SESSION['passivo_archive_batches'][$token] = [
             'actor_id' => $this->actorId(),
             'ids' => array_map(static fn (array $student): int => (int) $student['id'], $students),
@@ -392,6 +393,7 @@ final class PassivoController extends Controller
             'data' => ['tipo_caixa' => 'existente', 'caixa_existente' => '', 'caixa_nova' => ''],
             'errors' => [],
             'movimentacao_ano' => $movementYear !== false && $movementYear >= 2000 && $movementYear <= (int) date('Y') + 5 ? $movementYear : null,
+            'movimentacao_turma' => $movementClass !== false ? $movementClass : null,
         ];
         redirect('aluno/arquivar-lote?selecao=' . $token);
     }
@@ -415,7 +417,7 @@ final class PassivoController extends Controller
             'errors' => $batch['errors'],
             'preview' => $batch['preview'] ?? false,
             'previewToken' => $batch['preview_token'] ?? null,
-            'returnPath' => isset($batch['movimentacao_ano']) ? 'aluno/movimentar?ano=' . (int) $batch['movimentacao_ano'] : 'aluno',
+            'returnPath' => $this->movementReturnPath($batch, $token),
         ]);
     }
 
@@ -468,14 +470,31 @@ final class PassivoController extends Controller
             redirect('aluno/arquivar-lote?selecao=' . $token);
         }
         $movementYear = $batch['movimentacao_ano'] ?? null;
+        $movementReturn = $this->movementReturnPath($batch);
         unset($_SESSION['passivo_archive_batches'][$token]);
         $_SESSION['passivo_batch_selection_reset'] = true;
         if ($movementYear !== null) {
-            $this->redirectWithFlash('aluno/movimentar?ano=' . (int) $movementYear, 'success',
-                sprintf('%d concluintes enviados ao Arquivo Passivo. Confira os alunos restantes do 3º ano e conclua a conferência.', $result['total']));
+            $this->redirectWithFlash($movementReturn . '&arquivados=1#movement-archive-title', 'success',
+                sprintf('%d aluno(s) enviados ao Arquivo Passivo. Os alunos desmarcados continuam ativos.', $result['total']));
         }
         $this->redirectWithFlash('passivo?' . http_build_query(['caixa' => $result['caixa'], 'ordem' => 'numero']), 'success',
             sprintf('%d alunos enviados à caixa %s. Os cadastros e históricos de DVA foram preservados.', $result['total'], $result['caixa']));
+    }
+
+    /** @param array<string,mixed> $batch */
+    private function movementReturnPath(array $batch, string $selection = ''): string
+    {
+        if (!isset($batch['movimentacao_ano'])) {
+            return 'aluno';
+        }
+        $query = ['ano' => (int) $batch['movimentacao_ano']];
+        if (isset($batch['movimentacao_turma'])) {
+            $query['passivo_turma'] = (int) $batch['movimentacao_turma'];
+            if ($selection !== '') {
+                $query['passivo_selecao'] = $selection;
+            }
+        }
+        return 'aluno/movimentar?' . http_build_query($query);
     }
 
     private function archiveField(string $name, int $maximum): string

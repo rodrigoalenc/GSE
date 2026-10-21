@@ -12,6 +12,9 @@
 .movement-destination { margin-top: 20px; }
 .movement-preview { border: 2px solid #245cc6; scroll-margin-top: 20px; }
 .movement-panel button:disabled { opacity: .6; cursor: not-allowed; }
+.movement-panel .tabela-filtrada.movement-archive-table { min-width: 0; width: 100%; table-layout: fixed; }
+.movement-panel .movement-archive-table th:first-child { width: 80px; }
+.movement-panel .movement-archive-table td:last-child { white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 600px) {
     .movement-panel .form-actions { display: flex; flex-direction: column; align-items: stretch; }
     .movement-panel .form-actions > * { text-align: center; white-space: normal; }

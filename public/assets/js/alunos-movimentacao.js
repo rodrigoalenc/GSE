@@ -1,3 +1,7 @@
+document.querySelector('[data-movement-archive-class] select')?.addEventListener('change', (event) => {
+    if (event.target.value) event.target.form.requestSubmit();
+});
+
 document.querySelectorAll('[data-movement-selection]').forEach((form) => {
     const boxes = [...form.querySelectorAll('input[name="alunos[]"]')];
     const summary = form.querySelector('[data-movement-count]');

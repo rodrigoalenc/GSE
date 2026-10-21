@@ -1,6 +1,6 @@
 <?php
 $basePath = 'aluno/movimentar?ano=' . $year;
-$showSetup = $configure || $state['pendentes'] > 0;
+$showSetup = $configure;
 $showReview = !$state['liberada'] || input_string($_GET['revisar'] ?? '') === '1';
 $labelClass = static fn (array $class): string => (string) $class['nome_turma']
     . ($class['ano_letivo'] ? ' — ' . $class['ano_letivo'] : ' — ano letivo não informado');
@@ -36,8 +36,10 @@ $labelClass = static fn (array $class): string => (string) $class['nome_turma']
 </section>
 <?php endif; ?>
 
+<?php require ROOT_PATH . '/src/Views/alunos/movimentar-passivo.php'; ?>
+
 <section class="relatorio movement-panel" aria-labelledby="movement-series-title">
-    <div class="section-head"><div><h2 id="movement-series-title">Identificação das séries</h2><p>Informe a série correspondente a cada turma, mantendo seu nome atual. Essa identificação permite conferir o avanço ou retorno de uma série.</p></div>
+    <div class="section-head"><div><h2 id="movement-series-title">Séries para progressão e regressão</h2><p>Identifique as séries para conferir o avanço ou retorno de uma série. O envio ao Arquivo Passivo acima funciona diretamente pela turma escolhida.</p></div>
     <?php if (!$showSetup): ?><a class="btn-secondary" href="<?= e(url($basePath . '&configurar=1#movement-series-title')) ?>">Identificar séries das turmas</a><?php endif; ?></div>
     <?php if ($state['pendentes'] > 0): ?><p class="warning-message" role="status"><?= e((string) $state['pendentes']) ?> aluno(s) ativo(s) estão em turmas sem série identificada ou sem turma. Identifique as séries abaixo; para alunos sem turma, ajuste o cadastro em Gestão de alunos antes de liberar a progressão.</p><?php endif; ?>
     <?php if ($showSetup): ?>
@@ -55,26 +57,25 @@ $labelClass = static fn (array $class): string => (string) $class['nome_turma']
 </section>
 
 <section class="relatorio movement-panel" aria-labelledby="movement-senior-title">
-    <div class="section-head"><div><h2 id="movement-senior-title">1. Conferir o 3º ano do ensino médio</h2><p>Antes da progressão, envie os concluintes ao Arquivo Passivo. Os reprovados devem permanecer ativos.</p></div><span class="result-pill"><?= $state['liberada'] ? 'Conferência concluída' : 'Conferência pendente' ?></span></div>
+    <div class="section-head"><div><h2 id="movement-senior-title">Conferência para liberar a progressão</h2><p>Depois de enviar os concluintes ao Arquivo Passivo, confira os alunos do 3º ano que permanecerão ativos por reprovação.</p></div><span class="result-pill"><?= $state['pendentes'] > 0 ? 'Identificação das séries pendente' : ($state['liberada'] ? 'Conferência concluída' : 'Conferência pendente') ?></span></div>
     <?php if ($state['liberada']): ?><p class="success-message">Progressão liberada para <?= e((string) $year) ?>. <?= e((string) count($state['alunos'])) ?> aluno(s) do 3º ano permanecem ativos por reprovação. Alunos que chegaram ao 3º ano pela progressão deste ciclo não entram nessa conferência.</p><?php endif; ?>
     <?php if (!$showReview): ?><a class="btn-secondary" href="<?= e(url($basePath . '&revisar=1#movement-senior-title')) ?>">Revisar alunos do 3º ano</a><?php endif; ?>
     <?php if ($showReview): ?>
+        <?php if ($state['pendentes'] > 0): ?>
+        <div class="warning-message" role="status"><strong>Identifique as séries antes de concluir a conferência.</strong> Há <?= e((string) $state['pendentes']) ?> aluno(s) ativo(s) sem turma ou em turmas cuja série ainda não foi identificada. Ainda não é possível determinar todos os alunos do 3º ano; esses alunos continuam ativos. <a href="#movement-series-title">Confira a identificação das turmas</a> e selecione “3º ano do ensino médio” nas turmas correspondentes, depois salve. Para alunos sem turma, ajuste o cadastro em Gestão de alunos.</div>
+        <?php endif; ?>
         <?php if ($state['alunos'] !== []): ?>
-        <form method="post" action="<?= e(url('aluno/arquivar-lote/selecionar')) ?>" data-movement-selection>
-            <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="movimentacao_ano" value="<?= e((string) $year) ?>">
-            <p><strong>Selecione somente quem concluiu.</strong> Deixe os reprovados desmarcados. Você escolherá a caixa e conferirá outra prévia antes do arquivamento.</p>
-            <div class="movement-selection-actions"><button class="btn-secondary" type="button" data-movement-select-all hidden>Marcar todos</button><button class="btn-secondary" type="button" data-movement-clear hidden>Desmarcar todos</button><span data-movement-count role="status" aria-live="polite">Nenhum concluinte selecionado.</span></div>
-            <div class="table-scroll"><table class="tabela-filtrada"><thead><tr><th>Concluiu</th><th>Aluno</th><th>Turma atual</th></tr></thead><tbody>
-            <?php foreach ($state['alunos'] as $student): ?><tr><td><input type="checkbox" name="alunos[]" value="<?= e((string) $student['id']) ?>" aria-label="Enviar <?= e((string) $student['nome_completo']) ?> como concluinte ao Arquivo Passivo"></td><td><?= e((string) $student['nome_completo']) ?></td><td><?= e((string) $student['nome_turma']) ?></td></tr><?php endforeach; ?>
+            <div class="table-scroll"><table class="tabela-filtrada"><thead><tr><th>Situação</th><th>Aluno</th><th>Turma atual</th></tr></thead><tbody>
+            <?php foreach ($state['alunos'] as $student): ?><tr><td>Permanece ativo</td><td><?= e((string) $student['nome_completo']) ?></td><td><?= e((string) $student['nome_turma']) ?></td></tr><?php endforeach; ?>
             </tbody></table></div>
-            <div class="form-actions"><button class="btn-primary" type="submit">Escolher caixa e conferir concluintes</button></div>
-        </form>
-        <?php else: ?><p>Não há alunos ativos do 3º ano pendentes desta conferência. Confirme essa situação abaixo para liberar a progressão.</p><?php endif; ?>
+        <?php elseif ($state['pendentes'] === 0): ?><p>Não há alunos ativos do 3º ano pendentes desta conferência. Se você esperava encontrar alunos aqui, confira a identificação das séries das turmas antes de confirmar.</p><?php endif; ?>
+        <?php if ($state['pendentes'] === 0): ?>
         <form class="movement-review-confirm" method="post" action="<?= e(url('aluno/movimentar/conferencia')) ?>">
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ano" value="<?= e((string) $year) ?>"><input type="hidden" name="fingerprint" value="<?= e($state['fingerprint']) ?>">
-            <label class="movement-check"><input type="checkbox" name="confirmar" value="1" required> Todos os concluintes já foram enviados ao Arquivo Passivo. Os <?= e((string) count($state['alunos'])) ?> aluno(s) listados acima são reprovados e devem continuar ativos.</label>
-            <button class="btn-primary" type="submit" <?= $state['pendentes'] > 0 ? 'disabled' : '' ?>>Concluir conferência e liberar progressão</button>
+            <label class="movement-check"><input type="checkbox" name="confirmar" value="1" required> <?php if ($state['alunos'] !== []): ?>Todos os concluintes já foram enviados ao Arquivo Passivo. Os <?= e((string) count($state['alunos'])) ?> aluno(s) listados acima são reprovados e devem continuar ativos.<?php else: ?>Conferi a identificação das séries e confirmo que não há concluintes pendentes de envio ao Arquivo Passivo nesta conferência.<?php endif; ?></label>
+            <button class="btn-primary" type="submit">Concluir conferência e liberar progressão</button>
         </form>
+        <?php endif; ?>
     <?php endif; ?>
 </section>
 

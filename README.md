@@ -201,7 +201,9 @@ Turmas possuem nome, ano letivo e situação. A combinação `nome_normalizado +
 
 ### Movimentação de série
 
-Administradores encontram **Movimentar alunos** em **Gestão de alunos**. Primeiro, identifique a série de cada turma existente, do 1º ano do ensino fundamental ao 3º ano do ensino médio. Essa informação é independente do nome e do ano letivo da turma: nenhum nome é interpretado automaticamente, renomeado ou criado. A migração v19 acrescenta somente tabelas de identificação, conferência e histórico; não movimenta nem arquiva alunos.
+Administradores encontram **Movimentar alunos** em **Gestão de alunos**. No primeiro bloco, **Enviar turma ao Arquivo Passivo**, escolha uma turma no select: seus alunos ativos aparecem marcados, mesmo que a série da turma não esteja identificada. Desmarque os reprovados e quem deve continuar ativo, escolha a caixa e confira a prévia antes de confirmar o envio. Ao terminar, a tela retorna à mesma turma e deixa os alunos restantes desmarcados. Os nomes e os anos letivos das turmas são preservados.
+
+Para progressão e regressão, identifique a série das turmas existentes, do 1º ano do ensino fundamental ao 3º ano do ensino médio, usando **Identificar séries das turmas**. Essa informação é independente do nome e do ano letivo da turma: nenhum nome é interpretado automaticamente, renomeado ou criado. A migração v19 acrescenta somente tabelas de identificação, conferência e histórico; não movimenta nem arquiva alunos.
 
 Escolha o **ano de referência** (por exemplo, 2027). Para liberar a progressão desse ano, selecione os concluintes do 3º ano do ensino médio, escolha a caixa e confirme o envio ao Arquivo Passivo. O fluxo retorna à conferência; os alunos restantes são reprovados e continuam ativos. Confirme essa lista para liberar a progressão. Se não houver alunos no terceiro, confirme a lista vazia. Alunos ativos sem turma ou em turmas sem série identificada precisam ser regularizados antes dessa liberação. Novos alunos do terceiro exigem nova conferência; quem chegou ao terceiro pela progressão do próprio ciclo não reabre a etapa.
 

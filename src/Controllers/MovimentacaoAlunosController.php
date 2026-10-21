@@ -13,18 +13,41 @@ final class MovimentacaoAlunosController extends Controller
         $class = max(0, (int) input_string($_GET['turma'] ?? '0'));
         $search = mb_substr(trim(input_string($_GET['q'] ?? '')), 0, 100, 'UTF-8');
         $type = input_string($_GET['tipo'] ?? 'progressao') === 'regressao' ? 'regressao' : 'progressao';
+        $archiveClass = max(0, (int) input_string($_GET['passivo_turma'] ?? '0'));
+        $classes = $service->turmas();
+        if ($archiveClass > 0 && !in_array($archiveClass, array_map(static fn (array $item): int => (int) $item['id'], $classes), true)) {
+            render_http_error(422, 'Turma inválida', 'Escolha uma turma cadastrada para consultar seus alunos.', 'aluno/movimentar');
+        }
+        $archiveSelected = null;
+        $selection = input_string($_GET['passivo_selecao'] ?? '');
+        if ($selection !== '') {
+            $batch = preg_match('/^[a-f0-9]{64}$/D', $selection) === 1 ? ($_SESSION['passivo_archive_batches'][$selection] ?? null) : null;
+            $archiveSelected = [];
+            if (is_array($batch) && (int) ($batch['actor_id'] ?? 0) === $this->actor()
+                && (int) ($batch['created_at'] ?? 0) >= time() - 1800
+                && (int) ($batch['movimentacao_ano'] ?? 0) === $year
+                && (int) ($batch['movimentacao_turma'] ?? 0) === $archiveClass) {
+                $archiveSelected = $batch['ids'];
+            } else {
+                definir_flash('warning', 'A seleção anterior expirou. Marque os alunos que deseja enviar ao Arquivo Passivo.');
+            }
+        }
         $token = input_string($_GET['preview'] ?? '');
         $preview = $this->getPreview($token);
         if ($token !== '' && $preview === null) {
             definir_flash('warning', 'A prévia expirou ou já foi confirmada. Selecione os alunos novamente.');
         }
         $this->view('alunos/movimentar', [
-            'title' => 'Movimentar alunos', 'year' => $year, 'classes' => $service->turmas(),
+            'title' => 'Movimentar alunos', 'year' => $year, 'classes' => $classes,
             'state' => $service->conferencia($year), 'series' => MovimentacaoAlunos::series(),
             'students' => $class > 0 || $search !== '' ? $service->alunos($class, $search) : [],
             'classId' => $class, 'search' => $search, 'type' => $type,
             'configure' => input_string($_GET['configurar'] ?? '') === '1',
             'preview' => $preview, 'previewToken' => $token,
+            'archiveClassId' => $archiveClass,
+            'archiveStudents' => $archiveClass > 0 ? $service->alunos($archiveClass) : [],
+            'archiveAfter' => input_string($_GET['arquivados'] ?? '') === '1',
+            'archiveSelected' => $archiveSelected,
         ]);
     }
 
