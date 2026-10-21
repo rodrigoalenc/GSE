@@ -1,4 +1,5 @@
 <?php
+$returnPath = $returnPath ?? 'aluno';
 $hasBatchPreview = is_array($preview);
 $selectedActiveCount = count(array_filter($students, static fn (array $student): bool => (int) $student['ativo'] === 1));
 $boxMode = ($data['tipo_caixa'] ?? 'existente') === 'nova' ? 'nova' : 'existente';
@@ -19,7 +20,7 @@ $batchBirthDate = static function (?string $value): string {
 <?php endif; ?>
 
 <section class="relatorio passivo-batch-shell" aria-labelledby="batch-selection-title">
-    <div class="section-head"><div><h2 id="batch-selection-title">1. Alunos selecionados</h2><p><?= e((string) count($students)) ?> aluno(s) no lote; <?= e((string) $selectedActiveCount) ?> ativo(s) serão inativados na confirmação.</p></div><a class="btn-secondary" href="<?= e(url('aluno')) ?>">Voltar para a seleção</a></div>
+    <div class="section-head"><div><h2 id="batch-selection-title">1. Alunos selecionados</h2><p><?= e((string) count($students)) ?> aluno(s) no lote; <?= e((string) $selectedActiveCount) ?> ativo(s) serão inativados na confirmação.</p></div><a class="btn-secondary" href="<?= e(url($returnPath)) ?>">Voltar para a seleção</a></div>
     <div class="table-scroll">
         <table class="tabela-filtrada passivo-batch-table">
             <thead><tr><th scope="col">Aluno</th><th scope="col">Nascimento</th><th scope="col">Turma</th><th scope="col">Situação atual</th></tr></thead>
@@ -44,7 +45,7 @@ $batchBirthDate = static function (?string $value): string {
             <div data-archive-box-field="nova"><label for="archive-batch-new-box">Identificação da nova caixa</label><input id="archive-batch-new-box" name="caixa_nova" class="passivo-box-input" maxlength="<?= e((string) Passivo::BOX_MAX_LENGTH) ?>" value="<?= e((string) ($data['caixa_nova'] ?? '')) ?>" placeholder="Ex.: 25"></div>
         </div>
         <noscript><p class="passivo-form-tip">Preencha somente o campo correspondente ao destino escolhido.</p></noscript>
-        <div class="form-actions"><button class="btn-primary" type="submit" <?= $students === [] ? 'disabled' : '' ?>><?= $hasBatchPreview ? 'Gerar outra prévia' : 'Gerar prévia do envio' ?></button><a class="btn-secondary" href="<?= e(url('aluno')) ?>">Cancelar</a></div>
+        <div class="form-actions"><button class="btn-primary" type="submit" <?= $students === [] ? 'disabled' : '' ?>><?= $hasBatchPreview ? 'Gerar outra prévia' : 'Gerar prévia do envio' ?></button><a class="btn-secondary" href="<?= e(url($returnPath)) ?>">Cancelar</a></div>
     </form>
 </section>
 
@@ -63,7 +64,7 @@ $batchBirthDate = static function (?string $value): string {
         <input type="hidden" name="selecao" value="<?= e($selectionToken) ?>">
         <input type="hidden" name="preview_token" value="<?= e((string) $previewToken) ?>">
         <label class="passivo-confirm"><input type="checkbox" name="confirmar" value="1" required> Confirmo a caixa e as posições exibidas e autorizo o envio do lote ao Arquivo Passivo, com a inativação dos alunos ativos e a preservação dos cadastros e das DVAs.</label>
-        <div class="form-actions"><button class="btn-primary" type="submit">Confirmar envio de <?= e((string) $preview['total']) ?> aluno(s)</button><a class="btn-secondary" href="<?= e(url('aluno')) ?>">Cancelar</a></div>
+        <div class="form-actions"><button class="btn-primary" type="submit">Confirmar envio de <?= e((string) $preview['total']) ?> aluno(s)</button><a class="btn-secondary" href="<?= e(url($returnPath)) ?>">Cancelar</a></div>
     </form>
 </section>
 <?php endif; ?>

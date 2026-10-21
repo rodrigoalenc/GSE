@@ -199,6 +199,18 @@ Nome, nascimento, turma e telefones são validados no servidor. Telefones opcion
 
 Turmas possuem nome, ano letivo e situação. A combinação `nome_normalizado + ano_letivo` é única, inclusive para diferenças de caixa acentuada ou representações Unicode canonicamente equivalentes. O nome original em NFC continua sendo exibido. Uma turma com alunos ativos não pode ser inativada até que esses alunos sejam remanejados ou inativados. Turmas legadas ficam com `ano_letivo` nulo para preenchimento administrativo: a migração não inventa datas históricas.
 
+### Movimentação de série
+
+Administradores encontram **Movimentar alunos** em **Gestão de alunos**. Primeiro, identifique a série de cada turma existente, do 1º ano do ensino fundamental ao 3º ano do ensino médio. Essa informação é independente do nome e do ano letivo da turma: nenhum nome é interpretado automaticamente, renomeado ou criado. A migração v19 acrescenta somente tabelas de identificação, conferência e histórico; não movimenta nem arquiva alunos.
+
+Escolha o **ano de referência** (por exemplo, 2027). Para liberar a progressão desse ano, selecione os concluintes do 3º ano do ensino médio, escolha a caixa e confirme o envio ao Arquivo Passivo. O fluxo retorna à conferência; os alunos restantes são reprovados e continuam ativos. Confirme essa lista para liberar a progressão. Se não houver alunos no terceiro, confirme a lista vazia. Alunos ativos sem turma ou em turmas sem série identificada precisam ser regularizados antes dessa liberação. Novos alunos do terceiro exigem nova conferência; quem chegou ao terceiro pela progressão do próprio ciclo não reabre a etapa.
+
+Na progressão ou regressão, filtre uma turma ou pesquise alunos pelo nome, marque alunos individuais ou a turma inteira e selecione uma turma de destino existente e ativa. A prévia exibe os alunos e os destinos antes de confirmar; o servidor exige exatamente uma série acima ou abaixo. A regressão independe da conferência do terceiro. O limite é de 200 alunos por lote; o botão de turma inteira inclui todos os ativos da turma, mesmo fora da busca pelo nome. Desmarque os reprovados para mantê-los na série atual.
+
+Confirmações são exclusivas de administradores, protegidas por CSRF, revalidadas sob bloqueio de escrita e gravadas junto com o histórico e a auditoria. Prévias expiram em 30 minutos; alterações posteriores exigem nova prévia. Reenvios não duplicam a operação. Um aluno não acumula duas progressões no mesmo ano de referência; uma regressão pode corrigir uma progressão antes de refazê-la. O perfil do aluno mostra origem, destino, referência, data e responsável, com os nomes históricos das turmas preservados. DVAs e demais documentos não são alterados.
+
+Validação específica: `php vendor/phpunit/phpunit/phpunit tests/Integration/MovimentacaoAlunosTest.php tests/Integration/MovimentacaoMigrationTest.php` e `node tests/browser-alunos-movimentacao.mjs`. O teste de navegador usa banco e chaves fictícios temporários, incluindo arquivamento, progressão, regressão, permissões e tamanhos de tela para computador, celular e paisagem.
+
 ## DVA, histórico e semáforo
 
 Uma DVA inicial é opcional. Renovar não altera o documento anterior: em uma transação `BEGIN IMMEDIATE`, a DVA vigente é arquivada e uma nova versão é inserida. Um índice único parcial garante no banco no máximo uma DVA ativa por aluno. Registros históricos não são excluídos, inclusive após a inativação do aluno.

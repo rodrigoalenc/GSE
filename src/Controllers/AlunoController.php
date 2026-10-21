@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once ROOT_PATH . '/src/Model/Aluno.php';
 require_once ROOT_PATH . '/src/Model/Dva.php';
 require_once ROOT_PATH . '/src/Model/Turma.php';
+require_once ROOT_PATH . '/src/Services/MovimentacaoAlunos.php';
 
 final class AlunoController extends Controller
 {
@@ -126,6 +127,7 @@ final class AlunoController extends Controller
             'title' => 'Perfil do Aluno',
             'student' => $profile['student'],
             'history' => $profile['dva_history'],
+            'movements' => (new MovimentacaoAlunos())->historico($studentId),
             'canManageStudent' => Auth::isAdmin(),
             'canArchivePassive' => Auth::isAdmin() && (int) $profile['student']['ativo'] === 0,
         ]);

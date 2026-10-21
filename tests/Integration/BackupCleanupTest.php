@@ -119,7 +119,7 @@ final class BackupCleanupTest extends DatabaseTestCase
             \ProtectedBackup::decrypt($backups[0], $this->root . '/restored.sqlite');
             $restored = new PDO('sqlite:' . $this->root . '/restored.sqlite');
             $this->assertSame('ok', $restored->query('PRAGMA integrity_check')->fetchColumn());
-            $this->assertSame(18, (int) $restored->query('PRAGMA user_version')->fetchColumn());
+            $this->assertSame(19, (int) $restored->query('PRAGMA user_version')->fetchColumn());
             $restored = null;
         }
         if ($flow === 'migration') {

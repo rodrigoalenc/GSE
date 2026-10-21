@@ -34,7 +34,7 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(108, $routes);
+        $this->assertCount(113, $routes);
         $routeKeys = array_map(static fn (array $route): string => $route['method'] . ' ' . $route['pattern'], $routes);
         $this->assertCount(count($routes), array_unique($routeKeys), 'Cada método/caminho deve ter uma única autorização.');
         $auditRoutes = array_values(array_filter($routes, static fn (array $route): bool => $route['pattern'] === 'auditoria'));
@@ -53,6 +53,11 @@ final class CoreSecurityTest extends TestCase
             $this->assertFalse($profileRoute['password_change']);
         }
         foreach ([
+            'aluno/movimentar' => 'GET',
+            'aluno/movimentar/series' => 'POST',
+            'aluno/movimentar/conferencia' => 'POST',
+            'aluno/movimentar/preview' => 'POST',
+            'aluno/movimentar/confirmar' => 'POST',
             'aluno/importar' => 'GET',
             'aluno/importar/preview' => 'POST',
             'aluno/importar/confirmar' => 'POST',

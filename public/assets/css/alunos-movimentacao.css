@@ -1,0 +1,21 @@
+.movement-panel { min-width: 0; }
+.movement-panel .movement-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); align-items: end; gap: 16px; margin-bottom: 16px; }
+.movement-panel label:not(.movement-check) { display: block; margin-bottom: 6px; }
+.movement-panel select, .movement-panel input:not([type="checkbox"]):not([type="hidden"]) { width: 100%; max-width: 100%; min-width: 0; }
+.movement-panel select, .movement-panel input[type="number"], .movement-panel input[name="q"] { padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: #173b63; font: inherit; }
+.movement-panel td small { display: block; margin-top: 5px; color: #526175; }
+.movement-panel input[type="checkbox"] { width: 20px; height: 20px; min-width: 20px; margin: 0; accent-color: #245cc6; }
+.movement-panel .movement-check { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0; line-height: 1.6; }
+.movement-panel .movement-check input { flex: 0 0 20px; margin-top: 3px; }
+.movement-selection-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
+.movement-review-confirm { border-top: 1px solid #dce3ed; margin-top: 24px; padding-top: 4px; }
+.movement-destination { margin-top: 20px; }
+.movement-preview { border: 2px solid #245cc6; scroll-margin-top: 20px; }
+.movement-panel button:disabled { opacity: .6; cursor: not-allowed; }
+@media (max-width: 600px) {
+    .movement-panel .form-actions { display: flex; flex-direction: column; align-items: stretch; }
+    .movement-panel .form-actions > * { text-align: center; white-space: normal; }
+    .movement-panel .section-head { flex-direction: column; align-items: flex-start; }
+    .movement-panel .tabela-filtrada { min-width: 560px; }
+    .movement-panel .table-scroll { max-width: 100%; }
+}

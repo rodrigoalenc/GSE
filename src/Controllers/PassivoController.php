@@ -384,12 +384,14 @@ final class PassivoController extends Controller
             array_shift($_SESSION['passivo_archive_batches']);
         }
         $token = bin2hex(random_bytes(32));
+        $movementYear = filter_var($_POST['movimentacao_ano'] ?? null, FILTER_VALIDATE_INT);
         $_SESSION['passivo_archive_batches'][$token] = [
             'actor_id' => $this->actorId(),
             'ids' => array_map(static fn (array $student): int => (int) $student['id'], $students),
             'created_at' => time(),
             'data' => ['tipo_caixa' => 'existente', 'caixa_existente' => '', 'caixa_nova' => ''],
             'errors' => [],
+            'movimentacao_ano' => $movementYear !== false && $movementYear >= 2000 && $movementYear <= (int) date('Y') + 5 ? $movementYear : null,
         ];
         redirect('aluno/arquivar-lote?selecao=' . $token);
     }
@@ -413,6 +415,7 @@ final class PassivoController extends Controller
             'errors' => $batch['errors'],
             'preview' => $batch['preview'] ?? false,
             'previewToken' => $batch['preview_token'] ?? null,
+            'returnPath' => isset($batch['movimentacao_ano']) ? 'aluno/movimentar?ano=' . (int) $batch['movimentacao_ano'] : 'aluno',
         ]);
     }
 
@@ -464,8 +467,13 @@ final class PassivoController extends Controller
             unset($batch['preview'], $batch['preview_token']);
             redirect('aluno/arquivar-lote?selecao=' . $token);
         }
+        $movementYear = $batch['movimentacao_ano'] ?? null;
         unset($_SESSION['passivo_archive_batches'][$token]);
         $_SESSION['passivo_batch_selection_reset'] = true;
+        if ($movementYear !== null) {
+            $this->redirectWithFlash('aluno/movimentar?ano=' . (int) $movementYear, 'success',
+                sprintf('%d concluintes enviados ao Arquivo Passivo. Confira os alunos restantes do 3º ano e conclua a conferência.', $result['total']));
+        }
         $this->redirectWithFlash('passivo?' . http_build_query(['caixa' => $result['caixa'], 'ordem' => 'numero']), 'success',
             sprintf('%d alunos enviados à caixa %s. Os cadastros e históricos de DVA foram preservados.', $result['total'], $result['caixa']));
     }

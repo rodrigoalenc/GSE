@@ -15,7 +15,7 @@ require_once __DIR__ . '/BackupSnapshot.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 18;
+    private const LATEST_VERSION = 19;
 
     public static function initialize(PDO $pdo, bool $allowSecurityMigration = false): void
     {
@@ -139,6 +139,7 @@ final class DatabaseInitializer
             16 => self::migratePassiveLocationCompleteness($pdo),
             17 => self::migrateDataProtection($pdo),
             18 => self::migrateContractAdditives($pdo),
+            19 => self::migrateStudentMovements($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
     }
@@ -147,6 +148,15 @@ final class DatabaseInitializer
     {
         // Existing notes retain their original classification and monetary history.
         self::addColumnIfMissing($pdo, 'pedido_paginas', 'aditivo', 'INTEGER NOT NULL DEFAULT 0 CHECK (aditivo IN (0, 1))');
+    }
+
+    private static function migrateStudentMovements(PDO $pdo): void
+    {
+        $sql = file_get_contents(dirname(__DIR__, 2) . '/database/student-movements.sql');
+        if ($sql === false) {
+            throw new RuntimeException('Não foi possível ler a migração de movimentação de alunos.');
+        }
+        $pdo->exec($sql);
     }
 
     private static function migrateDataProtection(PDO $pdo): void

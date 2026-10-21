@@ -65,7 +65,7 @@ final class AdministrativeBackupTest extends DatabaseTestCase
         $this->assertSame('committed-in-wal', $restored->query('SELECT acao FROM logs')->fetchColumn());
         $this->assertSame('ok', $restored->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertSame([], $restored->query('PRAGMA foreign_key_check')->fetchAll());
-        $this->assertSame(18, (int) $restored->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(19, (int) $restored->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(0, (int) $restored->query("SELECT COUNT(*) FROM security_audit WHERE action='backup.created'")->fetchColumn(), 'Creation audit occurs after the snapshot.');
         $restored = null;
         $this->assertStringNotContainsString('SYNTHETIC_PRIVATE_PDF_CONTENT', (string) file_get_contents($firstPath));

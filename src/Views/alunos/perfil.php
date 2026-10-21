@@ -88,6 +88,16 @@ $historyTime = static function (?string $value): string {
 </div>
 </div>
 
+<?php if (($movements ?? []) !== []): ?>
+<?php $movementSeries = MovimentacaoAlunos::series(); ?>
+<section class="relatorio student-history">
+    <div class="section-head"><h2>Histórico de movimentações de série</h2></div>
+    <div class="table-scroll"><table class="tabela-filtrada"><thead><tr><th>Referência</th><th>Operação</th><th>Origem</th><th>Destino</th><th>Data</th><th>Responsável</th></tr></thead><tbody>
+    <?php foreach ($movements as $movement): ?><tr><td><?= e((string) $movement['ano']) ?></td><td><?= $movement['tipo'] === 'progressao' ? 'Progressão' : 'Regressão' ?></td><td><?= e((string) $movement['origem_nome']) ?><?= $movement['origem_ano'] ? ' — ' . e((string) $movement['origem_ano']) : '' ?><br><small><?= e($movementSeries[(int) $movement['origem_serie']]) ?></small></td><td><?= e((string) $movement['destino_nome']) ?><?= $movement['destino_ano'] ? ' — ' . e((string) $movement['destino_ano']) : '' ?><br><small><?= e($movementSeries[(int) $movement['destino_serie']]) ?></small></td><td><?= e($historyTime($movement['realizado_em'])) ?></td><td><?= e((string) ($movement['responsavel'] ?: '—')) ?></td></tr><?php endforeach; ?>
+    </tbody></table></div>
+</section>
+<?php endif; ?>
+
 <details class="relatorio student-history">
     <summary>Histórico de DVAs</summary>
     <div class="table-scroll">
