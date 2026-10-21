@@ -79,6 +79,7 @@ final class Router
             $this->route('GET', 'backup/baixar/{nome}', 'BackupController', 'baixar', true, true),
             $this->route('GET', 'aluno', 'AlunoController', 'index', true),
             $this->route('GET', 'aluno/movimentar', 'MovimentacaoAlunosController', 'index', true, true),
+            $this->route('POST', 'aluno/regredir', 'MovimentacaoAlunosController', 'selecionarRegressao', true, true),
             $this->route('POST', 'aluno/movimentar/series', 'MovimentacaoAlunosController', 'series', true, true),
             $this->route('POST', 'aluno/movimentar/conferencia', 'MovimentacaoAlunosController', 'conferencia', true, true),
             $this->route('POST', 'aluno/movimentar/preview', 'MovimentacaoAlunosController', 'preview', true, true),

@@ -9,6 +9,7 @@ import {launchBrowser} from './browser-contract-tabs.mjs';
 import {testKeyring} from './browser-keyring.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const evidenceDirectory = process.env.GSE_BROWSER_EVIDENCE_DIR || join(root, '.local-qa', 'ano-letivo');
 const temporary = await mkdtemp(join(tmpdir(), 'gse-movement-browser-'));
 const sessions = join(temporary, 'sessions');
 await mkdir(sessions);
@@ -63,10 +64,13 @@ try {
         await page.until(`performance.timeOrigin!==${JSON.stringify(origin)} && document.readyState==='complete'`);
     };
     const shot = async name => {
-        if (!process.env.GSE_BROWSER_EVIDENCE_DIR) return;
-        await mkdir(process.env.GSE_BROWSER_EVIDENCE_DIR,{recursive:true});
+        await mkdir(evidenceDirectory,{recursive:true});
+        // Resizing from the full-width mobile menu animates the desktop sidebar.
+        // Capture the settled layout, otherwise landscape evidence shows a transient overlay.
+        await page.evaluate('new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))');
+        await page.evaluate('Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})))');
         const {data} = await page.command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
-        await writeFile(join(process.env.GSE_BROWSER_EVIDENCE_DIR,name+'.png'),Buffer.from(data,'base64'));
+        await writeFile(join(evidenceDirectory,name+'.png'),Buffer.from(data,'base64'));
     };
     await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
     await go('/login');
@@ -75,7 +79,7 @@ try {
     await go('/aluno');
     check(await page.evaluate(`!!document.querySelector('a[href$="/aluno/movimentar"]')`),true,'Administrator sees entry button');
     await go('/aluno/movimentar?ano=2027');
-    check(await page.evaluate(`[...document.querySelectorAll('[data-movement-choice]')].map(link=>link.querySelector('strong').textContent)`),['Mandar para o passivo','Progredir turma','Regredir turma'],'Entry offers the three requested actions');
+    check(await page.evaluate(`[...document.querySelectorAll('[data-movement-choice]')].map(link=>link.querySelector('strong').textContent)`),['Mandar para o passivo','Progredir turmas para novo ano letivo','Regredir alunos'],'Entry offers the three requested actions');
     check(await page.evaluate(`document.querySelector('.movement-controls, #movement-senior-title, #movement-selection-title, #movement-archive-title')===null`),true,'Entry shows only the action choice');
     for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
         await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
@@ -92,131 +96,140 @@ try {
         check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Action choices fit ${width}x${height}`);
         await shot(`movimentacao-escolher-${width}x${height}`);
     }
+    const responsive = async (name, selector) => {
+        for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
+            await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+            await page.evaluate(selector ? `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'start',behavior:'instant'})` : 'scrollTo({top:0,behavior:"instant"})');
+            check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`${name} fits ${width}x${height}`);
+            await shot(`${name}-${width}x${height}`);
+        }
+        await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+    };
+    const replay = async (path, values) => page.evaluate(`(async()=>{
+        const response=await fetch(${JSON.stringify(path)},{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+            body:new URLSearchParams({...${JSON.stringify(values)},_csrf_token:document.querySelector('[name="_csrf_token"]').value}),redirect:'manual'});
+        return response.status;
+    })()`);
     await page.click('[data-movement-choice="progressao"]');await awaitMovement();
-    check(await page.evaluate(`document.querySelector('#movement-archive-title')===null`),true,'Progression contains no archive form');
-    check(await page.evaluate(`document.querySelector('.movement-controls button[type="submit"]').textContent.trim()`),'Abrir ano','Movement screen renders');
-    check(await page.evaluate(`(() => {const section=document.querySelector('#movement-senior-title').closest('section');
-        return section.textContent.includes('Identifique as séries antes de concluir a conferência') && !section.textContent.includes('Não há alunos ativos do 3º ano');})()`),true,'Unclassified classes never display a false absence of senior pupils');
-    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/conferencia"]')===null`),true,'Senior review cannot be attested before class identification');
-    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
-        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
-        await page.evaluate(`document.querySelector('#movement-senior-title').scrollIntoView({block:'start'})`);
-        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Pending-series warning fits ${width}x${height}`);
-        await shot(`movimentacao-series-pendentes-${width}x${height}`);
-    }
-    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
-    await page.click('[data-movement-back]');
-    await page.until(`!!document.querySelector('[data-movement-choice="passivo"]')`);
-    await page.click('[data-movement-choice="passivo"]');await awaitMovement();
-    check(await page.evaluate(`document.querySelector('#movement-senior-title, #movement-series-title, #movement-selection-title, #movement-year')===null`),true,'Archiving contains only the selected action');
-    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/series"]')===null`),true,'Grade configuration is not forced before class archiving');
-    // Every new mutating route rejects GET and invalid CSRF.
-    for (const action of ['series','conferencia','preview','confirmar']) {
-        const status = await page.evaluate(`(async()=>{
-            const path='/aluno/movimentar/${action}';
+    check(await page.evaluate(`!!document.querySelector('#movement-series-title')`),true,'Missing grade configuration appears automatically');
+    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/preview"] button').disabled`),true,'Annual progression is blocked while grades are unidentified');
+    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/conferencia"], input[name="alunos[]"]')===null`),true,'Annual progression has no separate senior review or individual pupil selection');
+    await responsive('movimentacao-series-pendentes','#movement-series-title');
+    for (const [id,serie] of [[1,'10'],[2,'11'],[3,'12']]) await setValue(`#series-${id}`,serie);
+    await submit('form[action$="/movimentar/series"] button[type="submit"]');await awaitMovement();
+    check(fixture().students,initial.students,'Identifying grades does not move pupils');
+    check(fixture().classes,initial.classes,'Identifying grades preserves existing class names and years');
+    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/preview"] button').disabled`),true,'Annual progression waits for archiving senior graduates');
+    // Every mutation route rejects GET and an invalid CSRF token.
+    for (const path of ['/aluno/movimentar/series','/aluno/movimentar/conferencia','/aluno/movimentar/preview','/aluno/movimentar/confirmar','/aluno/regredir']) {
+        const statuses = await page.evaluate(`(async()=>{
+            const path=${JSON.stringify(path)};
             return [(await fetch(path,{redirect:'manual'})).status,
                 (await fetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'_csrf_token=invalid&ano=2027'})).status];
         })()`);
-        check(status,[405,419],`${action}: method and CSRF protections`);
+        check(statuses,[405,419],`${path}: method and CSRF protections`);
     }
-    for (const [width,height] of [[1366,900],[390,844],[844,390],[1920,1080]]) {
-        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
-        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`No page overflow at ${width}x${height}`);
-        await page.evaluate('scrollTo(0,0)');await shot(`movimentacao-${width}x${height}`);
-    }
-    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+    await go('/aluno/movimentar?ano=2027&tipo=passivo');
+    check(await page.evaluate(`document.querySelector('#movement-series-title, #movement-selection-title, #movement-annual-title')===null`),true,'Configured archive screen contains only archiving');
     const beforeClassSelection = await page.evaluate('performance.timeOrigin');
     await setValue('#movement-archive-class','3');
     await page.evaluate(`document.querySelector('#movement-archive-class').dispatchEvent(new Event('change',{bubbles:true}))`);
     await page.until(`performance.timeOrigin!==${JSON.stringify(beforeClassSelection)} && document.readyState==='complete'`);
-    check(await page.evaluate(`document.querySelectorAll('form[action$="/arquivar-lote/selecionar"] input[name="alunos[]"]:checked').length`),2,'Choosing an existing class lists its active pupils preselected without identifying any grade');
-    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
-        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
-        await page.evaluate(`document.querySelector('#movement-archive-title').scrollIntoView({block:'start'})`);
-        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Class archiving fits ${width}x${height}`);
-        check(await page.evaluate(`(()=>{const wrapper=document.querySelector('.movement-archive-table').parentElement;return wrapper.scrollWidth<=wrapper.clientWidth;})()`),true,`Archive pupil names fit without horizontal scrolling at ${width}x${height}`);
-        await shot(`passivo-por-turma-${width}x${height}`);
-    }
-    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
-    // Keep the repeater active by removing just that pupil from the preselected class.
+    check(await page.evaluate(`document.querySelectorAll('form[action$="/arquivar-lote/selecionar"] input[name="alunos[]"]:checked').length`),2,'The senior class starts with both pupils selected');
+    check(await page.evaluate(`/^[a-f0-9]{64}$/.test(document.querySelector('[name="encerramento_fingerprint"]').value)`),true,'Senior archiving carries its class closure fingerprint');
+    await responsive('passivo-por-turma','#movement-archive-title');
+    check(await page.evaluate(`(()=>{const wrapper=document.querySelector('.movement-archive-table').parentElement;return wrapper.scrollWidth<=wrapper.clientWidth;})()`),true,'Archive pupil names fit without horizontal scrolling');
     await page.click('form[action$="/arquivar-lote/selecionar"] input[value="4"][name="alunos[]"]');
     await submit('form[action$="/arquivar-lote/selecionar"] button[type="submit"]');
     await page.until(`location.pathname==='/aluno/arquivar-lote' && !!document.querySelector('[name="tipo_caixa"]')`);
     await page.click('section[aria-labelledby="batch-selection-title"] a');await awaitMovement();
     check(await page.evaluate(`[...document.querySelectorAll('form[action$="/arquivar-lote/selecionar"] input[name="alunos[]"]:checked')].map(input=>input.value)`),['3'],'Returning from box selection preserves the repeater exclusion');
+    check(await page.evaluate(`!!document.querySelector('[name="encerramento_fingerprint"]')`),true,'Returning to class selection retains closure context');
     await submit('form[action$="/arquivar-lote/selecionar"] button[type="submit"]');
     await page.until(`location.pathname==='/aluno/arquivar-lote' && !!document.querySelector('[name="tipo_caixa"]')`);
     await setValue('[name="tipo_caixa"]','nova');
     await page.evaluate(`document.querySelector('[name="tipo_caixa"]').dispatchEvent(new Event('change',{bubbles:true}))`);
     await fill('#archive-batch-new-box','CONCLUINTES 2027');
+    const beforeArchivePreview=fixture();
     await submit('form[action$="/arquivar-lote/preview"] button[type="submit"]');
     await page.until(`!!document.querySelector('form[action$="/arquivar-lote/confirmar"]')`);
-    check(fixture().passive.length,0,'Archive preview does not mutate');
+    check(fixture(),beforeArchivePreview,'Archive preview does not alter students, DVAs, classes, movements, or audit');
+    await responsive('passivo-previa');
+    const archiveValues=await page.evaluate(`Object.fromEntries(new FormData(document.querySelector('form[action$="/arquivar-lote/confirmar"]')))`);
+    archiveValues.confirmar='1';
     await page.click('form[action$="/arquivar-lote/confirmar"] input[name="confirmar"]');
     await submit('form[action$="/arquivar-lote/confirmar"] button[type="submit"]');await awaitMovement();
-    check(await page.evaluate(`new URL(location.href).searchParams.get('ano')`),'2027','Archive returns to the selected progression cycle');
+    check(await page.evaluate(`new URL(location.href).searchParams.get('ano')`),'2027','Archive returns to the selected annual cycle');
     check(await page.evaluate(`document.querySelector('#movement-archive-class').value`),'3','Archive returns to the selected class');
-    check(await page.evaluate(`document.querySelectorAll('form[action$="/arquivar-lote/selecionar"] input[name="alunos[]"]:checked').length`),0,'Remaining pupils are not preselected again after archiving');
+    check(await page.evaluate(`document.querySelectorAll('form[action$="/arquivar-lote/selecionar"] input[name="alunos[]"]:checked').length`),0,'Remaining pupils stay unselected after archiving');
     check(fixture().students.map(s=>s.ativo),[1,1,0,1],'Graduate is archived and repeater stays active');
-    check(await page.evaluate(`new URL(location.href).searchParams.get('tipo')`),'passivo','Archive confirmation stays in the archive action');
-    await go('/aluno/movimentar?ano=2027&tipo=progressao&configurar=1');
-    for (const [id,serie] of [[1,'10'],[2,'11'],[3,'12']]) await setValue(`#series-${id}`,serie);
-    await submit('form[action$="/movimentar/series"] button[type="submit"]');await awaitMovement();
-    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/preview"] button[type="submit"]').disabled`),true,'Progression is still blocked before senior review');
-    await page.click('form[action$="/movimentar/conferencia"] input[name="confirmar"]');
-    await submit('form[action$="/movimentar/conferencia"] button[type="submit"]');await awaitMovement();
-    await go('/aluno/movimentar?ano=2027&tipo=progressao&turma=1');
-    await page.until(`!document.querySelector('[data-movement-select-all]').hidden`);
-    await page.click('form[action$="/movimentar/preview"] [data-movement-select-all]');
-    check(await page.evaluate(`document.querySelectorAll('form[action$="/movimentar/preview"] input[name="alunos[]"]:checked').length`),2,'Select whole displayed class');
-    await page.click('form[action$="/movimentar/preview"] input[value="2"][name="alunos[]"]');
-    await setValue('#movement-destination','2');
+    check(fixture().audit.filter(event=>event.action==='student.senior_class_closed').length,1,'Archive confirmation also records the senior class closure');
+    const afterArchive=fixture();
+    await replay('/aluno/arquivar-lote/confirmar',archiveValues);
+    check(fixture(),afterArchive,'Archive confirmation replay creates no duplicate passive record or closure');
+    await go('/aluno/movimentar?ano=2027&tipo=progressao');
+    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/conferencia"], input[name="alunos[]"]')===null`),true,'Senior archiving releases annual progression without another review or pupil checklist');
+    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/preview"] button').disabled`),false,'Annual progression is available after the senior class closure');
+    check(await page.evaluate(`document.querySelector('#annual-target-1').value`),'2','The unique next-grade class is preselected');
+    await responsive('progressao-anual');
+    const beforeAnnualPreview=fixture();
     await submit('form[action$="/movimentar/preview"] button[type="submit"]');
     await page.until(`!!document.querySelector('#movement-preview')`);
-    check(fixture().movements.length,0,'Movement preview does not mutate');
-    check(await page.evaluate(`document.querySelector('#movement-preview').textContent.includes('Aprovado primeiro') && !document.querySelector('#movement-preview').textContent.includes('Reprovado primeiro')`),true,'Preview includes only the selected pupil');
-    await shot('movimentacao-previa');
-    const token = await page.evaluate(`document.querySelector('[name="preview_token"]').value`);
+    check(fixture(),beforeAnnualPreview,'Annual preview remains read-only');
+    check(await page.evaluate(`[...document.querySelectorAll('#movement-preview tbody tr')].map(row=>[...row.cells].map(cell=>cell.textContent.trim()))`),
+        [['TURMA EXISTENTE A — 2026','TURMA EXISTENTE B — 2026','2']],'Annual preview summarizes the source class, target class and total pupils');
+    check(await page.evaluate(`document.querySelector('#movement-preview').textContent.includes('Aprovado primeiro')`),false,'Annual preview does not require an individual pupil conference');
+    await responsive('progressao-previa','#movement-preview');
+    const token=await page.evaluate(`document.querySelector('[name="preview_token"]').value`);
     await page.click('form[action$="/movimentar/confirmar"] input[name="confirmar"]');
     await submit('form[action$="/movimentar/confirmar"] button[type="submit"]');await awaitMovement();
-    check(fixture().students.map(s=>s.id_turma),[2,1,3,3],'Only selected pupil progresses');
-    check(fixture().movements,[{aluno_id:1,tipo:'progressao',ano:2027}],'Progression history is recorded');
-    await page.evaluate(`fetch('/aluno/movimentar/confirmar',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:new URLSearchParams({_csrf_token:document.querySelector('[name="_csrf_token"]').value,ano:'2027',confirmar:'1',preview_token:${JSON.stringify(token)}})})`);
-    check(fixture().movements.length,1,'Resubmitting confirmation does not duplicate movement');
+    check(fixture().students.map(s=>s.id_turma),[2,2,3,3],'Annual progression advances both first-year pupils and keeps the senior repeater');
+    check(fixture().movements,[{aluno_id:1,tipo:'progressao',ano:2027},{aluno_id:2,tipo:'progressao',ano:2027}],'Annual progression records each moved pupil');
+    check(await page.evaluate(`document.body.textContent.includes('A progressão geral deste ano já foi realizada') && !document.querySelector('form[action$="/movimentar/preview"]')`),true,'The annual cycle is visibly completed after confirmation');
+    await responsive('progressao-concluida');
+    const afterAnnual=fixture();
+    await replay('/aluno/movimentar/confirmar',{ano:'2027',tipo:'progressao',confirmar:'1',preview_token:token});
+    check(fixture(),afterAnnual,'Annual confirmation replay does not duplicate movement history or audit');
     await go('/aluno/perfil/1');
-    check(await page.evaluate(`document.body.textContent.includes('Histórico de movimentações de série')`),true,'Profile displays movement history');
-    await go('/aluno/movimentar?ano=2028&turma=2&tipo=regressao');
-    check(await page.evaluate(`document.querySelector('#movement-senior-title, #movement-archive-title, #movement-type')===null`),true,'Regression has no senior review, archive form, or repeated operation selector');
-    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
-        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
-        await page.evaluate('scrollTo(0,0)');
-        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Regression fits ${width}x${height}`);
-        await shot(`movimentacao-regredir-${width}x${height}`);
-    }
-    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
-    await page.click('form[action$="/movimentar/preview"] input[name="alunos[]"]');
-    await setValue('#movement-destination','1');
+    check(await page.evaluate(`document.body.textContent.includes('Histórico de movimentações de série')`),true,'Profile displays annual movement history');
+    await go('/aluno');
+    check(await page.evaluate(`document.querySelector('[data-student-regress-submit]').hidden`),true,'Regression action starts hidden until pupils are selected');
+    await page.click('input[data-student-selection-id][value="2"]');
+    await page.until(`!document.querySelector('[data-student-regress-submit]').hidden`);
+    check(await page.evaluate(`new URL(document.querySelector('[data-student-regress-submit]').formAction).pathname`),'/aluno/regredir','Management regression button uses its protected POST route');
+    await submit('[data-student-regress-submit]');await awaitMovement();
+    check(await page.evaluate(`[...document.querySelectorAll('form[action$="/movimentar/preview"] input[name="alunos[]"]:checked')].map(input=>input.value)`),['2'],'Regression opens with only the selected pupil checked');
+    check(await page.evaluate(`document.querySelector('#movement-annual-title, #movement-archive-title, form[action$="/movimentar/conferencia"]')===null`),true,'Regression shows the selected pupils without senior review or annual progression');
+    await responsive('movimentacao-regredir','#movement-selection-title');
+    const beforeRegressionPreview=fixture();
     await submit('form[action$="/movimentar/preview"] button[type="submit"]');
     await page.until(`!!document.querySelector('#movement-preview')`);
+    check(fixture(),beforeRegressionPreview,'Regression preview remains read-only');
+    check(await page.evaluate(`[...document.querySelectorAll('#movement-preview tbody tr')].map(row=>[...row.cells].map(cell=>cell.textContent.trim()))`),
+        [['Reprovado primeiro','TURMA EXISTENTE A — 2026','TURMA EXISTENTE B — 2026']],'Regression resolves the former class from recorded history');
+    await responsive('regressao-previa','#movement-preview');
+    const regressionToken=await page.evaluate(`document.querySelector('[name="preview_token"]').value`);
     await page.click('form[action$="/movimentar/confirmar"] input[name="confirmar"]');
-    await submit('form[action$="/movimentar/confirmar"] button[type="submit"]');await awaitMovement();
-    check(await page.evaluate(`new URL(location.href).searchParams.get('tipo')`),'regressao','Regression confirmation stays in the regression action');
-    const final = fixture();
-    check(final.students.map(s=>s.id_turma),[1,1,3,3],'Regression works without senior review in the selected year');
+    await submit('form[action$="/movimentar/confirmar"] button[type="submit"]');
+    await page.until(`location.pathname==='/aluno' && document.readyState==='complete'`);
+    const final=fixture();
+    check(final.students.map(s=>s.id_turma),[2,1,3,3],'Only the selected pupil regresses; progressed and retained pupils keep their classes');
+    check(final.students.map(s=>s.ativo),[1,1,0,1],'Regression keeps the selected pupil active');
+    check(final.movements,[{aluno_id:1,tipo:'progressao',ano:2027},{aluno_id:2,tipo:'progressao',ano:2027},{aluno_id:2,tipo:'regressao',ano:2027}],'Regression adds history without replacing annual progression');
     check(final.classes,initial.classes,'Existing class names and school years are preserved');
     check(final.dvas,initial.dvas,'All DVA records are preserved');
-    // The explicit whole-class button must also include pupils outside a name search.
-    await go('/aluno/movimentar?ano=2028&tipo=progressao');
-    await page.click('form[action$="/movimentar/conferencia"] input[name="confirmar"]');
-    await submit('form[action$="/movimentar/conferencia"] button[type="submit"]');await awaitMovement();
-    await go('/aluno/movimentar?ano=2028&tipo=progressao&turma=1&q=Aprovado');
-    check(await page.evaluate(`document.querySelectorAll('form[action$="/movimentar/preview"] input[name="alunos[]"]').length`),1,'Name search narrows the visible class roster');
-    await setValue('#movement-destination','2');
-    await submit('button[name="turma_inteira"]');
-    await page.until(`!!document.querySelector('#movement-preview')`);
-    check(await page.evaluate(`document.querySelectorAll('#movement-preview tbody tr').length`),2,'Whole-class action previews all active pupils even outside search');
-    check(fixture().movements.length,2,'Whole-class preview also remains read-only');
+    await replay('/aluno/movimentar/confirmar',{ano:'2027',tipo:'regressao',confirmar:'1',preview_token:regressionToken});
+    check(fixture(),final,'Regression confirmation replay changes no pupil or historical record');
+    await go('/aluno/movimentar?ano=2027&tipo=progressao');
+    await replay('/aluno/movimentar/preview',{ano:'2027',tipo:'progressao','destinos[1]':'2','destinos[2]':'3'});
+    check(fixture(),final,'A completed annual cycle cannot be applied again after a regression');
+    await go('/auditoria');
+    const auditText=await page.evaluate(`document.querySelector('#corpoLogs').textContent`);
+    for (const text of ['Progredir Aluno','Regredir Aluno','Alunos - Progredir Ano Letivo','Aprovado primeiro','Reprovado primeiro','TURMA EXISTENTE A','TURMA EXISTENTE B']) {
+        check(auditText.includes(text),true,`Audit table identifies ${text}`);
+    }
+    check(auditText.includes('Evento não identificado'),false,'Movement audit contains no unidentified action');
+    await responsive('movimentacao-auditoria');
     // Switch identity to exercise authorization at the HTTP boundary as well as in integration tests.
     await page.click('.logout-form button');await page.until(`location.pathname==='/login'`);
     await fill('#email','employee@example.test');await fill('#senha','Teste ficticio seguro 2026');await page.click('.btn-login');
@@ -227,7 +240,8 @@ try {
         const paths=['','/series','/conferencia','/preview','/confirmar']; const statuses=[];
         for(const path of paths) statuses.push((await fetch('/aluno/movimentar'+path,{method:path?'POST':'GET',
             ...(path?{headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({_csrf_token:csrf,ano:'2027'})}:{}),redirect:'manual'})).status);
-        return statuses;})()`),[403,403,403,403,403],'Employee cannot access any movement operation');
+        statuses.push((await fetch('/aluno/regredir',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({_csrf_token:csrf,'alunos[]':'2'}),redirect:'manual'})).status);
+        return statuses;})()`),[403,403,403,403,403,403],'Employee cannot access any movement operation');
     check(browser.errors,[],'No browser JavaScript exceptions');
     check(/PHP (?:Warning|Fatal error|Parse error)/.test(serverErrors),false,'No PHP runtime warnings');
     console.log(`Browser student movements: ${checks} checks passed (fictitious data, desktop/mobile/landscape).`);

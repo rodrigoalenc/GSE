@@ -34,7 +34,7 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(110, $routes);
+        $this->assertCount(111, $routes);
         $this->assertEmpty(array_filter($routes, static fn (array $route): bool => str_starts_with($route['pattern'], 'passivo/ferramentas')));
         $routeKeys = array_map(static fn (array $route): string => $route['method'] . ' ' . $route['pattern'], $routes);
         $this->assertCount(count($routes), array_unique($routeKeys), 'Cada método/caminho deve ter uma única autorização.');

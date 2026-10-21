@@ -6,11 +6,13 @@ require_once ROOT_PATH . '/src/Core/Model.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 require_once ROOT_PATH . '/src/Core/RequestReceipt.php';
 require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
+require_once ROOT_PATH . '/src/Services/MovimentacaoAnual.php';
 
 use src\Core\SqliteTransaction;
 
 final class MovimentacaoAlunos extends Model
 {
+    use MovimentacaoAnual;
     public const MAX_ALUNOS = 200;
     private ?string $lastErrorCode = null;
 
@@ -192,11 +194,11 @@ final class MovimentacaoAlunos extends Model
     /** @param array<mixed> $ids
      * @return array<string,mixed>
      */
-    private function prepare(array $ids, int $destination, string $type, int $year): array
+    private function prepare(array $ids, int $destination, string $type, int $year, bool $annual = false): array
     {
         $this->ensure(in_array($type, ['progressao', 'regressao'], true), 'invalid_operation');
         $this->ensure($this->validYear($year), 'invalid_year');
-        $this->ensure(array_is_list($ids) && count($ids) > 0 && count($ids) <= self::MAX_ALUNOS, 'invalid_selection');
+        $this->ensure(array_is_list($ids) && count($ids) > 0 && count($ids) <= ($annual ? 50000 : self::MAX_ALUNOS), 'invalid_selection');
         $valid = [];
         foreach ($ids as $id) {
             $value = (is_string($id) || is_int($id)) ? filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
@@ -213,7 +215,7 @@ final class MovimentacaoAlunos extends Model
         $this->ensure($target !== null && (int) $target['ativo'] === 1 && $target['serie'] !== null, 'invalid_class');
         $review = $this->conferencia($year);
         if ($type === 'progressao') {
-            $this->ensure($review['liberada'], 'review_required');
+            $this->ensure($annual ? $this->estadoAnual($year)['liberada'] : $review['liberada'], 'review_required');
         }
         $query = self::$pdo->prepare('SELECT a.id,a.nome_completo,a.id_turma,a.ativo,a.atualizado_em,
             t.nome_turma,t.ano_letivo,t.ativo AS turma_ativa,s.serie,
@@ -291,7 +293,10 @@ final class MovimentacaoAlunos extends Model
     public function errorMessage(): string
     {
         return match ($this->lastErrorCode) {
-            'review_required' => 'Confira o 3º ano do ensino médio e envie os concluintes ao Arquivo Passivo antes de progredir.',
+            'review_required' => 'Conclua o envio dos concluintes do 3º ano ao Arquivo Passivo, desmarcando os reprovados, antes de progredir.',
+            'year_completed' => 'A progressão geral deste ano já foi realizada. Corrija reprovados em Gestão de alunos.',
+            'destination_required' => 'Escolha a turma de destino para cada turma de origem. Há mais de uma opção ou falta uma turma da série seguinte.',
+            'no_students' => 'Não há alunos disponíveis para essa movimentação.',
             'unclassified_classes' => 'Identifique a série das turmas com alunos ativos. Alunos sem turma precisam ser vinculados a uma turma.',
             'invalid_selection' => 'Selecione de 1 a 200 alunos diferentes e válidos.',
             'invalid_class' => 'Escolha uma turma existente, ativa e com a série identificada.',

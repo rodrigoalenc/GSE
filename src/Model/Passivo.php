@@ -533,13 +533,14 @@ final class Passivo extends Model
 
     /**
      * @param array<mixed> $studentIds
+     * @param array<string,mixed>|null $seniorClosure
      * @return array{caixa:string,total:int,ids:list<int>}|false
      */
-    public function arquivarAlunosLote(array $studentIds, string $box, string $boxMode, string $fingerprint, int $actorId): array|false
+    public function arquivarAlunosLote(array $studentIds, string $box, string $boxMode, string $fingerprint, int $actorId, ?array $seniorClosure = null): array|false
     {
         $this->lastErrorCode = null;
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($studentIds, $box, $boxMode, $fingerprint, $actorId): array|false {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($studentIds, $box, $boxMode, $fingerprint, $actorId, $seniorClosure): array|false {
                 $actor = $pdo->prepare("SELECT 1 FROM usuarios WHERE id = ? AND ativo = 1 AND tipo = 'administrador'");
                 $actor->execute([$actorId]);
                 if ($actor->fetchColumn() === false) {
@@ -547,6 +548,11 @@ final class Passivo extends Model
                     return false;
                 }
 
+                $closure = null;
+                if ($seniorClosure !== null) {
+                    require_once ROOT_PATH . '/src/Services/MovimentacaoAlunos.php';
+                    $closure = (new MovimentacaoAlunos())->validarEncerramento($seniorClosure, $studentIds);
+                }
                 $plan = $this->prepareArchiveBatch($studentIds, $box, $boxMode);
                 if ($plan === false || !hash_equals((string) $plan['fingerprint'], $fingerprint)) {
                     $this->lastErrorCode = 'preview_changed';
@@ -585,6 +591,10 @@ final class Passivo extends Model
                 }
                 AuditLogger::recordRequired($pdo, 'passive.batch_archived', AuditLogger::SUCCESS, $actorId, null,
                     sprintf('Envio de %d alunos à caixa %s, posições %s a %s.', count($created), $plan['caixa'], $plan['primeiro_numero'], $plan['ultimo_numero']), 'passive_box');
+
+                if ($closure !== null) {
+                    (new MovimentacaoAlunos())->registrarEncerramento($pdo, $closure, $actorId);
+                }
 
                 return ['caixa' => (string) $plan['caixa'], 'total' => count($created), 'ids' => $created];
             });

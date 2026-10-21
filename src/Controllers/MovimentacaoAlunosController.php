@@ -43,15 +43,35 @@ final class MovimentacaoAlunosController extends Controller
         if ($token !== '' && $preview === null) {
             definir_flash('warning', 'A prévia expirou ou já foi confirmada. Selecione os alunos novamente.');
         }
+        $students = $type === 'regressao' && ($class > 0 || $search !== '') ? $service->alunos($class,$search) : [];
+        $regressionToken = input_string($_GET['selecao'] ?? '');
+        if ($type === 'regressao' && $regressionToken !== '') {
+            $selection = $_SESSION['student_regression_selections'][$regressionToken] ?? null;
+            if (is_array($selection) && $selection['actor'] === $this->actor() && $selection['created_at'] >= time()-1800) {
+                try { $students = $service->selecionados($selection['ids']); }
+                catch (DomainException) { $this->redirectWithFlash('aluno','danger','A seleção mudou. Selecione novamente os alunos que devem regredir.'); }
+            } else { $this->redirectWithFlash('aluno','warning','A seleção expirou. Marque novamente os alunos.'); }
+        }
+        $closure = null;
+        $archiveStudents = $type === 'passivo' && $archiveClass > 0 ? $service->alunos($archiveClass) : [];
+        $annualState = $service->estadoAnual($year);
+        foreach ($classes as $item) {
+            if ($type === 'passivo' && (int)$item['id'] === $archiveClass && (int)$item['serie'] === 12 && !$annualState['concluida']) {
+                $closure = $service->conferenciaTurma($year,$archiveClass);
+                $archiveStudents = $closure['alunos'];
+            }
+        }
         $this->view('alunos/movimentar', [
             'title' => 'Movimentar alunos', 'year' => $year, 'classes' => $classes,
-            'state' => $service->conferencia($year), 'series' => MovimentacaoAlunos::series(),
-            'students' => in_array($type, ['progressao', 'regressao'], true) && ($class > 0 || $search !== '') ? $service->alunos($class, $search) : [],
+            'state' => $annualState, 'series' => MovimentacaoAlunos::series(),
+            'students' => $students, 'regressionToken' => $regressionToken,
+            'savedDestinations' => $service->destinosSalvos(), 'seniorClosure' => $closure,
+            'annualCounts' => $service->contagensAnuais($year),
             'classId' => $class, 'search' => $search, 'type' => $type,
             'configure' => input_string($_GET['configurar'] ?? '') === '1',
             'preview' => $preview, 'previewToken' => $token,
             'archiveClassId' => $archiveClass,
-            'archiveStudents' => $type === 'passivo' && $archiveClass > 0 ? $service->alunos($archiveClass) : [],
+            'archiveStudents' => $archiveStudents,
             'archiveAfter' => input_string($_GET['arquivados'] ?? '') === '1',
             'archiveSelected' => $archiveSelected,
         ]);
@@ -88,11 +108,15 @@ final class MovimentacaoAlunosController extends Controller
             $source = (int) input_string($_POST['turma'] ?? '0');
             $ids = $source > 0 ? array_column($service->alunos($source), 'id') : [];
         }
-        $plan = $service->preview($ids, $destination, $type, $this->year());
+        $mapping = is_array($_POST['destinos'] ?? null) ? $_POST['destinos'] : [];
+        if ($destination > 0 && (int)input_string($_POST['turma'] ?? '0') > 0) $mapping[(int)$_POST['turma']] = $destination;
+        $plan = $type === 'progressao' ? $service->previewAnual($mapping,$this->year())
+            : $service->previewRegressao($ids,$mapping,$this->year());
         if ($plan === false) {
             $this->redirectWithFlash($this->path() . '&' . http_build_query([
                 'turma' => input_string($_POST['turma'] ?? ''), 'tipo' => $type,
                 'q' => mb_substr(input_string($_POST['q'] ?? ''), 0, 100, 'UTF-8'),
+                'selecao' => input_string($_POST['selecao'] ?? ''),
             ]), 'danger', $service->errorMessage());
         }
         $this->expirePreviews();
@@ -101,7 +125,8 @@ final class MovimentacaoAlunosController extends Controller
         }
         $token = bin2hex(random_bytes(16));
         $_SESSION['student_move_previews'][$token] = ['actor' => $this->actor(), 'created_at' => time(), 'plan' => $plan];
-        redirect($this->path($type) . '&preview=' . $token . '#movement-preview');
+        $selectionToken=input_string($_POST['selecao'] ?? '');
+        redirect($this->path($type) . '&preview=' . $token . ($selectionToken!=='' ? '&selecao='.rawurlencode($selectionToken) : '') . '#movement-preview');
     }
 
     public function confirmar(): void
@@ -115,10 +140,32 @@ final class MovimentacaoAlunosController extends Controller
             $this->redirectWithFlash($this->path() . '&preview=' . $token . '#movement-preview', 'danger', 'Confira a prévia e marque a confirmação.');
         }
         $service = new MovimentacaoAlunos();
-        $result = $service->confirmar($preview, $this->actor(), $token);
+        $result = isset($preview['fluxo']) ? $service->confirmarAutomatico($preview,$this->actor(),$token)
+            : $service->confirmar($preview, $this->actor(), $token);
         unset($_SESSION['student_move_previews'][$token]);
+        if ($result !== false && $preview['tipo'] === 'regressao') {
+            $_SESSION['passivo_batch_selection_reset'] = true;
+            $this->redirectWithFlash('aluno','success',sprintf('%d aluno(s) regrediram uma série e continuam ativos. O histórico e a auditoria foram registrados.',count($preview['ids'])));
+        }
         $this->redirectWithFlash($this->path($preview['tipo']), $result !== false ? 'success' : 'danger',
             $result !== false ? sprintf('%d aluno(s) movimentado(s). O histórico está disponível no perfil de cada aluno.', count($preview['ids'])) : $service->errorMessage());
+    }
+
+    public function selecionarRegressao(): void
+    {
+        $ids=is_array($_POST['alunos'] ?? null) ? $_POST['alunos'] : [];
+        try { (new MovimentacaoAlunos())->selecionados($ids); }
+        catch (DomainException) { $this->redirectWithFlash('aluno','danger','Selecione de 1 a 200 alunos ativos e válidos para regredir.'); }
+        $entries=$_SESSION['student_regression_selections'] ?? [];
+        $entries=array_filter($entries,static fn(array $item): bool => $item['created_at']>=time()-1800);
+        while(count($entries)>=5) array_shift($entries);
+        $token=bin2hex(random_bytes(16));
+        $entries[$token]=['actor'=>$this->actor(),'created_at'=>time(),'ids'=>array_map('intval',$ids)];
+        $_SESSION['student_regression_selections']=$entries;
+        $year=(int)date('Y');
+        $latest=Model::getConexao()->query('SELECT MAX(ano) FROM alunos_progressao_anos')->fetchColumn();
+        if ($latest !== false && (int)$latest >= 2000 && (int)$latest <= $year+5) $year=(int)$latest;
+        redirect('aluno/movimentar?'.http_build_query(['tipo'=>'regressao','ano'=>$year,'selecao'=>$token]));
     }
 
     private function actor(): int
@@ -139,7 +186,7 @@ final class MovimentacaoAlunosController extends Controller
     private function path(string $type = ''): string
     {
         $type = $type !== '' ? $type : input_string($_POST['tipo'] ?? 'progressao');
-        $type = in_array($type, ['progressao', 'regressao'], true) ? $type : 'progressao';
+        $type = in_array($type, ['passivo', 'progressao', 'regressao'], true) ? $type : 'progressao';
         return 'aluno/movimentar?ano=' . $this->year() . '&tipo=' . $type;
     }
 

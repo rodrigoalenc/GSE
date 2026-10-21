@@ -15,7 +15,7 @@ require_once __DIR__ . '/BackupSnapshot.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 19;
+    private const LATEST_VERSION = 20;
 
     public static function initialize(PDO $pdo, bool $allowSecurityMigration = false): void
     {
@@ -140,6 +140,7 @@ final class DatabaseInitializer
             17 => self::migrateDataProtection($pdo),
             18 => self::migrateContractAdditives($pdo),
             19 => self::migrateStudentMovements($pdo),
+            20 => self::migrateStudentYearProgression($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
     }
@@ -155,6 +156,15 @@ final class DatabaseInitializer
         $sql = file_get_contents(dirname(__DIR__, 2) . '/database/student-movements.sql');
         if ($sql === false) {
             throw new RuntimeException('Não foi possível ler a migração de movimentação de alunos.');
+        }
+        $pdo->exec($sql);
+    }
+
+    private static function migrateStudentYearProgression(PDO $pdo): void
+    {
+        $sql = file_get_contents(dirname(__DIR__, 2) . '/database/student-year-progression.sql');
+        if ($sql === false) {
+            throw new RuntimeException('Não foi possível ler a migração de progressão anual.');
         }
         $pdo->exec($sql);
     }
