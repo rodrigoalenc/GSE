@@ -79,7 +79,7 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
         <form id="student-archive-selection" class="student-batch-toolbar" method="post" action="<?= e(url('aluno/arquivar-lote/selecionar')) ?>" data-student-archive-selection data-selection-scope="<?= e($archiveSelectionScope) ?>" data-selection-limit="200">
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
             <div class="student-batch-summary">
-                <strong>Enviar alunos ao Arquivo Passivo</strong>
+                <strong>Ações com os alunos selecionados</strong>
                 <span data-student-selection-summary role="status" aria-live="polite" aria-atomic="true">Selecione até 200 alunos para escolher a caixa e conferir a prévia.</span>
                 <noscript><small>Sem JavaScript, selecione os alunos desta página e continue.</small></noscript>
             </div>
@@ -87,6 +87,8 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
                 <button class="btn-secondary" type="button" data-student-select-page hidden>Selecionar esta página</button>
                 <button class="btn-secondary" type="button" data-student-clear-selection hidden>Limpar seleção</button>
                 <button class="btn-primary" type="submit" data-student-selection-submit>Escolher caixa e conferir</button>
+                <button class="btn-secondary" type="submit" formaction="<?= e(url('aluno/regredir')) ?>" data-student-regress-submit hidden>Regredir aluno(s)</button>
+                <noscript><button class="btn-secondary" type="submit" formaction="<?= e(url('aluno/regredir')) ?>">Regredir aluno(s)</button></noscript>
             </div>
             <div data-student-offpage-selection></div>
         </form>

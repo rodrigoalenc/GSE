@@ -226,6 +226,86 @@ final class AuditPresentationTest extends DatabaseTestCase
         $this->assertSame(3, $xpath->query('//tbody/tr[contains(concat(" ", normalize-space(@class), " "), " item-filtrado ")]')->length);
     }
 
+    public function testMovementEventsAreReadableAndSearchableWithoutChangingTheirEvidence(): void
+    {
+        $studentId = $this->insertAlunoComDva('Aluna em movimentação', '2027-01-01');
+        $classId = $this->insertTurma('3º Ano Conferido');
+        $events = [
+            ['student.progressed', 'student', $studentId, 'Progredir Aluno', 'success'],
+            ['student.regressed', 'student', $studentId, 'Regredir Aluno', 'blocked'],
+            ['student.senior_reviewed', 'student_progression', null, 'Alunos - Conferir 3º Ano', 'success'],
+            ['student.senior_class_closed', 'class', $classId, 'Turma - Conferir 3º Ano', 'success'],
+            ['student.year_progressed', 'student_progression', null, 'Alunos - Progredir Ano Letivo', 'success'],
+            ['class.series_configured', 'class', $classId, 'Turma - Configurar Série', 'success'],
+            ['passive.batch_archived', 'passive_box', null, 'Passivo - Arquivar Alunos', 'success'],
+        ];
+        foreach ($events as [$action, $type, $id, $label, $result]) {
+            $this->insertEvent([
+                'action' => $action, 'resource_type' => $type, 'resource_id' => $id,
+                'result' => $result, 'description' => 'Ano: 2026; motivo: conferência & <script>auditoria</script>.',
+            ]);
+        }
+        $before = $this->storedEvents();
+        $model = new \Auditoria();
+        $xpath = $this->xpath($this->render($model->latest()));
+        $rows = $xpath->query('//tbody/tr[contains(concat(" ", normalize-space(@class), " "), " item-filtrado ")]');
+        $this->assertCount(count($events), $rows);
+        foreach (array_reverse($events) as $index => [$action, $type, $id, $label, $result]) {
+            $row = $rows->item($index);
+            $this->assertSame($label, trim($xpath->evaluate('string(td[3])', $row)));
+            $details = $xpath->evaluate('string(td[4])', $row);
+            $this->assertStringContainsString('Ano: 2026; motivo: conferência & <script>auditoria</script>.', $details);
+            $this->assertStringNotContainsString('Ação: ' . $action, $details);
+            if ($result === 'blocked') {
+                $this->assertStringContainsString('Resultado: Bloqueado.', $details);
+            }
+            if ($type === 'student') {
+                $this->assertStringContainsString('Aluna em movimentação', $details);
+            } elseif ($type === 'class') {
+                $this->assertStringContainsString('3º Ano Conferido', $details);
+            }
+        }
+        $this->assertSame(0, $xpath->query('//tbody//script')->length);
+        $options = $model->filterOptions();
+        foreach ($events as [$action, $type, $id, $label]) {
+            $this->assertSame($label, $options['actions'][$action]);
+            $filtered = $model->paginate(['action' => $action, 'resource_type' => $type]);
+            $this->assertSame(1, $filtered['total']);
+            $this->assertSame($action, $filtered['items'][0]['action']);
+        }
+        $this->assertSame('Progressão anual de alunos', $options['resources']['student_progression']);
+        $this->assertSame($before, $this->storedEvents());
+    }
+
+    public function testArchiveEventsIdentifyPassiveRecordsSeparatelyFromStudentIds(): void
+    {
+        $this->insertAlunoComDva('Aluno de outro cadastro', '2027-01-01');
+        $studentId = $this->insertAlunoComDva('Aluna encaminhada', '2027-01-01');
+        $this->pdo->prepare("INSERT INTO alunos_passivo
+            (aluno_origem_id, nome_completo, nome_normalizado, caixa, caixa_normalizada, numero, numero_normalizado)
+            VALUES (?, 'Aluna encaminhada', 'aluna encaminhada', 'B', 'b', '5', '5')")->execute([$studentId]);
+        $passiveId = (int) $this->pdo->lastInsertId();
+        $this->insertEvent([
+            'action' => 'passive.student_archived', 'resource_type' => 'passive_record', 'resource_id' => $passiveId,
+            'description' => 'Aluno vinculado ao Arquivo Passivo em lote; cadastro e DVAs preservados.',
+        ]);
+        $this->insertEvent([
+            'action' => 'student.regressed', 'resource_type' => 'student', 'resource_id' => 900001,
+            'description' => 'Motivo histórico preservado.',
+        ]);
+        $before = $this->storedEvents();
+
+        $xpath = $this->xpath($this->render((new \Auditoria())->latest()));
+        $details = $xpath->evaluate('string(//tbody)');
+
+        $this->assertStringContainsString('Passivo - Arquivar Aluno', $details);
+        $this->assertStringContainsString('Registro do Arquivo Passivo: Aluna encaminhada (ID: ' . $passiveId . ')', $details);
+        $this->assertStringNotContainsString('Aluno de outro cadastro', $details);
+        $this->assertStringContainsString('Aluno: ID: 900001', $details);
+        $this->assertStringContainsString('Motivo histórico preservado.', $details);
+        $this->assertSame($before, $this->storedEvents());
+    }
+
     public function testViewShowsBackupDetailsWithoutChangingTheirStoredDescriptions(): void
     {
         $filename = 'backup_20261014_020304.sqlite';

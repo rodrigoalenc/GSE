@@ -293,6 +293,31 @@ final class PassivoController extends Controller
     {
         $model = new Passivo();
         $ids = is_array($_POST['alunos'] ?? null) ? $_POST['alunos'] : [];
+        $closure = null;
+        if (input_string($_POST['encerramento_fingerprint'] ?? '') !== '') {
+            require_once ROOT_PATH . '/src/Services/MovimentacaoAlunos.php';
+            $service = new MovimentacaoAlunos();
+            $year = (int) input_string($_POST['movimentacao_ano'] ?? '0');
+            $class = (int) input_string($_POST['movimentacao_turma'] ?? '0');
+            $return = 'aluno/movimentar?' . http_build_query(['tipo'=>'passivo','ano'=>$year,'passivo_turma'=>$class]);
+            $context = ['ano'=>$year,'id_turma'=>$class,'fingerprint'=>input_string($_POST['encerramento_fingerprint'])];
+            if (input_string($_POST['manter_todos'] ?? '') === '1' && $ids !== []) {
+                $this->redirectWithFlash($return,'danger','Desmarque todos os alunos antes de confirmar que todos reprovaram.');
+            }
+            if ($ids === []) {
+                $ok = input_string($_POST['manter_todos'] ?? '') === '1'
+                    && $service->manterTurma($year,$class,$context['fingerprint'],$this->actorId());
+                $this->redirectWithFlash($return, $ok ? 'success' : 'danger', $ok
+                    ? 'Turma concluída. Todos os alunos foram mantidos ativos por reprovação e não entrarão na progressão.'
+                    : 'Para manter todos ativos por reprovação, use o botão específico.');
+            }
+            try {
+                $service->validarEncerramento($context,$ids);
+                $closure = $context;
+            } catch (DomainException) {
+                $this->redirectWithFlash($return,'danger','A turma mudou desde a seleção. Confira os concluintes novamente.');
+            }
+        }
         $students = $model->alunosParaArquivar($ids);
         if ($students === false) {
             $this->redirectWithFlash('aluno', 'danger', $model->validationMessage($model->lastErrorCode()));
@@ -310,6 +335,7 @@ final class PassivoController extends Controller
             'created_at' => time(),
             'data' => ['tipo_caixa' => 'existente', 'caixa_existente' => '', 'caixa_nova' => ''],
             'errors' => [],
+            'encerramento' => $closure,
             'movimentacao_ano' => $movementYear !== false && $movementYear >= 2000 && $movementYear <= (int) date('Y') + 5 ? $movementYear : null,
             'movimentacao_turma' => $movementClass !== false ? $movementClass : null,
         ];
@@ -381,7 +407,7 @@ final class PassivoController extends Controller
         $plan = $batch['preview'];
         $model = new Passivo();
         $result = $model->arquivarAlunosLote($batch['ids'], (string) $plan['caixa'],
-            (string) $plan['tipo_caixa'], (string) $plan['fingerprint'], $this->actorId());
+            (string) $plan['tipo_caixa'], (string) $plan['fingerprint'], $this->actorId(), $batch['encerramento'] ?? null);
         if ($result === false) {
             $batch['errors'] = [$model->validationMessage($model->lastErrorCode())];
             unset($batch['preview'], $batch['preview_token']);

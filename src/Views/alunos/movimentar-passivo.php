@@ -11,12 +11,14 @@
         <?php if ($archiveStudents !== []): ?>
         <form method="post" action="<?= e(url('aluno/arquivar-lote/selecionar')) ?>" data-movement-selection>
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="movimentacao_ano" value="<?= e((string) $year) ?>"><input type="hidden" name="movimentacao_turma" value="<?= e((string) $archiveClassId) ?>">
+            <?php if(is_array($seniorClosure)): ?><input type="hidden" name="encerramento_fingerprint" value="<?= e($seniorClosure['fingerprint']) ?>"><?php endif; ?>
             <div class="movement-selection-actions"><strong><?= e((string) count($archiveStudents)) ?> aluno(s) ativo(s)</strong><button class="btn-secondary" type="button" data-movement-select-all hidden>Marcar todos da turma</button><button class="btn-secondary" type="button" data-movement-clear hidden>Desmarcar todos</button><span data-movement-count role="status" aria-live="polite">Confira os alunos selecionados.</span></div>
             <div class="table-scroll"><table class="tabela-filtrada movement-archive-table"><thead><tr><th>Enviar</th><th>Aluno</th></tr></thead><tbody>
             <?php foreach ($archiveStudents as $student): ?><tr><td><input type="checkbox" name="alunos[]" value="<?= e((string) $student['id']) ?>" aria-label="Enviar <?= e((string) $student['nome_completo']) ?> ao Arquivo Passivo" <?= !$archiveAfter && (is_array($archiveSelected ?? null) ? in_array((int) $student['id'], $archiveSelected, true) : true) ? 'checked' : '' ?>></td><td><?= e((string) $student['nome_completo']) ?></td></tr><?php endforeach; ?>
             </tbody></table></div>
             <p class="form-help">Somente os alunos marcados serão enviados. Na próxima tela, escolha a caixa e confira a prévia antes de confirmar. Limite de 200 alunos por lote.</p>
             <div class="form-actions"><button class="btn-primary" type="submit">Escolher caixa e conferir envio</button></div>
+            <?php if(is_array($seniorClosure)): ?><p class="form-help">A confirmação do envio também conclui esta turma para a progressão anual. Os desmarcados ficam ativos e não avançam. Se todos reprovaram, desmarque todos e use a opção abaixo.</p><button class="btn-secondary" type="submit" name="manter_todos" value="1">Todos reprovaram — manter a turma ativa</button><?php endif; ?>
         </form>
         <?php else: ?><p>Esta turma não possui alunos ativos para enviar ao Arquivo Passivo.</p><?php endif; ?>
     <?php endif; ?>

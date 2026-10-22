@@ -463,6 +463,7 @@ if (studentArchiveSelection) {
     const available = checkboxes.filter((checkbox) => !checkbox.hasAttribute('data-student-selection-unavailable'));
     const summary = studentArchiveSelection.querySelector('[data-student-selection-summary]');
     const submit = studentArchiveSelection.querySelector('[data-student-selection-submit]');
+    const regress = studentArchiveSelection.querySelector('[data-student-regress-submit]');
     const selectPage = studentArchiveSelection.querySelector('[data-student-select-page]');
     const clear = studentArchiveSelection.querySelector('[data-student-clear-selection]');
     const offPage = studentArchiveSelection.querySelector('[data-student-offpage-selection]');
@@ -507,6 +508,7 @@ if (studentArchiveSelection) {
         const outside = selected.size - visibleSelected;
         summary.textContent = `${selected.size} de ${limit} aluno(s) selecionado(s)${outside ? `; ${outside} fora desta página` : ''}. ${storageAvailable ? 'A seleção acompanha páginas e filtros.' : 'O navegador não permite guardar a seleção; continue nesta página.'}${notice ? ` ${notice}` : ''}`;
         submit.disabled = selected.size === 0;
+        if (regress) { regress.hidden = selected.size === 0; regress.disabled = selected.size === 0; }
         clear.disabled = selected.size === 0;
         const wholePageSelected = available.length > 0 && available.every((checkbox) => selected.has(checkbox.value));
         selectPage.textContent = wholePageSelected ? 'Desmarcar esta página' : 'Selecionar esta página';

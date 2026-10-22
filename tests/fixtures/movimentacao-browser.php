@@ -61,4 +61,5 @@ echo json_encode([
     'dvas' => $pdo->query('SELECT * FROM dvas ORDER BY id')->fetchAll(),
     'passive' => $pdo->query('SELECT aluno_origem_id,caixa FROM alunos_passivo ORDER BY id')->fetchAll(),
     'movements' => $pdo->query('SELECT m.aluno_id,l.tipo,l.ano FROM alunos_movimentacoes m JOIN alunos_movimentacao_lotes l ON l.id=m.lote_id ORDER BY m.id')->fetchAll(),
+    'audit' => $pdo->query('SELECT action,result,resource_type,resource_id,description FROM security_audit ORDER BY id')->fetchAll(),
 ], JSON_THROW_ON_ERROR);

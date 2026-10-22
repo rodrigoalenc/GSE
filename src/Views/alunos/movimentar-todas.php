@@ -19,7 +19,7 @@
         </form>
     <?php else: ?>
         <?php $remaining = $bulkOptions['permanecem']; ?>
-        <?php if (!$state['liberada']): ?><p class="warning-message">Conclua a conferência do 3º ano acima para liberar a progressão de todas as turmas.</p><?php endif; ?>
+        <?php if (!$state['liberada']): ?><p class="warning-message">Conclua o envio dos concluintes do 3º ano em “Mandar para o passivo” e identifique as séries pendentes para liberar a progressão de todas as turmas.</p><?php endif; ?>
         <?php if ($bulkOptions['turmas'] === []): ?><p>Nenhuma turma tem alunos disponíveis para progredir neste ano de referência.</p><?php else: ?>
         <form method="post" action="<?= e(url('aluno/movimentar/preview')) ?>" data-movement-bulk>
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ano" value="<?= e((string) $year) ?>"><input type="hidden" name="tipo" value="progressao"><input type="hidden" name="todas_turmas" value="1">

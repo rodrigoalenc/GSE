@@ -8,6 +8,7 @@ require_once ROOT_PATH . '/src/Core/RequestReceipt.php';
 require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
 require_once ROOT_PATH . '/src/Core/SerieTurma.php';
 require_once ROOT_PATH . '/src/Core/CorrespondenciaTurma.php';
+require_once ROOT_PATH . '/src/Services/MovimentacaoAnual.php';
 
 use src\Core\SqliteTransaction;
 use src\Core\SerieTurma;
@@ -15,6 +16,7 @@ use src\Core\CorrespondenciaTurma;
 
 final class MovimentacaoAlunos extends Model
 {
+    use MovimentacaoAnual;
     public const MAX_ALUNOS = 200;
     public const MAX_PROGRESSAO_TODAS = 10000;
     private ?string $lastErrorCode = null;
@@ -218,6 +220,7 @@ final class MovimentacaoAlunos extends Model
     public function opcoesTodas(int $year): array
     {
         $classes = array_column($this->turmas(), null, 'id');
+        $saved = $this->destinosSalvos();
         $groups = [];
         $remaining = [];
         foreach ($this->alunosMovimentacao($year) as $student) {
@@ -238,8 +241,12 @@ final class MovimentacaoAlunos extends Model
             if (!isset($groups[$source])) {
                 $destinations = array_values(array_filter($classes, static fn (array $class): bool => (int) $class['ativo'] === 1
                     && $class['serie'] !== null && (int) $class['serie'] === (int) $student['serie'] + 1));
+                $suggested = $this->destinoAutomatico($classes[$source], $destinations, $year);
+                if ($suggested === 0 && in_array($saved[$source] ?? 0, array_column($destinations, 'id'), true)) {
+                    $suggested = $saved[$source];
+                }
                 $groups[$source] = ['origem_id' => $source, 'origem' => $classes[$source],
-                    'destinos' => $destinations, 'sugerido' => $this->destinoAutomatico($classes[$source], $destinations, $year),
+                    'destinos' => $destinations, 'sugerido' => $suggested,
                     'alunos' => []];
             }
             $groups[$source]['alunos'][] = $student;
@@ -340,10 +347,10 @@ final class MovimentacaoAlunos extends Model
      * @param array<mixed> $keep
      * @return array<string,mixed>
      */
-    private function prepararTodas(array $destinations, array $keep, int $year): array
+    private function prepararTodas(array $destinations, array $keep, int $year, bool $annual = false): array
     {
         $this->ensure($this->validYear($year), 'invalid_year');
-        $this->ensure($this->conferencia($year)['liberada'], 'review_required');
+        $this->ensure($annual ? $this->estadoAnual($year)['liberada'] : $this->conferencia($year)['liberada'], 'review_required');
         $options = $this->opcoesTodas($year);
         $groups = array_column($options['turmas'], null, 'origem_id');
         $eligible = [];
@@ -379,7 +386,7 @@ final class MovimentacaoAlunos extends Model
             $mapping[$source] = ($mapping[$source] ?? 0) ?: $group['sugerido'];
             $this->ensure(isset($mapping[$source]) && in_array($mapping[$source], array_column($group['destinos'], 'id'), true), 'invalid_bulk_destination');
             foreach (array_chunk($selected, self::MAX_ALUNOS) as $chunk) {
-                $plans[] = $this->prepare($chunk, $mapping[$source], 'progressao', $year);
+                $plans[] = $this->prepare($chunk, $mapping[$source], 'progressao', $year, $annual);
                 array_push($ids, ...$chunk);
             }
         }
@@ -403,11 +410,11 @@ final class MovimentacaoAlunos extends Model
     /** @param array<mixed> $ids
      * @return array<string,mixed>
      */
-    private function prepare(array $ids, int $destination, string $type, int $year): array
+    private function prepare(array $ids, int $destination, string $type, int $year, bool $annual = false): array
     {
         $this->ensure(in_array($type, ['progressao', 'regressao'], true), 'invalid_operation');
         $this->ensure($this->validYear($year), 'invalid_year');
-        $this->ensure(array_is_list($ids) && count($ids) > 0 && count($ids) <= self::MAX_ALUNOS, 'invalid_selection');
+        $this->ensure(array_is_list($ids) && count($ids) > 0 && count($ids) <= ($annual ? 50000 : self::MAX_ALUNOS), 'invalid_selection');
         $valid = [];
         foreach ($ids as $id) {
             $value = (is_string($id) || is_int($id)) ? filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
@@ -429,7 +436,7 @@ final class MovimentacaoAlunos extends Model
         $this->ensure($target !== null && (int) $target['ativo'] === 1 && $target['serie'] !== null, 'invalid_class');
         $review = $this->conferencia($year);
         if ($type === 'progressao') {
-            $this->ensure($review['liberada'], 'review_required');
+            $this->ensure($annual ? $this->estadoAnual($year)['liberada'] : $review['liberada'], 'review_required');
         }
         $delta = $type === 'progressao' ? 1 : -1;
         foreach ($students as $student) {
@@ -514,7 +521,10 @@ final class MovimentacaoAlunos extends Model
     public function errorMessage(): string
     {
         return match ($this->lastErrorCode) {
-            'review_required' => 'Confira o 3º ano do ensino médio e envie os concluintes ao Arquivo Passivo antes de progredir.',
+            'review_required' => 'Conclua o envio dos concluintes do 3º ano ao Arquivo Passivo, desmarcando os reprovados, antes de progredir.',
+            'year_completed' => 'A progressão geral deste ano já foi realizada. Corrija reprovados em Gestão de alunos.',
+            'destination_required' => 'Escolha a turma de destino para cada turma de origem. Há mais de uma opção ou falta uma turma da série seguinte.',
+            'no_students' => 'Não há alunos disponíveis para essa movimentação.',
             'unclassified_classes' => 'Identifique a série das turmas com alunos ativos. Alunos sem turma precisam ser vinculados a uma turma.',
             'invalid_selection' => 'Selecione de 1 a 200 alunos diferentes e válidos.',
             'invalid_class' => 'Escolha uma turma existente, ativa e com a série identificada.',

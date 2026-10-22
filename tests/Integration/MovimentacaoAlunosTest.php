@@ -215,6 +215,7 @@ final class MovimentacaoAlunosTest extends DatabaseTestCase
         $state = $this->service->conferencia($year);
         $this->assertSame([], $state['alunos']);
         $this->assertGreaterThan(0, $state['pendentes']);
+        $state = $this->service->estadoAnual($year);
         $classes = $this->service->turmas();
         $series = \MovimentacaoAlunos::series();
         $configure = false;
@@ -237,7 +238,7 @@ final class MovimentacaoAlunosTest extends DatabaseTestCase
         }
         $this->assertStringNotContainsString('Não há alunos ativos do 3º ano', $html);
         $this->assertStringNotContainsString('name="passivo_turma"', $html);
-        $this->assertStringContainsString('Identifique as séries antes de concluir a conferência', $html);
+        $this->assertStringContainsString('Identifique as séries das turmas antes de progredir', $html);
         $this->assertStringNotContainsString('action="' . \url('aluno/movimentar/conferencia') . '"', $html);
         $type = 'passivo';
         ob_start();
@@ -250,7 +251,7 @@ final class MovimentacaoAlunosTest extends DatabaseTestCase
         $this->assertStringContainsString('name="passivo_turma"', $html);
         $this->assertStringContainsString('name="movimentacao_turma" value="' . $this->destination . '"', $html);
         $this->assertStringContainsString('aria-label="Enviar Reprovado terceiro ao Arquivo Passivo" checked', $html);
-        $this->assertStringNotContainsString('id="movement-series-title"', $html);
+        $this->assertStringContainsString('id="movement-series-title"', $html);
         $this->assertStringNotContainsString('id="movement-senior-title"', $html);
         $this->assertStringNotContainsString('id="movement-selection-title"', $html);
         $this->assertSame(1, (int) (new \Aluno())->buscarPorId($this->senior)['ativo']);
