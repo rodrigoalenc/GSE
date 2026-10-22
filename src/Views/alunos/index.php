@@ -80,12 +80,13 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
             <div class="student-batch-summary">
                 <strong>Ações com os alunos selecionados</strong>
-                <span data-student-selection-summary role="status" aria-live="polite" aria-atomic="true">Selecione até 200 alunos para escolher a caixa e conferir a prévia.</span>
+                <span data-student-selection-summary role="status" aria-live="polite" aria-atomic="true">Selecione até 200 alunos para arquivar ou regredir.</span>
+                <small>Marcar todos considera apenas esta página. Desmarcar todos limpa também a seleção das outras páginas.</small>
                 <noscript><small>Sem JavaScript, selecione os alunos desta página e continue.</small></noscript>
             </div>
             <div class="student-batch-actions">
-                <button class="btn-secondary" type="button" data-student-select-page hidden>Selecionar esta página</button>
-                <button class="btn-secondary" type="button" data-student-clear-selection hidden>Limpar seleção</button>
+                <button class="btn-secondary" type="button" data-student-select-page disabled>Marcar todos nesta página</button>
+                <button class="btn-secondary" type="button" data-student-clear-selection disabled>Desmarcar todos</button>
                 <button class="btn-primary" type="submit" data-student-selection-submit>Escolher caixa e conferir</button>
                 <button class="btn-secondary" type="submit" formaction="<?= e(url('aluno/regredir')) ?>" data-student-regress-submit hidden>Regredir aluno(s)</button>
                 <noscript><button class="btn-secondary" type="submit" formaction="<?= e(url('aluno/regredir')) ?>">Regredir aluno(s)</button></noscript>
@@ -102,7 +103,7 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
             <?php else: ?>
                 <?php foreach ($result['items'] as $item): ?>
                     <tr>
-                        <?php if ($canArchiveBatch): ?><td class="student-selection-cell"><input type="checkbox" name="alunos[]" value="<?= e((string) $item['id']) ?>" form="student-archive-selection" data-student-selection-id aria-label="Selecionar <?= e((string) $item['nome_completo']) ?> para o Arquivo Passivo" <?= (int) ($item['no_passivo'] ?? 0) === 1 ? 'disabled data-student-selection-unavailable' : '' ?>><?php if ((int) ($item['no_passivo'] ?? 0) === 1): ?><small class="student-selection-unavailable">Já no Arquivo Passivo</small><?php endif; ?></td><?php endif; ?>
+                        <?php if ($canArchiveBatch): ?><td class="student-selection-cell"><input type="checkbox" name="alunos[]" value="<?= e((string) $item['id']) ?>" form="student-archive-selection" data-student-selection-id aria-label="Selecionar <?= e((string) $item['nome_completo']) ?> para arquivar ou regredir" <?= (int) ($item['no_passivo'] ?? 0) === 1 ? 'disabled data-student-selection-unavailable' : '' ?>><?php if ((int) ($item['no_passivo'] ?? 0) === 1): ?><small class="student-selection-unavailable">Já no Arquivo Passivo</small><?php endif; ?></td><?php endif; ?>
                         <td class="student-name"><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a></td>
                         <td><span class="turma-badge"><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></span></td>
                         <td><?= e(date('d/m/Y', strtotime((string) $item['data_nascimento']))) ?></td>

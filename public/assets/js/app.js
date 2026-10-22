@@ -511,7 +511,7 @@ if (studentArchiveSelection) {
         if (regress) { regress.hidden = selected.size === 0; regress.disabled = selected.size === 0; }
         clear.disabled = selected.size === 0;
         const wholePageSelected = available.length > 0 && available.every((checkbox) => selected.has(checkbox.value));
-        selectPage.textContent = wholePageSelected ? 'Desmarcar esta página' : 'Selecionar esta página';
+        selectPage.textContent = wholePageSelected ? 'Desmarcar todos nesta página' : 'Marcar todos nesta página';
         selectPage.setAttribute('aria-pressed', String(wholePageSelected));
         selectPage.disabled = available.length === 0;
     };
