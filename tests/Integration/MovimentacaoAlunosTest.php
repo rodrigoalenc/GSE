@@ -209,6 +209,7 @@ final class MovimentacaoAlunosTest extends DatabaseTestCase
 
     public function testTelaNaoAfirmaAusenciaDeAlunosQuandoSerieAindaNaoFoiIdentificada(): void
     {
+        $this->assertTrue((new \Turma())->atualizar($this->destination, 'Turma sem indicação de série', 2026, $this->admin));
         $this->assertTrue($this->service->definirSeries([$this->destination => ''], $this->admin));
         $year = 2027;
         $state = $this->service->conferencia($year);

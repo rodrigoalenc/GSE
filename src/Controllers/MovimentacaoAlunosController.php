@@ -37,11 +37,21 @@ final class MovimentacaoAlunosController extends Controller
         $preview = $this->getPreview($token);
         if ($preview !== null) {
             $type = $preview['tipo'];
+            $year = (int) $preview['ano'];
         } elseif ($type === '' && $archiveClass > 0) {
             $type = 'passivo';
         }
         if ($token !== '' && $preview === null) {
             definir_flash('warning', 'A prévia expirou ou já foi confirmada. Selecione os alunos novamente.');
+        }
+        $allClasses = $type === 'progressao' && (input_string($_GET['todas'] ?? '') === '1' || !empty($preview['todas_turmas']));
+        $bulkDraft = $_SESSION['student_move_all_draft'] ?? [];
+        if (!is_array($bulkDraft) || ($bulkDraft['actor'] ?? 0) !== $this->actor()
+            || ($bulkDraft['ano'] ?? 0) !== $year || ($bulkDraft['created_at'] ?? 0) < time() - 1800) {
+            $bulkDraft = [];
+        }
+        if (!empty($preview['todas_turmas'])) {
+            $bulkDraft = $preview;
         }
         $this->view('alunos/movimentar', [
             'title' => 'Movimentar alunos', 'year' => $year, 'classes' => $classes,
@@ -54,6 +64,9 @@ final class MovimentacaoAlunosController extends Controller
             'archiveStudents' => $type === 'passivo' && $archiveClass > 0 ? $service->alunos($archiveClass) : [],
             'archiveAfter' => input_string($_GET['arquivados'] ?? '') === '1',
             'archiveSelected' => $archiveSelected,
+            'allClasses' => $allClasses, 'bulkOptions' => $allClasses ? $service->opcoesTodas($year) : null,
+            'bulkDraft' => $bulkDraft,
+            'automaticDestination' => !$allClasses && $type === 'progressao' && $class > 0 ? $service->destinoProgressao($class, $year) : null,
         ]);
     }
 
@@ -83,12 +96,32 @@ final class MovimentacaoAlunosController extends Controller
         $ids = is_array($_POST['alunos'] ?? null) ? $_POST['alunos'] : [];
         $destination = (int) input_string($_POST['destino'] ?? '0');
         $type = input_string($_POST['tipo'] ?? '');
-        // A separate submit button also supports whole-class selection without JavaScript.
-        if (input_string($_POST['turma_inteira'] ?? '') === '1') {
-            $source = (int) input_string($_POST['turma'] ?? '0');
-            $ids = $source > 0 ? array_column($service->alunos($source), 'id') : [];
+        $bulk = input_string($_POST['todas_turmas'] ?? '') === '1';
+        if ($bulk) {
+            if ($type !== 'progressao' || input_string($_POST['todas_completo'] ?? '') !== '1') {
+                $this->redirectWithFlash($this->path('progressao'), 'danger', 'O formulário de todas as turmas está incompleto. Reabra a seleção e confira os destinos e os alunos que devem permanecer.');
+            }
+            $destinations = is_array($_POST['destinos'] ?? null) ? $_POST['destinos'] : [];
+            $keep = is_array($_POST['manter'] ?? null) ? $_POST['manter'] : [];
+            $draftDestinations = [];
+            foreach ($destinations as $source => $target) {
+                if (filter_var($source, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) !== false
+                    && (is_string($target) || is_int($target)) && ($target === '' || ctype_digit((string) $target))) {
+                    $draftDestinations[$source] = $target;
+                }
+            }
+            $_SESSION['student_move_all_draft'] = ['actor' => $this->actor(), 'ano' => $this->year(), 'created_at' => time(),
+                'destinos' => $draftDestinations, 'manter' => array_values(array_filter($keep,
+                    static fn (mixed $id): bool => (is_string($id) || is_int($id)) && ctype_digit((string) $id)))];
+            $plan = $service->previewTodas($destinations, $keep, $this->year());
+        } else {
+            // A separate submit button also supports whole-class selection without JavaScript.
+            if (input_string($_POST['turma_inteira'] ?? '') === '1') {
+                $source = (int) input_string($_POST['turma'] ?? '0');
+                $ids = $source > 0 ? array_column($service->alunos($source), 'id') : [];
+            }
+            $plan = $service->preview($ids, $destination, $type, $this->year());
         }
-        $plan = $service->preview($ids, $destination, $type, $this->year());
         if ($plan === false) {
             $this->redirectWithFlash($this->path() . '&' . http_build_query([
                 'turma' => input_string($_POST['turma'] ?? ''), 'tipo' => $type,
@@ -115,7 +148,13 @@ final class MovimentacaoAlunosController extends Controller
             $this->redirectWithFlash($this->path() . '&preview=' . $token . '#movement-preview', 'danger', 'Confira a prévia e marque a confirmação.');
         }
         $service = new MovimentacaoAlunos();
-        $result = $service->confirmar($preview, $this->actor(), $token);
+        $_POST['ano'] = $preview['ano'];
+        $_POST['todas_turmas'] = !empty($preview['todas_turmas']) ? '1' : '0';
+        $result = !empty($preview['todas_turmas']) ? $service->confirmarTodas($preview, $this->actor(), $token)
+            : $service->confirmar($preview, $this->actor(), $token);
+        if ($result !== false && !empty($preview['todas_turmas'])) {
+            unset($_SESSION['student_move_all_draft']);
+        }
         unset($_SESSION['student_move_previews'][$token]);
         $this->redirectWithFlash($this->path($preview['tipo']), $result !== false ? 'success' : 'danger',
             $result !== false ? sprintf('%d aluno(s) movimentado(s). O histórico está disponível no perfil de cada aluno.', count($preview['ids'])) : $service->errorMessage());
@@ -140,7 +179,8 @@ final class MovimentacaoAlunosController extends Controller
     {
         $type = $type !== '' ? $type : input_string($_POST['tipo'] ?? 'progressao');
         $type = in_array($type, ['progressao', 'regressao'], true) ? $type : 'progressao';
-        return 'aluno/movimentar?ano=' . $this->year() . '&tipo=' . $type;
+        return 'aluno/movimentar?ano=' . $this->year() . '&tipo=' . $type
+            . ($type === 'progressao' && input_string($_POST['todas_turmas'] ?? '') === '1' ? '&todas=1' : '');
     }
 
     private function expirePreviews(): void

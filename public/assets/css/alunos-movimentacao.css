@@ -22,10 +22,25 @@
 .movement-panel .tabela-filtrada.movement-archive-table { min-width: 0; width: 100%; table-layout: fixed; }
 .movement-panel .movement-archive-table th:first-child { width: 80px; }
 .movement-panel .movement-archive-table td:last-child { white-space: normal; overflow-wrap: anywhere; }
+.movement-panel span.movement-series-label, .movement-panel label.movement-series-label { display: none; }
+.movement-bulk-class { padding: 20px; margin: 20px 0; border: 1px solid #dce3ed; border-radius: 10px; min-width: 0; overflow-wrap: anywhere; }
+.movement-bulk-class h3, .movement-bulk-remaining h3 { margin-top: 0; }
+.movement-bulk-pupils, .movement-bulk-names { padding-left: 0; list-style: none; }
+.movement-bulk-names li { padding: 8px 0; border-bottom: 1px solid #edf1f6; overflow-wrap: anywhere; }
+.movement-bulk-pupils .movement-check { margin: 12px 0; }
+.movement-bulk-remaining { margin-top: 24px; padding-top: 20px; border-top: 1px solid #dce3ed; }
+.movement-automatic { padding: 14px; margin: 12px 0; border: 1px solid #bdddcf; border-radius: 9px; background: #f1fbf5; overflow-wrap: anywhere; }
+.movement-automatic strong { display: block; margin: 5px 0; }
 @media (max-width: 600px) {
     .movement-panel .form-actions { display: flex; flex-direction: column; align-items: stretch; }
     .movement-panel .form-actions > * { text-align: center; white-space: normal; }
     .movement-panel .section-head { flex-direction: column; align-items: flex-start; }
     .movement-panel .tabela-filtrada { min-width: 560px; }
     .movement-panel .table-scroll { max-width: 100%; }
+    .movement-panel .tabela-filtrada.movement-series-table { display: block; width: 100%; min-width: 0; }
+    .movement-series-table thead { display: none; }
+    .movement-series-table tbody, .movement-series-table tr, .movement-series-table td { display: block; width: auto; }
+    .movement-series-table tr { margin-bottom: 12px; padding: 10px 0; border: 1px solid #dce3ed; border-radius: 9px; }
+    .movement-series-table td { padding: 8px 14px; border: 0; white-space: normal; overflow-wrap: anywhere; }
+    .movement-panel span.movement-series-label, .movement-panel label.movement-series-label { display: block; margin-bottom: 6px; font-weight: 600; }
 }

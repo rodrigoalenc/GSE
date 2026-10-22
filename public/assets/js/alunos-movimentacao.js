@@ -17,3 +17,22 @@ document.querySelectorAll('[data-movement-selection]').forEach((form) => {
     boxes.forEach((box) => box.addEventListener('change', refresh));
     refresh();
 });
+
+document.querySelectorAll('[data-movement-bulk]').forEach((form) => {
+    const groups = [...form.querySelectorAll('[data-bulk-class]')];
+    const refresh = () => {
+        let total = 0;
+        groups.forEach((group) => {
+            const boxes = [...group.querySelectorAll('input[name="manter[]"]')];
+            const remaining = boxes.filter((box) => box.checked).length;
+            const moving = boxes.length - remaining;
+            group.querySelector('[data-bulk-count]').textContent = `${moving} aluno(s) vão progredir; ${remaining} permanecerão.`;
+            const destination = group.querySelector('select[data-bulk-destination]');
+            if (destination) destination.disabled = moving === 0;
+            total += moving;
+        });
+        form.querySelector('[data-bulk-total]').textContent = `Total: ${total} aluno(s) vão progredir.`;
+    };
+    form.querySelectorAll('input[name="manter[]"]').forEach((box) => box.addEventListener('change', refresh));
+    refresh();
+});

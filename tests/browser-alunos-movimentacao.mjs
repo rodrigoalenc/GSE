@@ -94,6 +94,9 @@ try {
     }
     await page.click('[data-movement-choice="progressao"]');await awaitMovement();
     check(await page.evaluate(`document.querySelector('#movement-archive-title')===null`),true,'Progression contains no archive form');
+    check(await page.evaluate(`[...document.querySelectorAll('select[id^="series-"]')].map(select=>select.id)`),['series-3'],'Only the ambiguous class needs manual identification, with the form already open');
+    check(await page.evaluate(`document.querySelector('#movement-destination option[value="2"]').textContent.includes('2º ano do ensino médio')`),true,'Automatically recognized destination is immediately available');
+    check(fixture().series,[],'Automatic recognition leaves stored class metadata untouched');
     check(await page.evaluate(`document.querySelector('.movement-controls button[type="submit"]').textContent.trim()`),'Abrir ano','Movement screen renders');
     check(await page.evaluate(`(() => {const section=document.querySelector('#movement-senior-title').closest('section');
         return section.textContent.includes('Identifique as séries antes de concluir a conferência') && !section.textContent.includes('Não há alunos ativos do 3º ano');})()`),true,'Unclassified classes never display a false absence of senior pupils');
@@ -103,6 +106,9 @@ try {
         await page.evaluate(`document.querySelector('#movement-senior-title').scrollIntoView({block:'start'})`);
         check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Pending-series warning fits ${width}x${height}`);
         await shot(`movimentacao-series-pendentes-${width}x${height}`);
+        await page.evaluate(`document.querySelector('#movement-series-title').scrollIntoView({block:'start'})`);
+        check(await page.evaluate(`(()=>{const wrapper=document.querySelector('form[action$="/movimentar/series"] table').parentElement;return wrapper.scrollWidth<=wrapper.clientWidth;})()`),true,`Pending grade selectors fit without horizontal scrolling at ${width}x${height}`);
+        await shot(`series-identificar-pendentes-${width}x${height}`);
     }
     await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
     await page.click('[data-movement-back]');
@@ -159,9 +165,24 @@ try {
     check(await page.evaluate(`document.querySelectorAll('form[action$="/arquivar-lote/selecionar"] input[name="alunos[]"]:checked').length`),0,'Remaining pupils are not preselected again after archiving');
     check(fixture().students.map(s=>s.ativo),[1,1,0,1],'Graduate is archived and repeater stays active');
     check(await page.evaluate(`new URL(location.href).searchParams.get('tipo')`),'passivo','Archive confirmation stays in the archive action');
-    await go('/aluno/movimentar?ano=2027&tipo=progressao&configurar=1');
-    for (const [id,serie] of [[1,'10'],[2,'11'],[3,'12']]) await setValue(`#series-${id}`,serie);
+    await go('/aluno/movimentar?ano=2027&tipo=progressao');
+    await setValue('#series-3','12');
     await submit('form[action$="/movimentar/series"] button[type="submit"]');await awaitMovement();
+    check(fixture().series,[{id_turma:3,serie:12}],'Only the ambiguous class receives a manual grade');
+    check(await page.evaluate(`document.querySelector('form[action$="/movimentar/series"]')===null`),true,'Identifying the only pending class removes the setup form');
+    await page.click('a[href*="configurar=1"]');await awaitMovement();
+    check(await page.evaluate(`document.querySelector('#series-1').value`),'','Review keeps automatically identified classes automatic');
+    check(await page.evaluate(`document.querySelector('#series-2').closest('tr').textContent.includes('Identificada automaticamente: 2º ano do ensino médio')`),true,'Review explains the recognized grade');
+    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
+        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        await page.evaluate(`document.querySelector('#movement-series-title').scrollIntoView({block:'start'})`);
+        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Series review fits ${width}x${height}`);
+        check(await page.evaluate(`(()=>{const wrapper=document.querySelector('form[action$="/movimentar/series"] table').parentElement;return wrapper.scrollWidth<=wrapper.clientWidth;})()`),true,`Series correction selectors fit without horizontal scrolling at ${width}x${height}`);
+        await shot(`series-revisar-${width}x${height}`);
+    }
+    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+    await submit('form[action$="/movimentar/series"] button[type="submit"]');await awaitMovement();
+    check(fixture().series,[{id_turma:3,serie:12}],'Saving review preserves automatic identification without adding overrides');
     check(await page.evaluate(`document.querySelector('form[action$="/movimentar/preview"] button[type="submit"]').disabled`),true,'Progression is still blocked before senior review');
     await page.click('form[action$="/movimentar/conferencia"] input[name="confirmar"]');
     await submit('form[action$="/movimentar/conferencia"] button[type="submit"]');await awaitMovement();
@@ -170,7 +191,7 @@ try {
     await page.click('form[action$="/movimentar/preview"] [data-movement-select-all]');
     check(await page.evaluate(`document.querySelectorAll('form[action$="/movimentar/preview"] input[name="alunos[]"]:checked').length`),2,'Select whole displayed class');
     await page.click('form[action$="/movimentar/preview"] input[value="2"][name="alunos[]"]');
-    await setValue('#movement-destination','2');
+    check(await page.evaluate(`document.querySelector('[data-movement-automatic]').getAttribute('data-movement-automatic')`),'2','Single-class progression identifies the next class without a destination selector');
     await submit('form[action$="/movimentar/preview"] button[type="submit"]');
     await page.until(`!!document.querySelector('#movement-preview')`);
     check(fixture().movements.length,0,'Movement preview does not mutate');
@@ -212,11 +233,101 @@ try {
     await submit('form[action$="/movimentar/conferencia"] button[type="submit"]');await awaitMovement();
     await go('/aluno/movimentar?ano=2028&tipo=progressao&turma=1&q=Aprovado');
     check(await page.evaluate(`document.querySelectorAll('form[action$="/movimentar/preview"] input[name="alunos[]"]').length`),1,'Name search narrows the visible class roster');
-    await setValue('#movement-destination','2');
+    check(await page.evaluate(`document.querySelector('#movement-destination')===null`),true,'Whole-class progression also needs no manual destination choice');
     await submit('button[name="turma_inteira"]');
     await page.until(`!!document.querySelector('#movement-preview')`);
     check(await page.evaluate(`document.querySelectorAll('#movement-preview tbody tr').length`),2,'Whole-class action previews all active pupils even outside search');
     check(fixture().movements.length,2,'Whole-class preview also remains read-only');
+    let beforeBulk = fixture('bulk-seed');
+    await go('/aluno/movimentar?ano=2029&tipo=progressao');
+    await page.click('form[action$="/movimentar/conferencia"] input[name="confirmar"]');
+    await submit('form[action$="/movimentar/conferencia"] button[type="submit"]');await awaitMovement();
+    await page.click('[data-movement-all]');await awaitMovement();
+    check(await page.evaluate(`new URL(location.href).searchParams.get('todas')`),'1','All-classes option opens inside progression');
+    check(await page.evaluate(`document.querySelectorAll('[data-bulk-class]').length`),2,'All eligible source classes appear together');
+    check(await page.evaluate(`[...document.querySelectorAll('[data-bulk-automatic]')].map(element=>element.getAttribute('data-bulk-automatic'))`),['4','3'],'Corresponding section A is resolved among A/B choices and the unique next grade is automatic');
+    check(await page.evaluate(`document.querySelector('select[data-bulk-destination], input[name^="destinos["]')===null`),true,'Resolved classes show ready destinations without asking or posting mapping fields');
+    check(await page.evaluate(`document.querySelectorAll('input[name="manter[]"]:checked').length`),0,'All eligible pupils progress by default; only repeaters need marking');
+    check(await page.evaluate(`document.querySelector('.movement-bulk-remaining').textContent.includes('Reprovado terceiro')`),true,'Existing senior repeater is explicitly retained');
+    const partialStatus = await page.evaluate(`(async()=>{const csrf=document.querySelector('[name="_csrf_token"]').value;
+        const response=await fetch('/aluno/movimentar/preview',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:new URLSearchParams({_csrf_token:csrf,ano:'2029',tipo:'progressao',todas_turmas:'1','destinos[1]':'2','destinos[2]':'3'})});
+        return [response.status,(await response.text()).includes('O formulário de todas as turmas está incompleto')];})()`);
+    check(partialStatus,[200,true],'Truncated all-class forms fail closed before generating a preview');
+    await page.click('input[name="manter[]"][value="2"]');
+    await page.click('input[name="manter[]"][value="6"]');
+    check(await page.evaluate(`document.querySelector('[data-bulk-total]').textContent`),'Total: 2 aluno(s) vão progredir.','Retaining repeaters updates the total');
+    await submit('form[data-movement-bulk] button[type="submit"]');await awaitMovement();
+    check(await page.evaluate(`document.querySelector('#movement-preview').textContent.includes('2º Ano A - EM')`),true,'Server resolves all destinations from the classes without mapping in the request');
+    check(fixture().students,beforeBulk.students,'Automatic progression preview is read-only');
+    await page.click('#movement-preview .form-actions a');await awaitMovement();
+    beforeBulk = fixture('bulk-ambiguous');
+    await go('/aluno/movimentar?ano=2029&tipo=progressao&todas=1');
+    check(await page.evaluate(`document.querySelectorAll('select[data-bulk-destination]').length`),1,'Only the class without a corresponding section asks for resolution');
+    check(await page.evaluate(`document.querySelector('#bulk-destination-1')===null`),true,'Unambiguous A-to-A destination stays automatic even while another class needs a choice');
+    await submit('form[data-movement-bulk] button[type="submit"]');await awaitMovement();
+    check(await page.evaluate(`!!document.querySelector('[data-movement-bulk]') && !document.querySelector('#movement-preview')`),true,'A missing destination rejects the whole preview');
+    check(await page.evaluate(`[...document.querySelectorAll('input[name="manter[]"]:checked')].map(box=>box.value)`),['2','6'],'A rejected preview preserves the repeater choices');
+    await setValue('#bulk-destination-2','3');
+    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
+        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        await page.command('Input.dispatchMouseEvent',{type:'mouseMoved',x:width-10,y:height-10});
+        await page.until(`innerWidth<=768 || document.querySelector('.sidebar').getBoundingClientRect().width<=80`);
+        await page.evaluate(`document.querySelector('#movement-all-title').scrollIntoView({block:'start'})`);
+        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`All-class form fits ${width}x${height}`);
+        check(await page.evaluate(`(()=>{const panel=document.querySelector('#movement-all');return panel.scrollWidth<=panel.clientWidth;})()`),true,`All-class form content is not clipped at ${width}x${height}`);
+        check(await page.evaluate(`(()=>{return [...document.querySelectorAll('[data-bulk-destination], [data-bulk-automatic]')].every(element=>{const r=element.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth;});})()`),true,`Automatic destinations and exception controls fit ${width}x${height}`);
+        await shot(`progressao-todas-${width}x${height}`);
+    }
+    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+    await submit('form[data-movement-bulk] button[type="submit"]');await awaitMovement();
+    check(await page.evaluate(`document.querySelector('#movement-preview').textContent.includes('2 aluno(s) vão progredir')`),true,'One preview covers pupils from every selected source class');
+    check(fixture().students,beforeBulk.students,'The all-class preview does not change any pupil');
+    for (const [width,height] of [[1366,900],[390,844],[844,390]]) {
+        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        await page.command('Input.dispatchMouseEvent',{type:'mouseMoved',x:width-10,y:height-10});
+        await page.until(`innerWidth<=768 || document.querySelector('.sidebar').getBoundingClientRect().width<=80`);
+        await page.evaluate(`document.querySelector('#movement-preview').scrollIntoView({block:'start'})`);
+        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Combined progression preview fits ${width}x${height}`);
+        check(await page.evaluate(`(()=>{const panel=document.querySelector('#movement-preview');return panel.scrollWidth<=panel.clientWidth;})()`),true,`Combined preview content is not clipped at ${width}x${height}`);
+        await shot(`progressao-todas-previa-${width}x${height}`);
+    }
+    await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
+    await page.click('#movement-preview .form-actions a');await awaitMovement();
+    check(await page.evaluate(`[...document.querySelectorAll('input[name="manter[]"]:checked')].map(box=>box.value)`),['2','6'],'Returning from the combined preview preserves the repeater choices');
+    await submit('form[data-movement-bulk] button[type="submit"]');await awaitMovement();
+    const bulkToken = await page.evaluate(`document.querySelector('[name="preview_token"]').value`);
+    await page.click('form[action$="/movimentar/confirmar"] input[name="confirmar"]');
+    await submit('form[action$="/movimentar/confirmar"] button[type="submit"]');await awaitMovement();
+    const afterBulk = fixture();
+    check(afterBulk.students.map(s=>s.id_turma),[4,1,3,3,3,2],'One confirmation keeps section A in section A, advances all classes once and retains all repeaters');
+    check(afterBulk.movements.length,4,'Combined progression records individual history');
+    check(afterBulk.classes,beforeBulk.classes,'Combined progression preserves all class records');
+    check(afterBulk.dvas,beforeBulk.dvas,'Combined progression preserves all DVA records');
+    check(await page.evaluate(`new URL(location.href).searchParams.get('todas')`),'1','Confirmation returns to the combined progression view');
+    check(await page.evaluate(`[...document.querySelectorAll('input[name="manter[]"]')].map(box=>box.value)`),['2','6'],'Already progressed pupils are not offered for another progression in the same year');
+    await page.evaluate(`fetch('/aluno/movimentar/confirmar',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:new URLSearchParams({_csrf_token:document.querySelector('[name="_csrf_token"]').value,ano:'2029',tipo:'progressao',todas_turmas:'1',confirmar:'1',preview_token:${JSON.stringify(bulkToken)}})})`);
+    check(fixture().movements.length,4,'Resubmitting a combined confirmation does not duplicate history');
+    const beforeStages = fixture('stage-names');
+    await go('/aluno/movimentar?ano=2030&tipo=progressao&todas=1');
+    check(await page.evaluate(`document.querySelector('[data-bulk-automatic="8"]').closest('[data-bulk-class]').textContent.includes('1º Ano - Ens. Fundamental')`),true,'The fundamental class resolves to second fundamental even with high-school classes present');
+    check(await page.evaluate(`document.querySelector('[data-bulk-automatic="10"]').closest('[data-bulk-class]').textContent.includes('1º Ano - Ens. Médio')`),true,'The high-school class resolves to second high school even with fundamental classes present');
+    await page.click('form[action$="/movimentar/conferencia"] input[name="confirmar"]');
+    await submit('form[action$="/movimentar/conferencia"] button[type="submit"]');await awaitMovement();
+    const retainIds = await page.evaluate(`[...document.querySelectorAll('input[name="manter[]"]')].map(box=>box.value).filter(id=>!['7','8'].includes(id))`);
+    for (const id of retainIds) await page.click(`input[name="manter[]"][value="${id}"]`);
+    await submit('form[data-movement-bulk] button[type="submit"]');await awaitMovement();
+    check(await page.evaluate(`document.querySelector('#movement-preview').textContent.includes('2 aluno(s) vão progredir')`),true,'Abbreviated stage names participate in a single combined preview');
+    check(fixture().students,beforeStages.students,'Stage-name preview does not change any pupil');
+    await page.click('form[action$="/movimentar/confirmar"] input[name="confirmar"]');
+    await submit('form[action$="/movimentar/confirmar"] button[type="submit"]');await awaitMovement();
+    const afterStages = fixture();
+    check(afterStages.students.filter(s=>[7,8].includes(s.id)).map(s=>s.id_turma),[8,10],'Both first-year pupils progress within their own school stage');
+    check(afterStages.students.filter(s=>![7,8].includes(s.id)),beforeStages.students.filter(s=>![7,8].includes(s.id)),'All other pupils remain untouched during the stage-name scenario');
+    check(afterStages.classes,beforeStages.classes,'Abbreviated and full class names stay unchanged');
+    check(afterStages.dvas,beforeStages.dvas,'Stage-name progression preserves every DVA');
+    check(afterStages.movements.length,6,'Each stage-name progression records its individual history');
     // Switch identity to exercise authorization at the HTTP boundary as well as in integration tests.
     await page.click('.logout-form button');await page.until(`location.pathname==='/login'`);
     await fill('#email','employee@example.test');await fill('#senha','Teste ficticio seguro 2026');await page.click('.btn-login');
