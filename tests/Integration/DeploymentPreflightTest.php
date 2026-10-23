@@ -68,4 +68,19 @@ final class DeploymentPreflightTest extends DatabaseTestCase
             self::assertStringNotContainsString('missing-legacy.pdf', implode(' ', $report['errors']));
         }
     }
+
+    public function testInspectionRejectsJournalThatRequiresMaintenanceWithoutChangingIt(): void
+    {
+        $previous = $_ENV['DB_JOURNAL_MODE'] ?? null;
+        $this->pdo->query('PRAGMA journal_mode=WAL')->fetchColumn();
+        $_ENV['DB_JOURNAL_MODE'] = 'delete';
+        try {
+            $report = \DeploymentPreflight::database((string) $_ENV['DB_PATH'], null);
+            self::assertFalse($report['ok']);
+            self::assertStringContainsString('modo', implode(' ', $report['errors']));
+            self::assertSame('wal', $this->pdo->query('PRAGMA journal_mode')->fetchColumn());
+        } finally {
+            if ($previous === null) { unset($_ENV['DB_JOURNAL_MODE']); } else { $_ENV['DB_JOURNAL_MODE'] = $previous; }
+        }
+    }
 }

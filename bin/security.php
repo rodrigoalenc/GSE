@@ -85,7 +85,11 @@ try {
     } elseif (in_array($command, ['preflight','migrate','rotate-data'], true)) {
         TechnicalLogger::configure();
         DataProtection::keyring();
-        $pdo = \src\Core\Database::getConnection();
+        $maintenanceCommand = in_array($command, ['migrate', 'rotate-data'], true);
+        if ($maintenanceCommand && ($argv[2] ?? '') !== '--maintenance-confirmed') {
+            throw new RuntimeException('Pare HTTP e workers e use --maintenance-confirmed.');
+        }
+        $pdo = \src\Core\Database::getConnection($maintenanceCommand);
         if ($command === 'preflight') {
             $scratch = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gse-preflight-' . bin2hex(random_bytes(16));
             if (!mkdir($scratch,0700)) { throw new RuntimeException('Destino temporário indisponível.'); }
@@ -113,7 +117,6 @@ try {
                 }
             }
         } else {
-            if (($argv[2] ?? '') !== '--maintenance-confirmed') { throw new RuntimeException('Pare HTTP e workers e use --maintenance-confirmed.'); }
             \src\Core\DatabaseInitializer::initialize($pdo, true);
             if ($command === 'rotate-data') {
                 \src\Core\SqliteTransaction::immediate($pdo, static function (PDO $pdo): void {
@@ -133,6 +136,7 @@ try {
             $pdo->query('PRAGMA wal_checkpoint(TRUNCATE)')->fetchAll();
             if ($pdo->query('PRAGMA integrity_check')->fetchColumn() !== 'ok' || $pdo->query('PRAGMA foreign_key_check')->fetchAll() !== []) { throw new RuntimeException('Integridade inválida.'); }
             echo "Proteção e reconstrução concluídas. Verifique restauração antes de reabrir o serviço.\n";
+            echo 'Esquema: ' . \src\Core\DatabaseInitializer::latestVersion() . '; modo: ' . strtoupper((string) $pdo->query('PRAGMA journal_mode')->fetchColumn()) . ".\n";
         }
     } elseif ($command === 'protect-legacy') {
         ProtectedBackup::encrypt($argv[2] ?? '', $argv[3] ?? '');

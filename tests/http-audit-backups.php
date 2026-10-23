@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/src/Core/SqliteJournalPolicy.php';
+
 // Todos os dados, snapshots e sessões pertencem ao ambiente descartável do smoke.
 $backupDb = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $backupDirectory = $tempRoot . DIRECTORY_SEPARATOR . 'backups';
@@ -26,12 +28,16 @@ checkHttp($backupRejected['status'] === 422 && $beforeBackupFiles === $backupFil
     && !str_contains($backupRejected['body'], $badBackupPassword)
     && !preg_match('/id="backup-senha-atual"[^>]*value="[^"]+"/', $backupRejected['body']), 'Senha incorreta não gera snapshot nem retorna o segredo');
 
-// Mantém uma conexão com WAL confirmado e sem checkpoint durante o pedido HTTP.
-$backupDb->exec('PRAGMA journal_mode=WAL');
-$backupDb->exec('PRAGMA wal_autocheckpoint=0');
-$backupDb->exec("INSERT INTO turmas(nome_turma,nome_normalizado,ano_letivo) VALUES('Turma WAL backup HTTP','turma wal backup http',2098)");
+// Preserva o ensaio de commits no WAL; na matriz DELETE não contorna a política.
+$backupJournalMode = SqliteJournalPolicy::preferred((string) $backupDb->query('SELECT sqlite_version()')->fetchColumn(), $baseEnvironment['DB_JOURNAL_MODE'] ?? 'auto');
+$backupDb->exec('PRAGMA journal_mode=' . $backupJournalMode);
+if ($backupJournalMode === 'WAL') { $backupDb->exec('PRAGMA wal_autocheckpoint=0'); }
+$backupClassName = 'Turma ' . $backupJournalMode . ' backup HTTP';
+$backupDb->prepare('INSERT INTO turmas(nome_turma,nome_normalizado,ano_letivo) VALUES(?,?,2098)')->execute([$backupClassName, mb_strtolower($backupClassName, 'UTF-8')]);
 $walClassId = (int) $backupDb->lastInsertId();
-checkHttp(is_file($database . '-wal') && filesize($database . '-wal') > 0, 'Ensaio mantém dados confirmados no WAL');
+checkHttp($backupJournalMode === 'WAL'
+    ? is_file($database . '-wal') && filesize($database . '-wal') > 0
+    : $backupDb->query('PRAGMA journal_mode')->fetchColumn() === 'delete', 'Ensaio mantém dados confirmados em ' . $backupJournalMode);
 $backupCreated = request('POST', $baseUrl . '/backup/criar', $cookieAdmin, ['_csrf_token' => csrf($backupRejected['body']), 'senha_atual' => $permanentPassword]);
 $createdBackupFiles = array_values(array_diff($backupFiles(), $beforeBackupFiles));
 checkHttp($backupCreated['status'] === 302 && str_ends_with($backupCreated['headers']['location'] ?? '', '/backup')
@@ -49,7 +55,7 @@ ProtectedBackup::decrypt($restoredBackupPath . '.gse', $restoredBackupPath);
 $restoredBackup = new PDO('sqlite:' . $restoredBackupPath, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 checkHttp($restoredBackup->query('PRAGMA integrity_check')->fetchColumn() === 'ok'
     && $restoredBackup->query('PRAGMA foreign_key_check')->fetchAll() === []
-    && $restoredBackup->query('SELECT nome_turma FROM turmas WHERE id=' . $walClassId)->fetchColumn() === 'Turma WAL backup HTTP', 'Restauração independente preserva registro do WAL e integridade');
+    && $restoredBackup->query('SELECT nome_turma FROM turmas WHERE id=' . $walClassId)->fetchColumn() === $backupClassName, 'Restauração independente preserva registro de ' . $backupJournalMode . ' e integridade');
 $restoredBackup = null;
 foreach (['backup.created', 'backup.downloaded'] as $backupAction) {
     $backupEvent = $backupDb->prepare('SELECT COUNT(*) FROM security_audit WHERE action=? AND actor_user_id=1 AND result=?');

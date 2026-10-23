@@ -13,6 +13,9 @@ if (in_array('--json', $argv, true)) {
 } else {
     echo sprintf("PHP %s (%d bits); SQLite PDO %s\n", $report['php'], $report['bits'], $report['sqlite']);
     if ($report['php_backport'] !== null) { echo 'Correção Ubuntu comprovada: ' . $report['php_backport'] . PHP_EOL; }
+    if ($report['sqlite_preferred_journal'] === 'DELETE') {
+        echo "SQLite sem correção WAL: o GSE exige DELETE. Prepare o banco pela CLI em manutenção antes de liberar HTTP.\n";
+    }
     foreach ($report['errors'] as $error) {
         fwrite(STDERR, $error . PHP_EOL);
     }

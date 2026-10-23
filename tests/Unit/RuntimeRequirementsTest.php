@@ -40,13 +40,18 @@ final class RuntimeRequirementsTest extends TestCase
         self::assertSame([], \RuntimeRequirements::issues('8.3.6', 8, '3.53.4', true));
         self::assertNotEmpty(\RuntimeRequirements::issues('8.3.6', 8, '3.53.4'));
         self::assertNotEmpty(\RuntimeRequirements::issues('8.3.6', 4, '3.53.4', true));
-        self::assertNotEmpty(\RuntimeRequirements::issues('8.3.6', 8, '3.45.1', true));
+        self::assertSame([], \RuntimeRequirements::issues('8.3.6', 8, '3.45.1', true));
         self::assertNotEmpty(\RuntimeRequirements::issues('8.4.13', 8, '3.53.4', true));
     }
 
-    public function testKnownWalAffectedVersionsAndReleaseCandidatesAreRejected(): void
+    public function testWalAffectedSqliteUsesRollbackAndUnsupportedVersionsAreRejected(): void
     {
-        foreach (['3.49.2', '3.44.5', '3.45.1', '3.50.6', '3.51.2'] as $sqlite) {
+        foreach (['3.49.2', '3.45.1', '3.50.6', '3.51.2'] as $sqlite) {
+            self::assertSame([], \RuntimeRequirements::issues('8.4.27', 8, $sqlite));
+            self::assertFalse(\SqliteJournalPolicy::walSafe($sqlite));
+            self::assertSame('DELETE', \SqliteJournalPolicy::preferred($sqlite));
+        }
+        foreach (['3.44.5', '3.45.0', '0', 'not-a-version'] as $sqlite) {
             self::assertNotEmpty(\RuntimeRequirements::issues('8.4.27', 8, $sqlite));
         }
         self::assertNotEmpty(\RuntimeRequirements::issues('8.4.27RC1', 8, '3.53.4'));

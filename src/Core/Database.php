@@ -7,17 +7,22 @@ use PDOException;
 use RuntimeException;
 
 require_once __DIR__ . '/DataProtection.php';
+require_once __DIR__ . '/Config.php';
 require_once __DIR__ . '/RuntimeRequirements.php';
 require_once __DIR__ . '/DvaStatus.php';
+require_once __DIR__ . '/SqliteJournalPolicy.php';
 
 class Database
 {
     private static ?PDO $connection = null;
 
-    public static function getConnection(): PDO
+    public static function getConnection(bool $maintenance = false): PDO
     {
         \RuntimeRequirements::assertSupported();
         if (self::$connection instanceof PDO) {
+            if ($maintenance && PHP_SAPI === 'cli') {
+                \SqliteJournalPolicy::configure(self::$connection, true, \Config::string('DB_JOURNAL_MODE', 'auto'));
+            }
             return self::$connection;
         }
 
@@ -38,18 +43,24 @@ class Database
         }
 
         try {
-            self::$connection = new PDO('sqlite:' . $dbPath, null, null, [
+            $connection = new PDO('sqlite:' . $dbPath, null, null, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
-            self::$connection->exec('PRAGMA foreign_keys = ON;');
-            self::$connection->exec('PRAGMA journal_mode = WAL;');
-            self::$connection->exec('PRAGMA busy_timeout = 5000;');
+            $connection->exec('PRAGMA foreign_keys = ON;');
+            $connection->exec('PRAGMA busy_timeout = 5000;');
+            \SqliteJournalPolicy::configure(
+                $connection,
+                $maintenance && PHP_SAPI === 'cli',
+                \Config::string('DB_JOURNAL_MODE', 'auto')
+            );
+            $connection->exec('PRAGMA synchronous = FULL;');
 
-            \DataProtection::register(self::$connection);
-            \DvaStatus::registerSqliteFunctions(self::$connection);
+            \DataProtection::register($connection);
+            \DvaStatus::registerSqliteFunctions($connection);
             self::protectFiles($dbPath);
+            self::$connection = $connection;
 
             return self::$connection;
         } catch (PDOException $exception) {
@@ -59,11 +70,11 @@ class Database
 
     public static function setConnection(?PDO $connection): void
     {
-        self::$connection = $connection;
         if ($connection !== null) {
             \DataProtection::register($connection);
             \DvaStatus::registerSqliteFunctions($connection);
         }
+        self::$connection = $connection;
     }
 
     public static function resolvePath(): string
@@ -111,7 +122,7 @@ class Database
         $dbPath ??= self::resolvePath();
         $mode = self::configuredMode('DB_FILE_MODE', 0600, [0600, 0640]);
 
-        foreach ([$dbPath, $dbPath . '-wal', $dbPath . '-shm'] as $path) {
+        foreach ([$dbPath, $dbPath . '-wal', $dbPath . '-shm', $dbPath . '-journal'] as $path) {
             if (is_file($path)) {
                 @chmod($path, $mode);
             }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/DatabaseInitializer.php';
 require_once __DIR__ . '/Config.php';
+require_once __DIR__ . '/SqliteJournalPolicy.php';
 require_once dirname(__DIR__) . '/Services/CertidaoStorage.php';
 
 /** Read-only verification of a restored database and its referenced private PDFs. */
@@ -25,6 +26,11 @@ final class DeploymentPreflight
             ]);
             $pdo->exec('PRAGMA query_only=ON');
             $pdo->exec('PRAGMA busy_timeout=5000');
+            try {
+                SqliteJournalPolicy::configure($pdo, false, Config::string('DB_JOURNAL_MODE', 'auto'));
+            } catch (Throwable) {
+                $result['errors'][] = 'O modo do banco precisa de ajuste por CLI em manutenção para esta biblioteca SQLite. WAL sem correção não pode ser liberado.';
+            }
             $result['schema'] = (int) $pdo->query('PRAGMA user_version')->fetchColumn();
             \src\Core\DatabaseInitializer::assertCurrent($pdo);
             if ($pdo->query('PRAGMA integrity_check')->fetchAll(PDO::FETCH_COLUMN) !== ['ok']

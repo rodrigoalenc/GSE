@@ -2,9 +2,9 @@
 
 ## Ambiente e operação atuais
 
-Use PHP **64 bits** nas linhas 8.3.36+, 8.4.27+ ou 8.5.12+, e SQLite carregado pelo PDO com a correção WAL (3.51.3+ ou backport 3.50.7/3.44.6 da respectiva linha). O runtime privado Windows verificado nesta revisão é PHP 8.4.27 / SQLite 3.53.4; o Composer privado é 2.10.3. Os checks não abrem o banco institucional.
+Use PHP **64 bits** nas linhas 8.3.36+, 8.4.27+ ou 8.5.12+, e SQLite 3.45.1+ (ou o backport 3.44.6+ da linha 3.44), mantendo os pacotes de segurança do fornecedor atualizados. WAL somente é permitido nas versões corrigidas: 3.51.3+ ou backports 3.50.7/3.44.6 da respectiva linha. Nas demais versões compatíveis, o GSE usa rollback journal **DELETE**, com sincronização FULL. O runtime privado Windows verificado nesta revisão é PHP 8.4.27 / SQLite 3.53.4; o Composer privado é 2.10.3. Os checks não abrem o banco institucional.
 
-**Ubuntu 24.04:** PHP 8.3.6 dos pacotes oficiais na revisão `8.3.6-0ubuntu0.24.04.13` ou posterior também é aceito quando a instalação e o processo PHP são comprovados pelo verificador. O Ubuntu aplica os patches sem alterar a versão base. O Composer verifica compatibilidade de linguagem; seus eventos de instalação/atualização e o acesso ao banco executam a verificação de segurança. A correção do SQLite é exigida separadamente. Consulte [compatibilidade Ubuntu](Documentação/COMPATIBILIDADE-UBUNTU.md).
+**Ubuntu 24.04:** PHP 8.3.6 dos pacotes oficiais na revisão `8.3.6-0ubuntu0.24.04.13` ou posterior também é aceito quando a instalação e o processo PHP são comprovados pelo verificador. O Ubuntu aplica os patches sem alterar a versão base. O Composer verifica compatibilidade de linguagem; seus eventos de instalação/atualização e o acesso ao banco executam a verificação de segurança. O SQLite 3.45.1 do Ubuntu é aceito em DELETE. Consulte [compatibilidade Ubuntu e preparo em manutenção](Documentação/COMPATIBILIDADE-UBUNTU.md).
 
 No Windows:
 
@@ -98,7 +98,7 @@ O ajuste de segurança dos downloads libera a guarda de repetição após 3 segu
 ## Requisitos
 
 - PHP de 64 bits corrigido: 8.3.36+, 8.4.27+ ou 8.5.12+ dentro da respectiva linha, ou backport oficial Ubuntu 24.04 comprovado conforme acima, com `argon2id` registrado em `password_algos()` tanto na CLI quanto no PHP-FPM;
-- SQLite efetivamente carregado pelo PDO com correção WAL: 3.51.3+ ou backport 3.50.7/3.44.6 da respectiva linha;
+- SQLite carregado pelo PDO: 3.45.1+ ou backport 3.44.6+ da linha 3.44; DELETE obrigatório quando não houver comprovação do patch WAL;
 - Composer corrigido; a instalação privada verificada usa 2.10.3;
 - extensões `curl`, `dom`, `pdo`, `pdo_sqlite`, `intl`, `fileinfo`, `mbstring`, `sodium`, `xml`, `xmlwriter`, `session`, `filter` e `hash`, além das exigidas pelas dependências do Composer.
 

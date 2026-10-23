@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/UbuntuPhpBackport.php';
+require_once __DIR__ . '/SqliteJournalPolicy.php';
 
 /** Checks the interpreter and its embedded SQLite without opening application data. */
 final class RuntimeRequirements
@@ -24,16 +25,13 @@ final class RuntimeRequirements
         if ($integerBytes < 8) {
             $errors[] = 'O GSE exige PHP de 64 bits para valores financeiros e datas históricas.';
         }
-        $patchedSqlite = version_compare($sqliteVersion, '3.51.3', '>=')
-            || (version_compare($sqliteVersion, '3.50.7', '>=') && version_compare($sqliteVersion, '3.51.0', '<'))
-            || (version_compare($sqliteVersion, '3.44.6', '>=') && version_compare($sqliteVersion, '3.45.0', '<'));
-        if (!$patchedSqlite) {
-            $errors[] = 'O SQLite carregado pelo PDO precisa da correção WAL: 3.51.3+ ou backport 3.50.7/3.44.6 da mesma linha.';
+        if (!SqliteJournalPolicy::supported($sqliteVersion)) {
+            $errors[] = 'SQLite incompatível. Use 3.45.1+ ou o backport 3.44.6+ da linha 3.44. Versões sem correção WAL usam obrigatoriamente o modo DELETE.';
         }
         return $errors;
     }
 
-    /** @return array{php:string,bits:int,sqlite:string,errors:list<string>,php_backport:?string} */
+    /** @return array{php:string,bits:int,sqlite:string,errors:list<string>,php_backport:?string,sqlite_wal_safe:bool,sqlite_preferred_journal:string} */
     public static function inspect(): array
     {
         $sqlite = '0';
@@ -57,6 +55,8 @@ final class RuntimeRequirements
             $errors[] = 'Habilite as extensões: ' . implode(', ', $missing) . '.';
         }
         return ['php' => PHP_VERSION, 'bits' => PHP_INT_SIZE * 8, 'sqlite' => $sqlite, 'errors' => $errors,
+            'sqlite_wal_safe' => SqliteJournalPolicy::walSafe($sqlite),
+            'sqlite_preferred_journal' => SqliteJournalPolicy::supported($sqlite) ? SqliteJournalPolicy::preferred($sqlite) : 'unsupported',
             'php_backport' => $backport === null ? null : $backport['package'] . ' ' . $backport['version'] . ' (USN-8948-1)'];
     }
 

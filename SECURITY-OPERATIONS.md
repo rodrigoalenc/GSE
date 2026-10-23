@@ -27,7 +27,7 @@ Busca exata de e-mail usa índice HMAC. A pesquisa parcial e a ordenação de us
 
 ## Chaves e inicialização
 
-Exige PHP de 64 bits corrigido (8.3.36+, 8.4.27+ ou 8.5.12+ na respectiva linha), SQLite carregado pelo PDO com correção WAL, sodium, intl, mbstring, pdo_sqlite e as demais extensões do Composer, na CLI e no PHP-FPM. Confirme `php bin/runtime-check.php` e `composer check-platform-reqs`; no Windows, use o runtime privado de `bin/gse.ps1`. Não altere o código para aceitar chaves ausentes. O HTTP falha de forma controlada quando chave ou ciphertext não pode ser aberto.
+Exige PHP de 64 bits corrigido (8.3.36+, 8.4.27+ ou 8.5.12+ na respectiva linha), SQLite compatível carregado pelo PDO, sodium, intl, mbstring, pdo_sqlite e as demais extensões do Composer, na CLI e no PHP-FPM. WAL exige correção específica; SQLite 3.45.1 sem esse patch usa DELETE com sincronização FULL. Confirme `php bin/runtime-check.php` e `composer check-platform-reqs`; no Windows, use o runtime privado de `bin/gse.ps1`. Não altere o código para aceitar chaves ausentes. O HTTP falha de forma controlada quando chave ou ciphertext não pode ser aberto.
 
 Também é aceito o backport oficial do PHP 8.3.6 no Ubuntu 24.04 quando a revisão instalada e o binário carregado são comprovados conforme [compatibilidade Ubuntu](Documentação/COMPATIBILIDADE-UBUNTU.md). Isso não dispensa o requisito SQLite nem autoriza ignorar verificações de plataforma.
 
@@ -44,7 +44,7 @@ O JSON privado tem `version: 1`, `active`, mapa `keys` com identificações e ch
 Não execute este procedimento sobre dados reais sem autorização específica e uma janela de manutenção. Ensaios desta revisão usam bancos sintéticos.
 
 1. Faça inventário de banco, anexos e versão do código. Garanta espaço para snapshot, WAL e reconstrução. Guarde também uma cópia protegida prévia em local independente.
-2. Configure o keyring e execute `php bin/security.php preflight`. A simulação usa snapshot consistente por `VACUUM INTO` em diretório temporário privado, aplica migrações na cópia, verifica integridade e FKs e remove os temporários em `finally`. Não registra v17 no original.
+2. Configure o keyring e confira o runtime. Se a biblioteca SQLite exigir DELETE e o banco ainda estiver em WAL, pare previamente HTTP/workers/tarefas e execute `php bin/init-db.php --journal-only --maintenance-confirmed`, com cópia recuperável já preservada. Esse preparo não migra o esquema nem os cadastros. Depois execute `php bin/security.php preflight`: a simulação usa snapshot consistente por `VACUUM INTO` em diretório temporário privado, aplica migrações na cópia, verifica integridade/FKs e remove temporários em `finally`. Não registra v17 no original.
 3. Pare HTTP, workers SMTP, manutenção agendada e todos os escritores. O flag CLI é uma confirmação operacional; não desliga serviços automaticamente.
 4. Execute `php bin/security.php migrate --maintenance-confirmed`. O mecanismo existente aplica versões ausentes; a versão 17 cifra os campos, normaliza unicidade, converte chaves do limitador sem apagar seu orçamento e cria orçamentos/recibos numa transação `BEGIN IMMEDIATE`.
 5. Ausência de chave, dado inválido, colisão ou falha de gravação impede o commit da v17. IDs, hashes, vínculos, sequências, exclusões lógicas e histórico são preservados. Migrações anteriores mantêm suas transações individuais, conforme o mecanismo existente.
