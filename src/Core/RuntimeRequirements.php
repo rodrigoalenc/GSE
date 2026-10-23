@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/UbuntuPhpBackport.php';
+
 /** Checks the interpreter and its embedded SQLite without opening application data. */
 final class RuntimeRequirements
 {
     /** @return list<string> */
-    public static function issues(string $phpVersion, int $integerBytes, string $sqliteVersion): array
+    public static function issues(string $phpVersion, int $integerBytes, string $sqliteVersion, bool $verifiedUbuntuBackport = false): array
     {
         $errors = [];
         $patchedPhp = false;
@@ -15,8 +17,9 @@ final class RuntimeRequirements
                 $patchedPhp = true;
             }
         }
+        $patchedPhp = $patchedPhp || ($phpVersion === '8.3.6' && $verifiedUbuntuBackport);
         if (!$patchedPhp || preg_match('/(?:alpha|beta|RC|dev)/i', $phpVersion) === 1) {
-            $errors[] = 'PHP sem a correção de segurança exigida. Use 8.3.36+, 8.4.27+ ou 8.5.12+ na respectiva linha estável.';
+            $errors[] = 'PHP sem comprovação da correção de segurança exigida. Use 8.3.36+, 8.4.27+ ou 8.5.12+ na respectiva linha estável, ou pacote Ubuntu 24.04 corrigido e validado pelo verificador.';
         }
         if ($integerBytes < 8) {
             $errors[] = 'O GSE exige PHP de 64 bits para valores financeiros e datas históricas.';
@@ -30,7 +33,7 @@ final class RuntimeRequirements
         return $errors;
     }
 
-    /** @return array{php:string,bits:int,sqlite:string,errors:list<string>} */
+    /** @return array{php:string,bits:int,sqlite:string,errors:list<string>,php_backport:?string} */
     public static function inspect(): array
     {
         $sqlite = '0';
@@ -48,11 +51,13 @@ final class RuntimeRequirements
                 $missing[] = 'PDO SQLite funcional';
             }
         }
-        $errors = self::issues(PHP_VERSION, PHP_INT_SIZE, $sqlite);
+        $backport = PHP_OS_FAMILY === 'Linux' ? UbuntuPhpBackport::inspect(PHP_VERSION, PHP_SAPI, PHP_BINARY) : null;
+        $errors = self::issues(PHP_VERSION, PHP_INT_SIZE, $sqlite, $backport !== null);
         if ($missing !== []) {
             $errors[] = 'Habilite as extensões: ' . implode(', ', $missing) . '.';
         }
-        return ['php' => PHP_VERSION, 'bits' => PHP_INT_SIZE * 8, 'sqlite' => $sqlite, 'errors' => $errors];
+        return ['php' => PHP_VERSION, 'bits' => PHP_INT_SIZE * 8, 'sqlite' => $sqlite, 'errors' => $errors,
+            'php_backport' => $backport === null ? null : $backport['package'] . ' ' . $backport['version'] . ' (USN-8948-1)'];
     }
 
     public static function assertSupported(): void

@@ -2,6 +2,8 @@
 
 Diagnóstico iniciado em 22/10/2026; integração e conferência final em 23/10/2026. Base Git: `598803b93eaa9e70ce3838b0ebefda7349f54b3a`. Alterações locais na branch `codex/correcoes-auditoria-completa`, sem publicação ou implantação institucional.
 
+Complemento posterior de implantação: [compatibilidade Ubuntu](COMPATIBILIDADE-UBUNTU.md) corrige o reconhecimento do PHP oficial com backport sem retirar a verificação independente do SQLite. A entrega do diagnóstico foi integrada na main; a branch de trabalho foi removida. Os resultados abaixo registram a execução original dos 19 achados; o complemento informa os testes da correção Ubuntu.
+
 ## Cobertura dos 19 achados
 
 | Achado | Correção aplicada | Evidência |

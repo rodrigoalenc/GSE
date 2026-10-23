@@ -6,6 +6,8 @@ Revisão 22/10/2026. Esquema atual: 21. Este procedimento exige operador respons
 
 Use PHP de 64 bits corrigido: 8.3.36+, 8.4.27+ ou 8.5.12+ dentro da linha correspondente. Verifique também a biblioteca SQLite carregada pelo PDO (3.51.3+ ou backports documentados), não apenas o cliente de terminal. Execute `php bin/runtime-check.php` e `composer check-platform-reqs`. No Windows, `bin/install-runtime.ps1` instala ferramentas privadas verificadas e `bin/gse.ps1` executa os comandos com elas.
 
+No Ubuntu 24.04, o verificador também aceita o backport PHP oficial comprovado de USN-8948-1. Execute os comandos de dentro da pasta do projeto. O procedimento e os limites da detecção estão em [COMPATIBILIDADE-UBUNTU.md](COMPATIBILIDADE-UBUNTU.md); o simples número PHP_VERSION não comprova ausência nem presença do patch da distribuição.
+
 Em produção, use Nginx/PHP-FPM com raiz em public, HTTPS, host permitido, proxy confiável explícito quando aplicável e permissões privadas. O arquivo config/nginx-gse.conf é um exemplo que precisa dos caminhos/certificado reais. php -S é destinado ao desenvolvimento e demonstrações controladas. Configure upload_max_filesize=10M e post_max_size=12M e desabilite session.upload_progress.enabled no PHP do servidor.
 
 Mantenha SQLite, documentos, sessões, logs e chaves fora de public, com identidade de serviço própria. Não sincronize um SQLite aberto por OneDrive e não coloque WAL em compartilhamento de rede. O projeto pode estar em pasta sincronizada; o banco operacional deve usar armazenamento local controlado. Defina proteção de volume, cópia externa, retenção e responsáveis conforme a avaliação institucional.

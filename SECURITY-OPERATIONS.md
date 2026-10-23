@@ -29,6 +29,8 @@ Busca exata de e-mail usa índice HMAC. A pesquisa parcial e a ordenação de us
 
 Exige PHP de 64 bits corrigido (8.3.36+, 8.4.27+ ou 8.5.12+ na respectiva linha), SQLite carregado pelo PDO com correção WAL, sodium, intl, mbstring, pdo_sqlite e as demais extensões do Composer, na CLI e no PHP-FPM. Confirme `php bin/runtime-check.php` e `composer check-platform-reqs`; no Windows, use o runtime privado de `bin/gse.ps1`. Não altere o código para aceitar chaves ausentes. O HTTP falha de forma controlada quando chave ou ciphertext não pode ser aberto.
 
+Também é aceito o backport oficial do PHP 8.3.6 no Ubuntu 24.04 quando a revisão instalada e o binário carregado são comprovados conforme [compatibilidade Ubuntu](Documentação/COMPATIBILIDADE-UBUNTU.md). Isso não dispensa o requisito SQLite nem autoriza ignorar verificações de plataforma.
+
 1. Crie um diretório privado fora do repositório, de `public`, do banco e dos pacotes de backup. Em Linux, use diretório `0700` e keyring `0600`, pertencentes à identidade que precisa lê-los. Em Windows, restrinja a ACL a essa identidade e ao administrador responsável; os testes locais não homologam essa ACL.
 2. Execute `php bin/security.php keygen /caminho/privado/keys.json`. O destino precisa ser novo. Chaves aleatórias são geradas dentro do processo, sem recebê-las por argumento ou imprimi-las.
 3. Configure `GSE_KEYRING_PATH` com esse caminho absoluto. Exemplos `.env` não contêm chaves reais. Proteja o `.env` por permissões do SO e mantenha a raiz web em `public`.

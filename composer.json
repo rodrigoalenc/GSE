@@ -4,7 +4,7 @@
     "license": "proprietary",
     "type": "project",
     "require": {
-        "php": ">=8.3.36 <8.4 || >=8.4.27 <8.5 || >=8.5.12 <8.6",
+        "php": ">=8.3.6 <8.6",
         "php-64bit": "*",
         "ext-curl": "*",
         "ext-dom": "*",
@@ -25,6 +25,8 @@
         "phpunit/phpunit": "^12.0"
     },
     "scripts": {
+        "pre-install-cmd": "@runtime-check",
+        "pre-update-cmd": "@runtime-check",
         "runtime-check": "@php bin/runtime-check.php",
         "validate-project": "@composer validate --strict",
         "lint": "@php bin/lint.php",
