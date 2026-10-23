@@ -29,3 +29,6 @@
 .modulo5-budget{margin:1rem 0;padding:.75rem;background:#e9f2fa;border-left:4px solid #155185}
 @media(max-width:700px){.relatorio details form{display:block}.relatorio details form label{margin:.5rem 0}.relatorio details form button{margin:.5rem 0}}
 @media print{.sidebar,.relatorio form,.relatorio nav,.relatorio button,.relatorio details,.relatorio .section-head a{display:none!important}.main-content-wrapper{margin:0!important}.relatorio{box-shadow:none!important;border:0!important}}
+.contract-field-label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: 4px; }
+.contract-removal-notice p { padding: 8px; background: #fff6da; border: 1px solid #d8bb57; border-radius: 6px; }
+.contract-removal-notice button { margin-left: 8px; }

@@ -12,7 +12,6 @@ final class RelatorioAlunos extends Model
     {
         parent::__construct();
         $this->status = $status ?? new DvaStatus();
-        self::$pdo->sqliteCreateFunction('gse_dva_status',fn(?string $date): string => $this->status->classify($date),1);
     }
 
     /** @return list<array<string,mixed>> */
@@ -42,8 +41,9 @@ final class RelatorioAlunos extends Model
         if ($class !== '') { $where[]='a.id_turma=:class'; $params['class']=$class; }
         if ($active !== 'todos') { $where[]='a.ativo=:active'; $params['active']=$active; }
         if ($dva !== '') {
-            $where[]='gse_dva_status(d.data_vencimento)=:dva_status';
-            $params['dva_status']=$dva;
+            $filter = $this->status->filter($dva);
+            $where[] = $filter['sql'];
+            $params = array_merge($params, $filter['params']);
         }
         $from=' FROM alunos a LEFT JOIN turmas t ON t.id=a.id_turma LEFT JOIN dvas d ON d.id_aluno=a.id AND d.ativo=1';
         $suffix=$where === [] ? '' : ' WHERE '.implode(' AND ',$where);

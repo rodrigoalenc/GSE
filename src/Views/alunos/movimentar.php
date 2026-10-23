@@ -31,7 +31,7 @@ $regressionToken=$regressionToken ?? '';
         <?php if($allClasses): ?><input type="hidden" name="todas" value="1"><?php endif; ?>
         <input type="hidden" name="tipo" value="<?= e($type) ?>">
         <?php if($regressionToken!==''): ?><input type="hidden" name="selecao" value="<?= e($regressionToken) ?>"><?php endif; ?>
-        <div><label for="movement-year">Ano letivo de destino / referência</label><input id="movement-year" type="number" name="ano" min="2000" max="<?= e((string)((int)date('Y')+5)) ?>" value="<?= e((string)$year) ?>" required></div>
+        <div><label for="movement-year">Ano letivo de destino / referência</label><input id="movement-year" type="number" name="ano" min="2000" max="<?= e((string)((int)UiPresentation::localNow()->format('Y')+5)) ?>" value="<?= e((string)$year) ?>" required></div>
         <div><button class="btn-secondary" type="submit">Abrir ano</button></div>
     </form>
     <p class="form-help">Use a mesma referência no envio dos concluintes e na progressão, por exemplo, 2027. Os nomes e os anos letivos cadastrados nas turmas são preservados.</p>

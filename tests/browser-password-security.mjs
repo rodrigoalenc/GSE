@@ -99,6 +99,7 @@ try {
     await new Promise(done => reservation.listen(0, '127.0.0.1', done));
     const port = reservation.address().port;
     await new Promise(done => reservation.close(done));
+    environment.APP_URL = `http://127.0.0.1:${port}`;
     server = spawn(php, ['-d', `session.save_path=${sessions}`,
         '-S', `127.0.0.1:${port}`, '-t', 'public', 'tests/fixtures/password-router.php'],
         {cwd:root, env:environment, windowsHide:true, stdio:['ignore','ignore','pipe']});

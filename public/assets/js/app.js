@@ -1,3 +1,64 @@
+const sidebarPin = document.querySelector('[data-sidebar-pin]');
+if (sidebarPin) {
+    const sidebar = sidebarPin.closest('.sidebar');
+    const applyPin = (pinned) => {
+        sidebar.classList.toggle('is-pinned', pinned);
+        sidebarPin.setAttribute('aria-pressed', String(pinned));
+        sidebarPin.querySelector('.sidebar-pin-label').textContent = pinned ? 'Soltar menu' : 'Fixar menu aberto';
+    };
+    let pinned = false;
+    try { pinned = localStorage.getItem('gse.menu.pinned') === 'true'; } catch (_) { /* Navigation works without storage. */ }
+    applyPin(pinned); sidebarPin.hidden = false;
+    sidebarPin.addEventListener('click', () => {
+        pinned = !pinned; applyPin(pinned);
+        try { localStorage.setItem('gse.menu.pinned', String(pinned)); } catch (_) { /* Keep the current preference for this page. */ }
+    });
+}
+document.querySelector('[data-form-errors]')?.focus();
+document.querySelectorAll('[data-form-errors] a').forEach((link) => {
+    link.addEventListener('click', () => document.getElementById(link.hash.slice(1))?.focus());
+});
+let fieldErrorSequence = 0;
+document.addEventListener('invalid', (event) => {
+    const input = event.target;
+    if (!input.form || !('validationMessage' in input)) return;
+    if (!input.id || document.getElementById(input.id) !== input) input.id = `validation-field-${++fieldErrorSequence}`;
+    const errorId = `${input.id}-client-error`;
+    let message = document.getElementById(errorId);
+    if (!message) {
+        message = document.createElement('small'); message.id = errorId; message.className = 'field-error';
+        input.insertAdjacentElement('afterend', message);
+    }
+    message.textContent = input.validationMessage;
+    input.setAttribute('aria-invalid', 'true');
+    const descriptions = new Set((input.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+    descriptions.add(errorId); input.setAttribute('aria-describedby', [...descriptions].join(' '));
+    let summary = input.form.querySelector('[data-client-errors]');
+    if (!summary) {
+        summary = document.createElement('div'); summary.className = 'error-message'; summary.dataset.clientErrors = '';
+        summary.setAttribute('role', 'alert');
+        summary.append(document.createTextNode('Revise os campos indicados: '), document.createElement('ul'));
+        input.form.prepend(summary);
+    }
+    if (!document.getElementById(`${errorId}-link`)) {
+        const item = document.createElement('li'); item.id = `${errorId}-link`;
+        const link = document.createElement('a'); link.href = `#${input.id}`;
+        link.textContent = `${input.labels?.[0]?.textContent.trim() || 'Campo'}: ${input.validationMessage}`;
+        link.addEventListener('click', () => input.focus()); item.append(link); summary.querySelector('ul').append(item);
+    }
+}, true);
+document.addEventListener('input', (event) => {
+    const input = event.target;
+    if (!input.id || !input.validity?.valid) return;
+    const errorId = `${input.id}-client-error`;
+    document.getElementById(errorId)?.remove(); document.getElementById(`${errorId}-link`)?.remove();
+    const descriptions = (input.getAttribute('aria-describedby') || '').split(/\s+/).filter((id) => id && id !== errorId);
+    if (descriptions.length) input.setAttribute('aria-describedby', descriptions.join(' ')); else input.removeAttribute('aria-describedby');
+    if (!document.getElementById(`${input.id}-error`)) input.removeAttribute('aria-invalid');
+    const summary = input.form?.querySelector('[data-client-errors]');
+    if (summary && !summary.querySelector('li')) summary.remove();
+});
+
 document.querySelectorAll('[data-contract-certificate-form]').forEach((form) => {
     const supplier = form.querySelector('[name="fornecedor"]');
     const alert = document.querySelector('[data-contract-certificate-alert][data-certificate-report]');
@@ -303,9 +364,10 @@ if (contractBuilder) {
     const sheetContainer = contractBuilder.querySelector('[data-contract-sheets]');
     const money = (cents) => new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(cents / 100);
     const cents = (text) => /^(?:0|[1-9][0-9]{0,8})(?:,[0-9]{1,2})?$/.test(text)
-        ? Math.round(Number(text.replace(',', '.')) * 100) : 0;
+        ? Math.round(Number(text.replace(',', '.')) * 100) : null;
     const refresh = () => {
         let total = 0;
+        let invalidPrice = false;
         sheetContainer.querySelectorAll('[data-contract-sheet]').forEach((sheet, sheetIndex) => {
             sheet.querySelector('[data-sheet-number]').textContent = String(sheetIndex + 1);
             sheet.querySelector('textarea').name = `folhas[${sheetIndex}][observacao]`;
@@ -315,7 +377,12 @@ if (contractBuilder) {
                     if (field) input.name = `folhas[${sheetIndex}][produtos][${productIndex}][${field}]`;
                 });
                 const quantity = Number(product.querySelector('[name$="[quantidade]"]').value) || 0;
-                total += quantity * cents(product.querySelector('[name$="[preco]"]').value);
+                const price = product.querySelector('[name$="[preco]"]');
+                const parsed = cents(price.value);
+                price.setCustomValidity(parsed === null ? 'Informe o preço sem ponto de milhar, por exemplo: 1250,00.' : '');
+                price.setAttribute('aria-invalid', String(parsed === null && price.value !== ''));
+                invalidPrice ||= parsed === null;
+                if (parsed !== null) total += quantity * parsed;
             });
             sheet.querySelectorAll('[data-remove-product]').forEach((button) => {
                 button.disabled = sheet.querySelectorAll('[data-contract-product]').length === 1;
@@ -324,11 +391,42 @@ if (contractBuilder) {
         contractBuilder.querySelectorAll('[data-remove-sheet]').forEach((button) => {
             button.disabled = sheetContainer.querySelectorAll('[data-contract-sheet]').length === 1;
         });
-        contractBuilder.querySelector('[data-items-total]').textContent = money(total);
-        contractBuilder.querySelector('[data-budget-left]').textContent = money(cents(document.querySelector('#valor').value) - total);
+        const budget = document.querySelector('#valor');
+        const budgetCents = cents(budget.value);
+        budget.setCustomValidity(budgetCents === null ? 'Informe o valor sem ponto de milhar, por exemplo: 1250,00.' : '');
+        contractBuilder.querySelector('[data-items-total]').textContent = invalidPrice ? 'Confira o preço deste produto' : money(total);
+        contractBuilder.querySelector('[data-budget-left]').textContent = invalidPrice || budgetCents === null ? 'Confira os valores informados' : money(budgetCents - total);
+    };
+    const removalNotice = document.createElement('div');
+    removalNotice.className = 'contract-removal-notice';
+    removalNotice.setAttribute('role', 'status');
+    contractBuilder.append(removalNotice);
+    const removeWithUndo = (element, label, focusTarget) => {
+        const parent = element.parentNode;
+        const next = element.nextSibling;
+        const filled = [...element.querySelectorAll('input, textarea, select')].some((input) => input.tagName === 'SELECT' ? input.value !== 'UN' : input.value.trim() !== '');
+        element.remove();
+        focusTarget?.focus();
+        if (!filled) return;
+        const notice = document.createElement('p');
+        notice.append(document.createTextNode(label === 'Nota' ? 'Nota removida. ' : 'Produto removido. '));
+        const undo = document.createElement('button');
+        undo.type = 'button'; undo.textContent = 'Desfazer'; undo.dataset.undoRemoval = '';
+        notice.append(undo); removalNotice.append(notice);
+        undo.addEventListener('click', () => {
+            // Restore the containing note too when a later removal detached it.
+            if (!parent.isConnected) { undo.textContent = 'Desfaça primeiro a remoção da nota'; return; }
+            parent.insertBefore(element, next?.parentNode === parent ? next : null);
+            notice.remove(); refresh();
+            element.querySelector('input, textarea, select')?.focus();
+        });
     };
     const resetProductFields = (element) => {
+        element.querySelectorAll('[id$="-client-error"]').forEach((message) => message.remove());
         element.querySelectorAll('input, textarea').forEach((input) => { input.value = ''; });
+        element.querySelectorAll('[id^="validation-field-"]').forEach((input) => {
+            input.removeAttribute('id'); input.removeAttribute('aria-describedby'); input.removeAttribute('aria-invalid');
+        });
         element.querySelectorAll('[data-contract-unit]').forEach((select) => {
             select.querySelectorAll('[data-unit-invalid]').forEach((option) => option.remove());
             select.removeAttribute('aria-invalid');
@@ -348,7 +446,7 @@ if (contractBuilder) {
             sheetContainer.append(copy);
             copy.querySelector('textarea').focus();
         } else if (button.matches('[data-remove-sheet]') && sheetContainer.querySelectorAll('[data-contract-sheet]').length > 1) {
-            sheet.remove();
+            removeWithUndo(sheet, 'Nota', contractBuilder.querySelector('[data-add-sheet]'));
         } else if (button.matches('[data-add-product]')) {
             if (contractBuilder.querySelectorAll('[data-contract-product]').length >= 100) return;
             const copy = sheet.querySelector('[data-contract-product]').cloneNode(true);
@@ -356,7 +454,7 @@ if (contractBuilder) {
             sheet.querySelector('[data-contract-products]').append(copy);
             copy.querySelector('input').focus();
         } else if (button.matches('[data-remove-product]') && sheet.querySelectorAll('[data-contract-product]').length > 1) {
-            button.closest('[data-contract-product]').remove();
+            removeWithUndo(button.closest('[data-contract-product]'), 'Produto', sheet.querySelector('[data-add-product]'));
         }
         refresh();
     });

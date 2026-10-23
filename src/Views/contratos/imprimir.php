@@ -20,7 +20,7 @@ try {
 <body data-auto-print>
     <div class="print-toolbar"><button type="button" data-print-page>🖨️ Imprimir</button><a href="<?= e(url('contrato/detalhes/' . (int) $record['id'] . ($sheetId !== null ? '#folha-' . $sheetId : ''))) ?>">Voltar ao pedido</a></div>
     <main class="print-document">
-        <header class="print-header"><h1><?= $selectedSheetNumber !== null ? 'Nota ' . $selectedSheetNumber . ' do ' : '' ?>Pedido: <?= e($record['titulo']) ?><?= $record['excluido_em'] !== null ? ' (excluído)' : '' ?></h1><p>ID do Pedido: #<?= (int) $record['id'] ?> | Data: <?= e($registeredText) ?><?php if ($record['fornecedor']): ?> | Fornecedor: <?= e($record['fornecedor']) ?><?php endif; ?></p></header>
+        <header class="print-header"><h1><?= $selectedSheetNumber !== null ? 'Nota ' . $selectedSheetNumber . ' do ' : '' ?>Pedido: <?= e($record['titulo']) ?><?= $record['excluido_em'] !== null ? ' (excluído)' : '' ?></h1><p>Pedido nº <?= (int) $record['id'] ?> | Data: <?= e($registeredText) ?><?php if ($record['fornecedor']): ?> | Fornecedor: <?= e($record['fornecedor']) ?><?php endif; ?></p></header>
         <div class="print-totals">
             <span><strong>Teto original do pedido:</strong> <?= e(Contrato::money($allocation['original_limit'])) ?></span>
             <?php if ($allocation['has_additive']): ?><span><strong>Limite de aditivos (25%):</strong> <?= e(Contrato::money($allocation['additive_limit'])) ?></span><span><strong>Teto com aditivos:</strong> <?= e(Contrato::money($allocation['final_limit'])) ?></span><?php endif; ?>
@@ -33,7 +33,7 @@ try {
             <section class="print-note <?= (int)$sheet['aditivo']===1 ? 'print-note-additive' : '' ?>">
                 <div class="print-note-heading"><h2>Nota <?= (int) $sheet['numero_pagina'] ?><?= (int)$sheet['aditivo']===1 ? ' · ADITIVO' : '' ?><?= $sheet['excluido_em'] !== null ? ' (excluída)' : '' ?></h2><strong>Total da nota: <?= e(Contrato::money($sheet['valor_centavos'] === null ? null : (int) $sheet['valor_centavos'])) ?></strong></div>
                 <?php if (trim((string) ($sheet['observacao'] ?? '')) !== ''): ?><div class="print-note-observation"><strong>Observações:</strong><br><?= nl2br(e($sheet['observacao'])) ?></div><?php endif; ?>
-                <table><thead><tr><th>Produto</th><th>Marca</th><th>Qtd</th><th>Unid.</th><th>V. Unitário</th><th>V. Total</th></tr></thead><tbody>
+                <table><thead><tr><th>Produto</th><th>Marca</th><th>Quantidade</th><th>Unidade</th><th>Preço unitário</th><th>Valor total</th></tr></thead><tbody>
                     <?php foreach ($items as $item): if ((int) $item['numero_pagina'] !== (int) $sheet['numero_pagina'] || ($record['excluido_em'] === null && $item['excluido_em'] !== null)) { continue; } ?>
                         <tr><td><?= e($item['nome_produto']) ?><?= $item['excluido_em'] !== null ? ' (excluído)' : '' ?></td><td><?= e($item['marca'] ?? '') ?></td><td><?= e((string) ($item['quantidade_contratada'] ?? $item['quantidade'])) ?></td><td><?= e($item['unidade']) ?></td><td><?= e(Contrato::money($item['preco_centavos'] === null ? null : (int) $item['preco_centavos'])) ?></td><td><strong><?= e(Contrato::money($item['total_centavos'] === null ? null : (int) $item['total_centavos'])) ?></strong></td></tr>
                     <?php endforeach; ?>

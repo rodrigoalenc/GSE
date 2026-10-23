@@ -14,7 +14,7 @@ foreach ($result['items'] as $item) {
     $cells[(int) $item['id_tipo_certidao']][(int) $item['id_fornecedor']][] = $item;
 }
 $dates = new CertidaoStatus();
-$displayDate = static fn ($value): string => CertidaoStatus::validDate((string) $value) ? (new DateTimeImmutable($value))->format('d/m/y') : 'Data pendente';
+$displayDate = static fn ($value): string => CertidaoStatus::validDate((string) $value) ? (new DateTimeImmutable($value))->format('d/m/Y') : 'Data pendente';
 $displayFullDate = static fn ($value): string => CertidaoStatus::validDate((string) $value) ? (new DateTimeImmutable($value))->format('d/m/Y') : 'Data pendente';
 $statusUrl = static fn (string $validade): string => url($route . '?' . http_build_query(array_merge($filters, ['validade' => $validade, 'page' => 1])));
 $activeSuppliers = count(array_filter($fornecedores, static fn (array $option): bool => (int) $option['ativo'] === 1));
@@ -123,11 +123,7 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
             <table class="cert-matrix"><caption><?= e($title) ?> — até oito fornecedores por página. Use a navegação do cabeçalho para consultar mais documentos de um fornecedor.</caption>
                 <thead><tr><th scope="col">Tipo / Fornecedor</th><?php foreach ($result['suppliers'] as $supplier): ?><th scope="col">
                     <?= e($supplier['nome']) ?>
-                    <?php if ((int) $supplier['pages'] > 1): ?><nav class="cert-column-pages" aria-label="Documentos de <?= e($supplier['nome']) ?>">
-                        <?php foreach ([-1 => '←', 1 => '→'] as $step => $label): $next = $supplier['page'] + $step; if ($next < 1 || $next > $supplier['pages']) { continue; } ?>
-                            <a href="<?= e(url($route . '?' . http_build_query(array_merge($filters, ['page' => $result['page'], 'documentos' => array_replace($documentPages, [(int) $supplier['id'] => $next])])))) ?>" aria-label="<?= $step < 0 ? 'Documentos anteriores' : 'Próximos documentos' ?> de <?= e($supplier['nome']) ?>"><?= e($label) ?></a>
-                        <?php endforeach; ?>
-                    </nav><?php endif; ?>
+                    <?php if ((int) $supplier['pages'] > 1): ?><?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $supplier['page'], null, static fn (int $p): string => url($route . '?' . http_build_query(array_merge($filters, ['page' => $result['page'], 'documentos' => array_replace($documentPages, [(int) $supplier['id'] => $p])]))), 'Documentos de ' . $supplier['nome'], (int) $supplier['page'] < (int) $supplier['pages'], 'cert-column-pages'); ?><?php endif; ?>
                 </th><?php endforeach; ?></tr></thead>
                 <tbody><?php foreach ($rows as $typeId => $name): ?><tr><th scope="row"><?= e($name) ?></th>
                     <?php foreach ($columns as $supplierId => $supplier): ?><td>
@@ -150,8 +146,5 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
         </div>
     <?php endif; ?>
     <?= $advancedFilters ?>
-    <nav class="cert-pagination" aria-label="<?= $state === 'corrente' ? 'Páginas de fornecedores' : 'Páginas do histórico' ?>">
-        <?php if ($result['page'] > 1): ?><a class="btn-secondary" href="<?= e(url($route . '?' . http_build_query(array_merge($filters, ['page' => $result['page'] - 1])))) ?>">← Anterior</a><?php endif; ?>
-        <?php if ($result['page'] < $result['pages']): ?><a class="btn-secondary" href="<?= e(url($route . '?' . http_build_query(array_merge($filters, ['page' => $result['page'] + 1])))) ?>">Próxima →</a><?php endif; ?>
-    </nav>
+    <?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $result['page'], (int) $result['pages'], static fn (int $p): string => url($route . '?' . http_build_query(array_merge($filters, ['page' => $p]))), 'Páginas de certidões e fornecedores'); ?>
 </section>

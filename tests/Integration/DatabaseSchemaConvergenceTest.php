@@ -52,8 +52,8 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->initialize($pdo, $path);
 
-        $this->assertSame(20, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
-        $this->assertSame(20, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(21, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(21, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
         $this->assertSame(1, $this->columnNotNull($pdo, 'turmas', 'nome_normalizado'));
         $this->assertSame(1, $this->columnNotNull($pdo, 'alunos', 'nome_normalizado'));
         $this->assertSame($beforeData, $this->preservedModuleData($pdo));
@@ -75,7 +75,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->assertSame($signature, $this->moduleSchemaSignature($pdo));
         $this->assertSame($data, $this->preservedModuleData($pdo));
-        $this->assertSame(20, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
+        $this->assertSame(21, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations')->fetchColumn());
         $this->assertCount(1, $this->backups());
     }
 
@@ -108,7 +108,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
 
         $this->initialize($pdo, $path);
 
-        $this->assertSame(20, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(21, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame('turma á', $pdo->query('SELECT nome_normalizado FROM turmas WHERE id = 10')->fetchColumn());
         $this->assertSame('aluno áureo', $pdo->query('SELECT nome_normalizado FROM alunos WHERE id = 101')->fetchColumn());
         $this->assertSame([101 => 10], $this->relationships($pdo, 'alunos', 'id_turma'));
@@ -147,6 +147,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
                 'trg_protect_class_with_active_students',
                 'trg_require_class_normalized_name_insert',
                 'trg_require_class_normalized_name_update',
+                'trg_turmas_revisao',
                 'trg_validate_class_active_insert',
                 'trg_validate_class_active_update',
             ],
@@ -154,6 +155,7 @@ final class DatabaseSchemaConvergenceTest extends TestCase
         );
         $this->assertSame(
             [
+                'trg_alunos_revisao',
                 'trg_prevent_student_delete',
                 'trg_require_student_normalized_name_insert',
                 'trg_require_student_normalized_name_update',

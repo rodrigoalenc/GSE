@@ -17,12 +17,12 @@ if ((int) $record['ativo'] === 1) {
     <?php if ((int) $record['localizacao_pendente'] === 1): ?><div class="warning-message" role="alert">Localização física pendente: confira e preencha caixa e posição. Os demais dados históricos podem ser corrigidos sem inventar essa localização.</div><?php endif; ?>
     <dl class="passivo-detail-grid">
         <div><dt>Nome completo</dt><dd><?= e((string) $record['nome_completo']) ?></dd></div>
-        <div><dt>Data de nascimento</dt><dd><?= $record['data_nascimento'] ? e((string) $record['data_nascimento']) : '&mdash;' ?></dd></div>
+        <div><dt>Data de nascimento</dt><dd><?= $record['data_nascimento'] ? e(UiPresentation::civilDate($record['data_nascimento'])) : '&mdash;' ?></dd></div>
         <div><dt>Número ou posição</dt><dd><?= e($displayNumber === '' ? 'Sem número' : $displayNumber) ?></dd></div>
         <div><dt>Caixa</dt><dd><?= e($displayBox === '' ? 'Pendente' : $displayBox) ?></dd></div>
-        <div><dt>Criado em UTC</dt><dd><?= e((string) $record['criado_em']) ?></dd></div>
-        <div><dt>Atualizado em UTC</dt><dd><?= e((string) $record['atualizado_em']) ?></dd></div>
-        <div><dt>Origem</dt><dd><?php if ($record['aluno_origem_id']): ?><a href="<?= e(url('aluno/perfil/' . (int) $record['aluno_origem_id'])) ?>">Aluno #<?= e((string) $record['aluno_origem_id']) ?></a><?php else: ?>Cadastro manual<?php endif; ?></dd></div>
+        <div><dt>Criado em</dt><dd><?= e(UiPresentation::localDateTime($record['criado_em'])) ?></dd></div>
+        <div><dt>Atualizado em</dt><dd><?= e(UiPresentation::localDateTime($record['atualizado_em'])) ?></dd></div>
+        <div><dt>Origem</dt><dd><?php if ($record['aluno_origem_id']): ?><a href="<?= e(url('aluno/perfil/' . (int) $record['aluno_origem_id'])) ?>">Abrir cadastro do aluno de origem</a><?php else: ?>Cadastro manual<?php endif; ?></dd></div>
         <div><dt>Responsável pela atualização</dt><dd><?= e((string) ($record['atualizado_por_nome'] ?: 'Não informado')) ?></dd></div>
     </dl>
     <div class="form-actions"><a class="btn-primary" href="<?= e(url('passivo/editar/' . (int) $record['id'])) ?>">Editar</a><a class="btn-secondary" href="<?= e(url('passivo?caixa=' . rawurlencode((string) $record['caixa']) . '&ativo=' . (int) $record['ativo'])) ?>">Voltar para a caixa</a></div>

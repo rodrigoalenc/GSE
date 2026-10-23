@@ -66,6 +66,7 @@ $flashClass = [
             </div>
         </div>
 
+        <button type="button" class="sidebar-pin" data-sidebar-pin aria-pressed="false" hidden><span aria-hidden="true">☰</span><span class="sidebar-pin-label">Fixar menu aberto</span></button>
         <nav>
             <?php if (!$mustChangePassword): ?>
                 <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
@@ -137,7 +138,7 @@ $flashClass = [
             <h1><?= e($reportActive ? '📊 Gerador de Relatórios' : (str_starts_with($currentPath, 'usuario/editar/') ? '✏️ ' . $title : $title)) ?></h1>
             <?php if (isset($headerMeta) || $dashboardActive || $currentPath === 'passivo'): ?>
             <div class="header-meta">
-                <?= e((string) ($headerMeta ?? ($currentPath === 'passivo' ? '' : 'Data: ') . date('d/m/Y'))) ?>
+                <?= e((string) ($headerMeta ?? ($currentPath === 'passivo' ? '' : 'Data: ') . UiPresentation::localNow()->format('d/m/Y'))) ?>
             </div>
             <?php endif; ?>
         </header>

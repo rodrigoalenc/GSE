@@ -15,7 +15,7 @@ $studentPhoneValid = in_array(strlen($studentPhoneDigits), [10, 11], true);
 $guardianPhoneValid = in_array(strlen($guardianPhoneDigits), [10, 11], true);
 $dvaStatus = (string) $student['dva_status'];
 $daysRemaining = $student['dva_dias_restantes'];
-$dvaDate = $student['data_vencimento'] ? date('d/m/Y', strtotime((string) $student['data_vencimento'])) : null;
+$dvaDate = $student['data_vencimento'] ? UiPresentation::civilDate($student['data_vencimento']) : null;
 $dvaHeading = match ($dvaStatus) {
     DvaStatus::VENCIDA => 'DVA VENCIDA',
     DvaStatus::VENCE_HOJE, DvaStatus::A_VENCER => 'ATENÇÃO',
@@ -58,8 +58,8 @@ $historyTime = static function (?string $value): string {
 <dl class="perfil-info-grid">
     <div class="info-item"><dt class="info-label">Nome completo</dt><dd class="info-valor"><?= e((string) $student['nome_completo']) ?></dd></div>
     <div class="info-item"><dt class="info-label">Turma</dt><dd class="info-valor"><?= e((string) ($student['nome_turma'] ?: 'Sem turma')) ?><?= $student['ano_letivo'] ? ' — ' . e((string) $student['ano_letivo']) : '' ?></dd></div>
-    <div class="info-item"><dt class="info-label">Data de nascimento</dt><dd class="info-valor"><?= e(date('d/m/Y', strtotime((string) $student['data_nascimento']))) ?></dd></div>
-    <div class="info-item"><dt class="info-label">Vencimento DVA</dt><dd class="info-valor"><?= $student['data_vencimento'] ? e(date('d/m/Y', strtotime((string) $student['data_vencimento']))) : '—' ?></dd></div>
+    <div class="info-item"><dt class="info-label">Data de nascimento</dt><dd class="info-valor"><?= e(UiPresentation::civilDate($student['data_nascimento'])) ?></dd></div>
+    <div class="info-item"><dt class="info-label">Vencimento DVA</dt><dd class="info-valor"><?= $student['data_vencimento'] ? e(UiPresentation::civilDate($student['data_vencimento'])) : '—' ?></dd></div>
     <div class="info-item wide"><dt class="info-label">Observações DVA</dt><dd class="info-valor textual"><?= nl2br(e((string) ($student['dva_observacao'] ?: '-'))) ?></dd></div>
 </dl>
 
@@ -105,7 +105,7 @@ $historyTime = static function (?string $value): string {
             <tbody>
             <?php if ($history === []): ?><tr><td colspan="6" class="empty-state">Nenhuma DVA registrada.</td></tr><?php endif; ?>
             <?php foreach ($history as $item): ?>
-                <tr><td><?= (int) $item['ativo'] === 1 ? 'Atual' : 'Arquivada' ?></td><td><?= e(date('d/m/Y', strtotime((string) $item['data_vencimento']))) ?></td><td><?= e($historyTime($item['criado_em'])) ?></td><td><?= e($historyTime($item['substituido_em'])) ?></td><td><?= e((string) ($item['usuario_registro'] ?: '—')) ?></td><td><?= e((string) ($item['observacao'] ?: '—')) ?></td></tr>
+                <tr><td><?= (int) $item['ativo'] === 1 ? 'Atual' : 'Arquivada' ?></td><td><?= e(UiPresentation::civilDate($item['data_vencimento'])) ?></td><td><?= e($historyTime($item['criado_em'])) ?></td><td><?= e($historyTime($item['substituido_em'])) ?></td><td><?= e((string) ($item['usuario_registro'] ?: '—')) ?></td><td><?= e((string) ($item['observacao'] ?: '—')) ?></td></tr>
             <?php endforeach; ?>
             </tbody>
         </table>

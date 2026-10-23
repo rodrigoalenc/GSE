@@ -15,7 +15,7 @@
             </div>
             <div>
                 <label for="ano-letivo">Ano letivo das turmas</label>
-                <input id="ano-letivo" type="number" name="ano_letivo" min="2000" max="<?= e((string) ((int) gmdate('Y') + 5)) ?>" value="<?= e((string) $year) ?>" required>
+                <input id="ano-letivo" type="number" name="ano_letivo" min="2000" max="<?= e((string) ((int) UiPresentation::localNow()->format('Y') + 5)) ?>" value="<?= e((string) $year) ?>" required>
                 <p class="form-help">O relatório não informa o ano letivo. Confirme o ano da matrícula.</p>
             </div>
         </div>
@@ -48,7 +48,7 @@
                 <?php foreach ($preview['items'] as $item): ?>
                 <tr>
                     <td><?= e((string) $item['nome_completo']) ?></td>
-                    <td><?= e(date('d/m/Y', strtotime((string) $item['data_nascimento']))) ?></td>
+                    <td><?= e(UiPresentation::civilDate($item['data_nascimento'])) ?></td>
                     <td><?= e((string) $item['turma']) ?></td>
                     <td><strong><?= e(match ($item['action']) { 'importar' => 'Importar', 'duplicado' => 'Ignorar duplicidade', default => 'Revisar' }) ?></strong><br><?= e((string) $item['reason']) ?></td>
                 </tr>

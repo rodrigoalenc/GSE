@@ -14,7 +14,7 @@
 <a class="btn btn-outline-secondary btn-sm" href="<?= e(url('contrato/historico/'.$item['id'].$context.'&origem=estoque')) ?>">Histórico</a></div></td></tr>
 <?php endforeach; ?></tbody></table></div>
 <?php if ($result['items']===[]): ?><p>Nenhum produto encontrado.</p><?php endif; ?>
-<nav aria-label="Páginas do estoque"><?php for ($p=1;$p<=$result['pages'];$p++): ?><a class="btn btn-sm <?= $p===$result['page'] ? 'btn-primary' : 'btn-outline-primary' ?>" href="<?= e(url('estoque?busca='.rawurlencode($search).'&pagina='.$p)) ?>"<?= $p===$result['page'] ? ' aria-current="page"' : '' ?>><?= $p ?></a> <?php endfor; ?></nav>
+<?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $result['page'], (int) $result['pages'], static fn (int $p): string => url('estoque?busca='.rawurlencode($search).'&pagina='.$p), 'Páginas do estoque'); ?>
 </section>
 <?php if ($result['items']!==[]): ?>
 <section class="relatorio"><details class="stock-alerts"><summary>Alertas de estoque</summary><p>Configure avisos de quantidade baixa. O bloqueio por quantidade máxima é opcional e fica na configuração avançada.</p>

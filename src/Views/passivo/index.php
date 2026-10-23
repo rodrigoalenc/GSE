@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/../../Core/UiPresentation.php'; ?>
 <?php if (!empty($resetStudentSelection)): ?>
 <span data-student-selection-reset data-selection-scope="<?= e(url('aluno') . '|' . (string) ($_SESSION['usuario_id'] ?? 0)) ?>" hidden></span>
 <?php endif; ?>
@@ -110,7 +111,7 @@
             <?php if ($result['items'] === []): ?><tr><td colspan="6" class="empty-state">Nenhum registro encontrado.</td></tr><?php endif; ?>
             <?php foreach ($result['items'] as $record): ?>
                 <?php
-                $birthTimestamp = $record['data_nascimento'] ? strtotime((string) $record['data_nascimento']) : false;
+                $birthDate = UiPresentation::civilDate($record['data_nascimento']);
                 $displayNumber = src\Core\TextNormalizer::displayName((string) ($record['numero'] ?? ''));
                 $displayBox = src\Core\TextNormalizer::displayName((string) ($record['caixa'] ?? ''));
                 $statusClass = 'inactive';
@@ -123,7 +124,7 @@
                 ?>
                 <tr>
                     <td><a class="passivo-name" href="<?= e(url('passivo/detalhes/' . (int) $record['id'])) ?>"><?= e((string) $record['nome_completo']) ?></a></td>
-                    <td><?= $birthTimestamp !== false ? e(date('d/m/Y', $birthTimestamp)) : ($record['data_nascimento'] ? e((string) $record['data_nascimento']) : '&mdash;') ?></td>
+                    <td><?= e($birthDate) ?></td>
                     <td><?= e($displayNumber === '' ? 'Sem número' : $displayNumber) ?></td>
                     <td><span class="passivo-box-badge"><?= e($displayBox === '' ? 'Pendente' : $displayBox) ?></span></td>
                     <td><span class="passivo-status <?= e($statusClass) ?>"><?= e($statusLabel) ?></span></td>

@@ -15,7 +15,20 @@ require_once __DIR__ . '/BackupSnapshot.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 20;
+    private const LATEST_VERSION = 21;
+
+    public static function latestVersion(): int
+    {
+        return self::LATEST_VERSION;
+    }
+
+    public static function assertCurrent(PDO $pdo): void
+    {
+        if (self::appliedVersions($pdo) !== range(1, self::LATEST_VERSION)
+            || (int) $pdo->query('PRAGMA user_version')->fetchColumn() !== self::LATEST_VERSION) {
+            throw new RuntimeException('O esquema do banco exige atualização por CLI em manutenção. Execute bin/init-db.php antes de liberar o acesso.');
+        }
+    }
 
     public static function initialize(PDO $pdo, bool $allowSecurityMigration = false): void
     {
@@ -74,10 +87,9 @@ final class DatabaseInitializer
 
     private static function runMigration(PDO $pdo, int $version, string $schema): void
     {
-        $rebuildsClasses = $version === 6 && self::classesRequireRebuild($pdo);
-        $rebuildsNormalizedNames = $version === 11;
-        $rebuildsPassiveArchive = $version === 12 && self::passiveArchiveRequiresRebuild($pdo);
-        $requiresForeignKeysOff = $rebuildsClasses || $rebuildsNormalizedNames || $rebuildsPassiveArchive;
+        // Structural decisions must not depend on a schema read before acquiring
+        // the write lock: another initializer may still be applying the prior step.
+        $requiresForeignKeysOff = in_array($version, [6, 11, 12], true);
         $foreignKeysBefore = (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn();
 
         if ($requiresForeignKeysOff) {
@@ -92,6 +104,11 @@ final class DatabaseInitializer
 
         try {
             SqliteTransaction::immediate($pdo, static function (PDO $pdo) use ($schema, $version): void {
+                // The initial version snapshot is only a fast path. Recheck after
+                // BEGIN IMMEDIATE, when no other initializer can commit this step.
+                if (in_array($version, self::appliedVersions($pdo), true)) {
+                    return;
+                }
                 self::applyMigration($pdo, $version, $schema);
 
                 $insert = $pdo->prepare(
@@ -141,8 +158,23 @@ final class DatabaseInitializer
             18 => self::migrateContractAdditives($pdo),
             19 => self::migrateStudentMovements($pdo),
             20 => self::migrateStudentYearProgression($pdo),
+            21 => self::migrateRecordRevisionsAndQueryIndexes($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
+    }
+
+    private static function migrateRecordRevisionsAndQueryIndexes(PDO $pdo): void
+    {
+        foreach (['alunos', 'turmas', 'alunos_passivo'] as $table) {
+            self::addColumnIfMissing($pdo, $table, 'revisao', 'INTEGER NOT NULL DEFAULT 1 CHECK (revisao >= 1)');
+            // Covers every writer, including movement, archive and numbering
+            // services. The condition also terminates with recursive_triggers ON.
+            $pdo->exec("CREATE TRIGGER IF NOT EXISTS trg_{$table}_revisao
+                AFTER UPDATE ON {$table} WHEN NEW.revisao = OLD.revisao
+                BEGIN UPDATE {$table} SET revisao = OLD.revisao + 1 WHERE id = NEW.id; END");
+        }
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_pedido_produtos_pedido_pagina ON pedido_produtos(id_pedido,numero_pagina,id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_modulo5_operacoes_recurso_tipo ON modulo5_operacoes(recurso_id,tipo)');
     }
 
     private static function migrateContractAdditives(PDO $pdo): void

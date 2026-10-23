@@ -47,6 +47,6 @@ $date = static function (?string $value): string {
             </tr>
         <?php endforeach; ?>
     </tbody></table></div>
-    <nav class="contract-pagination" aria-label="Páginas de pedidos"><?php for ($p = 1; $p <= $result['pages']; $p++): ?><a class="btn-secondary <?= $p === $result['page'] ? 'active' : '' ?>" href="<?= e(url('contrato?' . http_build_query($params + ['pagina' => $p]))) ?>"><?= $p ?></a><?php endfor; ?></nav>
+    <?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $result['page'], (int) $result['pages'], static fn (int $p): string => url('contrato?' . http_build_query(array_merge($params, ['pagina' => $p]))), 'Páginas de pedidos'); ?>
     <?php endif; ?>
 </section>

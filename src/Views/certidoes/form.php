@@ -1,5 +1,5 @@
 <section class="cert-panel cert-form-panel">
-    <?php if ($mode === 'renovar'): ?><p class="info-message">Renovação da <a href="<?= e(url('certidao/detalhes/' . (int) $record['id'])) ?>">certidão #<?= (int) $record['id'] ?></a>. A anterior e seu PDF, quando houver, serão preservados no arquivo.</p><?php endif; ?>
+    <?php if ($mode === 'renovar'): ?><p class="info-message">Renovação da <a href="<?= e(url('certidao/detalhes/' . (int) $record['id'])) ?>"><?= e($record['tipo_certidao']) ?> de <?= e($record['fornecedor']) ?></a>. A anterior e seu PDF, quando houver, serão preservados no arquivo.</p><?php endif; ?>
     <?php if ($mode === 'editar'): ?><p>Esta tela corrige dados cadastrais e mantém o PDF, quando houver. <?php if ($record['estado'] === 'corrente'): ?>Para registrar um novo documento, utilize <a href="<?= e(url('certidao/renovar/' . (int) $record['id'])) ?>">Renovar</a>.<?php else: ?>Para registrar um novo documento, desarquive a certidão e depois utilize a renovação.<?php endif; ?></p><?php endif; ?>
     <form method="post" enctype="multipart/form-data" action="<?= e(url($path)) ?>" class="cert-form">
         <?php if ($mode === 'editar'): ?><div class="cert-existing-pdf <?= !empty($record['pdf_privado']) ? 'available' : 'missing' ?>">

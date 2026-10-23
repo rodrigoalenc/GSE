@@ -7,6 +7,8 @@ use PDOException;
 use RuntimeException;
 
 require_once __DIR__ . '/DataProtection.php';
+require_once __DIR__ . '/RuntimeRequirements.php';
+require_once __DIR__ . '/DvaStatus.php';
 
 class Database
 {
@@ -14,6 +16,7 @@ class Database
 
     public static function getConnection(): PDO
     {
+        \RuntimeRequirements::assertSupported();
         if (self::$connection instanceof PDO) {
             return self::$connection;
         }
@@ -45,6 +48,7 @@ class Database
             self::$connection->exec('PRAGMA busy_timeout = 5000;');
 
             \DataProtection::register(self::$connection);
+            \DvaStatus::registerSqliteFunctions(self::$connection);
             self::protectFiles($dbPath);
 
             return self::$connection;
@@ -56,7 +60,10 @@ class Database
     public static function setConnection(?PDO $connection): void
     {
         self::$connection = $connection;
-        if ($connection !== null) { \DataProtection::register($connection); }
+        if ($connection !== null) {
+            \DataProtection::register($connection);
+            \DvaStatus::registerSqliteFunctions($connection);
+        }
     }
 
     public static function resolvePath(): string

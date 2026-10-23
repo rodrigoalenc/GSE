@@ -52,17 +52,18 @@ final class TurmaController extends Controller
             render_http_error(404, 'Turma não encontrada', 'O cadastro solicitado não existe.');
         }
 
-        $data = ['nome_turma' => (string) $class['nome_turma'], 'ano_letivo' => (string) $class['ano_letivo']];
+        $data = ['nome_turma' => (string) $class['nome_turma'], 'ano_letivo' => (string) $class['ano_letivo'], 'revisao' => (string) $class['revisao']];
         $errors = [];
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $data = $this->formData();
 
-            if ($model->atualizar($classId, $data['nome_turma'], (int) $data['ano_letivo'], (int) $_SESSION['usuario_id'])) {
+            $revision = filter_var($data['revisao'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($revision !== false && $model->atualizar($classId, $data['nome_turma'], (int) $data['ano_letivo'], (int) $_SESSION['usuario_id'], $revision)) {
                 $this->redirectWithFlash('turma', 'success', 'Turma atualizada com sucesso.');
             }
 
-            $errors[] = $this->errorMessage($model->lastErrorCode());
+            $errors[] = $this->errorMessage($revision === false ? 'invalid_revision' : $model->lastErrorCode());
             http_response_code(422);
         }
 
@@ -97,10 +98,11 @@ final class TurmaController extends Controller
         $this->redirectWithFlash('turma', 'success', $active === 1 ? 'Turma reativada.' : 'Turma inativada.');
     }
 
-    /** @return array{nome_turma:string,ano_letivo:string} */
+    /** @return array{nome_turma:string,ano_letivo:string,revisao:string} */
     private function formData(): array
     {
         return [
+            'revisao' => input_string($_POST['revisao'] ?? ''),
             'nome_turma' => mb_substr(input_string($_POST['nome_turma'] ?? ''), 0, 101, 'UTF-8'),
             'ano_letivo' => mb_substr(trim(input_string($_POST['ano_letivo'] ?? date('Y'))), 0, 4, 'UTF-8'),
         ];
@@ -109,6 +111,7 @@ final class TurmaController extends Controller
     private function errorMessage(?string $code): string
     {
         return match ($code) {
+            'stale_revision', 'invalid_revision' => 'Este formulário está desatualizado ou sem revisão válida. Reabra o cadastro e confira os dados atuais antes de salvar.',
             'duplicate_class' => 'Já existe uma turma com esse nome e ano letivo.',
             'active_students' => 'A turma possui alunos ativos. Remaneje ou inative esses alunos antes de inativar a turma.',
             'not_found' => 'Turma não encontrada.',

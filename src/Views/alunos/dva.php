@@ -1,5 +1,6 @@
+<?php $formErrors = $errors; $fieldErrors = UiPresentation::fieldErrors($formErrors, ['data_vencimento' => ['vencimento', 'data inválida', 'data válida'], 'observacao' => ['observação']]); require __DIR__ . '/../partials/form-errors.php'; ?>
 <?php
-$currentDate = $current ? date('d/m/Y', strtotime((string) $current['data_vencimento'])) : null;
+$currentDate = $current ? UiPresentation::civilDate($current['data_vencimento']) : null;
 $currentTiming = match ($currentStatus) {
     DvaStatus::VENCIDA => 'Venceu há ' . abs((int) $currentDays) . ' dia(s) (' . $currentDate . ').',
     DvaStatus::VENCE_HOJE => 'Vence hoje (' . $currentDate . ').',
@@ -8,9 +9,7 @@ $currentTiming = match ($currentStatus) {
     default => 'O primeiro registro iniciará o histórico.',
 };
 ?>
-<?php if ($errors !== []): ?>
-    <div class="error-message form-shell" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul></div>
-<?php endif; ?>
+
 
 <section class="page-intro">
     <p class="hero-kicker">Histórico documental</p>
@@ -37,12 +36,12 @@ $currentTiming = match ($currentStatus) {
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <div class="form-section-inner">
             <label for="data_vencimento">Nova data de vencimento</label>
-            <input type="date" id="data_vencimento" name="data_vencimento" value="<?= e($data['data_vencimento']) ?>" required>
+            <input type="date" id="data_vencimento" name="data_vencimento" value="<?= e($data['data_vencimento']) ?>" required <?= UiPresentation::fieldAttributes($fieldErrors, 'data_vencimento') ?>><?php if (isset($fieldErrors['data_vencimento'])): ?><small class="field-error" id="data_vencimento-error"><?= e(implode(' ', $fieldErrors['data_vencimento'])) ?></small><?php endif; ?>
             <p class="form-help">Datas passadas são aceitas para correção histórica e serão identificadas como vencidas.</p>
         </div>
         <div class="form-section-inner">
             <label for="observacao">Observação opcional</label>
-            <textarea id="observacao" name="observacao" maxlength="1000" rows="5"><?= e($data['observacao']) ?></textarea>
+            <textarea id="observacao" name="observacao" maxlength="1000" rows="5" <?= UiPresentation::fieldAttributes($fieldErrors, 'observacao') ?>><?= e($data['observacao']) ?></textarea><?php if (isset($fieldErrors['observacao'])): ?><small class="field-error" id="observacao-error"><?= e(implode(' ', $fieldErrors['observacao'])) ?></small><?php endif; ?>
         </div>
         <div class="form-actions">
             <button class="btn-primary" type="submit" <?= (int) $student['ativo'] !== 1 ? 'disabled' : '' ?>><?= $current ? 'Confirmar renovação' : 'Registrar DVA' ?></button>

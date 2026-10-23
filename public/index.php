@@ -15,6 +15,7 @@ require_once ROOT_PATH . '/src/Core/RequestContext.php';
 require_once ROOT_PATH . '/src/Core/TechnicalLogger.php';
 require_once ROOT_PATH . '/src/Core/SecurityHeaders.php';
 require_once ROOT_PATH . '/src/Core/ErrorHandler.php';
+require_once ROOT_PATH . '/src/Core/RuntimeRequirements.php';
 require_once ROOT_PATH . '/src/Core/SessionManager.php';
 require_once ROOT_PATH . '/src/Core/PasswordPolicy.php';
 require_once ROOT_PATH . '/src/Core/TextNormalizer.php';
@@ -39,6 +40,7 @@ error_reporting(E_ALL);
 
 TechnicalLogger::configure();
 ErrorHandler::register();
+RuntimeRequirements::assertSupported();
 
 $productionErrors = Config::productionErrors();
 
@@ -91,7 +93,7 @@ SessionManager::start($isHttps);
 
 try {
     $pdo = Database::getConnection();
-    DatabaseInitializer::initialize($pdo);
+    DatabaseInitializer::assertCurrent($pdo);
     Model::setConexao($pdo);
 } catch (Throwable $exception) {
     throw new RuntimeException('Falha ao inicializar os serviços de persistência.', 0, $exception);

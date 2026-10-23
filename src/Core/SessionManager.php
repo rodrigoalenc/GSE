@@ -86,7 +86,6 @@ final class SessionManager
             }
 
             $_SESSION['session_renewed_at'] = $now;
-            csrf_renovar();
             $renewed = true;
         }
 

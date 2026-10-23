@@ -19,7 +19,12 @@ final class ErrorHandler
             $error = error_get_last();
 
             if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
-                self::log('fatal_error', $error['message'], $error['file'], (int) $error['line'], 'FatalError');
+                TechnicalLogger::error('fatal_error', [
+                    'type' => 'FatalError',
+                    'file' => basename($error['file']),
+                    'line' => (int) $error['line'],
+                    'cause_code' => 'php_fatal_error',
+                ]);
 
                 if (!headers_sent()) {
                     self::render500();
@@ -30,7 +35,7 @@ final class ErrorHandler
 
     public static function handleException(Throwable $exception): never
     {
-        self::log('uncaught_exception', $exception->getMessage(), $exception->getFile(), $exception->getLine(), $exception::class);
+        TechnicalLogger::exception('uncaught_exception', $exception);
         self::render500($exception);
     }
 
@@ -47,18 +52,10 @@ final class ErrorHandler
         $requestId = RequestContext::requestId();
         $returnPath = 'login';
         $technicalDetail = Config::isDevelopment() && $exception !== null
-            ? $exception::class . ': ' . $exception->getMessage()
+            ? $exception::class
             : null;
         require (defined('ROOT_PATH') ? ROOT_PATH : dirname(__DIR__, 2)) . '/src/Views/errors/standalone.php';
         exit;
     }
 
-    private static function log(string $event, string $message, string $file, int $line, string $type): void
-    {
-        TechnicalLogger::error($event, [
-            'type' => $type,
-            'file' => basename($file),
-            'line' => $line,
-        ]);
-    }
 }

@@ -52,9 +52,6 @@
         <?php endif; ?>
 </section>
 
-<nav aria-label="Páginas de usuários">
-<?php if ($page > 1): ?><a href="<?= e(url('usuario?q='.rawurlencode($termo).'&pagina='.($page-1))) ?>">Anterior</a><?php endif; ?>
-<?php if (count($usuarios) === 50 && $page < 100): ?><a href="<?= e(url('usuario?q='.rawurlencode($termo).'&pagina='.($page+1))) ?>">Próxima</a><?php endif; ?>
-</nav>
+<?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $page, null, static fn (int $p): string => url('usuario?q='.rawurlencode($termo).'&pagina='.$p), 'Páginas de usuários', count($usuarios) === 50 && $page < 100); ?>
 
 <?php if ($page === 100): ?><p>Refine a pesquisa para consultar outros usuários.</p><?php endif; ?>

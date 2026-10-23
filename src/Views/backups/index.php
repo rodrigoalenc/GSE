@@ -23,10 +23,10 @@
 
 <section class="relatorio audit-report">
     <h2>Backups manuais disponíveis</h2>
-    <p class="audit-results-meta">Até 200 backups mais recentes · <?= e((string) $result['total']) ?> disponível(is) · Horários em UTC.</p>
+    <p class="audit-results-meta">Até 200 backups mais recentes · <?= e((string) $result['total']) ?> disponível(is) · Horários locais da escola.</p>
     <div class="table-scroll">
         <table class="tabela-filtrada">
-            <thead><tr><th>Arquivo</th><th>Data/hora UTC</th><th>Tamanho</th><th>Ação</th></tr></thead>
+            <thead><tr><th>Arquivo</th><th>Data/hora</th><th>Tamanho</th><th>Ação</th></tr></thead>
             <tbody>
             <?php if ($result['items'] === []): ?>
                 <tr><td colspan="4" class="empty-state">Nenhum backup manual disponível.</td></tr>
@@ -34,7 +34,7 @@
                 <?php foreach ($result['items'] as $item): ?>
                     <tr>
                         <td class="text-break"><?= e($item['nome']) ?></td>
-                        <td><?= e(gmdate('d/m/Y H:i:s', $item['modificado'])) ?></td>
+                        <td><?= e(UiPresentation::localDateTime(gmdate('Y-m-d H:i:s', $item['modificado']))) ?></td>
                         <td><?= e(number_format($item['bytes'], 0, ',', '.')) ?> bytes</td>
                         <td><a class="btn-secondary" href="<?= e(url('backup/baixar/' . rawurlencode($item['nome']))) ?>">Baixar</a></td>
                     </tr>
@@ -44,10 +44,6 @@
         </table>
     </div>
     <?php if ($result['pages'] > 1): ?>
-        <nav class="pagination" aria-label="Paginação dos backups">
-            <?php for ($page = 1; $page <= $result['pages']; $page++): ?>
-                <a class="<?= $page === $result['page'] ? 'active' : '' ?>" href="<?= e(url('backup?page=' . $page)) ?>" <?= $page === $result['page'] ? 'aria-current="page"' : '' ?>><?= e((string) $page) ?></a>
-            <?php endfor; ?>
-        </nav>
+        <?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $result['page'], (int) $result['pages'], static fn (int $p): string => url('backup?page=' . $p), 'Páginas de backups'); ?>
     <?php endif; ?>
 </section>

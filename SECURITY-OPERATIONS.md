@@ -1,6 +1,6 @@
 # Operação da proteção v17
 
-O ajuste de downloads e limpeza de snapshots parte de `41dcb5d`. A revisão validada é o diff local sobre essa base, não um commit publicado. Consulte `SECURITY-VALIDATION.md` para os resultados finais. Não foi autorizada publicação, migração do banco escolar, merge, deploy ou verificação de uma URL institucional.
+A proteção de campos e backups foi introduzida na v17. O esquema atual é v21; as garantias e verificações correntes estão em Documentação/VALIDACAO-2026-10-22.md. Não há homologação implícita do servidor institucional.
 
 ## Escopo e inventário
 
@@ -27,7 +27,7 @@ Busca exata de e-mail usa índice HMAC. A pesquisa parcial e a ordenação de us
 
 ## Chaves e inicialização
 
-Exige PHP 8.3+ com sodium, intl, mbstring, pdo_sqlite e as demais extensões do Composer, na CLI e no PHP-FPM. Confirme `composer check-platform-reqs`. Não altere o código para aceitar chaves ausentes. O HTTP falha de forma controlada quando chave ou ciphertext não pode ser aberto.
+Exige PHP de 64 bits corrigido (8.3.36+, 8.4.27+ ou 8.5.12+ na respectiva linha), SQLite carregado pelo PDO com correção WAL, sodium, intl, mbstring, pdo_sqlite e as demais extensões do Composer, na CLI e no PHP-FPM. Confirme `php bin/runtime-check.php` e `composer check-platform-reqs`; no Windows, use o runtime privado de `bin/gse.ps1`. Não altere o código para aceitar chaves ausentes. O HTTP falha de forma controlada quando chave ou ciphertext não pode ser aberto.
 
 1. Crie um diretório privado fora do repositório, de `public`, do banco e dos pacotes de backup. Em Linux, use diretório `0700` e keyring `0600`, pertencentes à identidade que precisa lê-los. Em Windows, restrinja a ACL a essa identidade e ao administrador responsável; os testes locais não homologam essa ACL.
 2. Execute `php bin/security.php keygen /caminho/privado/keys.json`. O destino precisa ser novo. Chaves aleatórias são geradas dentro do processo, sem recebê-las por argumento ou imprimi-las.
@@ -217,9 +217,6 @@ Todas as operações internas exigem conta ativa e sessão vigente. Conta com se
 | GET | `/passivo/importar` | `PassivoController::importar` | Administrador | Compartilhado; regra do recurso | — | — |
 | POST | `/passivo/importar/preview` | `PassivoController::previewImport` | Administrador | Compartilhado; regra do recurso | Sim | Custo |
 | POST | `/passivo/importar/confirmar` | `PassivoController::confirmImport` | Administrador | Compartilhado; regra do recurso | Sim | — |
-| GET | `/passivo/ferramentas` | `PassivoController::ferramentas` | Administrador | Compartilhado; regra do recurso | — | — |
-| POST | `/passivo/ferramentas/enumerar/preview` | `PassivoController::previewEnumeration` | Administrador | Compartilhado; regra do recurso | Sim | Custo |
-| POST | `/passivo/ferramentas/enumerar/confirmar` | `PassivoController::confirmEnumeration` | Administrador | Compartilhado; regra do recurso | Sim | — |
 | POST | `/passivo/exportar` | `PassivoController::exportar` | Funcionário / administrador | Compartilhado; regra do recurso | Sim | Custo |
 | POST | `/aluno/arquivar-lote/selecionar` | `PassivoController::selecionarLote` | Administrador | Compartilhado; regra do recurso | Sim | — |
 | GET | `/aluno/arquivar-lote` | `PassivoController::arquivarLote` | Administrador | Compartilhado; regra do recurso | — | — |

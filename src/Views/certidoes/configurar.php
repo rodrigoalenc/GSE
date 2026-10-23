@@ -2,7 +2,7 @@
 <?php if (is_array($draft)): ?>
 <section class="cert-panel" aria-labelledby="draft-title"><h2 id="draft-title">Sua edição não salva</h2>
 <p>Copie o nome abaixo e compare com o cadastro atual. Abra a opção correspondente e escolha novamente a situação antes de salvar. Este rascunho permanece disponível até salvar uma configuração.</p>
-<p><?= e($draft['tipo']) ?> #<?= e($draft['id']) ?> · revisão enviada <?= e($draft['revisao']) ?> · situação pretendida: <?= $draft['ativo'] === '1' ? 'Ativo' : 'Inativo' ?></p>
+<p><?= $draft['tipo'] === 'fornecedor' ? 'Fornecedor' : 'Tipo de certidão' ?>: <?= e($draft['nome']) ?> · situação pretendida: <?= $draft['ativo'] === '1' ? 'Ativo' : 'Inativo' ?></p>
 <label for="draft-name">Nome digitado (selecione para copiar)</label><input id="draft-name" readonly value="<?= e($draft['nome']) ?>">
 </section>
 <?php endif; ?>

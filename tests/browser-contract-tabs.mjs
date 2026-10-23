@@ -130,6 +130,7 @@ async function run() {
     const appScript = await readFile(process.env.GSE_TEST_APP_JS || join(root, 'public/assets/js/app.js'));
     const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Contract tab regression</title>
         <style>section{min-height:1800px}h2{padding-top:700px}details{margin:100px 0}</style>
+        <aside class="sidebar"><button type="button" data-sidebar-pin hidden aria-pressed="false"><span class="sidebar-pin-label">Fixar menu aberto</span></button></aside>
         <script src="/app.js" defer></script><nav data-contract-tabs>${[1,2,3].map(id=>`<a href="#folha-${id}">Nota ${id}</a>`).join('')}</nav>
         ${[1,2,3].map(id=>`<section id="folha-${id}"><h2>Nota ${id}</h2><a href="#add-product-${id}" data-open-details>Adicionar Produto</a>
         <a href="#billing-note-${id}" data-open-details>Faturamento</a><a href="#%E0%A4%A" data-open-details>Invalid fragment</a>
@@ -162,6 +163,17 @@ async function run() {
         const state=()=>page.evaluate(`[...document.querySelectorAll('[role="tabpanel"]')].map(p=>({hidden:p.hidden,visible:p.getBoundingClientRect().height>0}))`);
         const selected=id=>[{hidden:id!==1,visible:id===1},{hidden:id!==2,visible:id===2},{hidden:id!==3,visible:id===3}];
         await page.navigate(base);
+        await page.click('[data-sidebar-pin]');
+        check(await page.evaluate(`document.querySelector('.sidebar').classList.contains('is-pinned')`),true,'Menu can stay expanded');
+        await page.navigate(base);
+        check(await page.evaluate(`document.querySelector('[data-sidebar-pin]').getAttribute('aria-pressed')`),'true','Menu preference persists after navigation');
+        const noStorage = await browser.newPage();
+        await noStorage.command('Page.addScriptToEvaluateOnNewDocument', {source:`Object.defineProperty(window,'localStorage',{get(){throw new Error('storage disabled')}})`});
+        await noStorage.navigate(base);
+        await noStorage.click('[data-sidebar-pin]');
+        check(await noStorage.evaluate(`document.querySelector('.sidebar').classList.contains('is-pinned')`),true,'Menu works when browser storage is blocked');
+        await browser.command('Target.closeTarget', {targetId:noStorage.targetId});
+        await page.command('Page.bringToFront');
         check(await state(), selected(1), 'Initial note');
         await page.click(`[data-contract-tabs] a[href="#folha-2"]`); await page.until(`location.hash === '#folha-2'`);
         await page.evaluate('history.back()'); await page.until(`location.hash === '' && !document.getElementById('folha-1').hidden`);
@@ -268,6 +280,10 @@ async function run() {
         await page.evaluate(`(() => { window.contractSubmissions=[]; document.getElementById('contract-create').addEventListener('submit',event=>{event.preventDefault(); window.contractSubmissions.push([...new FormData(event.currentTarget)]);}); })()`);
         check(await page.evaluate(`[...document.querySelector('${builder} select').options].map(option=>option.value)`),['UN','K','Litros'],'New products offer the requested unit choices');
         await fillProduct(product(0,0),'Produto inicial');
+        await page.evaluate(`(() => { const price=document.querySelector('${product(0,0)} input[name$="[preco]"]'); price.value='1.250,00'; price.dispatchEvent(new Event('input',{bubbles:true})); })()`);
+        check(await page.evaluate(`document.querySelector('[data-items-total]').textContent`),'Confira o preço deste produto','Invalid price suspends the financial total');
+        check(await page.evaluate(`document.querySelector('${product(0,0)} input[name$="[preco]"]').validity.valid`),false,'Invalid price prevents submission');
+        await page.evaluate(`(() => { const price=document.querySelector('${product(0,0)} input[name$="[preco]"]'); price.value='2,00'; price.dispatchEvent(new Event('input',{bubbles:true})); })()`);
         await chooseUnit(product(0,0),'Litros');
         check(await page.evaluate(`document.querySelector('${product(0,0)} select').value`),'Litros','Keyboard selects Litros');
         await page.click(`${sheet(0)} [data-add-product]`);
@@ -296,11 +312,20 @@ async function run() {
             ['folhas[2][produtos][0][nome]','Terceira nota'],['folhas[2][produtos][0][unidade]','K'],
         ],'Submission assigns each chosen unit to its product and note');
         await page.click(`${product(0,0)} [data-remove-product]`);
+        check(await page.evaluate(`document.activeElement.matches('[data-add-product]') || document.activeElement.matches('[data-remove-product]')`),true,'Removal puts focus on a nearby surviving control');
+        await page.click('[data-undo-removal]');
+        check(await page.evaluate(`document.querySelector('${product(0,0)} input').value`),'Produto inicial','Undo restores all filled product fields');
+        check(await page.evaluate(`document.activeElement===document.querySelector('${product(0,0)} input')`),true,'Undo returns focus to the restored product');
+        await page.click(`${product(0,0)} [data-remove-product]`);
         check(await submittedProducts(),[
             ['folhas[0][produtos][0][nome]','Produto em K'],['folhas[0][produtos][0][unidade]','K'],
             ['folhas[1][produtos][0][nome]','Segunda nota'],['folhas[1][produtos][0][unidade]','Litros'],
             ['folhas[2][produtos][0][nome]','Terceira nota'],['folhas[2][produtos][0][unidade]','K'],
         ],'Removing the first product preserves the surviving selection and submitted index');
+        await page.click(`${sheet(0)} [data-remove-sheet]`);
+        await page.click('.contract-removal-notice p:last-child [data-undo-removal]');
+        check(await page.evaluate(`document.querySelectorAll('[data-contract-sheet]').length`),3,'Undo restores the filled note');
+        check(await page.evaluate(`document.querySelector('${product(0,0)} input').value`),'Produto em K','Undo note keeps its surviving products');
         await page.click(`${sheet(0)} [data-remove-sheet]`);
         check(await submittedProducts(),[
             ['folhas[0][produtos][0][nome]','Segunda nota'],['folhas[0][produtos][0][unidade]','Litros'],

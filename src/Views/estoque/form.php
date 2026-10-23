@@ -1,9 +1,9 @@
-<?php $unit=$product['unidade']==='UN' ? 'unidades' : $product['unidade']; ?>
+<?php $unit=match ($product['unidade']) { 'UN' => 'unidades', 'K' => 'quilogramas', 'Litros' => 'litros', default => $product['unidade'] }; ?>
 <section class="relatorio stock-form-card">
 <p><a href="<?= e(url($back)) ?>">Voltar ao estoque</a></p>
 <h2><?= e($product['nome_produto']) ?><?= $product['marca'] ? ' — '.e($product['marca']) : '' ?></h2>
-<p><?= e($product['contrato_titulo']) ?> · Nota <?= (int)$product['numero_pagina'] ?> · Unidade: <?= e($product['unidade']) ?></p>
-<?php if ((int)$product['estoque_inicializado']===1 && !(int)$product['abertura_sem_comprovacao']): ?><p>Disponível agora: <strong><?= (int)$product['saldo'] ?> <?= e($product['unidade']) ?></strong></p><?php endif; ?>
+<p><?= e($product['contrato_titulo']) ?> · Nota <?= (int)$product['numero_pagina'] ?> · Unidade: <?= e($unit) ?></p>
+<?php if ((int)$product['estoque_inicializado']===1 && !(int)$product['abertura_sem_comprovacao']): ?><p>Disponível agora: <strong><?= (int)$product['saldo'] ?> <?= e($unit) ?></strong></p><?php endif; ?>
 <?php if ($error!==''): ?><p class="error-message" role="alert"><?= e($error) ?></p><?php endif; ?>
 <?php if ($blocked!==''): ?><p class="warning-message"><?= e($blocked) ?></p>
 <?php if ((int)$product['estoque_inicializado']===0 && $mode!=='iniciar'): ?><a class="btn btn-primary" href="<?= e(url('estoque/iniciar/'.$product['id'].$suffix)) ?>">Informar quantidade inicial</a>

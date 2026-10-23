@@ -193,6 +193,43 @@ function hiddenValue(string $html, string $name, int $length = 64): string
     return $match[1];
 }
 
+function formRevision(string $html): string
+{
+    if (preg_match('/name="revisao" value="([1-9][0-9]*)"/', $html, $match) !== 1) {
+        throw new RuntimeException('Revisão de formulário não encontrada.');
+    }
+    return $match[1];
+}
+
+/** @param array<string,string> $fields */
+function checkEditRevision(string $url, string $cookie, string $database, string $table, array $fields, bool $redirects): void
+{
+    $page = request('GET', $url, $cookie);
+    $revision = formRevision($page['body']);
+    $pdo = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $fields['_csrf_token'] = csrf($page['body']);
+    foreach ([null, '0', '-1', 'inválida'] as $invalidRevision) {
+        $before = $pdo->query('SELECT * FROM ' . $table . ' WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+        $data = $fields;
+        if ($invalidRevision !== null) { $data['revisao'] = $invalidRevision; }
+        $response = request('POST', $url, $cookie, $data);
+        $feedback = $redirects ? request('GET', $url, $cookie) : $response;
+        checkHttp($response['status'] === ($redirects ? 302 : 422)
+            && str_contains($feedback['body'], 'sem revisão válida')
+            && $before === $pdo->query('SELECT * FROM ' . $table . ' WHERE id=1')->fetch(PDO::FETCH_ASSOC),
+            $table . ': servidor recusa revisão ausente ou inválida sem gravar (' . ($invalidRevision ?? 'ausente') . ')');
+    }
+    // A competing writer commits after the original form was opened.
+    $pdo->exec('UPDATE ' . $table . ' SET atualizado_em=atualizado_em WHERE id=1');
+    $before = $pdo->query('SELECT * FROM ' . $table . ' WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+    $response = request('POST', $url, $cookie, $fields + ['revisao' => $revision]);
+    $feedback = $redirects ? request('GET', $url, $cookie) : $response;
+    checkHttp(str_contains($feedback['body'], 'formulário está desatualizado')
+        && formRevision($feedback['body']) === $revision
+        && $before === $pdo->query('SELECT * FROM ' . $table . ' WHERE id=1')->fetch(PDO::FETCH_ASSOC),
+        $table . ': formulário antigo é recusado e mantém revisão antiga para exigir conferência');
+}
+
 function sessionCookieValue(string $cookieFile): string
 {
     if (!is_file($cookieFile)) {
@@ -477,9 +514,17 @@ try {
         'Pesquisa de aluno reconhece representação Unicode canônica'
     );
 
+    checkEditRevision($baseUrl . '/aluno/editar/1', $cookieAdmin, $database, 'alunos', [
+        'nome_completo' => 'Não deve sobrescrever aluno', 'data_nascimento' => '2011-05-10',
+        'id_turma' => '1', 'telefone_aluno' => '65999990000', 'telefone_responsavel' => '6533330000',
+    ], false);
+    checkEditRevision($baseUrl . '/turma/editar/1', $cookieAdmin, $database, 'turmas', [
+        'nome_turma' => 'Não deve sobrescrever turma', 'ano_letivo' => '2026',
+    ], false);
     $studentEdit = request('GET', $baseUrl . '/aluno/editar/1', $cookieAdmin);
     $editedStudent = request('POST', $baseUrl . '/aluno/editar/1', $cookieAdmin, [
         '_csrf_token' => csrf($studentEdit['body']),
+        'revisao' => formRevision($studentEdit['body']),
         'nome_completo' => 'Aluno HTTP Editado',
         'data_nascimento' => '2011-05-10',
         'id_turma' => '1',
@@ -549,11 +594,15 @@ try {
     checkHttp(request('GET', $baseUrl . '/passivo/detalhes/999999', $cookieAdmin)['status'] === 404, 'ID passivo inexistente retorna 404');
 
     // Simula um registro histórico no banco descartável do ensaio.
+    checkEditRevision($baseUrl . '/passivo/editar/1', $cookieAdmin, $database, 'alunos_passivo', [
+        'nome_completo' => 'Não deve sobrescrever arquivo', 'data_nascimento' => '2000-01-01', 'caixa' => 'CX-HTTP', 'numero' => '1',
+    ], true);
     $verification->exec('UPDATE alunos_passivo SET numero = NULL, numero_normalizado = NULL, localizacao_pendente = 1 WHERE id = 1');
     $pendingEdit = request('GET', $baseUrl . '/passivo/editar/1', $cookieAdmin);
     checkHttp(preg_match('/<input[^>]+id="numero"[^>]+required/', $pendingEdit['body']) !== 1
         && str_contains($pendingEdit['body'], 'Localização pendente'), 'Interface permite editar legado sem inventar posição');
     $pendingSaved = request('POST', $baseUrl . '/passivo/editar/1', $cookieAdmin, [
+        'revisao' => formRevision($pendingEdit['body']),
         '_csrf_token' => csrf($pendingEdit['body']), 'nome_completo' => 'Jose HTTP Passivo',
         'data_nascimento' => '2000-01-01', 'numero' => '', 'caixa' => 'CX-HTTP',
     ]);
@@ -574,6 +623,7 @@ try {
     $passiveEdit = request('GET', $baseUrl . '/passivo/editar/1', $cookieAdmin);
     $passiveEdited = request('POST', $baseUrl . '/passivo/editar/1', $cookieAdmin, [
         '_csrf_token' => csrf($passiveEdit['body']),
+        'revisao' => formRevision($passiveEdit['body']),
         'nome_completo' => 'Jose HTTP Passivo Editado',
         'data_nascimento' => '2000-01-01',
         'numero' => '7',
@@ -775,6 +825,7 @@ try {
     checkHttp($employeeEditPage['status'] === 200, 'Funcionário acessa edição passiva');
     $employeeEdited = request('POST', $baseUrl . '/passivo/editar/' . $employeePassiveId, $cookieEmployee, [
         '_csrf_token' => csrf($employeeEditPage['body']),
+        'revisao' => formRevision($employeeEditPage['body']),
         'nome_completo' => 'Funcionário HTTP Editado',
         'data_nascimento' => '2002-03-04',
         'numero' => '2',
@@ -942,6 +993,7 @@ try {
     require __DIR__ . '/http-user-password.php';
     require __DIR__ . '/http-audit-backups.php';
     require __DIR__ . '/http-security-hardening.php';
+    require __DIR__ . '/http-student-movement-edit.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');
     $adminDashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);

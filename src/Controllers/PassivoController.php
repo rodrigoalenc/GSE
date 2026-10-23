@@ -72,6 +72,7 @@ final class PassivoController extends Controller
         }
 
         $defaultData = [
+            'revisao' => (string) $record['revisao'],
             'nome_completo' => (string) $record['nome_completo'],
             'data_nascimento' => (string) ($record['data_nascimento'] ?? ''),
             'numero' => src\Core\TextNormalizer::displayName((string) ($record['numero'] ?? '')),
@@ -84,11 +85,12 @@ final class PassivoController extends Controller
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $data = $this->formData();
 
-            if ($model->atualizar($recordId, $data, $this->actorId())) {
+            $revision = filter_var($data['revisao'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($revision !== false && $model->atualizar($recordId, $data, $this->actorId(), $revision)) {
                 $this->redirectWithFlash('passivo/detalhes/' . $recordId, 'success', 'Registro atualizado com sucesso.');
             }
 
-            $this->storeFormState('edit_' . $recordId, $data, [$model->validationMessage($model->lastErrorCode())]);
+            $this->storeFormState('edit_' . $recordId, $data, [$model->validationMessage($revision === false ? 'invalid_revision' : $model->lastErrorCode())]);
             redirect('passivo/editar/' . $recordId);
         }
 
@@ -504,10 +506,11 @@ final class PassivoController extends Controller
         ]);
     }
 
-    /** @return array{nome_completo:string,data_nascimento:string,numero:string,caixa:string} */
+    /** @return array{nome_completo:string,data_nascimento:string,numero:string,caixa:string,revisao:string} */
     private function formData(): array
     {
         return [
+            'revisao' => input_string($_POST['revisao'] ?? ''),
             'nome_completo' => mb_substr(input_string($_POST['nome_completo'] ?? ''), 0, Passivo::NAME_MAX_LENGTH + 1, 'UTF-8'),
             'data_nascimento' => mb_substr(trim(input_string($_POST['data_nascimento'] ?? '')), 0, 10, 'UTF-8'),
             'numero' => mb_substr(input_string($_POST['numero'] ?? ''), 0, Passivo::NUMBER_MAX_LENGTH + 1, 'UTF-8'),

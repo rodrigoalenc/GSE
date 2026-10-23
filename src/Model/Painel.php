@@ -10,23 +10,20 @@ final class Painel extends Model
     public function resumo(?DvaStatus $statusService = null): array
     {
         $statusService ??= new DvaStatus();
+        $classification = $statusService->sqlExpression();
         $statement = self::$pdo->prepare(
             'SELECT
                 SUM(CASE WHEN a.ativo = 1 THEN 1 ELSE 0 END) AS alunos_ativos,
                 SUM(CASE WHEN a.ativo = 0 THEN 1 ELSE 0 END) AS alunos_inativos,
-                SUM(CASE WHEN a.ativo = 1 AND d.id IS NULL THEN 1 ELSE 0 END) AS sem_dva,
-                SUM(CASE WHEN a.ativo = 1 AND d.data_vencimento < :today THEN 1 ELSE 0 END) AS vencidas,
-                SUM(CASE WHEN a.ativo = 1 AND d.data_vencimento = :today THEN 1 ELSE 0 END) AS vence_hoje,
-                SUM(CASE WHEN a.ativo = 1 AND d.data_vencimento > :today
-                          AND d.data_vencimento <= :warning_limit THEN 1 ELSE 0 END) AS a_vencer,
-                SUM(CASE WHEN a.ativo = 1 AND d.data_vencimento > :warning_limit THEN 1 ELSE 0 END) AS vigentes
-             FROM alunos a
-             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1'
+                SUM(CASE WHEN a.ativo = 1 AND a.dva_status = \'sem_dva\' THEN 1 ELSE 0 END) AS sem_dva,
+                SUM(CASE WHEN a.ativo = 1 AND a.dva_status = \'vencida\' THEN 1 ELSE 0 END) AS vencidas,
+                SUM(CASE WHEN a.ativo = 1 AND a.dva_status = \'vence_hoje\' THEN 1 ELSE 0 END) AS vence_hoje,
+                SUM(CASE WHEN a.ativo = 1 AND a.dva_status = \'a_vencer\' THEN 1 ELSE 0 END) AS a_vencer,
+                SUM(CASE WHEN a.ativo = 1 AND a.dva_status = \'vigente\' THEN 1 ELSE 0 END) AS vigentes
+             FROM (SELECT a.ativo, ' . $classification['sql'] . ' AS dva_status
+                   FROM alunos a LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1) a'
         );
-        $statement->execute([
-            'today' => $statusService->today(),
-            'warning_limit' => $statusService->warningLimit(),
-        ]);
+        $statement->execute($classification['params']);
         $row = $statement->fetch() ?: [];
 
         return [
@@ -44,51 +41,60 @@ final class Painel extends Model
     public function pendenciasPrioritarias(int $limit = 8, ?DvaStatus $statusService = null): array
     {
         $statusService ??= new DvaStatus();
+        $classification = $statusService->sqlExpression();
         $statement = self::$pdo->prepare(
-            'SELECT a.id, a.nome_completo, t.nome_turma, d.data_vencimento
-             FROM alunos a
-             LEFT JOIN turmas t ON t.id = a.id_turma
-             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
-             WHERE a.ativo = 1 AND (d.id IS NULL OR d.data_vencimento <= :warning_limit)
+            'SELECT * FROM (
+                SELECT a.id, a.nome_completo, t.nome_turma, d.data_vencimento,
+                       ' . $classification['sql'] . ' AS dva_status
+                FROM alunos a
+                LEFT JOIN turmas t ON t.id = a.id_turma
+                LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
+                WHERE a.ativo = 1
+             ) WHERE dva_status <> \'vigente\'
              ORDER BY CASE
-                WHEN d.id IS NULL THEN 0
-                WHEN d.data_vencimento < :today THEN 1
-                WHEN d.data_vencimento = :today THEN 2
+                WHEN dva_status = \'sem_dva\' THEN 0
+                WHEN dva_status = \'vencida\' THEN 1
+                WHEN dva_status = \'vence_hoje\' THEN 2
                 ELSE 3 END,
-                d.data_vencimento, a.nome_completo COLLATE NOCASE
+                data_vencimento, nome_completo COLLATE NOCASE
              LIMIT :limit'
         );
-        $statement->bindValue(':warning_limit', $statusService->warningLimit());
-        $statement->bindValue(':today', $statusService->today());
+        foreach ($classification['params'] as $key => $value) {
+            $statement->bindValue(':' . $key, $value);
+        }
         $statement->bindValue(':limit', max(1, min(50, $limit)), PDO::PARAM_INT);
         $statement->execute();
-        $items = $statement->fetchAll();
-
-        foreach ($items as &$item) {
-            $item['dva_status'] = $statusService->classify($item['data_vencimento'] ?: null);
-        }
-        unset($item);
-
-        return $items;
+        return $statement->fetchAll();
     }
 
     /** @return array<string,list<array<string,mixed>>> */
-    public function alunosPorStatus(?DvaStatus $statusService = null): array
+    public function alunosPorStatus(?DvaStatus $statusService = null, int $limitPerStatus = 10): array
     {
         $statusService ??= new DvaStatus();
         $grupos = array_fill_keys(DvaStatus::ALL, []);
-        $statement = self::$pdo->query(
-            'SELECT a.id, a.nome_completo, t.nome_turma, d.data_vencimento
-             FROM alunos a
-             LEFT JOIN turmas t ON t.id = a.id_turma
-             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
-             WHERE a.ativo = 1
-             ORDER BY a.nome_normalizado'
+        $classification = $statusService->sqlExpression();
+        $statement = self::$pdo->prepare(
+            'WITH classified AS (
+                SELECT a.id, a.nome_completo, a.nome_normalizado, t.nome_turma, d.data_vencimento,
+                       ' . $classification['sql'] . ' AS dva_status
+                FROM alunos a
+                LEFT JOIN turmas t ON t.id = a.id_turma
+                LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
+                WHERE a.ativo = 1
+             ), ranked AS (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY dva_status ORDER BY nome_normalizado, id) AS position
+                FROM classified
+             ) SELECT id, nome_completo, nome_turma, data_vencimento, dva_status
+               FROM ranked WHERE position <= :limit ORDER BY nome_normalizado, id'
         );
+        foreach ($classification['params'] as $key => $value) {
+            $statement->bindValue(':' . $key, $value);
+        }
+        $statement->bindValue(':limit', max(1, min(50, $limitPerStatus)), PDO::PARAM_INT);
+        $statement->execute();
 
         foreach ($statement->fetchAll() as $item) {
-            $status = $statusService->classify($item['data_vencimento'] ?: null);
-            $grupos[$status][] = $item;
+            $grupos[$item['dva_status']][] = $item;
         }
 
         return $grupos;

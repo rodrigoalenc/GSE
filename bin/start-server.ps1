@@ -6,6 +6,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'runtime.ps1')
+$gseTools = Get-GseToolchain
 $workspace = Split-Path -Parent $PSScriptRoot
 $address = if ($Lan) { '0.0.0.0' } else { '127.0.0.1' }
 $accessHost = if ($Lan) { '<IP-DESTE-COMPUTADOR>' } else { 'localhost' }
@@ -13,10 +15,6 @@ $envFile = Join-Path $workspace '.env'
 $envExample = Join-Path $workspace '.env.example'
 $stdoutLog = Join-Path $env:TEMP "gse-server-$Port.out.log"
 $stderrLog = Join-Path $env:TEMP "gse-server-$Port.err.log"
-
-if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
-    throw 'PHP não foi encontrado no PATH.'
-}
 
 if (-not (Test-Path -LiteralPath $envFile)) {
     Copy-Item -LiteralPath $envExample -Destination $envFile
@@ -35,13 +33,7 @@ if ($existing) {
 Push-Location $workspace
 
 try {
-    & php bin/init-db.php
-
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Falha ao inicializar o banco SQLite.'
-    }
-
-    $process = Start-Process -FilePath 'php' `
+    $process = Start-Process -FilePath $gseTools.Php `
         -ArgumentList '-S', "${address}:$Port", '-t', 'public', 'public/index.php' `
         -WorkingDirectory $workspace `
         -RedirectStandardOutput $stdoutLog `
@@ -73,7 +65,7 @@ try {
             'O servidor não produziu log de erro.'
         }
 
-        throw "O servidor não respondeu corretamente.`n$errorText"
+        throw "O servidor não respondeu corretamente. Confira o ambiente e execute a inicialização/migração CLI em manutenção antes de iniciar.`n$errorText"
     }
 
     Write-Host ''

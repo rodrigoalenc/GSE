@@ -1,3 +1,5 @@
+> Registro histórico de 12/10/2026. Para a revisão atual, consulte [Validação de 22/10/2026](Documentação/VALIDACAO-2026-10-22.md). As versões de runtime abaixo pertencem àquela data e não atendem aos requisitos atuais.
+
 # Validação local — downloads e limpeza de snapshots
 
 Data: 12/10/2026. Base Git: `41dcb5d963b569e140f76eb6913c31b11ed09e61`.

@@ -89,12 +89,13 @@ final class Aluno extends Model
         }
 
         $statement = self::$pdo->prepare(
-            'SELECT a.id, a.nome_completo, a.nome_normalizado, a.data_nascimento, a.id_turma,
+            'SELECT a.id, a.revisao, a.nome_completo, a.nome_normalizado, a.data_nascimento, a.id_turma,
                     a.telefone_aluno, a.telefone_responsavel, a.ativo,
                     a.criado_em, a.atualizado_em, a.inativado_em, a.inativado_por,
                     t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
                     d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao,
-                    d.id_usuario_registro AS dva_usuario_id, d.criado_em AS dva_criado_em
+                    d.id_usuario_registro AS dva_usuario_id, d.criado_em AS dva_criado_em,
+                    EXISTS(SELECT 1 FROM alunos_movimentacoes m WHERE m.aluno_id = a.id) AS possui_movimentacao
              FROM alunos a
              LEFT JOIN turmas t ON t.id = a.id_turma
              LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
@@ -216,7 +217,7 @@ final class Aluno extends Model
     }
 
     /** @param array<string,mixed> $data */
-    public function atualizar(int $id, array $data, bool $confirmDuplicate = false, ?int $actorId = null): bool
+    public function atualizar(int $id, array $data, bool $confirmDuplicate = false, ?int $actorId = null, ?int $expectedRevision = null): bool
     {
         $this->lastErrorCode = null;
         $normalized = $this->validateAndNormalize($data);
@@ -228,11 +229,24 @@ final class Aluno extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized, $confirmDuplicate, $actorId): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized, $confirmDuplicate, $actorId, $expectedRevision): bool {
                 $current = $this->buscarPorId($id);
 
                 if (!$current) {
                     $this->lastErrorCode = 'not_found';
+
+                    return false;
+                }
+
+                if ($expectedRevision !== null && (int) $current['revisao'] !== $expectedRevision) {
+                    $this->lastErrorCode = 'stale_revision';
+
+                    return false;
+                }
+
+                if ((int) $current['id_turma'] !== (int) $normalized['id_turma']
+                    && (int) $current['possui_movimentacao'] === 1) {
+                    $this->lastErrorCode = 'class_change_requires_movement';
 
                     return false;
                 }
@@ -260,7 +274,7 @@ final class Aluno extends Model
                         data_nascimento = :birth,
                         id_turma = :class, telefone_aluno = :student_phone,
                         telefone_responsavel = :guardian_phone, atualizado_em = :now
-                     WHERE id = :id'
+                     WHERE id = :id AND revisao = :revision'
                 );
                 $statement->execute([
                     'name' => $normalized['nome_completo'],
@@ -271,7 +285,13 @@ final class Aluno extends Model
                     'guardian_phone' => $normalized['telefone_responsavel'],
                     'now' => gmdate('Y-m-d H:i:s'),
                     'id' => $id,
+                    'revision' => $expectedRevision ?? (int) $current['revisao'],
                 ]);
+                if ($statement->rowCount() !== 1) {
+                    $this->lastErrorCode = 'stale_revision';
+
+                    return false;
+                }
                 AuditLogger::recordRequired(
                     $pdo, 'student.updated', AuditLogger::SUCCESS, $actorId, null,
                     'Dados cadastrais do aluno atualizados.', 'student', $id
@@ -305,6 +325,16 @@ final class Aluno extends Model
                     $this->lastErrorCode = 'not_found';
 
                     return false;
+                }
+
+                if ($active) {
+                    $passive = $pdo->prepare('SELECT 1 FROM alunos_passivo WHERE aluno_origem_id = :id AND ativo = 1 LIMIT 1');
+                    $passive->execute(['id' => $id]);
+                    if ($passive->fetchColumn() !== false) {
+                        $this->lastErrorCode = 'active_passive_record';
+
+                        return false;
+                    }
                 }
 
                 if ((int) $student['ativo'] === ($active ? 1 : 0)) {

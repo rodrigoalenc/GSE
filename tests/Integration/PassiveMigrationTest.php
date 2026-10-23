@@ -45,7 +45,7 @@ final class PassiveMigrationTest extends TestCase
         DatabaseInitializer::initialize($pdo, true);
         DatabaseInitializer::initialize($pdo, true);
 
-        $this->assertSame(20, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(21, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([4, 9, 15], array_map('intval', $pdo->query('SELECT id FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_COLUMN)));
         $this->assertSame(20, (int) $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn());
         $this->assertSame('jose legado', $pdo->query('SELECT nome_normalizado FROM alunos_passivo WHERE id = 4')->fetchColumn());
@@ -146,17 +146,22 @@ final class PassiveMigrationTest extends TestCase
     public function testVersionSixteenMarksMissingLocationsWithoutChangingHistoricalDataAndIsIdempotent(): void
     {
         $pdo = $this->versionFifteenDatabase();
+        $this->assertSame(15, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertNotContains('revisao', array_column($pdo->query('PRAGMA table_info(alunos_passivo)')->fetchAll(PDO::FETCH_ASSOC), 'name'));
+        $this->assertSame(0, (int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name='trg_alunos_passivo_revisao'")->fetchColumn());
         $before = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         $sequence = $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn();
         DatabaseInitializer::initialize($pdo, true);
         $after = $pdo->query('SELECT * FROM alunos_passivo ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         $this->assertSame([0, 1, 1, 1, 1], array_column($after, 'localizacao_pendente'));
         foreach ($after as $index => $row) {
+            $this->assertSame(1, (int) $row['revisao']);
+            unset($row['revisao']);
             $row['localizacao_pendente'] = $before[$index]['localizacao_pendente'];
             $this->assertSame($before[$index], $row);
         }
         $this->assertSame($sequence, $pdo->query("SELECT seq FROM sqlite_sequence WHERE name = 'alunos_passivo'")->fetchColumn());
-        $this->assertSame(20, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(21, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 16')->fetchColumn());
         $this->assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
         $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
@@ -203,12 +208,12 @@ final class PassiveMigrationTest extends TestCase
     {
         $pdo = new PDO('sqlite:' . $this->database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         $pdo->exec('PRAGMA foreign_keys = ON');
-        DatabaseInitializer::initialize($pdo, true);
-        $pdo->exec('DROP TRIGGER trg_require_passive_location_insert');
-        $pdo->exec('DROP TRIGGER trg_require_passive_location_update');
-        $pdo->exec('DROP INDEX idx_passivo_localizacao_pendente');
-        $pdo->exec('DELETE FROM schema_migrations WHERE version = 16');
-        $pdo->exec('PRAGMA user_version = 15');
+        // Build the actual pre-v16 state, without triggers from later revisions.
+        \DataProtection::register($pdo);
+        $migration = new \ReflectionMethod(DatabaseInitializer::class, 'runMigration');
+        for ($version = 1; $version <= 15; $version++) {
+            $migration->invoke(null, $pdo, $version, (string) file_get_contents(ROOT_PATH . '/database/schema.sql'));
+        }
         $statement = $pdo->prepare('INSERT INTO alunos_passivo(id,nome_completo,nome_normalizado,caixa,caixa_normalizada,numero,numero_normalizado,ativo,localizacao_pendente,criado_em,atualizado_em) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
         foreach ([
             [1, 'Completo', 'completo', 'A', 'a', '8', '8', 1, 0],

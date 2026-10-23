@@ -63,7 +63,7 @@ final class Turma extends Model
         }
 
         $statement = self::$pdo->prepare(
-            'SELECT id, nome_turma, nome_normalizado, ano_letivo, ativo, criado_em, atualizado_em
+            'SELECT id, revisao, nome_turma, nome_normalizado, ano_letivo, ativo, criado_em, atualizado_em
              FROM turmas WHERE id = :id LIMIT 1'
         );
         $statement->execute(['id' => $id]);
@@ -121,7 +121,7 @@ final class Turma extends Model
         }
     }
 
-    public function atualizar(int $id, string $name, int $schoolYear, ?int $actorId = null): bool
+    public function atualizar(int $id, string $name, int $schoolYear, ?int $actorId = null, ?int $expectedRevision = null): bool
     {
         $this->lastErrorCode = null;
         try {
@@ -140,10 +140,21 @@ final class Turma extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $name, $normalizedName, $schoolYear, $actorId): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $name, $normalizedName, $schoolYear, $actorId, $expectedRevision): bool {
+                $current = $this->buscarPorId($id);
+                if (!$current) {
+                    $this->lastErrorCode = 'not_found';
+
+                    return false;
+                }
+                if ($expectedRevision !== null && (int) $current['revisao'] !== $expectedRevision) {
+                    $this->lastErrorCode = 'stale_revision';
+
+                    return false;
+                }
                 $statement = $pdo->prepare(
                     'UPDATE turmas SET nome_turma = :name, nome_normalizado = :normalized_name,
-                        ano_letivo = :year, atualizado_em = :now WHERE id = :id'
+                        ano_letivo = :year, atualizado_em = :now WHERE id = :id AND revisao = :revision'
                 );
                 $statement->execute([
                     'name' => $name,
@@ -151,10 +162,11 @@ final class Turma extends Model
                     'year' => $schoolYear,
                     'now' => gmdate('Y-m-d H:i:s'),
                     'id' => $id,
+                    'revision' => $expectedRevision ?? (int) $current['revisao'],
                 ]);
 
-                if ($statement->rowCount() === 0 && !$this->buscarPorId($id)) {
-                    $this->lastErrorCode = 'not_found';
+                if ($statement->rowCount() !== 1) {
+                    $this->lastErrorCode = 'stale_revision';
 
                     return false;
                 }

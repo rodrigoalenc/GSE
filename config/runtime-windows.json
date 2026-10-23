@@ -1,0 +1,7 @@
+{
+    "phpVersion": "8.4.27",
+    "phpArchive": "php-8.4.27-nts-Win32-vs17-x64.zip",
+    "phpSha256": "93bd8a815a52156606fb906d0573437908c61f96e2cc52c03a51e36a41bf5236",
+    "composerVersion": "2.10.3",
+    "composerSha256": "7a2d379d5b8ffdaa028580ef26494c36d2feef4b178d3dd1473a4dbc5e17c8d6"
+}

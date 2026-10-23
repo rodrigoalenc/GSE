@@ -47,8 +47,58 @@ final class TechnicalLogger
         self::write('info', $event, $context);
     }
 
-    /** @param array<string,mixed> $context */
-    private static function write(string $level, string $event, array $context = []): void
+    public static function exception(string $event, Throwable $exception): void
+    {
+        $chain = [];
+        $root = $exception;
+        do {
+            $root = $exception;
+            if (count($chain) < 32) {
+                $reflection = new ReflectionClass($exception);
+                $chain[] = [
+                    'type' => $reflection->isAnonymous() ? 'anonymous_exception' : $exception::class,
+                    'file' => basename(str_replace('\\', '/', $exception->getFile())),
+                    'line' => $exception->getLine(),
+                ];
+            }
+            $exception = $exception->getPrevious();
+        } while ($exception !== null);
+
+        // Only structural metadata is retained: messages, trace arguments, SQL and payloads are excluded.
+        self::write('error', $event, [], [
+            'exception_chain' => $chain,
+            'cause_code' => self::causeCode($root),
+        ]);
+    }
+
+    private static function causeCode(Throwable $exception): string
+    {
+        if ($exception instanceof PDOException) {
+            $state = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+            $driverCode = $exception->errorInfo[1] ?? null;
+            return match (true) {
+                $state === '23000', $driverCode === 19 => 'database_constraint',
+                $driverCode === 5, $driverCode === 6 => 'database_busy',
+                default => 'database_failure',
+            };
+        }
+        return match (true) {
+            $exception instanceof ParseError => 'parse_error',
+            $exception instanceof TypeError => 'type_error',
+            $exception instanceof ValueError => 'value_error',
+            $exception instanceof ErrorException => 'php_error',
+            $exception instanceof DomainException => 'domain_failure',
+            $exception instanceof InvalidArgumentException => 'invalid_argument',
+            $exception instanceof RuntimeException => 'runtime_failure',
+            $exception instanceof LogicException => 'logic_failure',
+            $exception instanceof Error => 'php_failure',
+            default => 'unexpected_failure',
+        };
+    }
+
+    /** @param array<string,mixed> $context
+     *  @param array<string,mixed> $diagnostics */
+    private static function write(string $level, string $event, array $context = [], array $diagnostics = []): void
     {
         $record = [
             'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
@@ -66,6 +116,8 @@ final class TechnicalLogger
                 $record[$key] = self::clean((string) $value, 500);
             }
         }
+
+        $record += $diagnostics;
 
         $line = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 

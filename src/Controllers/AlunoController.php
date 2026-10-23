@@ -69,6 +69,7 @@ final class AlunoController extends Controller
         }
 
         $data = [
+            'revisao' => (string) $student['revisao'],
             'nome_completo' => (string) $student['nome_completo'],
             'data_nascimento' => (string) $student['data_nascimento'],
             'id_turma' => (string) $student['id_turma'],
@@ -83,12 +84,13 @@ final class AlunoController extends Controller
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $data = $this->formData();
 
-            if ($model->atualizar($studentId, $data, isset($_POST['confirmar_duplicidade']), (int) $_SESSION['usuario_id'])) {
+            $revision = filter_var($data['revisao'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($revision !== false && $model->atualizar($studentId, $data, isset($_POST['confirmar_duplicidade']), (int) $_SESSION['usuario_id'], $revision)) {
                 $this->redirectWithFlash('aluno/perfil/' . $studentId, 'success', 'Aluno atualizado com sucesso.');
             }
 
             $possibleDuplicate = $model->lastErrorCode() === 'possible_duplicate';
-            $errors[] = $this->studentError($model->lastErrorCode());
+            $errors[] = $this->studentError($revision === false ? 'invalid_revision' : $model->lastErrorCode());
             http_response_code(422);
         }
 
@@ -111,6 +113,9 @@ final class AlunoController extends Controller
             'possibleDuplicate' => $possibleDuplicate,
             'studentId' => $studentId,
             'turmas' => $turmas,
+            'classChangeLocked' => (int) $student['possui_movimentacao'] === 1,
+            'currentClass' => $student,
+            'canManageMovement' => Auth::isAdmin(),
         ]);
     }
 
@@ -238,6 +243,7 @@ final class AlunoController extends Controller
     private function formData(): array
     {
         return [
+            'revisao' => input_string($_POST['revisao'] ?? ''),
             'nome_completo' => mb_substr(input_string($_POST['nome_completo'] ?? ''), 0, Aluno::NAME_MAX_LENGTH + 1, 'UTF-8'),
             'data_nascimento' => mb_substr(trim(input_string($_POST['data_nascimento'] ?? '')), 0, 10, 'UTF-8'),
             'id_turma' => mb_substr(trim(input_string($_POST['id_turma'] ?? '')), 0, 20, 'UTF-8'),
@@ -251,6 +257,11 @@ final class AlunoController extends Controller
     private function studentError(?string $code): string
     {
         return match ($code) {
+            'stale_revision', 'invalid_revision' => 'Este formulário está desatualizado ou sem revisão válida. Reabra o cadastro e confira os dados atuais antes de salvar.',
+            'active_passive_record' => 'O aluno possui um registro ativo no Arquivo Passivo. Abra esse registro e inative-o pelo fluxo do Arquivo Passivo antes de reativar o aluno. O histórico será preservado.',
+            'class_change_requires_movement' => Auth::isAdmin()
+                ? 'Este aluno possui histórico de movimentação escolar. Para alterar a turma, use Movimentar alunos e confira a progressão ou regressão adequada. Os dados enviados não foram salvos.'
+                : 'Este aluno possui histórico de movimentação escolar. Para alterar a turma, solicite a um administrador a movimentação adequada. Os dados enviados não foram salvos.',
             'possible_duplicate' => 'Já existe um aluno com o mesmo nome e nascimento. Confirme a duplicidade somente se forem pessoas diferentes.',
             'invalid_name' => 'Informe um nome com até 150 caracteres.',
             'invalid_birth_date' => 'Informe uma data de nascimento válida.',

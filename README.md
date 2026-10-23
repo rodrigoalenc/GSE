@@ -1,4 +1,32 @@
-# GSE — Módulos 1 a 5
+# GSE — Gestor de Secretaria Escolar
+
+## Ambiente e operação atuais
+
+Use PHP **64 bits** nas linhas 8.3.36+, 8.4.27+ ou 8.5.12+, e SQLite carregado pelo PDO com a correção WAL (3.51.3+ ou backport 3.50.7/3.44.6 da respectiva linha). O runtime privado Windows verificado nesta revisão é PHP 8.4.27 / SQLite 3.53.4; o Composer privado é 2.10.3. Os checks não abrem o banco institucional.
+
+No Windows:
+
+```powershell
+.\bin\install-runtime.ps1
+.\bin\gse.ps1 composer install --no-interaction --prefer-dist
+.\bin\gse.ps1 check
+.\bin\gse.ps1 composer browser-test
+.\bin\gse.ps1 php bin/preflight.php --json
+```
+
+O instalador verifica SHA256 de distribuições oficiais e usa `%LOCALAPPDATA%/GSE`; não altera o PHP global. `GSE_PHP_BINARY` permite selecionar outro executável compatível. Em Linux, use os comandos Composer com o PHP corrigido do servidor e execute `php bin/runtime-check.php` antes de liberar HTTP. A versão do executável SQLite de terminal não comprova a biblioteca carregada pelo PDO.
+
+**Migração por CLI, em manutenção:** pare requisições e agendadores escritores, valide o backup conjunto de banco/PDF/chaveiro e rode a versão compatível do código. `php bin/init-db.php` aplica versões ausentes até **21**; a migração de proteção v17 em banco existente mantém o procedimento explícito de `bin/security.php`. Requisições web só verificam compatibilidade e não migram o banco. O servidor de desenvolvimento não inicializa o banco ao iniciar.
+
+Documentação vigente:
+
+- [Manual do usuário](Documentação/MANUAL-USUARIO.md)
+- [Roteiro de usabilidade e aceite](Documentação/AVALIACAO-USABILIDADE.md)
+- [Implantação e restauração](Documentação/OPERACAO-E-RESTAURACAO.md)
+- [Atualização técnica e rastreabilidade](Documentação/ATUALIZACAO-TECNICA.md)
+- [Validação desta revisão](Documentação/VALIDACAO-2026-10-22.md)
+
+O PDF acadêmico original é um registro histórico. Os documentos acima fornecem os anexos técnicos e de uso atuais; não atribuem aprovação a profissionais que ainda não participaram da homologação.
 
 Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 
@@ -9,11 +37,11 @@ Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 - UC006 — contratos, folhas, produtos e movimentação de estoque;
 - UC007 — relatórios de alunos e situação da DVA.
 
-O sistema usa PHP 8.3+, SQLite e MVC sem framework. Os Módulos 1 (autenticação e usuários), 2 (alunos, turmas e DVA), 3 (Arquivo Passivo) e 4 (Certidões e Fornecedores) são preservados. A branch `Modulo5` acrescenta contratos, estoque e relatórios de alunos/DVA. A revisão de 06/10/2026 preserva a migração v16 e acrescenta perfil próprio, snapshot SQLite que inclui o WAL e correção semântica do CI. A edição acadêmica de 34 páginas foi conferida literalmente. A base publicada em `d475b304` foi aprovada no CI Linux; alterações posteriores exigem validação correspondente ao novo código. As ambiguidades acadêmicas e o aceite institucional permanecem pendentes.
+O sistema usa PHP corrigido de 64 bits, SQLite e MVC sem framework. O esquema atual é **v21**. A revisão de 22/10/2026 acrescenta proteção contra edições desatualizadas, consistência entre aluno e passivo, migração exclusivamente por CLI, navegação mais simples e verificação do runtime. O aceite institucional depende do ambiente e dos usuários reais.
 
 ## Módulo 4 — instalação e operação
 
-A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco atual chega à **v18**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. Funcionários e administradores autenticados podem consultar e administrar certidões, fornecedores e tipos. O aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
+A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco atual chega à **v21**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. Funcionários e administradores autenticados podem consultar e administrar certidões, fornecedores e tipos. O aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
 
 - Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
 - PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
@@ -25,7 +53,7 @@ As ações **Visualizar PDF** abrem uma nova aba nas certidões correntes, arqui
 
 ## Arquitetura de segurança
 
-O front controller `public/index.php` valida o ambiente, host, HTTPS e proxy, inicializa logs, sessão e migrações e entrega a requisição a uma tabela explícita de rotas. Novos métodos públicos de Controller não ficam acessíveis automaticamente.
+O front controller `public/index.php` valida o ambiente, host, HTTPS e proxy, inicializa logs, sessão e compatibilidade do esquema e entrega a requisição a uma tabela explícita de rotas. Novos métodos públicos de Controller não ficam acessíveis automaticamente.
 
 Componentes principais:
 
@@ -53,7 +81,7 @@ As decisões seguem as recomendações de [Authentication](https://cheatsheetser
 
 A criação de pedidos e de novas notas, inclusive duplicações, verifica as certidões **do fornecedor vinculado ao pedido**. Se houver certidão corrente vencida, a criação é bloqueada e o alerta identifica tipo, fornecedor e vencimento. Certidões de outros fornecedores, arquivadas ou excluídas não bloqueiam; vencimento no dia atual segue como “Vence hoje”. A verificação ocorre novamente dentro da transação de gravação. Pedidos e notas existentes exibem o alerta quando a certidão vence, e permanecem disponíveis para consulta e correção. Após regularizar os documentos, novas criações são liberadas automaticamente. O vínculo de fornecedor continua opcional; pedidos sem fornecedor não associam certidões de terceiros.
 
-A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produtos, faturamento documental, duplicação e impressão. O estoque físico possui limites, abertura confirmada, entradas/saídas, estorno administrativo e histórico auditado; a quantidade contratada permanece distinta do saldo físico. Estoque antigo marcado como aberto sem comprovação exige conferência administrativa atual, com contagem, unidade, justificativa documental, revisão e operação transacional. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). Funcionários e administradores autenticados acessam contratos, estoque e relatórios; estornos, conciliação legada, conferência de abertura legada e correção de faturamento exigem administrador. O esquema atual é **v18**; a v15 implementa contratos/estoque e a v16 corrige indicadores de localização do Arquivo Passivo.
+A branch `Modulo5` acrescenta contratos e notas com valores em centavos, produtos, faturamento documental, duplicação e impressão. O estoque físico possui limites, abertura confirmada, entradas/saídas, estorno administrativo e histórico auditado; a quantidade contratada permanece distinta do saldo físico. Estoque antigo marcado como aberto sem comprovação exige conferência administrativa atual, com contagem, unidade, justificativa documental, revisão e operação transacional. A central `/relatorio` consulta alunos e somente a DVA corrente, com prévia paginada e exportação PDF/CSV (Excel). Funcionários e administradores autenticados acessam contratos, estoque e relatórios; estornos, conciliação legada, conferência de abertura legada e correção de faturamento exigem administrador. O esquema atual é **v21**; a v15 implementa contratos/estoque e a v16 corrige indicadores de localização do Arquivo Passivo.
 
 Em **Pedidos → Adicionar aditivos**, crie notas identificadas como **Aditivo**, com destaque roxo nas abas, no conteúdo e na impressão. As notas comuns consomem somente o teto original; a soma dos aditivos está limitada a 25% desse teto, calculada em centavos e arredondada para baixo. Duplicações preservam o tipo da nota e passam novamente pela validação do saldo. Reduzir o teto também verifica os dois limites. O saldo final inclui o limite adicional quando existe uma nota ativa de aditivo, com os saldos comum e adicional apresentados separadamente. Exemplo: teto original de R$ 1.000,00 permite até R$ 1.000,00 em notas comuns e R$ 250,00 em aditivos. A migração **v18** preserva notas anteriores como comuns, sem criar estoque ou mudar faturamentos.
 
@@ -67,10 +95,10 @@ O ajuste de segurança dos downloads libera a guarda de repetição após 3 segu
 
 ## Requisitos
 
-- PHP 8.3 ou superior, com `argon2id` registrado em `password_algos()` tanto na CLI quanto no PHP-FPM;
-- Composer 2;
-- extensões `pdo`, `pdo_sqlite`, `intl`, `fileinfo`, `mbstring`, `session`, `filter` e `hash`, além das exigidas pelas dependências do Composer;
-- extensão `curl` apenas para o teste HTTP automatizado.
+- PHP de 64 bits corrigido: 8.3.36+, 8.4.27+ ou 8.5.12+ dentro da respectiva linha, com `argon2id` registrado em `password_algos()` tanto na CLI quanto no PHP-FPM;
+- SQLite efetivamente carregado pelo PDO com correção WAL: 3.51.3+ ou backport 3.50.7/3.44.6 da respectiva linha;
+- Composer corrigido; a instalação privada verificada usa 2.10.3;
+- extensões `curl`, `dom`, `pdo`, `pdo_sqlite`, `intl`, `fileinfo`, `mbstring`, `sodium`, `xml`, `xmlwriter`, `session`, `filter` e `hash`, além das exigidas pelas dependências do Composer.
 
 ```bash
 php -v
@@ -88,21 +116,24 @@ cd GSE
 composer install
 ```
 
+No Windows, use o instalador e o comando Composer privado apresentados no início deste documento, pois o PHP global pode ser incompatível.
+
 Antes dos comandos de inicialização, crie o keyring externo e configure `GSE_KEYRING_PATH` seguindo [SECURITY-OPERATIONS.md](SECURITY-OPERATIONS.md). Para bancos existentes com usuários, use a migração explícita desse procedimento.
 
 No Windows:
 
 ```powershell
-Copy-Item .env.example .env
-php bin/init-db.php
-php bin/create-admin.php --name="Administrador GSE" --email="admin@example.test"
-php -S 127.0.0.1:8000 -t public public/index.php
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+# Configure o keyring e os caminhos privados antes de inicializar uma base nova.
+.\bin\gse.ps1 php bin/init-db.php
+.\bin\gse.ps1 php bin/create-admin.php --name="Administrador GSE" --email="admin@example.test"
+.\bin\gse.ps1 serve
 ```
 
 No Linux/macOS:
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 php bin/init-db.php
 php bin/create-admin.php --name="Administrador GSE" --email="admin@example.test"
 php -S 127.0.0.1:8000 -t public public/index.php
@@ -110,7 +141,7 @@ php -S 127.0.0.1:8000 -t public public/index.php
 
 O servidor embutido é somente para desenvolvimento/demonstração. `.env.example` facilita o ambiente local e **não deve ser usado em produção sem revisão integral**.
 
-O PowerShell opcional valida e inicia o ambiente:
+O launcher PowerShell valida o runtime e inicia o servidor; o banco deve estar preparado pela CLI:
 
 ```powershell
 .\bin\start-server.ps1
@@ -336,7 +367,7 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões individuais de 1 a 17. `php bin/init-db.php` exige `GSE_KEYRING_PATH` e pode ser repetido em bancos já protegidos; bancos existentes com usuários exigem a migração explícita v17 antes de abrir o HTTP. O inicializador cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação. A v15 acrescenta contratos/notas/produtos, valores em centavos, limites e movimentos de estoque, registro de operações e preservação dos valores legados. A v16 corrige indicadores de localização incompleta e impede novos registros completos sem caixa ou posição.
+`schema_migrations` controla versões individuais de 1 a 21. `php bin/init-db.php` exige `GSE_KEYRING_PATH` e pode ser repetido em bancos já protegidos; bancos existentes com usuários exigem a migração explícita v17 antes de abrir o HTTP. A inicialização por CLI cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação. A v15 acrescenta contratos/notas/produtos, valores em centavos, limites e movimentos de estoque, registro de operações e preservação dos valores legados. A v16 corrige indicadores de localização incompleta e impede novos registros completos sem caixa ou posição. As versões 17 a 21 acrescentam proteção de dados, aditivos, movimentação e progressão anual, revisões de edição e índices.
 
 | Versão | Alteração |
 |---|---|
@@ -354,6 +385,10 @@ O banco permanece fora de `public/`; em produção essa regra é validada e uma 
 | 15 | Contratos/notas/produtos, estoque auditado, operações idempotentes e valores legados preservados |
 | 16 | Indicador de localização incompleta do passivo, guards de INSERT/UPDATE e índice, sem renumerar pastas |
 | 17 | Campos de usuários cifrados, índice HMAC único, contadores protegidos, orçamentos de confirmação e recibos de idempotência |
+| 18 | Classificação de notas como aditivos, preservando notas existentes |
+| 19 | Movimentação escolar com histórico e confirmação idempotente |
+| 20 | Progressão anual, referência letiva e controle de confirmação |
+| 21 | Revisão em alunos/turmas/passivo e índices de produtos/operações |
 
 Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
 
@@ -372,7 +407,7 @@ O SQLite exige `foreign_keys=OFF` fora da transação para essa substituição d
 Antes da produção, ensaie com uma cópia recente em homologação, com a mesma versão de PHP, `ext-intl` e SQLite. Interrompa escritas, execute `php bin/init-db.php` na cópia e valide:
 
 ```sql
-PRAGMA user_version;       -- deve retornar 16 na branch Modulo5
+PRAGMA user_version;       -- deve retornar 21 na versão atual
 PRAGMA foreign_key_check;  -- não deve retornar linhas
 PRAGMA integrity_check;    -- deve retornar ok
 PRAGMA table_info(turmas);
@@ -421,7 +456,7 @@ Rota desconhecida retorna 404 e método incorreto 405. Funcionário autenticado 
 
 ## Módulo 3 — Arquivo Passivo
 
-O Arquivo Passivo corresponde à entrega original do Módulo 3 na v12. Nesta branch, os Módulos 1–5 estão implementados e o banco atual usa `PRAGMA user_version=16`, com versões 1–16 em `schema_migrations`.
+O Arquivo Passivo corresponde à entrega original do Módulo 3 na v12. Nesta branch, os Módulos 1–5 estão implementados e o banco atual usa `PRAGMA user_version=21`, com versões 1–21 em `schema_migrations`.
 
 O Arquivo Passivo oferece painel de caixas, contagem por caixa, busca por nome sem acento e por número, filtro, paginação, ordenação permitida, cadastro manual, detalhes, edição, exclusão lógica, restauração, importação CSV aditiva com prévia, numeração automática no envio em lote, exportação TXT e vínculo explícito de alunos inativos. Funcionários e administradores autenticados consultam, criam, editam, organizam por caixa, excluem logicamente, consultam excluídos e exportam. Somente administradores restauram, importam e enviam um aluno inativo ao passivo. A exclusão preserva os dados e a auditoria; sua interpretação acadêmica permanece pendente. Novos cadastros exigem caixa e posição; somente registros históricos incompletos podem continuar pendentes, sem localização inventada.
 
@@ -436,7 +471,7 @@ A migração v12 cria backup SQLite validado antes de escrever, executa `BEGIN I
 Homologue a v12 em uma cópia com a mesma versão de PHP, SQLite e `ext-intl`. Valide o backup em `backups/` ao lado do arquivo resolvido por `DB_PATH` (padrão `database/backups`), compare contagens/IDs/sequências, confirme a ausência de `alunos_passivo_v12` e execute:
 
 ```sql
-PRAGMA user_version;       -- 16 nesta branch (12 na entrega original do Módulo 3)
+PRAGMA user_version;       -- 21 na versão atual (12 na entrega original do Módulo 3)
 PRAGMA foreign_key_check;  -- nenhuma linha
 PRAGMA integrity_check;    -- ok
 ```
@@ -470,7 +505,7 @@ composer security-check
 composer check
 ```
 
-PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v17, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
+PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v21, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
 As regressões de auditoria provocam falhas no log e conferem rollback dos dados, histórico, preferências e versões. A criação inicial do administrador é testada pela CLI, inclusive com dois processos concorrentes; um rehash tardio não pode desfazer um reset de senha. Os testes de backup cobrem WAL sem checkpoint, restauração independente, permissões, CSRF, confirmação de senha, arquivos inexistentes e falhas de auditoria na geração e no download. Testes de permissões POSIX e links simbólicos precisam executar no Linux.
 
@@ -478,7 +513,7 @@ As regressões de auditoria provocam falhas no log e conferem rollback dos dados
 
 ## Roteiro de demonstração
 
-1. Em diretório limpo, copie `.env.example` para `.env` e execute `composer install`.
+1. Instale o runtime corrigido conforme a seção Ambiente e copie `.env.example` para `.env`. Configure chaveiro privado antes de inicializar. Execute a instalação das dependências pelo launcher.
 2. Execute `php bin/init-db.php` duas vezes para demonstrar idempotência.
 3. Crie o primeiro administrador e anote a senha temporária mostrada uma vez.
 4. Acesse `/dashboard` sem sessão e observe o redirecionamento.

@@ -225,7 +225,7 @@ final class Passivo extends Model
     }
 
     /** @param array<string,mixed> $data */
-    public function atualizar(int $id, array $data, int $actorId): bool
+    public function atualizar(int $id, array $data, int $actorId, ?int $expectedRevision = null): bool
     {
         $this->lastErrorCode = null;
 
@@ -236,13 +236,19 @@ final class Passivo extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $data, $actorId): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $data, $actorId, $expectedRevision): bool {
                 $existing = $pdo->prepare('SELECT * FROM alunos_passivo WHERE id = :id');
                 $existing->execute(['id' => $id]);
                 $record = $existing->fetch();
 
                 if (!is_array($record)) {
                     $this->lastErrorCode = 'not_found';
+
+                    return false;
+                }
+
+                if ($expectedRevision !== null && (int) $record['revisao'] !== $expectedRevision) {
+                    $this->lastErrorCode = 'stale_revision';
 
                     return false;
                 }
@@ -282,7 +288,7 @@ final class Passivo extends Model
                          numero_normalizado = :normalized_number, caixa = :box,
                          caixa_normalizada = :normalized_box, localizacao_pendente = :pending,
                          atualizado_em = :updated_at, atualizado_por = :updated_by
-                     WHERE id = :id'
+                     WHERE id = :id AND revisao = :revision'
                 );
                 $statement->execute([
                     'name' => $normalized['nome_completo'],
@@ -296,9 +302,11 @@ final class Passivo extends Model
                     'updated_at' => gmdate('Y-m-d H:i:s'),
                     'updated_by' => $actorId,
                     'id' => $id,
+                    'revision' => $expectedRevision ?? (int) $record['revisao'],
                 ]);
 
                 if ($statement->rowCount() !== 1) {
+                    $this->lastErrorCode = 'stale_revision';
                     return false;
                 }
 
@@ -336,6 +344,16 @@ final class Passivo extends Model
                     $this->lastErrorCode = 'not_found';
 
                     return false;
+                }
+
+                if ($active && $row['aluno_origem_id'] !== null) {
+                    $origin = $pdo->prepare('SELECT ativo FROM alunos WHERE id = :id');
+                    $origin->execute(['id' => (int) $row['aluno_origem_id']]);
+                    if ((int) $origin->fetchColumn() === 1) {
+                        $this->lastErrorCode = 'active_student';
+
+                        return false;
+                    }
                 }
 
                 if ((int) $row['ativo'] === ($active ? 1 : 0)) {
@@ -1068,6 +1086,7 @@ final class Passivo extends Model
     public function validationMessage(?string $code): string
     {
         return match ($code) {
+            'stale_revision', 'invalid_revision' => 'Este formulário está desatualizado ou sem revisão válida. Reabra o cadastro e confira os dados atuais antes de salvar.',
             'invalid_utf8' => 'O texto informado não possui UTF-8 válido.',
             'invalid_name' => 'Informe um nome com até 150 caracteres.',
             'invalid_box' => 'Informe uma caixa válida com até 50 caracteres.',
@@ -1081,7 +1100,7 @@ final class Passivo extends Model
             'invalid_box_mode' => 'Escolha uma caixa existente ou uma nova caixa.',
             'box_already_exists' => 'Esta caixa já existe. Selecione a opção de adicionar a uma caixa existente.',
             'number_range_overflow' => 'A numeração desta caixa excede o limite de 40 dígitos. Escolha outra caixa.',
-            'active_student' => 'Somente alunos inativos podem ser enviados ao Arquivo Passivo.',
+            'active_student' => 'O aluno de origem está ativo. Inative-o pelo fluxo de Alunos antes de arquivar ou restaurar este registro. O histórico será preservado.',
             'student_not_found', 'not_found' => 'O registro solicitado não foi encontrado.',
             'box_not_found' => 'A caixa informada não existe ou não possui registros ativos.',
             'preview_changed', 'duplicate_changed' => 'O acervo mudou depois da prévia. Gere uma nova prévia.',

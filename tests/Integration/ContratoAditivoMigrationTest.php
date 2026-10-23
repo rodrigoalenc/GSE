@@ -47,7 +47,7 @@ final class ContratoAditivoMigrationTest extends DatabaseTestCase
             }
             $this->assertSame($rows,$after,$table.' foi alterada na migração.');
         }
-        $this->assertSame(20,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(21,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(1,(int)$pdo->query('SELECT COUNT(*) FROM schema_migrations WHERE version=18')->fetchColumn());
         $this->assertSame(90,(int)$pdo->query("SELECT seq FROM sqlite_sequence WHERE name='pedido_paginas'")->fetchColumn());
         $this->assertSame('ok',$pdo->query('PRAGMA integrity_check')->fetchColumn());

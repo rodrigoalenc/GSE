@@ -2,10 +2,10 @@
 $nomesMeses = [1 => 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 $aVencer = array_merge($alunosPorStatus[DvaStatus::VENCE_HOJE], $alunosPorStatus[DvaStatus::A_VENCER]);
 $secoesDva = [
-    ['titulo' => 'Alunos Sem DVA', 'classe' => 'sem-dva', 'alunos' => $alunosPorStatus[DvaStatus::SEM_DVA]],
-    ['titulo' => 'DVAs Vencidas', 'classe' => 'vencidas', 'alunos' => $alunosPorStatus[DvaStatus::VENCIDA]],
-    ['titulo' => 'A Vencer', 'classe' => 'a-vencer', 'alunos' => $aVencer],
-    ['titulo' => 'Vigentes', 'classe' => 'vigentes', 'alunos' => $alunosPorStatus[DvaStatus::VIGENTE]],
+    ['titulo' => 'Alunos Sem DVA', 'classe' => 'sem-dva', 'alunos' => $alunosPorStatus[DvaStatus::SEM_DVA], 'total' => $moduloDois['sem_dva'], 'links' => [DvaStatus::SEM_DVA => 'Ver todos sem DVA']],
+    ['titulo' => 'DVAs Vencidas', 'classe' => 'vencidas', 'alunos' => $alunosPorStatus[DvaStatus::VENCIDA], 'total' => $moduloDois['vencidas'], 'links' => [DvaStatus::VENCIDA => 'Ver todas as vencidas']],
+    ['titulo' => 'A Vencer', 'classe' => 'a-vencer', 'alunos' => $aVencer, 'total' => $moduloDois['vence_hoje'] + $moduloDois['a_vencer'], 'links' => [DvaStatus::VENCE_HOJE => 'Ver todas que vencem hoje', DvaStatus::A_VENCER => 'Ver todas a vencer']],
+    ['titulo' => 'Vigentes', 'classe' => 'vigentes', 'alunos' => $alunosPorStatus[DvaStatus::VIGENTE], 'total' => $moduloDois['vigentes'], 'links' => [DvaStatus::VIGENTE => 'Ver todas as vigentes']],
 ];
 $certidoesAtencao = (int) ($certidoes['a_vencer'] ?? 0) + (int) ($certidoes['vence_hoje'] ?? 0);
 $dataAtual = new DateTimeImmutable((new DvaStatus())->today());
@@ -46,7 +46,7 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
     </section>
 
     <div class="dashboard-search">
-        <label for="dashboard-search-input">Pesquisar na tela</label>
+        <label for="dashboard-search-input">Pesquisar nos alunos exibidos nesta tela</label>
         <input id="dashboard-search-input" type="search" placeholder="Digite o nome do aluno ou aniversariante..." autocomplete="off" data-dashboard-search>
         <p class="dashboard-search-feedback" role="status" aria-live="polite" data-dashboard-search-feedback hidden></p>
     </div>
@@ -60,7 +60,7 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
                 <?php foreach ($aniversariantesMes as $item): ?>
                     <a class="dashboard-birthday-card" href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>" data-dashboard-item>
                         <span class="dashboard-birthday-icon" aria-hidden="true">🎂</span>
-                        <span><strong><?= e((string) $item['nome_completo']) ?></strong><small>Dia <?= e(date('d', strtotime((string) $item['data_nascimento']))) ?></small></span>
+                        <span><strong><?= e((string) $item['nome_completo']) ?></strong><small>Dia <?= e(substr(UiPresentation::civilDate($item['data_nascimento']), 0, 2)) ?></small></span>
                     </a>
                 <?php endforeach; ?>
             </div>
@@ -70,8 +70,9 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
     <div class="dashboard-dva-groups" aria-label="Situação das DVAs">
         <?php foreach ($secoesDva as $secao): ?>
             <details class="dashboard-dva-panel <?= e($secao['classe']) ?>" data-dashboard-section>
-                <summary><?= e($secao['titulo']) ?> (<?= count($secao['alunos']) ?>)<span class="dashboard-chevron" aria-hidden="true"></span></summary>
+                <summary><?= e($secao['titulo']) ?> (<?= (int) $secao['total'] ?>)<span class="dashboard-chevron" aria-hidden="true"></span></summary>
                 <div class="dashboard-dva-body">
+                    <p>Exibindo <?= count($secao['alunos']) ?> de <?= (int) $secao['total'] ?> alunos. <?php foreach ($secao['links'] as $status => $label): ?><a href="<?= e(url('dva?dva=' . $status)) ?>"><?= e($label) ?></a> <?php endforeach; ?></p>
                     <?php if ($secao['alunos'] === []): ?>
                         <p class="dashboard-empty">Nenhum aluno nesta situação.</p>
                     <?php else: ?>
@@ -82,7 +83,7 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
                                     <tr data-dashboard-item>
                                         <td><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a></td>
                                         <td><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></td>
-                                        <td><?= $item['data_vencimento'] ? e(date('d/m/Y', strtotime((string) $item['data_vencimento']))) : '—' ?></td>
+                                        <td><?= $item['data_vencimento'] ? e(UiPresentation::civilDate($item['data_vencimento'])) : '—' ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>

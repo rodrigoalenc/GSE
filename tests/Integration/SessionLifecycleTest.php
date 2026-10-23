@@ -22,7 +22,7 @@ final class SessionLifecycleTest extends DatabaseTestCase
         $this->assertSame('absolute', \SessionManager::expirationReason(29_801));
     }
 
-    public function testPeriodicRenewalUpdatesMarkerAndCsrf(): void
+    public function testPeriodicRenewalPreservesSubmittedCsrfUntilAuthenticationChanges(): void
     {
         $_SESSION = [
             'usuario_id' => 1,
@@ -31,10 +31,17 @@ final class SessionLifecycleTest extends DatabaseTestCase
             '_csrf_token' => str_repeat('a', 64),
         ];
 
+        $submittedToken = \csrf_token();
+        $this->assertTrue(\csrf_valido($submittedToken));
         $this->assertTrue(\SessionManager::touchAndRenew(2000));
         $this->assertSame(2000, $_SESSION['session_renewed_at']);
         $this->assertSame(2000, $_SESSION['last_activity']);
-        $this->assertNotSame(str_repeat('a', 64), $_SESSION['_csrf_token']);
+        $this->assertTrue(\csrf_valido($submittedToken));
+        \SessionManager::authenticate(['id' => 1, 'nome' => 'Teste', 'tipo' => 'administrador'], 2001);
+        $this->assertFalse(\csrf_valido($submittedToken));
+        $authenticatedToken = \csrf_token();
+        \SessionManager::terminate();
+        $this->assertFalse(\csrf_valido($authenticatedToken));
     }
 
     public function testPasswordRoleAndDeactivationInvalidatePreviousSessions(): void

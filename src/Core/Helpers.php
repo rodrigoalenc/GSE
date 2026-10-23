@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/UiPresentation.php';
+
 function carregar_env(string $arquivo): void
 {
     if (!is_readable($arquivo)) {

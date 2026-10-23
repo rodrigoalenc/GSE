@@ -48,7 +48,7 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
                     <td class="student-name"><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a></td>
                     <td><span class="turma-badge"><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></span></td>
                     <td><span class="dva-badge dva-<?= e((string) $item['dva_status']) ?>"><?= e(DvaStatus::label((string) $item['dva_status'])) ?></span></td>
-                    <td><?= e($item['data_vencimento'] ? date('d/m/Y', strtotime((string) $item['data_vencimento'])) : '—') ?></td>
+                    <td><?= e($item['data_vencimento'] ? UiPresentation::civilDate($item['data_vencimento']) : '—') ?></td>
                     <td><a class="btn-acao" href="<?= e(url('aluno/dva/' . (int) $item['id'])) ?>"><?= $item['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a></td>
                 </tr>
             <?php endforeach; ?>
@@ -56,10 +56,6 @@ $queryBase = array_filter($filters, static fn (string $value): bool => $value !=
         </table>
     </div>
     <?php if ($result['pages'] > 1): ?>
-        <nav class="pagination" aria-label="Paginação de DVAs">
-            <?php for ($number = 1; $number <= $result['pages']; $number++): ?>
-                <a class="<?= $number === $result['page'] ? 'active' : '' ?>" href="<?= e(url('dva?' . http_build_query(array_merge($queryBase, ['page' => $number])))) ?>" <?= $number === $result['page'] ? 'aria-current="page"' : '' ?>><?= e((string) $number) ?></a>
-            <?php endfor; ?>
-        </nav>
+        <?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $result['page'], (int) $result['pages'], static fn (int $p): string => url('dva?' . http_build_query(array_merge($queryBase, ['page' => $p]))), 'Páginas de DVAs'); ?>
     <?php endif; ?>
 </section>

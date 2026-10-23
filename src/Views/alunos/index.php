@@ -106,10 +106,10 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
                         <?php if ($canArchiveBatch): ?><td class="student-selection-cell"><input type="checkbox" name="alunos[]" value="<?= e((string) $item['id']) ?>" form="student-archive-selection" data-student-selection-id aria-label="Selecionar <?= e((string) $item['nome_completo']) ?> para arquivar ou regredir" <?= (int) ($item['no_passivo'] ?? 0) === 1 ? 'disabled data-student-selection-unavailable' : '' ?>><?php if ((int) ($item['no_passivo'] ?? 0) === 1): ?><small class="student-selection-unavailable">Já no Arquivo Passivo</small><?php endif; ?></td><?php endif; ?>
                         <td class="student-name"><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>"><?= e((string) $item['nome_completo']) ?></a></td>
                         <td><span class="turma-badge"><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></span></td>
-                        <td><?= e(date('d/m/Y', strtotime((string) $item['data_nascimento']))) ?></td>
+                        <td><?= e(UiPresentation::civilDate($item['data_nascimento'])) ?></td>
                         <td><span class="badge-status <?= (int) $item['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $item['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span></td>
                         <td><span class="dva-badge dva-<?= e((string) $item['dva_status']) ?>"><?= e(DvaStatus::label((string) $item['dva_status'])) ?></span></td>
-                        <td><?= e($item['data_vencimento'] ? date('d/m/Y', strtotime((string) $item['data_vencimento'])) : '—') ?></td>
+                        <td><?= e($item['data_vencimento'] ? UiPresentation::civilDate($item['data_vencimento']) : '—') ?></td>
                         <td class="table-actions">
                             <a class="btn-acao" href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>">Perfil</a>
                             <a class="btn-acao" href="<?= e(url('aluno/editar/' . (int) $item['id'])) ?>">Editar</a>
@@ -125,10 +125,6 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
     </div>
 
     <?php if ($result['pages'] > 1): ?>
-        <nav class="pagination" aria-label="Paginação de alunos">
-            <?php for ($number = 1; $number <= $result['pages']; $number++): ?>
-                <a class="<?= $number === $result['page'] ? 'active' : '' ?>" href="<?= e(url('aluno?' . http_build_query(array_merge($queryBase, ['page' => $number])))) ?>" <?= $number === $result['page'] ? 'aria-current="page"' : '' ?> aria-label="Página <?= e((string) $number) ?>"><?= e((string) $number) ?></a>
-            <?php endfor; ?>
-        </nav>
+        <?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $result['page'], (int) $result['pages'], static fn (int $p): string => url('aluno?' . http_build_query(array_merge($queryBase, ['page' => $p]))), 'Páginas de alunos'); ?>
     <?php endif; ?>
 </section>
