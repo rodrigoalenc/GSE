@@ -49,10 +49,10 @@ final class Contrato extends Model
 
     public static function cents(mixed $value): int
     {
-        if (!is_string($value) || preg_match('/^(?:0|[1-9][0-9]{0,8})(?:,[0-9]{1,2})?$/D', $value) !== 1) {
-            throw new DomainException('Valor inválido. Use reais com vírgula e até duas casas, sem separador de milhar.');
+        if (!is_string($value) || preg_match('/^(?:0|[1-9][0-9]{0,8}|[1-9][0-9]{0,2}(?:\.[0-9]{3}){1,2})(?:,[0-9]{1,2})?$/D', $value) !== 1) {
+            throw new DomainException('Valor inválido. Use 1250,00 ou 1.250,00, com até duas casas decimais e valor máximo de R$ 999.999.999,99.');
         }
-        [$whole, $fraction] = array_pad(explode(',', $value, 2), 2, '');
+        [$whole, $fraction] = array_pad(explode(',', str_replace('.', '', $value), 2), 2, '');
         return (int) $whole * 100 + (int) str_pad($fraction, 2, '0');
     }
 
@@ -64,7 +64,7 @@ final class Contrato extends Model
     /** @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int} */
     public function list(string $search = '', int $page = 1, string $status = 'ativos'): array
     {
-        if (!in_array($status, ['ativos', 'excluidos'], true)) { throw new DomainException('Filtro de contratos inválido.'); }
+        if (!in_array($status, ['ativos', 'excluidos'], true)) { throw new DomainException('Filtro de pedidos inválido.'); }
         $page = max(1, $page);
         $term = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr(trim($search), 0, 100)) . '%';
         $where = 'WHERE p.excluido_em IS ' . ($status === 'ativos' ? 'NULL' : 'NOT NULL') . ' AND p.titulo LIKE ? ESCAPE \'\\\'';
@@ -107,7 +107,7 @@ final class Contrato extends Model
     {
         $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor, gse_name(u.nome,u.id) AS excluido_por_nome FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor LEFT JOIN usuarios u ON u.id=p.excluido_por WHERE p.id=?');
         $query->execute([$id]);
-        return $query->fetch() ?: throw new DomainException('Contrato não encontrado.');
+        return $query->fetch() ?: throw new DomainException('Pedido não encontrado.');
     }
 
     /** @return list<array<string,mixed>> */
@@ -209,7 +209,7 @@ final class Contrato extends Model
                 $this->audit($pdo,'created','contrato',$id,$actor);
                 return $id;
             });
-            if ($result === false) { throw new LogicException('Resultado de contrato inválido.'); }
+            if ($result === false) { throw new LogicException('Resultado de pedido inválido.'); }
             return $result;
         });
     }
@@ -220,15 +220,15 @@ final class Contrato extends Model
         $title = $this->title($title);
         $cents = self::cents($money);
         $supplierId = $this->supplier($supplier, null);
-        if ($sheets === [] || count($sheets) > 20) { throw new DomainException('Informe de 1 a 20 folhas.'); }
+        if ($sheets === [] || count($sheets) > 20) { throw new DomainException('Informe de 1 a 20 notas.'); }
         $validated = [];
         $allocated = 0;
         $itemCount = 0;
         foreach ($sheets as $sheet) {
-            if (!is_array($sheet)) { throw new DomainException('Folha inválida.'); }
+            if (!is_array($sheet)) { throw new DomainException('Nota inválida.'); }
             $note = $sheet['observacao'] ?? '';
             $products = $sheet['produtos'] ?? [];
-            if (!is_string($note) || mb_strlen($note) > 2000 || !is_array($products)) { throw new DomainException('Dados da folha inválidos.'); }
+            if (!is_string($note) || mb_strlen($note) > 2000 || !is_array($products)) { throw new DomainException('Dados da nota inválidos.'); }
             $normalized = [];
             foreach ($products as $product) {
                 if (!is_array($product)) { throw new DomainException('Produto inválido.'); }
@@ -248,7 +248,7 @@ final class Contrato extends Model
                 if ($allocated > PHP_INT_MAX-$total) { throw new DomainException('Total fora do limite.'); }
                 $allocated += $total;
                 $normalized[] = [$name,$brand,$unit,$quantity,$price,$total];
-                if (++$itemCount > 100) { throw new DomainException('Limite de 100 produtos por contrato.'); }
+                if (++$itemCount > 100) { throw new DomainException('Limite de 100 produtos por pedido.'); }
             }
             $validated[] = [trim($note),$normalized];
         }
@@ -272,7 +272,7 @@ final class Contrato extends Model
                 $this->audit($pdo,'created','contrato',$id,$actor);
                 return $id;
             });
-            if ($result === false) { throw new LogicException('Resultado de contrato inválido.'); }
+            if ($result === false) { throw new LogicException('Resultado de pedido inválido.'); }
             return $result;
         });
     }
@@ -287,7 +287,7 @@ final class Contrato extends Model
             $this->assertAllocationLimits($id,$cents);
             $query = $pdo->prepare('UPDATE pedidos SET titulo=?,valor_total=?,valor_centavos=?,id_fornecedor=?,revisao=revisao+1 WHERE id=? AND revisao=?');
             $query->execute([$title,$cents/100,$cents,$supplierId,$id,$revision]);
-            if ($query->rowCount() !== 1) { throw new DomainException('Contrato alterado por outra pessoa. Atualize a página.'); }
+            if ($query->rowCount() !== 1) { throw new DomainException('Pedido alterado por outra pessoa. Atualize a página.'); }
             $this->audit($pdo,'updated','contrato',$id,$actor);
         });
     }
@@ -317,7 +317,7 @@ final class Contrato extends Model
         $cents=self::cents($money);
         SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($id,$cents,$revision,$actor): void {
             $contract=$this->find($id); $this->active($contract);
-            if ($contract['valor_centavos']!==null || (int)$contract['revisao']!==$revision) { throw new DomainException('Contrato já conciliado ou alterado.'); }
+            if ($contract['valor_centavos']!==null || (int)$contract['revisao']!==$revision) { throw new DomainException('Pedido já conciliado ou alterado.'); }
             $this->assertAllocationLimits($id,$cents);
             $pdo->prepare('UPDATE pedidos SET valor_centavos=?,revisao=revisao+1 WHERE id=?')->execute([$cents,$id]);
             $this->audit($pdo,'legacy_contract_reconciled','contrato',$id,$actor);
@@ -329,9 +329,9 @@ final class Contrato extends Model
         return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id,$note,$revision,$actor,$copyId,$key,$additive): int {
             $contract = $this->find($id); $this->active($contract);
             $this->certificateRules()->assertCanCreate($contract['id_fornecedor'] === null ? null : (int) $contract['id_fornecedor']);
-            if ((int)$contract['revisao'] !== $revision) { throw new DomainException('Contrato alterado por outra pessoa. Atualize a página.'); }
+            if ((int)$contract['revisao'] !== $revision) { throw new DomainException('Pedido alterado por outra pessoa. Atualize a página.'); }
             $copy = $copyId === null ? null : $this->sheet($id,$copyId);
-            if ($copy !== null && $copy['excluido_em'] !== null) { throw new DomainException('Folha excluída não pode ser duplicada.'); }
+            if ($copy !== null && $copy['excluido_em'] !== null) { throw new DomainException('Nota excluída não pode ser duplicada.'); }
             $isAdditive=$copy === null ? $additive : (int)$copy['aditivo']===1;
             if ($isAdditive) { $this->ensureAllocation($id,0,true); }
             if ($copy !== null) {
@@ -362,7 +362,7 @@ final class Contrato extends Model
         return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($contractId,$sheetId,$data,$revision,$actor): int {
             $contract=$this->find($contractId); $this->active($contract);
             $sheet=$this->sheet($contractId,$sheetId);
-            if ($sheet['excluido_em'] !== null || (int)$contract['revisao'] !== $revision) { throw new DomainException('Folha indisponível ou contrato alterado. Atualize a página.'); }
+            if ($sheet['excluido_em'] !== null || (int)$contract['revisao'] !== $revision) { throw new DomainException('Nota indisponível ou pedido alterado. Atualize a página.'); }
             $name=$this->title((string)($data['nome'] ?? ''));
             $brand=mb_substr(trim((string)($data['marca'] ?? '')),0,100);
             $unit=mb_substr(trim((string)($data['unidade'] ?? '')),0,30);
@@ -416,7 +416,7 @@ final class Contrato extends Model
         if (mb_strlen($note)>2000) { throw new DomainException('Observação muito longa.'); }
         SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$sheetId,$note,$revision,$actor): void {
             $this->active($this->find($contractId)); $sheet=$this->sheet($contractId,$sheetId);
-            if ($sheet['excluido_em']!==null || (int)$sheet['revisao']!==$revision) { throw new DomainException('Folha alterada ou indisponível.'); }
+            if ($sheet['excluido_em']!==null || (int)$sheet['revisao']!==$revision) { throw new DomainException('Nota alterada ou indisponível.'); }
             $pdo->prepare('UPDATE pedido_paginas SET observacao=?,revisao=revisao+1 WHERE id=?')->execute([trim($note),$sheetId]);
             $this->audit($pdo,'sheet_updated','folha',$sheetId,$actor);
         });
@@ -428,7 +428,7 @@ final class Contrato extends Model
         if ($date!=='' && ($parsed===false || $parsed->format('Y-m-d')!==$date)) { throw new DomainException('Data de faturamento inválida.'); }
         SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$sheetId,$date,$reason,$revision,$actor,$admin): void {
             $this->active($this->find($contractId)); $sheet=$this->sheet($contractId,$sheetId);
-            if ($sheet['excluido_em']!==null || (int)$sheet['revisao']!==$revision) { throw new DomainException('Folha alterada ou indisponível.'); }
+            if ($sheet['excluido_em']!==null || (int)$sheet['revisao']!==$revision) { throw new DomainException('Nota alterada ou indisponível.'); }
             if ($sheet['data_faturamento']!==null && (!$admin || mb_strlen(trim($reason))<3)) { throw new DomainException('Correção de faturamento exige administrador e motivo.'); }
             $pdo->prepare('UPDATE pedido_paginas SET data_faturamento=?,revisao=revisao+1 WHERE id=?')->execute([$date==='' ? null : $date,$sheetId]);
             AuditLogger::recordRequired($pdo,'contrato.sheet_billed',AuditLogger::SUCCESS,$actor,null,'Anterior: '.($sheet['data_faturamento'] ?? 'sem data').'; nova: '.($date ?: 'sem data').'; motivo: '.mb_substr(trim($reason),0,180),'folha',$sheetId);
@@ -505,7 +505,7 @@ final class Contrato extends Model
             $item=$this->item($contractId,$itemId); $this->active($this->find($contractId));
             $q=$pdo->prepare('SELECT 1 FROM pedido_paginas WHERE id_pedido=? AND numero_pagina=? AND excluido_em IS NULL');
             $q->execute([$contractId,$item['numero_pagina']]);
-            if (!$q->fetchColumn()) { throw new DomainException('Produto sem nota ativa vinculada ao contrato.'); }
+            if (!$q->fetchColumn()) { throw new DomainException('Produto sem nota ativa vinculada ao pedido.'); }
             if ($item['excluido_em']!==null || (int)$item['revisao']!==$revision || (int)$item['estoque_inicializado']!==1 || $this->balance($itemId)!==0) {
                 throw new DomainException('Estoque alterado. Atualize a página antes de confirmar.');
             }
@@ -611,7 +611,7 @@ final class Contrato extends Model
         if ($sheetId !== null && $itemId !== null) { throw new DomainException('Selecione apenas um recurso para excluir.'); }
         SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($contractId,$sheetId,$itemId,$revision,$actor): void {
             $contract=$this->find($contractId); $this->active($contract);
-            if ((int)$contract['revisao']!==$revision) { throw new DomainException('Contrato alterado. Atualize a página.'); }
+            if ((int)$contract['revisao']!==$revision) { throw new DomainException('Pedido alterado. Atualize a página.'); }
             $where=$itemId !== null ? 'id=? AND id_pedido=?' : ($sheetId !== null ? 'id=? AND id_pedido=?' : 'id=?');
             $table=$itemId !== null ? 'pedido_produtos' : ($sheetId !== null ? 'pedido_paginas' : 'pedidos');
             if ($itemId !== null) { $this->item($contractId,$itemId); }
@@ -653,21 +653,21 @@ final class Contrato extends Model
     /** @param array<string,mixed> $contract */
     private function active(array $contract): void
     {
-        if ($contract['excluido_em'] !== null) { throw new DomainException('Contrato excluído. Histórico disponível somente para consulta.'); }
+        if ($contract['excluido_em'] !== null) { throw new DomainException('Pedido excluído. Histórico disponível somente para consulta.'); }
     }
 
     /** @return array<string,mixed> */
     private function sheet(int $contractId,int $sheetId): array
     {
         $q=self::$pdo->prepare('SELECT * FROM pedido_paginas WHERE id=? AND id_pedido=?'); $q->execute([$sheetId,$contractId]);
-        return $q->fetch() ?: throw new DomainException('Folha não pertence ao contrato.');
+        return $q->fetch() ?: throw new DomainException('Nota não pertence ao pedido.');
     }
 
     /** @return array<string,mixed> */
     private function item(int $contractId,int $itemId): array
     {
         $q=self::$pdo->prepare('SELECT * FROM pedido_produtos WHERE id=? AND id_pedido=?'); $q->execute([$itemId,$contractId]);
-        return $q->fetch() ?: throw new DomainException('Produto não pertence ao contrato.');
+        return $q->fetch() ?: throw new DomainException('Produto não pertence ao pedido.');
     }
 
     /** @return array<string,mixed> */
@@ -724,7 +724,7 @@ final class Contrato extends Model
     {
         $q=self::$pdo->prepare('SELECT COUNT(*) AS n,COUNT(total_centavos) AS converted,COALESCE(SUM(total_centavos),0) AS total FROM pedido_produtos WHERE id_pedido=? AND numero_pagina=? AND excluido_em IS NULL');
         $q->execute([$contractId,$number]); $row=$q->fetch();
-        if ((int)$row['n']!==(int)$row['converted']) { throw new DomainException('Folha contém valores legados pendentes.'); }
+        if ((int)$row['n']!==(int)$row['converted']) { throw new DomainException('Nota contém valores legados pendentes.'); }
         self::$pdo->prepare('UPDATE pedido_paginas SET valor_pagina=CASE WHEN valor_centavos IS NULL THEN valor_pagina ELSE ? END,valor_centavos=?,revisao=revisao+1 WHERE id_pedido=? AND numero_pagina=?')->execute([(int)$row['total']/100,$row['total'],$contractId,$number]);
     }
 

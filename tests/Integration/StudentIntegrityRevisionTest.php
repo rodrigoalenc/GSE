@@ -244,7 +244,7 @@ final class StudentIntegrityRevisionTest extends DatabaseTestCase
     {
         $before = $this->pdo->query('SELECT * FROM schema_migrations ORDER BY version')->fetchAll();
         \src\Core\DatabaseInitializer::assertCurrent($this->pdo);
-        $this->assertSame(21, \src\Core\DatabaseInitializer::latestVersion());
+        $this->assertSame(22, \src\Core\DatabaseInitializer::latestVersion());
         $this->assertSame($before, $this->pdo->query('SELECT * FROM schema_migrations ORDER BY version')->fetchAll());
     }
 

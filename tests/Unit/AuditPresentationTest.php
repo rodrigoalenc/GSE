@@ -31,9 +31,12 @@ final class AuditPresentationTest extends TestCase
     {
         $this->assertSame('Cadastrar Aluno', \AuditPresentation::actionLabel('student.created'));
         $this->assertSame('Editar Aluno', \AuditPresentation::actionLabel('student.updated'));
+        $this->assertSame('Transferir Aluno', \AuditPresentation::actionLabel('student.transferred'));
+        $this->assertSame('Retornar Aluno à Escola', \AuditPresentation::actionLabel('student.returned_from_passive'));
+        $this->assertSame('Passivo - Retorno à Escola', \AuditPresentation::actionLabel('passive.student_returned'));
         $this->assertSame('Login', \AuditPresentation::actionLabel('login.success'));
         $this->assertSame('Usuario - Criar', \AuditPresentation::actionLabel('user.created'));
-        $this->assertSame('Contrato - Cadastrar Produto', \AuditPresentation::actionLabel('contrato.item_created'));
+        $this->assertSame('Pedido - Cadastrar Produto', \AuditPresentation::actionLabel('contrato.item_created'));
         $this->assertSame('Aluno', \AuditPresentation::resourceLabel('student'));
         $this->assertSame('Concluído', \AuditPresentation::resultLabel('success'));
         $this->assertSame('Falhou', \AuditPresentation::resultLabel('failure'));
@@ -50,11 +53,11 @@ final class AuditPresentationTest extends TestCase
     public function testLegacyTechnicalDescriptionIsTranslatedAtPresentationTime(): void
     {
         $this->assertSame(
-            'Item cadastrado no contrato.',
+            'Item cadastrado no pedido.',
             \AuditPresentation::description('contrato.item_created', 'Módulo 5: item_created')
         );
         $this->assertSame(
-            'Contrato cadastrado.',
+            'Pedido cadastrado.',
             \AuditPresentation::description('contrato.created', 'Módulo 5: created')
         );
     }
@@ -68,6 +71,42 @@ final class AuditPresentationTest extends TestCase
             'Módulo 5: detalhe legado desconhecido',
             \AuditPresentation::description('future.custom_event', 'Módulo 5: detalhe legado desconhecido')
         );
+    }
+
+    public function testLegacyContractDescriptionsStillProduceContextualPedidoPresentation(): void
+    {
+        $legacy = [
+            'action'=>'contrato.created', 'result'=>'success', 'description'=>'Contrato cadastrado.',
+            'resource_type'=>'contrato', 'resource_id'=>42, 'resource_name'=>'Contrato da escola',
+        ];
+        $entry = \AuditPresentation::logEntry($legacy);
+        $this->assertSame('Pedido - Cadastrar', $entry['action']);
+        $this->assertSame("Novo pedido 'Contrato da escola' cadastrado.", $entry['details']);
+        $this->assertSame('contrato.created', $legacy['action']);
+        $this->assertSame('Contrato cadastrado.', $legacy['description']);
+        $this->assertSame('Pedido', \AuditPresentation::resourceLabel('contrato'));
+        $this->assertSame('Nota do pedido', \AuditPresentation::resourceLabel('folha'));
+        $this->assertSame('Item do pedido', \AuditPresentation::resourceLabel('produto'));
+        $this->assertSame('Pedido cadastrado.', \AuditPresentation::description('contrato.created', 'Contrato cadastrado.'));
+        $this->assertSame('Nota criada no pedido.', \AuditPresentation::description('contrato.sheet_created', 'Folha criada no contrato.'));
+    }
+
+    public function testSheetAndProductHistoryUsesNotaAndPedidoWithoutChangingCustomEvidence(): void
+    {
+        $sheet = \AuditPresentation::logEntry([
+            'action'=>'contrato.deleted', 'result'=>'success', 'description'=>'Módulo 5: deleted',
+            'resource_type'=>'folha', 'resource_id'=>7, 'resource_number'=>2, 'resource_parent_id'=>42,
+        ]);
+        $this->assertSame('Pedido - Excluir Nota', $sheet['action']);
+        $this->assertSame('Excluiu a nota 2 do pedido #42.', $sheet['details']);
+        $product = \AuditPresentation::logEntry([
+            'action'=>'contrato.item_created', 'result'=>'success', 'description'=>'Item cadastrado no contrato.',
+            'resource_type'=>'produto', 'resource_id'=>8, 'resource_name'=>'Papel', 'resource_number'=>2, 'resource_parent_id'=>42,
+        ]);
+        $this->assertSame("Adicionou produto 'Papel' na nota 2 do pedido #42.", $product['details']);
+        $custom = 'Contrato assinado; folha do contrato anexada conforme documento antigo.';
+        $this->assertSame($custom, \AuditPresentation::description('contrato.updated', $custom));
+        $this->assertSame('Contrato cadastrado.', \AuditPresentation::description('future.event', 'Contrato cadastrado.'));
     }
 
     public function testReportDescriptionTranslatesFiltersWithoutLosingClassOrResultCount(): void
@@ -203,7 +242,7 @@ final class AuditPresentationTest extends TestCase
         ]);
         $this->assertStringContainsString('Módulo 5: created', $failedContract['details']);
         $this->assertStringContainsString('Resultado: Falhou.', $failedContract['details']);
-        $this->assertStringNotContainsString('Contrato cadastrado.', $failedContract['details']);
+        $this->assertStringNotContainsString('Pedido cadastrado.', $failedContract['details']);
     }
 
     public function testActionClassesAreSelectedByActionLabel(): void

@@ -1,4 +1,5 @@
 <?php
+require_once ROOT_PATH . '/src/Core/NavigationContext.php';
 $title = $title ?? 'GSE';
 $isAdmin = Auth::isAdmin();
 $currentPath = trim((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? ''), '/');
@@ -38,6 +39,8 @@ $flashClass = [
     <link rel="icon" type="image/png" href="<?= e(url('assets/image/logo_escola.png')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(url('assets/css/painel.css')) ?>">
+    <link rel="stylesheet" href="<?= e(url('assets/css/usabilidade.css')) ?>">
+    <?php if ($contractActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/pedidos-usabilidade.css')) ?>"><?php endif; ?>
     <?php if ($contractActive || $stockActive || $reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/modulo5.css')) ?>"><?php endif; ?>
     <?php if ($stockActive || str_starts_with($currentPath,'contrato/historico/') || str_starts_with($currentPath,'contrato/recebimento/')): ?><link rel="stylesheet" href="<?= e(url('assets/css/estoque.css?v='.substr((string)hash_file('sha256',ROOT_PATH.'/public/assets/css/estoque.css'),0,12))) ?>"><?php endif; ?>
     <?php if ($contractActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/contratos.css')) ?>"><?php endif; ?>
@@ -56,7 +59,8 @@ $flashClass = [
         <link rel="stylesheet" href="<?= e(url('assets/css/passivo.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/passivo.css'), 0, 12))) ?>">
     <?php endif; ?>
 </head>
-<body>
+<body data-draft-endpoint="<?= e(url('formulario/rascunho')) ?>" data-list-context="<?= e(json_encode(NavigationContext::links(), JSON_THROW_ON_ERROR)) ?>" data-list-page="<?= e($listPage ?? '') ?>">
+<a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
 <div class="layout-container">
     <aside class="sidebar" aria-label="Menu principal">
         <div class="sidebar-header">
@@ -67,7 +71,8 @@ $flashClass = [
         </div>
 
         <button type="button" class="sidebar-pin" data-sidebar-pin aria-pressed="false" hidden><span aria-hidden="true">☰</span><span class="sidebar-pin-label">Fixar menu aberto</span></button>
-        <nav>
+        <button type="button" class="sidebar-mobile-toggle" data-sidebar-toggle aria-expanded="false" aria-controls="gse-main-navigation" hidden>☰ Menu de funções</button>
+        <nav id="gse-main-navigation">
             <?php if (!$mustChangePassword): ?>
                 <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#127968;</span><span class="sidebar-label">Painel Geral</span>
@@ -79,7 +84,7 @@ $flashClass = [
                 <a href="<?= e(url('certidao')) ?>" class="sidebar-link <?= $certActive ? 'active' : '' ?>" <?= $certActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#128196;</span><span class="sidebar-label">Certidões</span>
                 </a>
-                <a href="<?= e(url('contrato')) ?>" class="sidebar-link <?= $contractActive ? 'active' : '' ?>" <?= $contractActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128221;</span><span class="sidebar-label">Contratos</span></a>
+                <a href="<?= e(url('contrato')) ?>" class="sidebar-link <?= $contractActive ? 'active' : '' ?>" <?= $contractActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128221;</span><span class="sidebar-label">Pedidos</span></a>
                 <a href="<?= e(url('passivo')) ?>" class="sidebar-link <?= $passiveActive ? 'active' : '' ?>" <?= $passiveActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#128230;</span>
                     <span class="sidebar-label">Arquivo Passivo</span>
@@ -136,6 +141,8 @@ $flashClass = [
     <div class="main-content-wrapper">
         <header class="<?= e($certHeaderClass) ?>">
             <h1><?= e($reportActive ? '📊 Gerador de Relatórios' : (str_starts_with($currentPath, 'usuario/editar/') ? '✏️ ' . $title : $title)) ?></h1>
+            <?php $contextList = $studentsActive ? 'aluno' : ($passiveActive ? 'passivo' : ($contractActive ? 'contrato' : ($stockActive ? 'estoque' : ($certActive ? 'certidao' : ($usersActive ? 'usuario' : ($classesActive ? 'turma' : null)))))); ?>
+            <?php if ($contextList !== null && $currentPath !== $contextList): ?><a class="context-return" href="<?= e(url(NavigationContext::back($contextList))) ?>">Voltar à lista com os filtros</a><?php endif; ?>
             <?php if (isset($headerMeta) || $dashboardActive || $currentPath === 'passivo'): ?>
             <div class="header-meta">
                 <?= e((string) ($headerMeta ?? ($currentPath === 'passivo' ? '' : 'Data: ') . UiPresentation::localNow()->format('d/m/Y'))) ?>
@@ -143,7 +150,7 @@ $flashClass = [
             <?php endif; ?>
         </header>
 
-        <main>
+        <main id="conteudo-principal" tabindex="-1">
             <?php if ($flash): ?>
                 <?php $class = $flashClass[$flash['tipo'] ?? 'info'] ?? 'info'; ?>
                 <div class="<?= e($class) ?>-message" role="alert">
@@ -156,6 +163,8 @@ $flashClass = [
     </div>
 </div>
 
+<script src="<?= e(url('assets/js/pedidos-usabilidade.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/pedidos-usabilidade.js'), 0, 12))) ?>"></script>
 <script src="<?= e(url('assets/js/app.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/app.js'), 0, 12))) ?>"></script>
+<script src="<?= e(url('assets/js/usabilidade.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/usabilidade.js'), 0, 12))) ?>"></script>
 </body>
 </html>

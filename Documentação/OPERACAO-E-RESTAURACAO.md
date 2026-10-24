@@ -1,6 +1,6 @@
 # Implantação, recuperação e operação do GSE
 
-Revisão 22/10/2026. Esquema atual: 21. Este procedimento exige operador responsável e execução inicial em homologação. Não contém credenciais e não autoriza apagar arquivos institucionais.
+Revisão 24/10/2026. Esquema atual: 22. Este procedimento exige operador responsável e execução inicial em homologação. Execute a manutenção como o proprietário do banco e das chaves; no servidor configurado para www-data, use `sudo -u www-data php ...`. Não contém credenciais e não autoriza apagar arquivos institucionais.
 
 ## Preparar o ambiente
 
@@ -20,7 +20,7 @@ Mantenha SQLite, documentos, sessões, logs e chaves fora de public, com identid
 4. Para atualização, pare HTTP, notificações e manutenção agendada. Confirme espaço livre e recuperação do estado anterior.
 5. Faça cópia conjunta do banco e dos PDFs do mesmo ponto de recuperação. Não copie somente o arquivo SQLite aberto, ignorando WAL/SHM.
 6. Se o banco estiver em WAL e a biblioteca não tiver a correção, prepare primeiro `php bin/init-db.php --journal-only --maintenance-confirmed`, ainda com todos os escritores parados e backup recuperável. O comando confere o modo retornado, integridade/FKs e não aplica migrações nem altera cadastros; informa a versão armazenada do esquema. Para base já protegida, execute `php bin/init-db.php` na manutenção. Para banco anterior à v17, depois desse preparo siga a simulação e a migração explícita de SECURITY-OPERATIONS.md. Não substitua a base por um banco vazio.
-7. Confirme PRAGMA user_version=21, schema_migrations de 1 a 21, integrity_check=ok e foreign_key_check sem linhas. Valide amostras e contagens com o estado anterior.
+7. Confirme PRAGMA user_version=22, schema_migrations de 1 a 22, integrity_check=ok e foreign_key_check sem linhas. Valide amostras e contagens com o estado anterior.
 8. Confira o modo informado: DELETE é obrigatório no SQLite 3.45.1 do Ubuntu. Reabra o serviço somente depois da conferência. HTTP e CLIs de rotina verificam o modo sem modificá-lo; mudança de journal é reservada à inicialização/migração CLI em manutenção. HTTP também verifica o esquema sem aplicar migrações; start-server.ps1 não migra ao iniciar.
 
 `DB_JOURNAL_MODE=auto` é o padrão: escolhe WAL corrigido ou DELETE. É possível definir `delete` para usar rollback journal também nas versões corrigidas. Não se aceita forçar WAL. DELETE preserva transações e rollback, mas leituras e escritas têm menor concorrência; chamadas aguardam o busy_timeout de cinco segundos e operações transacionais mantêm suas verificações. Não use configurações OFF/MEMORY em bancos persistentes e não apague journals/sidecars manualmente. O flag `--maintenance-confirmed` não para os serviços: o operador precisa pará-los antes.
@@ -53,7 +53,7 @@ Monitore erros HTTP, database_busy, falhas de backup/limpeza, espaço livre, tar
 - [ ] HTTPS/cookies/headers, proxy e host conferidos.
 - [ ] .env, banco, sidecars, logs, documentos, backups e chaves inacessíveis por HTTP.
 - [ ] Permissões/ACL e proteção do volume verificadas.
-- [ ] Migração exclusiva até 21 e verificações de integridade concluídas.
+- [ ] Migração exclusiva até 22 e verificações de integridade concluídas.
 - [ ] Restauração conjunta e custódia separada de chaves demonstradas.
 - [ ] SMTP e tarefas programadas testados em homologação.
 - [ ] Rotinas de entrada/saída de funcionários, recuperação de conta e exportações definidas.

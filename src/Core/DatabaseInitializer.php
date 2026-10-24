@@ -15,7 +15,7 @@ require_once __DIR__ . '/BackupSnapshot.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 21;
+    private const LATEST_VERSION = 22;
 
     public static function latestVersion(): int
     {
@@ -159,8 +159,18 @@ final class DatabaseInitializer
             19 => self::migrateStudentMovements($pdo),
             20 => self::migrateStudentYearProgression($pdo),
             21 => self::migrateRecordRevisionsAndQueryIndexes($pdo),
+            22 => self::migrateStudentSchoolLinks($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
+    }
+
+    private static function migrateStudentSchoolLinks(PDO $pdo): void
+    {
+        $sql = file_get_contents(dirname(__DIR__, 2) . '/database/student-school-links.sql');
+        if ($sql === false) {
+            throw new RuntimeException('Não foi possível ler a migração de vínculos escolares.');
+        }
+        $pdo->exec($sql);
     }
 
     private static function migrateRecordRevisionsAndQueryIndexes(PDO $pdo): void

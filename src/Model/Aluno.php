@@ -16,6 +16,8 @@ final class Aluno extends Model
     public const NAME_MAX_LENGTH = 150;
 
     private ?string $lastErrorCode = null;
+    /** @var WeakMap<PDO,bool>|null */
+    private static ?WeakMap $searchConnections = null;
 
     /**
      * @param array<string,mixed> $filters
@@ -95,7 +97,8 @@ final class Aluno extends Model
                     t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
                     d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao,
                     d.id_usuario_registro AS dva_usuario_id, d.criado_em AS dva_criado_em,
-                    EXISTS(SELECT 1 FROM alunos_movimentacoes m WHERE m.aluno_id = a.id) AS possui_movimentacao
+                    (EXISTS(SELECT 1 FROM alunos_movimentacoes m WHERE m.aluno_id = a.id)
+                     OR EXISTS(SELECT 1 FROM alunos_vinculos_historico v WHERE v.aluno_id = a.id)) AS possui_movimentacao
              FROM alunos a
              LEFT JOIN turmas t ON t.id = a.id_turma
              LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
@@ -569,7 +572,7 @@ final class Aluno extends Model
         $params = [];
         try {
             $search = mb_substr(
-                TextNormalizer::comparisonKey((string) ($filters['q'] ?? '')),
+                TextNormalizer::searchKey((string) ($filters['q'] ?? '')),
                 0,
                 100,
                 'UTF-8'
@@ -579,7 +582,20 @@ final class Aluno extends Model
         }
 
         if ($search !== '') {
-            $conditions[] = "a.nome_normalizado LIKE :search ESCAPE '\\'";
+            self::$searchConnections ??= new WeakMap();
+            if (!isset(self::$searchConnections[self::$pdo])) {
+                $registered = self::$pdo->sqliteCreateFunction(
+                    'gse_student_search',
+                    static fn (string $name): string => TextNormalizer::searchKey($name),
+                    1,
+                    PDO::SQLITE_DETERMINISTIC
+                );
+                if (!$registered) {
+                    throw new RuntimeException('Não foi possível registrar a pesquisa de alunos.');
+                }
+                self::$searchConnections[self::$pdo] = true;
+            }
+            $conditions[] = "gse_student_search(a.nome_normalizado) LIKE :search ESCAPE '\\'";
             $params['search'] = '%' . self::escapeLike($search) . '%';
         }
 

@@ -49,7 +49,7 @@ php bin/security.php migrate --maintenance-confirmed
 
 O primeiro comando aprova a compatibilidade e informa DELETE obrigatório; não abre o banco. O segundo prepara o journal, verifica integridade/FKs e informa o esquema armazenado sem migrá-lo, inclusive em base anterior à v17. O terceiro ensaia as migrações numa cópia. O último aplica as versões ausentes e confere integridade; não renova nem redefine a chave existente. Pare no primeiro erro e preserve a manutenção. Os flags não param serviços automaticamente.
 
-Para bases já protegidas, `php bin/init-db.php` também prepara o modo e aplica as versões ausentes até 21, sem exigir a reconstrução de proteção. Reabra o serviço depois das conferências e valide login, cadastros e documentos com o responsável.
+Para bases já protegidas, `php bin/init-db.php` também prepara o modo e aplica as versões ausentes até 22, sem exigir a reconstrução de proteção. Execute como o proprietário do banco e das chaves; no servidor com diretórios privados de www-data, use `sudo -u www-data php bin/init-db.php`. Reabra o serviço depois das conferências e valide login, cadastros e documentos com o responsável.
 
 ## Evidências de 23/10/2026
 

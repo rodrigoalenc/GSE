@@ -1,0 +1,20 @@
+.skip-link { position:fixed; left:12px; top:-100px; z-index:10000; background:#fff; color:#102d4b; padding:12px 18px; border:3px solid #102d4b; border-radius:8px; }
+.skip-link:focus { top:12px; }
+/* Keep keyboard focus visible even when a module removes the native outline. */
+main :focus-visible { outline:3px solid #0b5ca8 !important; outline-offset:3px; }
+.form-draft { margin:0 0 20px; padding:14px 16px; border:1px solid #c5d4e5; border-radius:8px; background:#f3f7fc; color:#183854; }
+.form-draft p { margin:0 0 10px; line-height:1.5; }
+.form-draft button { margin:4px 8px 0 0; min-height:40px; }
+.form-draft [hidden] { display:none !important; }
+.conflict-review { border:2px solid #a96804; border-radius:10px; padding:20px; margin-bottom:20px; background:#fffaf0; }
+.conflict-review table { width:100%; border-collapse:collapse; }
+.conflict-review th,.conflict-review td { padding:10px; border-bottom:1px solid #d8c5a3; text-align:left; overflow-wrap:anywhere; }
+.field-optional { font-size:.9em; font-weight:400; }
+.sidebar-mobile-toggle { margin:0 12px 8px; color:#fff; border-color:#ffffff80; background:transparent; min-height:44px; }
+.context-return { color:#173f68; text-decoration:underline; text-underline-offset:3px; line-height:1.5; }
+@media (max-width:768px) { .sidebar.is-mobile-menu-ready nav { display:none; } .sidebar.is-mobile-menu-ready.is-mobile-menu-open nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); max-height:60vh; overflow:auto; gap:5px; } .sidebar.is-mobile-menu-ready nav a { white-space:normal; min-height:44px; margin:0; } .sidebar.is-mobile-menu-ready .sidebar-divider,.sidebar.is-mobile-menu-ready .sidebar-section-label { grid-column:1/-1; } }
+@media (max-width:400px) { .sidebar.is-mobile-menu-ready.is-mobile-menu-open nav { grid-template-columns:1fr; } }
+@media (max-width:768px) { .sidebar.is-mobile-menu-ready .sidebar-footer { flex-wrap:wrap; gap:10px; } .sidebar.is-mobile-menu-ready .sidebar-footer-label { white-space:normal; overflow-wrap:anywhere; } }
+@media (pointer:coarse) { button:not(.sidebar-pin),.btn-primary,.btn-secondary,select,input:not([type="checkbox"]):not([type="radio"]) { min-height:44px; } input[type="checkbox"],input[type="radio"] { min-width:22px; min-height:22px; } }
+@media (max-width:600px) { .form-draft { padding:12px; } .form-draft button { width:100%; margin:6px 0 0; } .conflict-review { padding:12px; } .conflict-review th,.conflict-review td { padding:8px; } }
+@media print { .skip-link,.form-draft { display:none !important; } }

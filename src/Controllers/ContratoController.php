@@ -25,7 +25,7 @@ final class ContratoController extends Controller
     private function existing(int $id): array
     {
         try { return $this->model()->find($id); }
-        catch (DomainException) { render_http_error(404,'Contrato não encontrado','O contrato solicitado não existe.','contrato'); }
+        catch (DomainException) { render_http_error(404,'Pedido não encontrado','O pedido solicitado não existe.','contrato'); }
     }
     /** @return array{operation:string,sheet:int,item:int,target:string}|null */
     private function formResource(int $contractId,string $operation): ?array
@@ -136,7 +136,7 @@ final class ContratoController extends Controller
                 'fornecedor'=>$_POST['fornecedor'] ?? '', 'folhas'=>$_POST['folhas'] ?? []];
             $this->run('contrato/criar',function(): string {
                 $sheets=$_POST['folhas'] ?? null;
-                if ($sheets!==null && !is_array($sheets)) { throw new DomainException('Folhas inválidas.'); }
+                if ($sheets!==null && !is_array($sheets)) { throw new DomainException('Notas inválidas.'); }
                 $id=$sheets===null
                     ? $this->model()->create($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$this->actor(), $this->field('_request_token'))
                     : $this->model()->createDetailed($this->field('titulo'),$this->field('valor'),$this->field('fornecedor'),$sheets,$this->actor(), $this->field('_request_token'));
@@ -164,7 +164,7 @@ final class ContratoController extends Controller
             });
         }
         $record=$this->existing($contractId);
-        if ($record['excluido_em']!==null) { render_http_error(404,'Contrato excluído','O contrato está disponível apenas para consulta.','contrato'); }
+        if ($record['excluido_em']!==null) { render_http_error(404,'Pedido excluído','O pedido está disponível apenas para consulta.','contrato'); }
         $draft=$_SESSION['contract_edit_draft_'.$id] ?? [];
         unset($_SESSION['contract_edit_draft_'.$id]);
         $this->view('contratos/form',['title'=>'✏️ Editar Dados Gerais #'.$record['id'],'record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[],'certificateWarnings'=>$this->model()->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
@@ -365,7 +365,7 @@ final class ContratoController extends Controller
         $record=$this->existing($contractId);
         $sheet=isset($_GET['folha']) ? filter_var($_GET['folha'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : null;
         $sheets=$model->sheets($contractId); $items=$model->items($contractId);
-        if (isset($_GET['folha']) && ($sheet===false || !in_array($sheet,array_column($sheets,'id'),false))) { render_http_error(404,'Folha indisponível','Folha não encontrada.'); }
+        if (isset($_GET['folha']) && ($sheet===false || !in_array($sheet,array_column($sheets,'id'),false))) { render_http_error(404,'Nota indisponível','Nota não encontrada.'); }
         $this->view('contratos/imprimir',['record'=>$record,'sheets'=>$sheets,'items'=>$items,'allocation'=>$model->allocationSummary($contractId),'sheetId'=>$sheet],false);
     }
 }

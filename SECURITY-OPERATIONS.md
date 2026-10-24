@@ -1,6 +1,6 @@
 # Operação da proteção v17
 
-A proteção de campos e backups foi introduzida na v17. O esquema atual é v21; as garantias e verificações correntes estão em Documentação/VALIDACAO-2026-10-22.md. Não há homologação implícita do servidor institucional.
+A proteção de campos e backups foi introduzida na v17. O esquema atual é v22, com histórico de vínculos escolares. Consulte Documentação/VALIDACAO-2026-10-22.md e Documentação/USABILIDADE-2026-10-23.md para as garantias e verificações correspondentes. Não há homologação implícita do servidor institucional.
 
 ## Escopo e inventário
 

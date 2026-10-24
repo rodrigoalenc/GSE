@@ -224,10 +224,12 @@ function checkEditRevision(string $url, string $cookie, string $database, string
     $before = $pdo->query('SELECT * FROM ' . $table . ' WHERE id=1')->fetch(PDO::FETCH_ASSOC);
     $response = request('POST', $url, $cookie, $fields + ['revisao' => $revision]);
     $feedback = $redirects ? request('GET', $url, $cookie) : $response;
-    checkHttp(str_contains($feedback['body'], 'formulário está desatualizado')
-        && formRevision($feedback['body']) === $revision
+    $reviewMatches = $table === 'alunos'
+        ? str_contains($feedback['body'], 'data-conflict-review') && str_contains($feedback['body'], 'name="confirmar_revisao"') && formRevision($feedback['body']) === (string) $before['revisao']
+        : str_contains($feedback['body'], 'formulário está desatualizado') && formRevision($feedback['body']) === $revision;
+    checkHttp($reviewMatches
         && $before === $pdo->query('SELECT * FROM ' . $table . ' WHERE id=1')->fetch(PDO::FETCH_ASSOC),
-        $table . ': formulário antigo é recusado e mantém revisão antiga para exigir conferência');
+        $table . ': formulário antigo é recusado e exige conferência antes de uma nova gravação');
 }
 
 function sessionCookieValue(string $cookieFile): string
@@ -994,6 +996,8 @@ try {
     require __DIR__ . '/http-audit-backups.php';
     require __DIR__ . '/http-security-hardening.php';
     require __DIR__ . '/http-student-movement-edit.php';
+    require __DIR__ . '/http-school-links.php';
+    require __DIR__ . '/http-usabilidade.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');
     $adminDashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);

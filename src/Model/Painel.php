@@ -3,9 +3,52 @@
 declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Core/Model.php';
+require_once ROOT_PATH . '/src/Model/Aluno.php';
 
 final class Painel extends Model
 {
+    /**
+     * @param array<string,string> $filters
+     * @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int,per_page:int}
+     */
+    public function buscarAlunos(array $filters, int $page = 1, int $perPage = 15, ?DvaStatus $statusService = null): array
+    {
+        $result = (new Aluno())->paginate($filters, $page, max(10, min(50, $perPage)), $statusService);
+        $fields = array_fill_keys(['id', 'nome_completo', 'data_nascimento', 'ativo', 'nome_turma', 'data_vencimento', 'no_passivo', 'dva_status'], true);
+        $result['items'] = array_map(static fn (array $item): array => array_intersect_key($item, $fields), $result['items']);
+        return $result;
+    }
+
+    /** @return array{quantidade_inicial:int,conferencia:int,sem_estoque:int,estoque_baixo:int} */
+    public function pendenciasEstoque(): array
+    {
+        $row = self::$pdo->query("WITH stock AS (
+            SELECT i.estoque_inicializado, i.estoque_minimo,
+                COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo,
+                CASE WHEN i.estoque_inicializado=1
+                    AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id)
+                    AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id
+                        AND o.tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida'))
+                    THEN 1 ELSE 0 END AS abertura_sem_comprovacao
+            FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido
+            WHERE p.excluido_em IS NULL AND i.excluido_em IS NULL
+                AND EXISTS(SELECT 1 FROM pedido_paginas pg WHERE pg.id_pedido=i.id_pedido
+                    AND pg.numero_pagina=i.numero_pagina AND pg.excluido_em IS NULL)
+        ) SELECT
+            SUM(CASE WHEN estoque_inicializado=0 THEN 1 ELSE 0 END) AS quantidade_inicial,
+            SUM(CASE WHEN abertura_sem_comprovacao=1 THEN 1 ELSE 0 END) AS conferencia,
+            SUM(CASE WHEN estoque_inicializado=1 AND abertura_sem_comprovacao=0 AND saldo=0 THEN 1 ELSE 0 END) AS sem_estoque,
+            SUM(CASE WHEN estoque_inicializado=1 AND abertura_sem_comprovacao=0 AND saldo<>0
+                AND estoque_minimo IS NOT NULL AND saldo<=estoque_minimo THEN 1 ELSE 0 END) AS estoque_baixo
+            FROM stock")->fetch() ?: [];
+        return [
+            'quantidade_inicial' => (int) ($row['quantidade_inicial'] ?? 0),
+            'conferencia' => (int) ($row['conferencia'] ?? 0),
+            'sem_estoque' => (int) ($row['sem_estoque'] ?? 0),
+            'estoque_baixo' => (int) ($row['estoque_baixo'] ?? 0),
+        ];
+    }
+
     /** @return array<string,int> */
     public function resumo(?DvaStatus $statusService = null): array
     {

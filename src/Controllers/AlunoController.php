@@ -6,6 +6,7 @@ require_once ROOT_PATH . '/src/Model/Aluno.php';
 require_once ROOT_PATH . '/src/Model/Dva.php';
 require_once ROOT_PATH . '/src/Model/Turma.php';
 require_once ROOT_PATH . '/src/Services/MovimentacaoAlunos.php';
+require_once ROOT_PATH . '/src/Services/VinculoEscolar.php';
 
 final class AlunoController extends Controller
 {
@@ -80,17 +81,41 @@ final class AlunoController extends Controller
         ];
         $errors = [];
         $possibleDuplicate = false;
+        $conflictReview = null;
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $data = $this->formData();
 
             $revision = filter_var($data['revisao'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            if ($revision !== false && $model->atualizar($studentId, $data, isset($_POST['confirmar_duplicidade']), (int) $_SESSION['usuario_id'], $revision)) {
+            $reviewToken = input_string($_POST['_conflict_token'] ?? '');
+            $draftSourceRevision = input_string($_POST['_draft_source_revision'] ?? '');
+            $staleDraft = $reviewToken === '' && preg_match('/^[1-9][0-9]{0,10}$/D', $draftSourceRevision) === 1
+                && $draftSourceRevision !== (string) $student['revisao'];
+            $pendingReview = $_SESSION['student_edit_reviews'][$studentId] ?? null;
+            $reviewRequired = $reviewToken !== '' && (!is_array($pendingReview)
+                || !is_string($pendingReview['token'] ?? null) || !hash_equals($pendingReview['token'], $reviewToken)
+                || (int) ($pendingReview['expires'] ?? 0) < time() || input_string($_POST['confirmar_revisao'] ?? '') !== '1');
+            if (!$reviewRequired && !$staleDraft && $revision !== false && $model->atualizar($studentId, $data, isset($_POST['confirmar_duplicidade']), (int) $_SESSION['usuario_id'], $revision)) {
+                unset($_SESSION['student_edit_reviews'][$studentId]);
                 $this->redirectWithFlash('aluno/perfil/' . $studentId, 'success', 'Aluno atualizado com sucesso.');
             }
 
             $possibleDuplicate = $model->lastErrorCode() === 'possible_duplicate';
-            $errors[] = $this->studentError($revision === false ? 'invalid_revision' : $model->lastErrorCode());
+            $errorCode = $reviewRequired ? 'review_required' : ($staleDraft ? 'stale_revision' : ($revision === false ? 'invalid_revision' : $model->lastErrorCode()));
+            if (in_array($errorCode, ['stale_revision', 'review_required'], true)) {
+                $student = $model->buscarPorId($studentId);
+                if (!$student) { render_http_error(404, 'Aluno não encontrado', 'O cadastro solicitado não existe.'); }
+                $token = bin2hex(random_bytes(16));
+                foreach ($_SESSION['student_edit_reviews'] ?? [] as $reviewId => $entry) {
+                    if (!is_array($entry) || (int) ($entry['expires'] ?? 0) < time()) { unset($_SESSION['student_edit_reviews'][$reviewId]); }
+                }
+                $_SESSION['student_edit_reviews'][$studentId] = ['token' => $token, 'expires' => time() + 1800];
+                if (count($_SESSION['student_edit_reviews']) > 10) { unset($_SESSION['student_edit_reviews'][array_key_first($_SESSION['student_edit_reviews'])]); }
+                $conflictReview = ['current' => $student, 'attempt' => $data, 'token' => $token, 'sourceRevision' => $staleDraft ? $draftSourceRevision : $data['revisao']];
+                $data['revisao'] = (string) $student['revisao'];
+                if ((int) $student['possui_movimentacao'] === 1) { $data['id_turma'] = (string) $student['id_turma']; }
+            }
+            $errors[] = $this->studentError($errorCode);
             http_response_code(422);
         }
 
@@ -115,6 +140,7 @@ final class AlunoController extends Controller
             'turmas' => $turmas,
             'classChangeLocked' => (int) $student['possui_movimentacao'] === 1,
             'currentClass' => $student,
+            'conflictReview' => $conflictReview,
             'canManageMovement' => Auth::isAdmin(),
         ]);
     }
@@ -133,6 +159,7 @@ final class AlunoController extends Controller
             'student' => $profile['student'],
             'history' => $profile['dva_history'],
             'movements' => (new MovimentacaoAlunos())->historico($studentId),
+            'schoolLinks' => (new VinculoEscolar())->historico($studentId),
             'canManageStudent' => Auth::isAdmin(),
             'canArchivePassive' => Auth::isAdmin() && (int) $profile['student']['ativo'] === 0,
         ]);
@@ -257,7 +284,9 @@ final class AlunoController extends Controller
     private function studentError(?string $code): string
     {
         return match ($code) {
-            'stale_revision', 'invalid_revision' => 'Este formulário está desatualizado ou sem revisão válida. Reabra o cadastro e confira os dados atuais antes de salvar.',
+            'review_required' => 'Confira a comparação e marque a confirmação de revisão antes de salvar. Nenhuma alteração foi salva.',
+            'stale_revision' => 'Outra pessoa atualizou este aluno. Sua tentativa foi preservada abaixo; compare com os dados atuais antes de salvar.',
+            'invalid_revision' => 'Este formulário está desatualizado ou sem revisão válida. Reabra o cadastro e confira os dados atuais antes de salvar.',
             'active_passive_record' => 'O aluno possui um registro ativo no Arquivo Passivo. Abra esse registro e inative-o pelo fluxo do Arquivo Passivo antes de reativar o aluno. O histórico será preservado.',
             'class_change_requires_movement' => Auth::isAdmin()
                 ? 'Este aluno possui histórico de movimentação escolar. Para alterar a turma, use Movimentar alunos e confira a progressão ou regressão adequada. Os dados enviados não foram salvos.'

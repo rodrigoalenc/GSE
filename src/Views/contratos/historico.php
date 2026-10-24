@@ -20,9 +20,9 @@ foreach ($movements as $move) {
     if ($type==='saida') { $totals['consumed']-=$quantity; }
 }
 ?>
-<section class="relatorio modulo5-hero"><p><a href="<?= e(url(($fromStock ? 'estoque' : 'contrato/detalhes/'.$product['id_pedido']).($return ? '?'.http_build_query($return) : ''))) ?>"><?= $fromStock ? 'Voltar ao estoque' : 'Voltar ao contrato' ?></a></p>
+<section class="relatorio modulo5-hero"><p><a href="<?= e(url(($fromStock ? 'estoque' : 'contrato/detalhes/'.$product['id_pedido']).($return ? '?'.http_build_query($return) : ''))) ?>"><?= $fromStock ? 'Voltar ao estoque' : 'Voltar ao pedido' ?></a></p>
 <h2>Histórico de <?= e($product['nome_produto']) ?></h2>
-<p>Contrato #<?= (int)$product['id_pedido'] ?>: <?= e($product['contrato_titulo']) ?> · Folha <?= (int)$product['numero_pagina'] ?> · Unidade: <?= e($product['unidade']) ?></p>
+<p>Pedido #<?= (int)$product['id_pedido'] ?>: <?= e($product['contrato_titulo']) ?> · Nota <?= (int)$product['numero_pagina'] ?> · Unidade: <?= e($product['unidade']) ?></p>
 <p>Cada registro mostra quando ocorreu, a quantidade e quem registrou. Consumos reduzem a quantidade disponível; estornos desfazem o movimento indicado.</p>
 <div class="stock-history-totals"><p>Disponível agora<strong><?= !$confirmed ? 'A confirmar' : $totals['available'].' '.e($product['unidade']) ?></strong></p><p>Total recebido<strong><?= $totals['received'] ?> <?= e($product['unidade']) ?></strong></p><p>Total utilizado<strong><?= $totals['consumed'] ?> <?= e($product['unidade']) ?></strong></p></div><p>Os totais consideram os estornos. A quantidade inicial é apresentada separadamente no histórico.</p></section>
 <section class="relatorio"><div class="table-scroll"><table class="table"><thead><tr><th>ID</th><th>Data e hora</th><th>Tipo</th><th>Quantidade</th><th>Motivo</th><th>Responsável</th><th>Estorno de</th></tr></thead><tbody>

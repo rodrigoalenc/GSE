@@ -82,6 +82,7 @@ $historyTime = static function (?string $value): string {
 <div class="profile-actions perfil-actions">
     <a class="btn-primary" href="<?= e(url('aluno/editar/' . (int) $student['id'])) ?>">✏️ Editar Dados</a>
     <?php if ((int) $student['ativo'] === 1): ?><a class="btn-secondary" href="<?= e(url('aluno/dva/' . (int) $student['id'])) ?>"><?= $student['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a><?php endif; ?>
+    <?php if ($canManageStudent && (int) $student['ativo'] === 1): ?><a class="btn-secondary" href="<?= e(url('aluno/transferir/' . (int) $student['id'])) ?>">Transferir entre turmas</a><?php endif; ?>
     <?php if ($canManageStudent): ?><form class="student-status-form" method="post" action="<?= e(url('aluno/status/' . (int) $student['id'])) ?>" data-confirm-status="<?= (int) $student['ativo'] === 1 ? 'Inativar este aluno? O histórico será preservado.' : 'Reativar este aluno?' ?>"><input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ativo" value="<?= (int) $student['ativo'] === 1 ? '0' : '1' ?>"><button class="btn-secondary student-status-button" type="submit"><?= (int) $student['ativo'] === 1 ? '⛔ Inativar aluno' : '✓ Reativar aluno' ?></button></form><?php endif; ?>
     <?php if ($canArchivePassive): ?><details class="profile-more-actions"><summary>Arquivo Passivo</summary><a class="btn-secondary" href="<?= e(url('aluno/arquivar/' . (int) $student['id'])) ?>">Enviar para o Arquivo Passivo</a></details><?php endif; ?>
     <a class="cancelar" href="<?= e(url('aluno')) ?>">Voltar para a Lista</a>
@@ -97,6 +98,8 @@ $historyTime = static function (?string $value): string {
     </tbody></table></div>
 </section>
 <?php endif; ?>
+
+<?php require __DIR__ . '/historico-vinculos.php'; ?>
 
 <details class="relatorio student-history">
     <summary>Histórico de DVAs</summary>

@@ -6,8 +6,8 @@ if (sidebarPin) {
         sidebarPin.setAttribute('aria-pressed', String(pinned));
         sidebarPin.querySelector('.sidebar-pin-label').textContent = pinned ? 'Soltar menu' : 'Fixar menu aberto';
     };
-    let pinned = false;
-    try { pinned = localStorage.getItem('gse.menu.pinned') === 'true'; } catch (_) { /* Navigation works without storage. */ }
+    let pinned = true;
+    try { const saved = localStorage.getItem('gse.menu.pinned'); pinned = saved === null || saved === 'true'; } catch (_) { /* Names remain visible without storage. */ }
     applyPin(pinned); sidebarPin.hidden = false;
     sidebarPin.addEventListener('click', () => {
         pinned = !pinned; applyPin(pinned);
@@ -185,36 +185,6 @@ if (certIssueDate && certExpiryDate && certValidityDays) {
     refreshValidity();
 }
 
-const dashboardHome = document.querySelector('[data-dashboard-home]');
-if (dashboardHome) {
-    const search = dashboardHome.querySelector('[data-dashboard-search]');
-    const feedback = dashboardHome.querySelector('[data-dashboard-search-feedback]');
-    const sections = [...dashboardHome.querySelectorAll('[data-dashboard-section]')];
-    const initialOpen = new Map(sections.filter((section) => section.tagName === 'DETAILS').map((section) => [section, section.open]));
-    const normalize = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
-
-    search.addEventListener('input', () => {
-        const query = normalize(search.value.trim());
-        let matches = 0;
-
-        sections.forEach((section) => {
-            let sectionMatches = 0;
-            section.querySelectorAll('[data-dashboard-item]').forEach((item) => {
-                const name = item.querySelector('a, strong')?.textContent ?? item.textContent;
-                const found = !query || normalize(name).includes(query);
-                item.hidden = !found;
-                if (found) sectionMatches += 1;
-            });
-            if (query && sectionMatches > 0) matches += sectionMatches;
-            section.hidden = !!query && sectionMatches === 0;
-            if (section.tagName === 'DETAILS') section.open = query ? sectionMatches > 0 : initialOpen.get(section);
-        });
-
-        feedback.hidden = !query;
-        feedback.textContent = query ? (matches === 0 ? 'Nenhum aluno encontrado na tela.' : `${matches} ocorrência(s) encontrada(s) na tela.`) : '';
-    });
-}
-
 const certFullscreen = document.getElementById('cert-fullscreen');
 if (certWorkspace && certFullscreen) {
     const status = document.getElementById('cert-fullscreen-status');
@@ -363,8 +333,7 @@ const contractBuilder = document.querySelector('[data-contract-builder]');
 if (contractBuilder) {
     const sheetContainer = contractBuilder.querySelector('[data-contract-sheets]');
     const money = (cents) => new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(cents / 100);
-    const cents = (text) => /^(?:0|[1-9][0-9]{0,8})(?:,[0-9]{1,2})?$/.test(text)
-        ? Math.round(Number(text.replace(',', '.')) * 100) : null;
+    const cents = window.GseMoney.cents;
     const refresh = () => {
         let total = 0;
         let invalidPrice = false;
@@ -379,10 +348,14 @@ if (contractBuilder) {
                 const quantity = Number(product.querySelector('[name$="[quantidade]"]').value) || 0;
                 const price = product.querySelector('[name$="[preco]"]');
                 const parsed = cents(price.value);
-                price.setCustomValidity(parsed === null ? 'Informe o preço sem ponto de milhar, por exemplo: 1250,00.' : '');
+                price.setCustomValidity(parsed === null ? 'Use 1250,00 ou 1.250,00, com até duas casas decimais.' : '');
                 price.setAttribute('aria-invalid', String(parsed === null && price.value !== ''));
                 invalidPrice ||= parsed === null;
-                if (parsed !== null) total += quantity * parsed;
+                if (parsed !== null) {
+                    const lineTotal = quantity * parsed;
+                    if (!Number.isSafeInteger(lineTotal) || !Number.isSafeInteger(total + lineTotal)) invalidPrice = true;
+                    else total += lineTotal;
+                }
             });
             sheet.querySelectorAll('[data-remove-product]').forEach((button) => {
                 button.disabled = sheet.querySelectorAll('[data-contract-product]').length === 1;
@@ -393,9 +366,10 @@ if (contractBuilder) {
         });
         const budget = document.querySelector('#valor');
         const budgetCents = cents(budget.value);
-        budget.setCustomValidity(budgetCents === null ? 'Informe o valor sem ponto de milhar, por exemplo: 1250,00.' : '');
+        budget.setCustomValidity(budgetCents === null ? 'Use 1250,00 ou 1.250,00, com até duas casas decimais.' : '');
         contractBuilder.querySelector('[data-items-total]').textContent = invalidPrice ? 'Confira o preço deste produto' : money(total);
         contractBuilder.querySelector('[data-budget-left]').textContent = invalidPrice || budgetCents === null ? 'Confira os valores informados' : money(budgetCents - total);
+        contractBuilder.closest('form')?.dispatchEvent(new Event('gse:form-change'));
     };
     const removalNotice = document.createElement('div');
     removalNotice.className = 'contract-removal-notice';

@@ -192,7 +192,7 @@ final class AuditPresentationTest extends DatabaseTestCase
         $this->assertStringContainsString('13/10/2026 22:03:04', $tableText);
         $this->assertStringContainsString($actorName, $tableText);
         $this->assertStringContainsString($description, $tableText);
-        $this->assertStringContainsString('Contrato - Cadastrar Produto', $tableText);
+        $this->assertStringContainsString('Pedido - Cadastrar Produto', $tableText);
         $this->assertSame(0, $xpath->query('//tbody//script | //tbody//img | //tbody//*[@onerror]')->length);
         $this->assertSame(0, $xpath->query('//tbody//details | //tbody//code')->length);
         foreach (['student.created', 'contrato.item_created', 'Módulo 5: item_created', '203.0.113.17', '0123456789abcdef0123456789abcdef'] as $value) {
@@ -448,8 +448,8 @@ final class AuditPresentationTest extends DatabaseTestCase
         $items = array_column((new \Auditoria())->latest(), null, 'action');
 
         foreach ([
-            'contrato.sheet_created' => 'Adicionou nova folha ao contrato #' . $contractId . '.',
-            'contrato.sheet_duplicated' => 'Duplicou folha no contrato #' . $contractId . '.',
+            'contrato.sheet_created' => 'Adicionou nova nota ao pedido #' . $contractId . '.',
+            'contrato.sheet_duplicated' => 'Duplicou nota no pedido #' . $contractId . '.',
         ] as $action => $details) {
             $this->assertSame('contrato', $items[$action]['resource_type']);
             $this->assertSame($contractId, $items[$action]['resource_id']);

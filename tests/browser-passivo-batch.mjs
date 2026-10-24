@@ -246,6 +246,8 @@ try {
     };
     await fill('#titulo','Pedido criado no navegador');
     await fill('#valor','1000,00');
+    await page.click('[data-pedido-next]');
+    check(await page.evaluate(`document.querySelector('[data-pedido-step="1"]').hidden`),false,'Authenticated order opens the product step after its data');
     await fillProduct(builderProduct(0,0),'Produto removido','UN');
     await page.click(`${builderSheet(0)} [data-add-product]`);
     await fillProduct(builderProduct(0,1),'Nota removida','K');
@@ -267,7 +269,9 @@ try {
         ['folhas[1][produtos][0][nome]','Produto em unidades'],['folhas[1][produtos][0][unidade]','UN'],
         ['folhas[2][produtos][0][nome]','Produto em quilos'],['folhas[2][produtos][0][unidade]','K'],
     ], 'Authenticated creation reindexes removed notes and products before submission');
-    await page.click('[data-contract-builder] ~ button[type="submit"]');
+    await page.click('[data-pedido-next]');
+    check(await page.evaluate(`document.querySelector('[data-pedido-step="2"]').hidden`),false,'Authenticated order offers a final review before saving');
+    await page.click('[data-contract-create-submit]');
     await page.until(`location.pathname==='/contrato/detalhes/2' && document.querySelectorAll('[role="tabpanel"]').length===3`);
     check(await page.evaluate(`[...document.querySelectorAll('[role="tabpanel"] .contract-unit-badge')].map(unit=>unit.textContent.trim())`), ['Litros','UN','K'], 'Authenticated PHP creation persists the three submitted product units');
     await shot('contrato-cadastro-tres-notas-1366');

@@ -26,26 +26,26 @@ final class AuditPresentation
         'class.series_configured' => 'Turma - Configurar Série',
         'class.status_change_blocked' => 'Alterar Situação da Turma',
         'class.updated' => 'Editar Turma',
-        'contrato.additive_sheet_created' => 'Contrato - Cadastrar Aditivo',
-        'contrato.created' => 'Contrato - Cadastrar',
-        'contrato.deleted' => 'Contrato - Excluir',
-        'contrato.item_created' => 'Contrato - Cadastrar Produto',
-        'contrato.item_updated' => 'Contrato - Editar Produto',
-        'contrato.legacy_contract_reconciled' => 'Contrato - Conciliar Valor',
-        'contrato.legacy_item_reconciled' => 'Contrato - Conciliar Produto',
+        'contrato.additive_sheet_created' => 'Pedido - Cadastrar Aditivo',
+        'contrato.created' => 'Pedido - Cadastrar',
+        'contrato.deleted' => 'Pedido - Excluir',
+        'contrato.item_created' => 'Pedido - Cadastrar Produto',
+        'contrato.item_updated' => 'Pedido - Editar Produto',
+        'contrato.legacy_contract_reconciled' => 'Pedido - Conciliar Valor',
+        'contrato.legacy_item_reconciled' => 'Pedido - Conciliar Produto',
         'contrato.old_opening_recovered' => 'Estoque - Conferir Abertura',
         'contrato.old_zero_opening_confirmed' => 'Estoque - Confirmar Abertura Zerada',
-        'contrato.sheet_billed' => 'Contrato - Editar Folha',
-        'contrato.sheet_created' => 'Contrato - Cadastrar Folha',
-        'contrato.sheet_duplicated' => 'Contrato - Cadastrar Folha',
-        'contrato.sheet_updated' => 'Contrato - Editar Folha',
+        'contrato.sheet_billed' => 'Pedido - Editar Nota',
+        'contrato.sheet_created' => 'Pedido - Cadastrar Nota',
+        'contrato.sheet_duplicated' => 'Pedido - Cadastrar Nota',
+        'contrato.sheet_updated' => 'Pedido - Editar Nota',
         'contrato.stock_configured' => 'Estoque - Configurar Alertas',
         'contrato.stock_entrada' => 'Estoque - Recebimento',
         'contrato.stock_estorno' => 'Estoque - Estornar',
         'contrato.stock_opened' => 'Estoque - Confirmar Quantidade Inicial',
         'contrato.stock_saida' => 'Estoque - Consumo',
         'contrato.sheet_received' => 'Estoque - Recebimento da Nota',
-        'contrato.updated' => 'Contrato - Editar',
+        'contrato.updated' => 'Pedido - Editar',
         'dva.created' => 'Cadastrar DVA',
         'dva.renewed' => 'Renovar DVA',
         'fornecedor.created' => 'Certidao - Cadastrar Opcao',
@@ -67,6 +67,7 @@ final class AuditPresentation
         'passive.import_previewed' => 'Passivo - Conferir Importação',
         'passive.reactivated' => 'Passivo - Restaurar',
         'passive.student_archived' => 'Passivo - Arquivar Aluno',
+        'passive.student_returned' => 'Passivo - Retorno à Escola',
         'passive.updated' => 'Passivo - Editar',
         'password.changed' => 'Usuario - Alterar Senha',
         'password.rehashed' => 'Usuario - Atualizar Proteção da Senha',
@@ -83,6 +84,8 @@ final class AuditPresentation
         'student.progressed' => 'Progredir Aluno',
         'student.reactivated' => 'Reativar Aluno',
         'student.regressed' => 'Regredir Aluno',
+        'student.transferred' => 'Transferir Aluno',
+        'student.returned_from_passive' => 'Retornar Aluno à Escola',
         'student.senior_class_closed' => 'Turma - Conferir 3º Ano',
         'student.senior_reviewed' => 'Alunos - Conferir 3º Ano',
         'student.status_failed' => 'Alterar Situação do Aluno',
@@ -109,14 +112,14 @@ final class AuditPresentation
         'backup' => 'Cópia de segurança',
         'certidao' => 'Certidão',
         'class' => 'Turma',
-        'contrato' => 'Contrato',
+        'contrato' => 'Pedido',
         'dva' => 'DVA',
-        'folha' => 'Folha do contrato',
+        'folha' => 'Nota do pedido',
         'fornecedor' => 'Fornecedor',
         'passive_box' => 'Caixa do Arquivo Passivo',
         'passive_import' => 'Importação do Arquivo Passivo',
         'passive_record' => 'Registro do Arquivo Passivo',
-        'produto' => 'Item do contrato',
+        'produto' => 'Item do pedido',
         'relatorio' => 'Relatório de alunos e DVA',
         'student' => 'Aluno',
         'student_import' => 'Importação de alunos',
@@ -126,7 +129,7 @@ final class AuditPresentation
     ];
 
     /** @var array<string,string> */
-    private const CONTRACT_DESCRIPTIONS = [
+    private const LEGACY_CONTRACT_DESCRIPTIONS = [
         'additive_sheet_created' => 'Nota de aditivo cadastrada no contrato.',
         'created' => 'Contrato cadastrado.',
         'deleted' => 'Registro excluído no módulo de contratos.',
@@ -145,6 +148,21 @@ final class AuditPresentation
         'sheet_received' => 'Recebimento dos produtos da nota registrado no estoque.',
         'updated' => 'Contrato atualizado.',
     ];
+
+    /** @var array<string,string> Textos atuais; as frases antigas acima continuam reconhecidas. */
+    private const CONTRACT_DESCRIPTIONS = [
+        'additive_sheet_created' => 'Nota de aditivo cadastrada no pedido.',
+        'created' => 'Pedido cadastrado.',
+        'deleted' => 'Registro excluído no módulo de pedidos.',
+        'item_created' => 'Item cadastrado no pedido.',
+        'item_updated' => 'Item do pedido atualizado.',
+        'legacy_contract_reconciled' => 'Valor de pedido antigo conciliado.',
+        'legacy_item_reconciled' => 'Item de pedido antigo conciliado.',
+        'sheet_created' => 'Nota criada no pedido.',
+        'sheet_duplicated' => 'Nota do pedido duplicada.',
+        'sheet_updated' => 'Nota do pedido atualizada.',
+        'updated' => 'Pedido atualizado.',
+    ] + self::LEGACY_CONTRACT_DESCRIPTIONS;
 
     /** @var array<string,list<string>> */
     private const GENERIC_DESCRIPTIONS = [
@@ -204,8 +222,8 @@ final class AuditPresentation
 
         if ($action === 'contrato.deleted') {
             $label = match (self::text($item, 'resource_type')) {
-                'folha' => 'Contrato - Excluir Folha',
-                'produto' => 'Contrato - Excluir Produto',
+                'folha' => 'Pedido - Excluir Nota',
+                'produto' => 'Pedido - Excluir Produto',
                 default => $label,
             };
         }
@@ -263,7 +281,8 @@ final class AuditPresentation
         // Traduz somente formatos conhecidos, sem substituir palavras em texto livre.
         if (str_starts_with($action, 'contrato.')) {
             $operation = substr($action, strlen('contrato.'));
-            if ($description === 'Módulo 5: ' . $operation && isset(self::CONTRACT_DESCRIPTIONS[$operation])) {
+            if (isset(self::CONTRACT_DESCRIPTIONS[$operation])
+                && in_array($description, ['Módulo 5: ' . $operation, self::LEGACY_CONTRACT_DESCRIPTIONS[$operation]], true)) {
                 return self::CONTRACT_DESCRIPTIONS[$operation];
             }
         }
@@ -406,22 +425,22 @@ final class AuditPresentation
         }
 
         return match ($action) {
-            'contrato.created' => $name !== '' ? "Novo contrato '" . $name . "' cadastrado." : 'Novo contrato cadastrado: ' . $resource . '.',
-            'contrato.updated' => 'Contrato' . ($id !== '' ? ' #' . $id : '') . ($name !== '' ? " atualizado para '" . $name . "'." : ' atualizado.'),
+            'contrato.created' => $name !== '' ? "Novo pedido '" . $name . "' cadastrado." : 'Novo pedido cadastrado: ' . $resource . '.',
+            'contrato.updated' => 'Pedido' . ($id !== '' ? ' #' . $id : '') . ($name !== '' ? " atualizado para '" . $name . "'." : ' atualizado.'),
             'contrato.deleted' => self::deletedContractDetails($item),
-            'contrato.sheet_created' => $parent !== '' ? 'Adicionou nova folha ao contrato #' . $parent . '.' : 'Cadastrou folha: ' . self::contractResourceDetails($item) . '.',
-            'contrato.sheet_duplicated' => $parent !== '' ? 'Duplicou folha no contrato #' . $parent . '.' : 'Duplicou folha: ' . self::contractResourceDetails($item) . '.',
+            'contrato.sheet_created' => $parent !== '' ? 'Adicionou nova nota ao pedido #' . $parent . '.' : 'Cadastrou nota: ' . self::contractResourceDetails($item) . '.',
+            'contrato.sheet_duplicated' => $parent !== '' ? 'Duplicou nota no pedido #' . $parent . '.' : 'Duplicou nota: ' . self::contractResourceDetails($item) . '.',
             'contrato.sheet_updated' => $number !== '' && $parent !== ''
-                ? 'Atualizou observacoes da folha ' . $number . ' do contrato #' . $parent . '.'
-                : 'Editou folha: ' . self::contractResourceDetails($item) . '.',
+                ? 'Atualizou observações da nota ' . $number . ' do pedido #' . $parent . '.'
+                : 'Editou nota: ' . self::contractResourceDetails($item) . '.',
             'contrato.sheet_billed' => $number !== '' && $parent !== ''
-                ? 'Atualizou faturamento da folha ' . $number . ' do contrato #' . $parent . '.'
-                : 'Atualizou faturamento da folha: ' . self::contractResourceDetails($item) . '.',
+                ? 'Atualizou faturamento da nota ' . $number . ' do pedido #' . $parent . '.'
+                : 'Atualizou faturamento da nota: ' . self::contractResourceDetails($item) . '.',
             'contrato.item_created' => $name !== '' && $number !== '' && $parent !== ''
-                ? "Adicionou produto '" . $name . "' na folha " . $number . ' do contrato #' . $parent . '.'
+                ? "Adicionou produto '" . $name . "' na nota " . $number . ' do pedido #' . $parent . '.'
                 : 'Cadastrou produto: ' . self::contractResourceDetails($item) . '.',
             'contrato.item_updated' => $id !== '' && $parent !== ''
-                ? 'Atualizou produto ID ' . $id . ' no contrato #' . $parent . '.'
+                ? 'Atualizou produto ID ' . $id . ' no pedido #' . $parent . '.'
                 : 'Editou produto: ' . self::contractResourceDetails($item) . '.',
             default => '',
         };
@@ -436,13 +455,13 @@ final class AuditPresentation
         $number = self::text($item, 'resource_number');
         $type = self::text($item, 'resource_type');
         if ($type === 'contrato' && $id !== '' && $name !== '') {
-            return 'Contrato #' . $id . " ('" . $name . "') excluido.";
+            return 'Pedido #' . $id . " ('" . $name . "') excluído.";
         }
         if ($type === 'folha' && $number !== '' && $parent !== '') {
-            return 'Excluiu a folha ' . $number . ' do contrato #' . $parent . '.';
+            return 'Excluiu a nota ' . $number . ' do pedido #' . $parent . '.';
         }
         if ($type === 'produto' && $name !== '' && $id !== '' && $parent !== '') {
-            return "Excluiu produto '" . $name . "' (ID " . $id . ') do contrato #' . $parent . '.';
+            return "Excluiu produto '" . $name . "' (ID " . $id . ') do pedido #' . $parent . '.';
         }
         return 'Excluiu: ' . self::resourceLabel($type) . ' ' . self::contractResourceDetails($item) . '.';
     }
@@ -467,7 +486,7 @@ final class AuditPresentation
         if ($number !== '') {
             $details .= '; número: ' . $number;
         }
-        return $details . ($parent !== '' ? '; contrato #' . $parent : '');
+        return $details . ($parent !== '' ? '; pedido #' . $parent : '');
     }
 
     /** @param array<string,mixed> $item */
@@ -498,7 +517,7 @@ final class AuditPresentation
         if (str_starts_with($action, 'contrato.')) {
             $operation = substr($action, strlen('contrato.'));
             return isset(self::CONTRACT_DESCRIPTIONS[$operation])
-                && in_array($description, ['Módulo 5: ' . $operation, self::CONTRACT_DESCRIPTIONS[$operation]], true);
+                && in_array($description, ['Módulo 5: ' . $operation, self::LEGACY_CONTRACT_DESCRIPTIONS[$operation], self::CONTRACT_DESCRIPTIONS[$operation]], true);
         }
         return (str_starts_with($action, 'certidao.') || str_starts_with($action, 'fornecedor.') || str_starts_with($action, 'tipo.'))
             && $description === 'Operação de certidões e fornecedores.';

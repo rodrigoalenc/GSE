@@ -168,7 +168,7 @@ final class DataProtectionTest extends DatabaseTestCase
         $this->assertSame(3,(new \LoginThrottle($this->pdo))->status('migration@example.test','127.0.0.1')['account_failures']);
         $row = \DataProtection::user($this->pdo->query('SELECT * FROM usuarios WHERE id=41')->fetch());
         $this->assertSame('Sintetico Migrado',$row['nome']); $this->assertSame('legacy-preserved',$row['senha']);
-        $this->assertSame(21,(int)$this->pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(22,(int)$this->pdo->query('PRAGMA user_version')->fetchColumn());
         \src\Core\DatabaseInitializer::initialize($this->pdo);
         $this->assertSame('ok',$this->pdo->query('PRAGMA integrity_check')->fetchColumn());
         $this->assertTrue(!str_contains((string)file_get_contents(\src\Core\Database::resolvePath()),'Sintetico Migrado'));

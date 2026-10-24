@@ -37,6 +37,9 @@
             "node tests/browser-alunos-movimentacao.mjs",
             "node tests/browser-password-security.mjs",
             "node tests/browser-contract-tabs.mjs",
+            "node tests/browser-pedidos-usabilidade.mjs",
+            "node tests/browser-usabilidade.mjs",
+            "node tests/browser-ui-accessibility.mjs",
             "node tests/browser-passivo-batch.mjs",
             "node tests/browser-report-downloads.mjs"
         ],

@@ -136,7 +136,7 @@ final class LegacyStockRecoveryTest extends DatabaseTestCase
     public static function unavailableLinkData(): array
     {
         return [
-            ["UPDATE pedidos SET excluido_em='2026-01-01'",'Contrato excluído'],
+            ["UPDATE pedidos SET excluido_em='2026-01-01'",'Pedido excluído'],
             ["UPDATE pedido_produtos SET excluido_em='2026-01-01'",'Estoque alterado'],
             ["UPDATE pedido_paginas SET excluido_em='2026-01-01'",'nota ativa'],
             ['UPDATE pedido_produtos SET numero_pagina=42','nota ativa'],

@@ -29,6 +29,11 @@ if ((int) $record['ativo'] === 1) {
 </section>
 
 <section class="relatorio passivo-admin-panel">
+    <?php if ($canRestore && (int) $record['ativo'] === 1 && $record['aluno_origem_id'] !== null): ?>
+    <h2>Retorno do aluno à escola</h2>
+    <p>Escolha a turma e confira antes de confirmar. O cadastro do aluno será reativado e o vínculo ativo neste arquivo será encerrado, preservando os dados e o histórico.</p>
+    <a class="btn-primary" href="<?= e(url('passivo/retornar/' . (int) $record['id'])) ?>">Retornar aluno à escola</a>
+    <?php endif; ?>
     <h2>Situação do registro</h2>
     <p>A exclusão retira o registro das consultas e contagens do acervo ativo. Seus dados, vínculos e histórico ficam preservados. Um administrador pode restaurá-lo.</p>
     <?php if ((int) $record['ativo'] === 1 || $canRestore): ?>

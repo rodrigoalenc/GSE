@@ -48,7 +48,7 @@ final class MovimentacaoMigrationTest extends DatabaseTestCase
         foreach (['turmas_series', 'alunos_conferencias', 'alunos_movimentacao_lotes', 'alunos_movimentacoes', 'alunos_encerramento_turmas', 'turmas_progressao_destinos', 'alunos_progressao_anos'] as $table) {
             $this->assertSame(0, (int) $pdo->query('SELECT COUNT(*) FROM ' . $table)->fetchColumn());
         }
-        $this->assertSame(21, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(22, (int) $pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertEmpty($pdo->query('PRAGMA foreign_key_check')->fetchAll());
     }
 

@@ -1,0 +1,31 @@
+.pedido-step { border: 0; margin: 0; padding: 0; min-width: 0; }
+.pedido-step[hidden], .pedido-step-actions [hidden], [data-pedido-controls][hidden], [data-pedido-progress][hidden] { display: none !important; }
+.pedido-step legend { float: none; width: auto; margin: 0 0 1rem; font-size: 1.2rem; font-weight: 700; color: inherit; }
+.pedido-step legend:focus { outline: 3px solid #2267b5; outline-offset: 5px; }
+.pedido-step > .mb-3 > label { display: block; margin-bottom: 5px; font-weight: 650; }
+.pedido-step > .mb-3 > input, .pedido-step > .mb-3 > select { min-height: 42px; border-radius: 7px; }
+.pedido-step-nav { margin-bottom: 1rem; }
+.pedido-step-nav ol { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; margin: 0; padding: 0; }
+.pedido-step-nav li { padding: .6rem .85rem; border: 1px solid #b6c4d3; border-radius: .5rem; background: #f6f8fb; color: #334155; }
+.pedido-step-nav [aria-current="step"] { border-color: #1b5790; background: #e4effb; color: #143f69; font-weight: 700; }
+.pedido-step-nav .is-complete { border-color: #6d9d88; }
+.pedido-step-status { margin-bottom: 1rem; color: #475569; }
+.pedido-step-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.25rem 0; }
+.pedido-step-actions button { min-height: 44px; }
+.pedido-review { max-width: 100%; overflow-wrap: anywhere; }
+.pedido-review dl { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(0, 3fr); gap: .5rem 1rem; }
+.pedido-review dt { font-weight: 700; }
+.pedido-review dd { margin: 0; }
+.pedido-review-note { border: 1px solid #cbd5e1; border-radius: .5rem; margin: 1rem 0; padding: 1rem; }
+.pedido-review-note h3 { font-size: 1.1rem; }
+.pedido-review-note ul { padding-left: 1.25rem; }
+.pedido-review-note li { margin-bottom: .6rem; }
+.pedido-review-total { font-weight: 700; }
+@media (max-width: 600px) {
+    .pedido-step-nav ol { display: grid; }
+    .pedido-step-nav li { min-width: 0; }
+    .pedido-review dl { grid-template-columns: minmax(0, 1fr); gap: .25rem; }
+    .pedido-review dd { margin-bottom: .65rem; }
+    [data-pedido-wizard] .modulo5-builder-product { grid-template-columns: minmax(0, 1fr); }
+    [data-pedido-wizard] input, [data-pedido-wizard] select, [data-pedido-wizard] textarea { max-width: 100%; min-width: 0; box-sizing: border-box; }
+}
