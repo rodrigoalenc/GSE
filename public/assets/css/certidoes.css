@@ -717,6 +717,11 @@
 .cert-form-footer { flex-wrap:wrap; margin-top:35px; gap:30px; border-top-color:#eee; }
 .cert-form-footer .btn-primary { padding:10px 20px; border:0; font-family:Arial,sans-serif; font-size:13.333px; font-weight:600; line-height:normal; }
 .cert-form-footer a { display:inline-flex; align-items:center; gap:6px; padding:10px; color:#69788c; font-size:.9rem; font-weight:600; }
+.cert-conflict-review .table-scroll { max-width:100%; overflow-x:auto; }
+.cert-conflict-review table { min-width:420px; table-layout:fixed; }
+.cert-conflict-review th:first-child { width:25%; }
+.cert-conflict-review td { white-space:pre-wrap; }
+.cert-conflict-review label { margin-top:16px; line-height:1.5; }
 .cert-upload-help { margin:14px 0 -10px; color:#69788c; font-size:.75rem; }
 .cert-upload-help summary { cursor:pointer; }
 .cert-upload-help p { margin:8px 0; }

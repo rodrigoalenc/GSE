@@ -998,6 +998,8 @@ try {
     require __DIR__ . '/http-student-movement-edit.php';
     require __DIR__ . '/http-school-links.php';
     require __DIR__ . '/http-usabilidade.php';
+    require __DIR__ . '/http-certidao-edit-review.php';
+    require __DIR__ . '/http-report-class-years.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');
     $adminDashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);

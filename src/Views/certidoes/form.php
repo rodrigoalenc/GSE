@@ -1,4 +1,5 @@
 <section class="cert-panel cert-form-panel">
+    <?php $fieldErrors = []; require __DIR__ . '/../partials/form-errors.php'; ?>
     <?php if ($mode === 'renovar'): ?><p class="info-message">Renovação da <a href="<?= e(url('certidao/detalhes/' . (int) $record['id'])) ?>"><?= e($record['tipo_certidao']) ?> de <?= e($record['fornecedor']) ?></a>. A anterior e seu PDF, quando houver, serão preservados no arquivo.</p><?php endif; ?>
     <?php if ($mode === 'editar'): ?><p>Esta tela corrige dados cadastrais e mantém o PDF, quando houver. <?php if ($record['estado'] === 'corrente'): ?>Para registrar um novo documento, utilize <a href="<?= e(url('certidao/renovar/' . (int) $record['id'])) ?>">Renovar</a>.<?php else: ?>Para registrar um novo documento, desarquive a certidão e depois utilize a renovação.<?php endif; ?></p><?php endif; ?>
     <form method="post" enctype="multipart/form-data" action="<?= e(url($path)) ?>" class="cert-form">
@@ -8,6 +9,33 @@
         </div><?php endif; ?>
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="revisao" value="<?= e((string) ($data['revisao'] ?? '')) ?>">
+        <?php if (!empty($conflictReview)): ?>
+            <section class="conflict-review cert-conflict-review" data-conflict-review data-source-revision="<?= e($conflictReview['sourceRevision']) ?>" aria-labelledby="cert-conflict-title">
+                <h2 id="cert-conflict-title">Confira as duas versões da certidão</h2>
+                <p>Nenhuma alteração desta tentativa foi salva. Seu preenchimento foi preservado nos campos abaixo. Compare com os dados atuais e revise o que deseja salvar.</p>
+                <div class="table-scroll"><table><thead><tr><th>Campo</th><th>Dados atuais</th><th>Sua tentativa</th></tr></thead><tbody>
+                    <?php foreach (['id_fornecedor' => 'Fornecedor', 'id_tipo_certidao' => 'Tipo de certidão', 'data_emissao' => 'Emissão', 'data_vencimento' => 'Vencimento', 'observacao' => 'Observação'] as $field => $label): ?>
+                    <tr><th scope="row"><?= e($label) ?></th>
+                        <?php foreach (['current', 'attempt'] as $version): ?>
+                        <?php
+                        $value = (string) ($conflictReview[$version][$field] ?? '');
+                        if (in_array($field, ['id_fornecedor', 'id_tipo_certidao'], true)) {
+                            $options = $field === 'id_fornecedor' ? $fornecedores : $tipos;
+                            $matches = array_values(array_filter($options, static fn (array $option): bool => (string) $option['id'] === $value));
+                            $value = (string) ($matches[0]['nome'] ?? 'Opção indisponível');
+                        } elseif (in_array($field, ['data_emissao', 'data_vencimento'], true)) {
+                            $value = UiPresentation::civilDate($value);
+                        }
+                        ?>
+                        <td><?= e($value) ?></td>
+                        <?php endforeach; ?>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody></table></div>
+                <input type="hidden" name="_conflict_token" value="<?= e($conflictReview['token']) ?>">
+                <label><input type="checkbox" name="confirmar_revisao" value="1" required> Conferi os dados atuais e revisei o preenchimento que desejo salvar.</label>
+            </section>
+        <?php endif; ?>
         <div class="cert-form-grid">
             <?php foreach (['id_fornecedor' => ['Fornecedor', $fornecedores], 'id_tipo_certidao' => ['Tipo de Certidão', $tipos]] as $field => [$label, $options]): ?>
                 <div><label for="<?= e($field) ?>"><?= e($label) ?>:</label><select id="<?= e($field) ?>" name="<?= e($field) ?>" required>

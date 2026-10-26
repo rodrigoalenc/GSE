@@ -249,6 +249,40 @@ try {
     check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Certificate preview/download actions fit mobile');
     await page.navigate(base+'/certidao/editar/1');
     check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Existing PDF actions fit the mobile edit form');
+
+    // Two real forms must recover from a concurrent edit without the draft script
+    // putting the original, stale revision back into the confirmation submission.
+    const oldCertificateRevision = await page.evaluate('document.querySelector("[name=revisao]").value');
+    const colleague = await browser.newPage();
+    await colleague.navigate(base+'/certidao/editar/1');
+    await colleague.click('#observacao');
+    await colleague.command('Input.insertText',{text:'Versão concorrente do navegador'});
+    await colleague.click('.cert-form button[type="submit"]');
+    await colleague.until(`location.pathname==='/certidao/detalhes/1' && document.readyState==='complete'`);
+    await browser.command('Target.closeTarget',{targetId:colleague.targetId});
+    await page.click('#observacao');
+    await page.command('Input.insertText',{text:'Minha tentativa conferida no navegador'});
+    await page.click('.cert-form button[type="submit"]');
+    await page.until(`document.readyState==='complete' && !!document.querySelector('[data-conflict-review]')`);
+    check(await page.evaluate(`(() => {const text=document.querySelector('[data-conflict-review]').textContent;
+        return text.includes('Versão concorrente do navegador') && text.includes('Minha tentativa conferida no navegador');})()`),true,'Concurrent certificate edit compares both actual form submissions');
+    check(await page.evaluate('Number(document.querySelector("[name=revisao]").value)>Number('+JSON.stringify(oldCertificateRevision)+')'),true,'Comparison presents the current certificate revision');
+    check(await page.evaluate('document.querySelector(".cert-form").checkValidity()'),false,'Certificate comparison requires explicit confirmation');
+    for (const [width,height] of [[1366,900],[390,844]]) {
+        await page.command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        await page.until('innerWidth<=768 || document.querySelector(".sidebar").getBoundingClientRect().width<=270');
+        await page.evaluate('new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))');
+        check(await page.evaluate('document.documentElement.scrollWidth<=innerWidth'),true,`Certificate comparison fits ${width}x${height}`);
+        if (process.env.GSE_BROWSER_EVIDENCE_DIR) {
+            await page.evaluate(`document.querySelector('[data-conflict-review]').scrollIntoView({block:'start'})`);
+            const {data} = await page.command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+            await writeFile(join(process.env.GSE_BROWSER_EVIDENCE_DIR,`certificate-conflict-${width}.png`),Buffer.from(data,'base64'));
+        }
+    }
+    await page.click('[name="confirmar_revisao"]');
+    await page.click('.cert-form button[type="submit"]');
+    await page.until(`location.pathname==='/certidao/detalhes/1' && document.readyState==='complete'`);
+    check(await page.evaluate('document.body.textContent.includes("Minha tentativa conferida no navegador")'),true,'Confirmed comparison saves with JavaScript and session drafts enabled');
     await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
     await page.navigate(base+'/certidao/cadastrar');
     await page.command('DOM.setFileInputFiles',{files:[join(temporary,'preview.pdf')],backendNodeId:(await page.command('DOM.describeNode',{

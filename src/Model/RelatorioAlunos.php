@@ -21,7 +21,7 @@ final class RelatorioAlunos extends Model
     }
 
     /** @param array<string,mixed> $input
-     *  @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int,filters:array<string,string>} */
+     *  @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int,filters:array<string,string>,class_filter_label:string} */
     public function query(array $input, int $page = 1, bool $all = false): array
     {
         foreach (['turma','dva','ativo'] as $key) {
@@ -33,9 +33,12 @@ final class RelatorioAlunos extends Model
         if ($class !== '' && (filter_var($class,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) === false)) { throw new DomainException('Turma inválida.'); }
         if ($dva !== '' && !in_array($dva,DvaStatus::ALL,true)) { throw new DomainException('Situação da DVA inválida.'); }
         if (!in_array($active,['0','1','todos'],true)) { throw new DomainException('Situação do aluno inválida.'); }
+        $classFilterLabel='Todas';
         if ($class !== '') {
-            $verify=self::$pdo->prepare('SELECT 1 FROM turmas WHERE id=?'); $verify->execute([$class]);
-            if (!$verify->fetchColumn()) { throw new DomainException('Turma não encontrada.'); }
+            $verify=self::$pdo->prepare('SELECT nome_turma,ano_letivo FROM turmas WHERE id=?'); $verify->execute([$class]);
+            $selectedClass=$verify->fetch();
+            if ($selectedClass===false) { throw new DomainException('Turma não encontrada.'); }
+            $classFilterLabel=self::classLabel($selectedClass['nome_turma'],$selectedClass['ano_letivo']);
         }
         $where=[]; $params=[];
         if ($class !== '') { $where[]='a.id_turma=:class'; $params['class']=$class; }
@@ -61,7 +64,13 @@ final class RelatorioAlunos extends Model
             }
         }
         unset($item);
-        return ['items'=>$items,'total'=>$total,'page'=>$page,'pages'=>$pages,'filters'=>['turma'=>$class,'dva'=>$dva,'ativo'=>$active]];
+        return ['items'=>$items,'total'=>$total,'page'=>$page,'pages'=>$pages,'filters'=>['turma'=>$class,'dva'=>$dva,'ativo'=>$active],'class_filter_label'=>$classFilterLabel];
+    }
+
+    public static function classLabel(?string $name, int|string|null $year): string
+    {
+        if ($name===null) { return 'Sem turma'; }
+        return $name.' — '.($year===null || $year==='' ? 'Ano não informado' : (string)$year);
     }
 
     public static function csvCell(?string $value): string

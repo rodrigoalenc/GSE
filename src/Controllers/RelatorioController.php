@@ -43,12 +43,12 @@ final class RelatorioController extends Controller
             if ($stream===false) { throw new RuntimeException('Saída CSV indisponível.'); }
             fwrite($stream,"\xEF\xBB\xBF");
             fputcsv($stream,['Relatório de alunos e DVA','Gerado em '.$now->format('d/m/Y H:i')],';','"','');
-            fputcsv($stream,['Turma',$result['filters']['turma'] ?: 'Todas','DVA',$result['filters']['dva'] ?: 'Todas','Alunos',$result['filters']['ativo']],';','"','');
+            fputcsv($stream,['Turma',RelatorioAlunos::csvCell($result['class_filter_label']),'DVA',$result['filters']['dva'] ?: 'Todas','Alunos',$result['filters']['ativo']],';','"','');
             fputcsv($stream,['Total de resultados',$result['total']],';','"','');
             fputcsv($stream,[], ';','"','');
             fputcsv($stream,['Aluno','Turma','Nascimento','Vencimento DVA','Situação DVA','Situação aluno'],';','"','');
             foreach ($result['items'] as $row) {
-                fputcsv($stream,[RelatorioAlunos::csvCell($row['nome_completo']),RelatorioAlunos::csvCell($row['nome_turma'] ?? ''),RelatorioAlunos::displayDate($row['data_nascimento']),RelatorioAlunos::displayDate($row['data_vencimento']),DvaStatus::label($row['dva_status']),$row['ativo'] ? 'Ativo' : 'Inativo'],';','"','');
+                fputcsv($stream,[RelatorioAlunos::csvCell($row['nome_completo']),RelatorioAlunos::csvCell(RelatorioAlunos::classLabel($row['nome_turma'],$row['ano_letivo'])),RelatorioAlunos::displayDate($row['data_nascimento']),RelatorioAlunos::displayDate($row['data_vencimento']),DvaStatus::label($row['dva_status']),$row['ativo'] ? 'Ativo' : 'Inativo'],';','"','');
             }
             fclose($stream); return;
         }
@@ -75,11 +75,11 @@ final class RelatorioController extends Controller
         }
         $now=new DateTimeImmutable('now',new DateTimeZone(Config::string('APP_TIMEZONE','America/Cuiaba')));
         $html.='<p>Gerado em '.$now->format('d/m/Y H:i').' · '.$result['total'].' resultado(s). Dados do momento da geração.</p>';
-        $html.='<p>Filtros: turma '.$escape($result['filters']['turma'] ?: 'todas').' · Situação da DVA: '.$escape($result['filters']['dva'] === '' ? 'Todas' : DvaStatus::label($result['filters']['dva'])).' · alunos '.$escape(match ($result['filters']['ativo']) { '1' => 'Ativos', '0' => 'Inativos', default => 'Todos' }).'</p>';
+        $html.='<p>Filtros: turma '.$escape($result['class_filter_label']).' · Situação da DVA: '.$escape($result['filters']['dva'] === '' ? 'Todas' : DvaStatus::label($result['filters']['dva'])).' · alunos '.$escape(match ($result['filters']['ativo']) { '1' => 'Ativos', '0' => 'Inativos', default => 'Todos' }).'</p>';
         $html.='<table><thead><tr><th>Aluno</th><th>Turma</th><th>Nascimento</th><th>Vencimento</th><th>DVA</th></tr></thead><tbody>';
         foreach ($result['items'] as $row) {
             $statusClass = $row['dva_status'] === DvaStatus::VENCIDA ? ' class="dva-expired"' : '';
-            $html.='<tr><td>'.$escape($row['nome_completo']).'</td><td>'.$escape($row['nome_turma'] ?? 'Sem turma').'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_nascimento'])).'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_vencimento'])).'</td><td'.$statusClass.'>'.$escape(DvaStatus::label($row['dva_status'])).'</td></tr>';
+            $html.='<tr><td>'.$escape($row['nome_completo']).'</td><td>'.$escape(RelatorioAlunos::classLabel($row['nome_turma'],$row['ano_letivo'])).'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_nascimento'])).'</td><td>'.$escape(RelatorioAlunos::displayDate($row['data_vencimento'])).'</td><td'.$statusClass.'>'.$escape(DvaStatus::label($row['dva_status'])).'</td></tr>';
         }
         return $html.'</tbody></table></body></html>';
     }

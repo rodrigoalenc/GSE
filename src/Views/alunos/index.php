@@ -1,5 +1,8 @@
 <?php
 $queryBase = array_filter($filters, static fn (string $value): bool => $value !== '');
+if ($filters['ativo'] === '') {
+    $queryBase['ativo'] = 'todos';
+}
 $canArchiveBatch = Auth::isAdmin();
 $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] ?? 0);
 ?>

@@ -35,25 +35,70 @@ final class CertidaoController extends Controller
         $path = 'certidao/' . $mode . ($id === null ? '' : '/' . $id);
         $state = $_SESSION['certidao_form'][$path] ?? null; unset($_SESSION['certidao_form'][$path]);
         $data = is_array($state) ? $state : ($record ?? []);
+        $conflictReview = null; $formErrors = [];
+        if ($mode === 'editar' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+            // A clean visit starts from the database, never from an earlier failed submission.
+            $data = $record;
+            unset($_SESSION['certidao_edit_reviews'][(int) $id]);
+        }
         if ($mode === 'renovar' && $state === null) { $data['data_emissao']=''; $data['data_vencimento']=''; $data['observacao']=''; }
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $data = [];
             foreach (['id_fornecedor','id_tipo_certidao','data_emissao','data_vencimento','observacao','revisao'] as $key) { $data[$key] = self::input($_POST,$key); }
+            $needsReview = false; $revision = false; $reviewRequired = false; $sourceRevision = '';
+            if ($mode === 'editar') {
+                $revision = filter_var($data['revisao'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                $reviewToken = self::input($_POST, '_conflict_token');
+                $draftSourceRevision = self::input($_POST, '_draft_source_revision');
+                $staleDraft = $reviewToken === '' && preg_match('/^[1-9][0-9]{0,10}$/D', $draftSourceRevision) === 1
+                    && $draftSourceRevision !== (string) $record['revisao'];
+                $pendingReview = $_SESSION['certidao_edit_reviews'][(int) $id] ?? null;
+                $reviewRequired = is_array($pendingReview) || $reviewToken !== '';
+                $reviewValid = is_array($pendingReview) && is_string($pendingReview['token'] ?? null)
+                    && hash_equals($pendingReview['token'], $reviewToken)
+                    && (int) ($pendingReview['expires'] ?? 0) >= time()
+                    && $revision !== false && $revision === (int) ($pendingReview['revision'] ?? 0)
+                    && self::input($_POST, 'confirmar_revisao') === '1';
+                $needsReview = $staleDraft || ($revision !== false && $revision !== (int) $record['revisao'])
+                    || ($reviewRequired && !$reviewValid);
+                $sourceRevision = is_array($pendingReview) ? (string) $pendingReview['sourceRevision']
+                    : ($staleDraft ? $draftSourceRevision : $data['revisao']);
+            }
             try {
                 if ($mode === 'editar') {
+                    if ($needsReview) { throw new DomainException('O registro mudou ou a conferência ainda não foi confirmada. Compare as duas versões antes de salvar.'); }
+                    if ($revision === false) { throw new DomainException('O formulário está sem revisão válida. Reabra a edição antes de salvar.'); }
                     if (isset($_FILES['arquivo_pdf']) && ($_FILES['arquivo_pdf']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) { throw new DomainException('Para enviar outro PDF, utilize a renovação.'); }
                     $model->updateMetadata(Certidao::id($id), $data, $this->actor()); $saved = Certidao::id($id);
+                    unset($_SESSION['certidao_edit_reviews'][(int) $id]);
                 } else {
                     $upload = is_array($_FILES['arquivo_pdf'] ?? null) ? $_FILES['arquivo_pdf'] : [];
                     $saved = $model->create($data, $upload, $this->actor(), $mode === 'renovar' ? Certidao::id($id) : null);
                 }
                 $this->redirectWithFlash('certidao/detalhes/' . $saved, 'success', 'Certidão salva com sucesso.');
             } catch (Throwable $e) {
-                $_SESSION['certidao_form'][$path] = $data;
-                $this->redirectWithFlash($path, 'danger', $this->safeError($e));
+                if ($mode !== 'editar') {
+                    $_SESSION['certidao_form'][$path] = $data;
+                    $this->redirectWithFlash($path, 'danger', $this->safeError($e));
+                }
+                $record = $this->record((string) $id);
+                // The transactional model may also discover a writer after our first read.
+                $needsReview = $needsReview || ($revision !== false && $revision !== (int) $record['revisao']) || $reviewRequired;
+                if ($needsReview) {
+                    $token = bin2hex(random_bytes(16));
+                    foreach ($_SESSION['certidao_edit_reviews'] ?? [] as $reviewId => $entry) {
+                        if (!is_array($entry) || (int) ($entry['expires'] ?? 0) < time()) { unset($_SESSION['certidao_edit_reviews'][$reviewId]); }
+                    }
+                    $_SESSION['certidao_edit_reviews'][(int) $id] = ['token' => $token, 'revision' => (int) $record['revisao'], 'sourceRevision' => $sourceRevision, 'expires' => time() + 1800];
+                    if (count($_SESSION['certidao_edit_reviews']) > 10) { unset($_SESSION['certidao_edit_reviews'][array_key_first($_SESSION['certidao_edit_reviews'])]); }
+                    $conflictReview = ['current' => $record, 'attempt' => $data, 'token' => $token, 'sourceRevision' => $sourceRevision];
+                    $data['revisao'] = (string) $record['revisao'];
+                }
+                $formErrors[] = $this->safeError($e);
+                http_response_code(422);
             }
         }
-        $this->view('certidoes/form', ['title'=>match($mode) {'editar'=>'Editar Certidão', 'renovar'=>'Renovar Certidão', default=>'Cadastrar Certidão'}, 'mode'=>$mode,'data'=>$data,'record'=>$record,'path'=>$path,'fornecedores'=>$model->options('fornecedor'),'tipos'=>$model->options('tipo')]);
+        $this->view('certidoes/form', ['title'=>match($mode) {'editar'=>'Editar Certidão', 'renovar'=>'Renovar Certidão', default=>'Cadastrar Certidão'}, 'mode'=>$mode,'data'=>$data,'record'=>$record,'path'=>$path,'fornecedores'=>$model->options('fornecedor'),'tipos'=>$model->options('tipo'),'conflictReview'=>$conflictReview,'formErrors'=>$formErrors]);
     }
 
     public function detalhes(string $id): void
