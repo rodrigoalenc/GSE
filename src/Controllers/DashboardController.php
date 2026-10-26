@@ -15,7 +15,6 @@ final class DashboardController extends Controller
         require_once ROOT_PATH . '/src/Model/Painel.php';
         require_once ROOT_PATH . '/src/Model/Aluno.php';
         require_once ROOT_PATH . '/src/Model/Turma.php';
-        require_once ROOT_PATH . '/src/Model/Passivo.php';
         $statusService = new DvaStatus();
         $painel = new Painel();
         $alunos = new Aluno();
@@ -42,8 +41,6 @@ final class DashboardController extends Controller
             'searchFilters' => $searchFilters,
             'searchResult' => $searchRequested ? $painel->buscarAlunos($searchFilters, (int) $page, 15, $statusService) : null,
             'turmasBusca' => (new Turma())->listar(),
-            'passivoResumo' => (new Passivo())->resumo(),
-            'estoquePendencias' => $painel->pendenciasEstoque(),
         ]);
     }
 }

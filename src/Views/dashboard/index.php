@@ -115,44 +115,6 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
         </section>
     <?php endif; ?>
 
-    <section id="dashboard-pending" class="dashboard-pending" aria-labelledby="dashboard-pending-title">
-        <h2 id="dashboard-pending-title">Pendências para acompanhar</h2>
-        <p>Abra uma lista para conferir os registros e realizar a próxima ação.</p>
-        <div class="dashboard-pending-grid">
-            <div class="dashboard-pending-group">
-                <h3>DVAs dos alunos ativos</h3>
-                <ul>
-                    <?php foreach (['sem_dva' => 'Alunos sem DVA', 'vencida' => 'DVAs vencidas', 'vence_hoje' => 'DVAs que vencem hoje', 'a_vencer' => 'DVAs a vencer'] as $status => $label):
-                        $key = $status === 'vencida' ? 'vencidas' : $status; ?>
-                        <li><a href="<?= e(url('dva?dva=' . $status)) ?>"><span><?= e($label) ?></span><strong><?= (int) $moduloDois[$key] ?></strong></a></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-            <div class="dashboard-pending-group">
-                <h3>Certidões correntes</h3>
-                <ul>
-                    <?php foreach (['vencida' => 'Certidões vencidas', 'vence_hoje' => 'Certidões que vencem hoje', 'a_vencer' => 'Certidões a vencer', 'pendente' => 'Certidões com data pendente'] as $status => $label): ?>
-                        <li><a href="<?= e(url('certidao?validade=' . $status)) ?>"><span><?= e($label) ?></span><strong><?= (int) ($certidoes[$status] ?? 0) ?></strong></a></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-            <div class="dashboard-pending-group">
-                <h3>Arquivo Passivo</h3>
-                <ul><li><a href="<?= e(url('passivo?ativo=1&localizacao=pendente')) ?>"><span>Registros ativos com localização pendente</span><strong><?= (int) $passivoResumo['pendentes'] ?></strong></a></li></ul>
-                <p>Informe caixa e número para localizar o documento no acervo.</p>
-            </div>
-            <div class="dashboard-pending-group">
-                <h3>Estoque</h3>
-                <ul>
-                    <?php foreach (['quantidade_inicial' => 'Informar quantidade inicial', 'conferencia' => 'Conferência administrativa necessária', 'sem_estoque' => 'Produtos sem estoque', 'estoque_baixo' => 'Produtos com estoque baixo'] as $state => $label): ?>
-                        <li><a href="<?= e(url('estoque')) ?>" data-stock-pending="<?= e($state) ?>"><span><?= e($label) ?></span><strong><?= (int) $estoquePendencias[$state] ?></strong></a></li>
-                    <?php endforeach; ?>
-                </ul>
-                <p>Os atalhos abrem a lista completa de estoque. Confira a situação e a ação indicada em cada produto.</p>
-            </div>
-        </div>
-    </section>
-
     <section class="dashboard-birthdays" aria-labelledby="dashboard-birthdays-title" data-dashboard-section>
         <h2 id="dashboard-birthdays-title">Aniversariantes de <?= e($nomesMeses[$mesAtual]) ?></h2>
         <?php if ($aniversariantesMes === []): ?>

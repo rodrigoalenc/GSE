@@ -209,13 +209,9 @@ final class DashboardUsabilidadeTest extends DatabaseTestCase
         $this->assertSame('"><img src=x onerror=alert(1)>', $xss->evaluate('string(//*[@id="dashboard-search-input"]/@value)'));
     }
 
-    public function testPendenciasDirecionamAsListasComContagensDeRegistrosCorrentes(): void
+    public function testAlertaDeCertidoesDirecionaAoFiltroDeVencimento(): void
     {
         $actor = $this->authenticate();
-        $class = $this->insertTurma();
-        $this->student('Sem DVA ativo', $class);
-        $this->student('Sem DVA inativo', $class, '2010-01-01', false);
-        $this->student('DVA vencida', $class, '2010-01-01', true, '2000-01-01');
         $certificates = new \Certidao();
         $certificates->saveOption('fornecedor', null, 'Fornecedor fictício', true, $actor);
         $certificates->saveOption('tipo', null, 'Documento fictício', true, $actor);
@@ -228,17 +224,7 @@ final class DashboardUsabilidadeTest extends DatabaseTestCase
         $today = (new \CertidaoStatus())->today();
         $this->pdo->prepare('INSERT INTO certidoes(id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,arquivado,status) VALUES(?,?,?,?,0,1)')
             ->execute([$supplier, $type, '1999-01-01', $today]);
-        foreach ([1, 0] as $active) {
-            $this->pdo->prepare('INSERT INTO alunos_passivo(nome_completo,nome_normalizado,localizacao_pendente,ativo) VALUES(?,?,1,?)')
-                ->execute(['Passivo fictício ' . $active, 'passivo ficticio ' . $active, $active]);
-        }
-
         $xpath = $this->dashboard(['q' => '']);
-        foreach (['dva?dva=sem_dva' => 1, 'dva?dva=vencida' => 1, 'certidao?validade=vencida' => 1, 'passivo?ativo=1&localizacao=pendente' => 1] as $path => $expected) {
-            $link = $xpath->query('//*[@id="dashboard-pending"]//a[@href="' . \url($path) . '"]');
-            $this->assertCount(1, $link, 'A pendência deve ter um destino direto: ' . $path);
-            $this->assertSame((string) $expected, $xpath->evaluate('string(.//strong)', $link->item(0)));
-        }
         $this->assertSame(\url('certidao?validade=vence_hoje'), $xpath->evaluate('string(//*[contains(@class,"dashboard-alert-content")]//a/@href)'));
     }
 
@@ -253,27 +239,6 @@ final class DashboardUsabilidadeTest extends DatabaseTestCase
         $link = $xpath->query('//a[contains(@class,"dashboard-number-card") and contains(@class,"due")]')->item(0);
         $this->assertSame(\url('dva?dva=a_vencer'), $xpath->evaluate('string(@href)', $link));
         $this->assertSame('1', $xpath->evaluate('string(strong)', $link));
-    }
-
-    public function testPendenciasEstoqueUsamMesmasSituacoesDaListaEIgnoramProdutosExcluidos(): void
-    {
-        $actor = $this->authenticate();
-        $model = new \Contrato();
-        $contract = $model->createDetailed('Pedido fictício painel', '100,00', '', [['observacao' => '', 'produtos' => array_map(
-            static fn (string $name): array => ['nome' => $name, 'marca' => '', 'unidade' => 'UN', 'quantidade' => '1', 'preco' => '1,00'],
-            ['Inicial pendente', 'Sem estoque', 'Estoque baixo', 'Quantidade incerta', 'Produto excluído']
-        )]], $actor);
-        $items = $model->items($contract);
-        $model->initializeStock($contract, (int) $items[1]['id'], 0, 1, $actor, md5('painel-zero'));
-        $model->configureStock($contract, (int) $items[2]['id'], 2, null, 1, $actor, 2, md5('painel-low'));
-        $this->pdo->prepare('UPDATE pedido_produtos SET estoque_inicializado=1 WHERE id=?')->execute([$items[3]['id']]);
-        $model->delete($contract, null, (int) $items[4]['id'], 1, $actor);
-
-        $xpath = $this->dashboard(['q' => '']);
-        foreach (['quantidade_inicial', 'conferencia', 'sem_estoque', 'estoque_baixo'] as $state) {
-            $this->assertSame('1', $xpath->evaluate('string(//*[@id="dashboard-pending"]//*[@data-stock-pending="' . $state . '"]//strong)'));
-            $this->assertSame(\url('estoque'), $xpath->evaluate('string(//*[@id="dashboard-pending"]//*[@data-stock-pending="' . $state . '"]/@href)'));
-        }
     }
 
     public function testLimitesDaBuscaLimitamLeituraDaPaginaEMantemTotalCompleto(): void
