@@ -1,5 +1,6 @@
 <?php
 require_once ROOT_PATH . '/src/Core/NavigationContext.php';
+require_once ROOT_PATH . '/src/Core/AccessPolicy.php';
 $title = $title ?? 'GSE';
 $isAdmin = Auth::isAdmin();
 $currentPath = trim((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? ''), '/');
@@ -89,12 +90,16 @@ $flashClass = [
                     <span class="sidebar-icon" aria-hidden="true">&#128230;</span>
                     <span class="sidebar-label">Arquivo Passivo</span>
                 </a>
+                <?php if (AccessPolicy::allows('student.export')): ?>
                 <a href="<?= e(url('relatorio')) ?>" class="sidebar-link <?= $reportActive ? 'active' : '' ?>" <?= $reportActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128202;</span><span class="sidebar-label">Relatórios</span></a>
+                <?php endif; ?>
                 <a href="<?= e(url('estoque')) ?>" class="sidebar-link <?= $stockActive ? 'active' : '' ?>" <?= $stockActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#9635;</span><span class="sidebar-label">Estoque</span></a>
+                <?php if (AccessPolicy::allows('student.health')): ?>
                 <a href="<?= e(url('dva')) ?>" class="sidebar-link <?= $dvaActive ? 'active' : '' ?>" <?= $dvaActive ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon" aria-hidden="true">&#128196;</span>
                     <span class="sidebar-label">DVAs</span>
                 </a>
+                <?php endif; ?>
             <?php endif; ?>
 
             <?php if ($isAdmin && !$mustChangePassword): ?>

@@ -32,6 +32,7 @@ $currentTiming = match ($currentStatus) {
         <div class="warning-message" role="alert">O aluno está inativo. Reative-o antes de registrar uma DVA.</div>
     <?php endif; ?>
 
+    <?php if ($canManageHealth ?? AccessPolicy::allows('student.manage')): ?>
     <form class="student-form" method="post" action="<?= e(url('aluno/dva/' . (int) $student['id'])) ?>">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <div class="form-section-inner">
@@ -48,4 +49,8 @@ $currentTiming = match ($currentStatus) {
             <a class="btn-secondary" href="<?= e(url('aluno/perfil/' . (int) $student['id'])) ?>">Cancelar</a>
         </div>
     </form>
+    <?php else: ?>
+        <p>Sua autorização permite consultar esta informação. Alterações exigem autorização de edição.</p>
+        <a class="btn-secondary" href="<?= e(url('aluno/perfil/' . (int) $student['id'])) ?>">Voltar ao cadastro</a>
+    <?php endif; ?>
 </section>

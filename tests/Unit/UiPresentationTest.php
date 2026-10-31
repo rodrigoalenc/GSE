@@ -40,6 +40,7 @@ final class UiPresentationTest extends TestCase
     {
         $editing = false;
         $possibleDuplicate = false;
+        $canViewHealth = true;
         $turmas = [];
         $errors = ['Informe um nome com até 150 caracteres. <script>alert(1)</script>'];
         $data = array_fill_keys(['nome_completo', 'observacao', 'data_nascimento', 'data_vencimento', 'id_turma', 'telefone_aluno', 'telefone_responsavel'], '');

@@ -9,9 +9,6 @@ $secoesDva = [
 ];
 $certidoesAtencao = (int) ($certidoes['a_vencer'] ?? 0) + (int) ($certidoes['vence_hoje'] ?? 0);
 $dataAtual = new DateTimeImmutable((new DvaStatus())->today());
-$aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item): bool =>
-    substr((string) $item['data_nascimento'], 5) === $dataAtual->format('m-d')
-);
 ?>
 
 <div class="dashboard-home" data-dashboard-home>
@@ -40,9 +37,11 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
     <section class="dashboard-summary" aria-label="Indicadores dos alunos e DVAs">
         <div class="dashboard-summary-grid">
             <a class="dashboard-number-card total" href="<?= e(url('aluno?ativo=1')) ?>"><span>Total de alunos</span><strong><?= (int) $moduloDois['alunos_ativos'] ?></strong></a>
+            <?php if ($canViewHealth): ?>
             <a class="dashboard-number-card missing" href="<?= e(url('dva?dva=sem_dva')) ?>"><span>Sem DVA</span><strong><?= (int) $moduloDois['sem_dva'] ?></strong></a>
             <a class="dashboard-number-card expired" href="<?= e(url('dva?dva=vencida')) ?>"><span>DVAs vencidas</span><strong><?= (int) $moduloDois['vencidas'] ?></strong></a>
             <a class="dashboard-number-card due" href="<?= e(url('dva?dva=a_vencer')) ?>"><span>DVAs a vencer</span><strong><?= (int) $moduloDois['a_vencer'] ?></strong></a>
+            <?php endif; ?>
         </div>
     </section>
 
@@ -71,7 +70,7 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div>
+                <?php if ($canViewHealth): ?><div>
                     <label for="dashboard-search-dva">Situação da DVA</label>
                     <select id="dashboard-search-dva" name="dva" class="form-select">
                         <option value="">Todas as situações</option>
@@ -79,7 +78,7 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
                             <option value="<?= e($status) ?>" <?= $searchFilters['dva'] === $status ? 'selected' : '' ?>><?= e(DvaStatus::label($status)) ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
+                </div><?php endif; ?>
             </div>
             <p id="dashboard-search-help">A pesquisa inclui todo o cadastro, mesmo alunos fora dos resumos abaixo. Confira turma e nascimento para diferenciar nomes iguais.</p>
             <div class="dashboard-search-actions"><button class="btn btn-primary" type="submit">Buscar alunos</button><a class="btn btn-outline-secondary" href="<?= e(url('dashboard')) ?>">Limpar busca</a></div>
@@ -95,7 +94,7 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
             <?php else: ?>
                 <div class="table-scroll"><table class="dashboard-student-table dashboard-search-table">
                     <caption class="visually-hidden">Alunos encontrados em todo o cadastro</caption>
-                    <thead><tr><th scope="col">Aluno</th><th scope="col">Nascimento</th><th scope="col">Turma</th><th scope="col">Situação</th><th scope="col">DVA</th></tr></thead>
+                    <thead><tr><th scope="col">Aluno</th><th scope="col">Nascimento</th><th scope="col">Turma</th><th scope="col">Situação</th><?php if ($canViewHealth): ?><th scope="col">DVA</th><?php endif; ?></tr></thead>
                     <tbody>
                         <?php foreach ($searchResult['items'] as $item): ?>
                             <tr>
@@ -103,7 +102,7 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
                                 <td><?= e(UiPresentation::civilDate($item['data_nascimento'])) ?></td>
                                 <td><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></td>
                                 <td><?= (int) $item['ativo'] === 1 ? 'Ativo' : ((int) $item['no_passivo'] === 1 ? 'Inativo · Arquivo Passivo' : 'Inativo') ?></td>
-                                <td><?= e(DvaStatus::label($item['dva_status'])) ?></td>
+                                <?php if ($canViewHealth): ?><td><?= e(DvaStatus::label($item['dva_status'])) ?></td><?php endif; ?>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -117,6 +116,7 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
 
     <section class="dashboard-birthdays" aria-labelledby="dashboard-birthdays-title" data-dashboard-section>
         <h2 id="dashboard-birthdays-title">Aniversariantes de <?= e($nomesMeses[$mesAtual]) ?></h2>
+        <p>Exibindo <?= count($aniversariantesMes) ?> de <?= (int) $birthdayTotal ?> alunos.</p>
         <?php if ($aniversariantesMes === []): ?>
             <p class="dashboard-empty">Nenhum aniversariante neste mês.</p>
         <?php else: ?>
@@ -129,8 +129,11 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+        <?php $renderBirthdayPagination = require __DIR__ . '/../partials/pagination.php';
+        $renderBirthdayPagination((int) $birthdayPage, (int) $birthdayPages, static fn (int $page): string => url('dashboard?' . http_build_query($searchFilters + ['aniversariantes_pagina' => $page])) . '#dashboard-birthdays-title', 'Páginas de aniversariantes'); ?>
     </section>
 
+    <?php if ($canViewHealth): ?>
     <div class="dashboard-dva-groups" aria-label="Situação das DVAs">
         <?php foreach ($secoesDva as $secao): ?>
             <details class="dashboard-dva-panel <?= e($secao['classe']) ?>" data-dashboard-section>
@@ -157,5 +160,6 @@ $aniversariantesHoje = array_filter($aniversariantesMes, static fn (array $item)
             </details>
         <?php endforeach; ?>
     </div>
+    <?php endif; ?>
 
 </div>

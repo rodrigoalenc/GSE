@@ -23,14 +23,19 @@ final class Aluno extends Model
      * @param array<string,mixed> $filters
      * @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int,per_page:int}
      */
-    public function paginate(array $filters, int $page = 1, int $perPage = 20, ?DvaStatus $statusService = null): array
+    public function paginate(array $filters, int $page = 1, int $perPage = 20, ?DvaStatus $statusService = null, bool $includeHealth = true, bool $includeContacts = true): array
     {
+        if (!$includeHealth && ($filters['dva'] ?? '') !== '') {
+            throw new DomainException('Filtro de DVA não autorizado.');
+        }
         $statusService ??= new DvaStatus();
         $page = max(1, $page);
         $perPage = max(10, min(100, $perPage));
         [$where, $params] = $this->where($filters, $statusService);
-        $joins = 'LEFT JOIN turmas t ON t.id = a.id_turma
-                  LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1';
+        $joins = 'LEFT JOIN turmas t ON t.id = a.id_turma';
+        if ($includeHealth) { $joins .= ' LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1'; }
+        $contacts = $includeContacts ? 'a.telefone_aluno, a.telefone_responsavel,' : '';
+        $health = $includeHealth ? 'd.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao,' : '';
         $count = self::$pdo->prepare("SELECT COUNT(*) FROM alunos a {$joins} {$where}");
         $count->execute($params);
         $total = (int) $count->fetchColumn();
@@ -38,10 +43,10 @@ final class Aluno extends Model
         $page = min($page, $pages);
         $statement = self::$pdo->prepare(
             "SELECT a.id, a.nome_completo, a.data_nascimento, a.id_turma,
-                    a.telefone_aluno, a.telefone_responsavel, a.ativo,
+                    {$contacts} a.ativo,
                     a.criado_em, a.atualizado_em, a.inativado_em, a.inativado_por,
                     t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
-                    d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao,
+                    {$health}
                     EXISTS(SELECT 1 FROM alunos_passivo p WHERE p.aluno_origem_id = a.id AND p.ativo = 1) AS no_passivo
              FROM alunos a {$joins} {$where}
              ORDER BY a.nome_normalizado, a.id
@@ -54,6 +59,7 @@ final class Aluno extends Model
         $items = $statement->fetchAll();
 
         foreach ($items as &$item) {
+            if (!$includeHealth) { continue; }
             $item['dva_status'] = $statusService->classify($item['data_vencimento'] ?: null);
             $item['dva_dias_restantes'] = $statusService->daysRemaining($item['data_vencimento'] ?: null);
         }
@@ -84,25 +90,28 @@ final class Aluno extends Model
     }
 
     /** @return array<string,mixed>|false */
-    public function buscarPorId(int $id): array|false
+    public function buscarPorId(int $id, bool $includeHealth = true, bool $includeContacts = true): array|false
     {
         if ($id < 1) {
             return false;
         }
 
+        $contacts = $includeContacts ? 'a.telefone_aluno, a.telefone_responsavel,' : '';
+        $health = $includeHealth ? 'd.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao,
+                    d.id_usuario_registro AS dva_usuario_id, d.criado_em AS dva_criado_em,' : '';
+        $healthJoin = $includeHealth ? 'LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1' : '';
         $statement = self::$pdo->prepare(
-            'SELECT a.id, a.revisao, a.nome_completo, a.nome_normalizado, a.data_nascimento, a.id_turma,
-                    a.telefone_aluno, a.telefone_responsavel, a.ativo,
+            "SELECT a.id, a.revisao, a.nome_completo, a.nome_normalizado, a.data_nascimento, a.id_turma,
+                    {$contacts} a.ativo,
                     a.criado_em, a.atualizado_em, a.inativado_em, a.inativado_por,
                     t.nome_turma, t.ano_letivo, t.ativo AS turma_ativa,
-                    d.id AS dva_id, d.data_vencimento, d.observacao AS dva_observacao,
-                    d.id_usuario_registro AS dva_usuario_id, d.criado_em AS dva_criado_em,
+                    {$health}
                     (EXISTS(SELECT 1 FROM alunos_movimentacoes m WHERE m.aluno_id = a.id)
                      OR EXISTS(SELECT 1 FROM alunos_vinculos_historico v WHERE v.aluno_id = a.id)) AS possui_movimentacao
              FROM alunos a
              LEFT JOIN turmas t ON t.id = a.id_turma
-             LEFT JOIN dvas d ON d.id_aluno = a.id AND d.ativo = 1
-             WHERE a.id = :id LIMIT 1'
+             {$healthJoin}
+             WHERE a.id = :id LIMIT 1"
         );
         $statement->execute(['id' => $id]);
 
@@ -438,29 +447,50 @@ final class Aluno extends Model
     }
 
     /** @return list<array<string,mixed>> */
-    public function aniversariantesDoMesCompleto(?DateTimeImmutable $today = null): array
+    public function aniversariantesDoMesCompleto(?DateTimeImmutable $today = null, int $limit = 20, int $page = 1): array
     {
         $today ??= new DateTimeImmutable((new DvaStatus())->today());
         $statement = self::$pdo->prepare(
             "SELECT a.id, a.nome_completo, a.data_nascimento, t.nome_turma
              FROM alunos a LEFT JOIN turmas t ON t.id = a.id_turma
              WHERE a.ativo = 1 AND strftime('%m', a.data_nascimento) = :month
-             ORDER BY strftime('%d', a.data_nascimento), a.nome_normalizado"
+             ORDER BY strftime('%d', a.data_nascimento), a.nome_normalizado, a.id
+             LIMIT :limit OFFSET :offset"
         );
-        $statement->execute(['month' => $today->format('m')]);
+        $limit = max(1, min(50, $limit));
+        $pages = max(1, (int) ceil($this->contarAniversariantesDoMes($today) / $limit));
+        $statement->bindValue(':month', $today->format('m'));
+        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $statement->bindValue(':offset', (max(1, min($pages, $page)) - 1) * $limit, PDO::PARAM_INT);
+        $statement->execute();
 
         return $statement->fetchAll();
     }
 
-    /** @return array<string,mixed>|false */
-    public function perfil(int $id, ?DvaStatus $statusService = null): array|false
+    public function contarAniversariantesDoMes(?DateTimeImmutable $today = null): int
     {
-        $student = $this->buscarPorId($id);
+        $today ??= new DateTimeImmutable((new DvaStatus())->today());
+        $statement = self::$pdo->prepare("SELECT COUNT(*) FROM alunos WHERE ativo = 1 AND strftime('%m', data_nascimento) = :month");
+        $statement->execute(['month' => $today->format('m')]);
+        return (int) $statement->fetchColumn();
+    }
+
+    /** @return array<string,mixed>|false */
+    public function perfilBasico(int $id): array|false
+    {
+        return $this->perfil($id, null, false, false);
+    }
+
+    /** @return array<string,mixed>|false */
+    public function perfil(int $id, ?DvaStatus $statusService = null, bool $includeHealth = true, bool $includeContacts = true): array|false
+    {
+        $student = $this->buscarPorId($id, $includeHealth, $includeContacts);
 
         if (!$student) {
             return false;
         }
 
+        if (!$includeHealth) { return ['student' => $student, 'dva_history' => []]; }
         $statusService ??= new DvaStatus();
         $student['dva_status'] = $statusService->classify($student['data_vencimento'] ?: null);
         $student['dva_dias_restantes'] = $statusService->daysRemaining($student['data_vencimento'] ?: null);

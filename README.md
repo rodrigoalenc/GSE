@@ -1,5 +1,7 @@
 # GSE — Gestor de Secretaria Escolar
 
+Revisão de segurança de 30/10/2026: consulte as [correções da auditoria de 19/10](Documentação/CORRECOES-AUDITORIA-2026-10-30.md) e o [registro institucional de privacidade](Documentação/PRIVACIDADE-INSTITUCIONAL.md). Funcionários acessam o cadastro básico; DVA, contatos, edição e exportações exigem capacidades específicas. Concessões precisam de referência de aprovação e prazo vigente. O parser de PDF usa processo isolado; a manutenção periódica também limpa prévias CSV expiradas.
+
 ## Ambiente e operação atuais
 
 Use PHP **64 bits** nas linhas 8.3.36+, 8.4.27+ ou 8.5.12+, e SQLite 3.45.1+ (ou o backport 3.44.6+ da linha 3.44), mantendo os pacotes de segurança do fornecedor atualizados. WAL somente é permitido nas versões corrigidas: 3.51.3+ ou backports 3.50.7/3.44.6 da respectiva linha. Nas demais versões compatíveis, o GSE usa rollback journal **DELETE**, com sincronização FULL. O runtime privado Windows verificado nesta revisão é PHP 8.4.27 / SQLite 3.53.4; o Composer privado é 2.10.3. Os checks não abrem o banco institucional.

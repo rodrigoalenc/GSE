@@ -22,10 +22,12 @@ final class LoginController extends Controller
         $senha = input_string($_POST['senha'] ?? '');
 
         if (!Auth::attempt($email, $senha)) {
-            http_response_code(422);
+            $blocked = Auth::lastAttemptStatus() === Auth::ATTEMPT_BLOCKED;
+            http_response_code($blocked ? 429 : 422);
+            if ($blocked) { header('Retry-After: ' . Auth::retryAfter()); }
             $this->view('login', [
                 'title' => 'Entrar',
-                'erro' => 'E-mail ou senha inválidos.',
+                'erro' => $blocked ? 'Muitas tentativas. Aguarde alguns instantes antes de tentar novamente.' : 'E-mail ou senha inválidos.',
                 'email' => $email,
                 'flash' => null,
             ], false);

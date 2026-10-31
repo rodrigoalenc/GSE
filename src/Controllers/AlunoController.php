@@ -7,6 +7,7 @@ require_once ROOT_PATH . '/src/Model/Dva.php';
 require_once ROOT_PATH . '/src/Model/Turma.php';
 require_once ROOT_PATH . '/src/Services/MovimentacaoAlunos.php';
 require_once ROOT_PATH . '/src/Services/VinculoEscolar.php';
+require_once ROOT_PATH . '/src/Core/AccessPolicy.php';
 
 final class AlunoController extends Controller
 {
@@ -14,18 +15,25 @@ final class AlunoController extends Controller
     {
         $filters = $this->filters();
         $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1;
-        $result = (new Aluno())->paginate($filters, (int) $page, 15);
+        $canViewHealth = AccessPolicy::allows('student.health');
+        $canViewContacts = AccessPolicy::allows('student.contacts');
+        $result = (new Aluno())->paginate($filters, (int) $page, 15, null, $canViewHealth, $canViewContacts);
+        if ($canViewHealth || $canViewContacts) { $this->recordSensitiveRead('lista_alunos', count($result['items'])); }
 
         $this->view('alunos/index', [
             'title' => 'Gerenciar Alunos',
             'filters' => $filters,
             'result' => $result,
             'turmas' => (new Turma())->listar(),
+            'canViewHealth' => $canViewHealth,
+            'canManageStudent' => AccessPolicy::allows('student.manage'),
         ]);
     }
 
     public function criar(): void
     {
+        AccessPolicy::require('student.manage');
+        $canViewHealth = AccessPolicy::allows('student.health');
         $data = $this->formData();
         $errors = [];
         $possibleDuplicate = false;
@@ -35,7 +43,7 @@ final class AlunoController extends Controller
             $studentId = $model->cadastrar(
                 $data,
                 (int) $_SESSION['usuario_id'],
-                ['data_vencimento' => $data['data_vencimento'], 'observacao' => $data['observacao']],
+                $canViewHealth ? ['data_vencimento' => $data['data_vencimento'], 'observacao' => $data['observacao']] : null,
                 isset($_POST['confirmar_duplicidade']),
                 input_string($_POST['_request_token'] ?? '')
             );
@@ -56,14 +64,16 @@ final class AlunoController extends Controller
             'editing' => false,
             'possibleDuplicate' => $possibleDuplicate,
             'turmas' => (new Turma())->ativas(),
+            'canViewHealth' => $canViewHealth,
         ]);
     }
 
     public function editar(string $id): void
     {
+        AccessPolicy::require('student.manage');
         $studentId = $this->validId($id);
         $model = new Aluno();
-        $student = $model->buscarPorId($studentId);
+        $student = $model->buscarPorId($studentId, AccessPolicy::allows('student.health'), true);
 
         if (!$student) {
             render_http_error(404, 'Aluno não encontrado', 'O cadastro solicitado não existe.');
@@ -103,7 +113,7 @@ final class AlunoController extends Controller
             $possibleDuplicate = $model->lastErrorCode() === 'possible_duplicate';
             $errorCode = $reviewRequired ? 'review_required' : ($staleDraft ? 'stale_revision' : ($revision === false ? 'invalid_revision' : $model->lastErrorCode()));
             if (in_array($errorCode, ['stale_revision', 'review_required'], true)) {
-                $student = $model->buscarPorId($studentId);
+                $student = $model->buscarPorId($studentId, AccessPolicy::allows('student.health'), true);
                 if (!$student) { render_http_error(404, 'Aluno não encontrado', 'O cadastro solicitado não existe.'); }
                 $token = bin2hex(random_bytes(16));
                 foreach ($_SESSION['student_edit_reviews'] ?? [] as $reviewId => $entry) {
@@ -142,25 +152,42 @@ final class AlunoController extends Controller
             'currentClass' => $student,
             'conflictReview' => $conflictReview,
             'canManageMovement' => Auth::isAdmin(),
+            'canViewHealth' => AccessPolicy::allows('student.health'),
         ]);
     }
 
     public function perfil(string $id): void
     {
         $studentId = $this->validId($id);
-        $profile = (new Aluno())->perfil($studentId);
+        $canViewHealth = AccessPolicy::allows('student.health');
+        $canViewContacts = AccessPolicy::allows('student.contacts');
+        $model = new Aluno();
+        $profile = $canViewHealth || $canViewContacts ? $model->perfil($studentId, null, $canViewHealth, $canViewContacts) : $model->perfilBasico($studentId);
 
         if (!$profile) {
             render_http_error(404, 'Aluno não encontrado', 'O cadastro solicitado não existe.');
         }
 
+        $student = $profile['student'];
+        if (!$canViewHealth) {
+            foreach (array_keys($student) as $key) {
+                if (str_starts_with($key, 'dva_') || $key === 'data_vencimento') { unset($student[$key]); }
+            }
+        }
+        if (!$canViewContacts) { unset($student['telefone_aluno'], $student['telefone_responsavel']); }
+        AuditLogger::recordRequired(Model::getConexao(), 'student.profile_read', AuditLogger::SUCCESS,
+            (int) $_SESSION['usuario_id'], null, 'Consulta de cadastro escolar autorizada.', 'student', $studentId);
+
         $this->view('alunos/perfil', [
             'title' => 'Perfil do Aluno',
-            'student' => $profile['student'],
-            'history' => $profile['dva_history'],
-            'movements' => (new MovimentacaoAlunos())->historico($studentId),
-            'schoolLinks' => (new VinculoEscolar())->historico($studentId),
+            'student' => $student,
+            'history' => $canViewHealth ? ($profile['dva_history'] ?? []) : [],
+            'movements' => AccessPolicy::allows('student.manage') ? (new MovimentacaoAlunos())->historico($studentId) : [],
+            'schoolLinks' => AccessPolicy::allows('student.manage') ? (new VinculoEscolar())->historico($studentId) : [],
             'canManageStudent' => Auth::isAdmin(),
+            'canEditStudent' => AccessPolicy::allows('student.manage'),
+            'canViewHealth' => $canViewHealth,
+            'canViewContacts' => $canViewContacts,
             'canArchivePassive' => Auth::isAdmin() && (int) $profile['student']['ativo'] === 0,
         ]);
     }
@@ -193,8 +220,10 @@ final class AlunoController extends Controller
 
     public function dva(string $id): void
     {
+        AccessPolicy::require('student.health');
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') { AccessPolicy::require('student.manage'); }
         $studentId = $this->validId($id);
-        $student = (new Aluno())->buscarPorId($studentId);
+        $student = (new Aluno())->buscarPorId($studentId, true, false);
 
         if (!$student) {
             render_http_error(404, 'Aluno não encontrado', 'O cadastro solicitado não existe.');
@@ -207,6 +236,7 @@ final class AlunoController extends Controller
         $errors = [];
         $current = (new Dva())->atualDoAluno($studentId);
         $statusService = new DvaStatus();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') { $this->recordSensitiveRead('dva_individual', 1, $studentId); }
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $model = new Dva();
@@ -237,25 +267,32 @@ final class AlunoController extends Controller
             'currentDays' => $statusService->daysRemaining(is_array($current) ? (string) $current['data_vencimento'] : null),
             'data' => $data,
             'errors' => $errors,
+            'canManageHealth' => AccessPolicy::allows('student.manage'),
         ]);
     }
 
     public function painelDva(): void
     {
+        AccessPolicy::require('student.health');
         $filters = $this->filters();
         $filters['ativo'] = '1';
         $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1;
+        $result = (new Aluno())->paginate($filters, (int) $page, 20, null, true, false);
+        $this->recordSensitiveRead('lista_dva', count($result['items']));
 
         $this->view('alunos/dva-index', [
             'title' => 'Painel de DVAs',
             'filters' => $filters,
-            'result' => (new Aluno())->paginate($filters, (int) $page),
+            'result' => $result,
         ]);
     }
 
     /** @return array<string,string> */
     private function filters(): array
     {
+        if (input_string($_GET['dva'] ?? '') !== '' && !AccessPolicy::allows('student.health')) {
+            AccessPolicy::require('student.health');
+        }
         $active = input_string($_GET['ativo'] ?? '1');
 
         return [
@@ -269,6 +306,10 @@ final class AlunoController extends Controller
     /** @return array<string,string> */
     private function formData(): array
     {
+        if (!AccessPolicy::allows('student.health')
+            && (input_string($_POST['data_vencimento'] ?? '') !== '' || input_string($_POST['observacao'] ?? '') !== '')) {
+            AccessPolicy::require('student.health');
+        }
         return [
             'revisao' => input_string($_POST['revisao'] ?? ''),
             'nome_completo' => mb_substr(input_string($_POST['nome_completo'] ?? ''), 0, Aluno::NAME_MAX_LENGTH + 1, 'UTF-8'),
@@ -301,6 +342,12 @@ final class AlunoController extends Controller
             'not_found' => 'Aluno não encontrado.',
             default => 'Não foi possível concluir a operação. Tente novamente.',
         };
+    }
+
+    private function recordSensitiveRead(string $context, int $quantity, ?int $studentId = null): void
+    {
+        AuditLogger::recordRequired(Model::getConexao(), 'student.sensitive_read', AuditLogger::SUCCESS,
+            (int) $_SESSION['usuario_id'], null, 'Contexto=' . $context . '; quantidade=' . $quantity . '.', 'student', $studentId);
     }
 
     private function validId(string $id): int

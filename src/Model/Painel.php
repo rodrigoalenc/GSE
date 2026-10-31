@@ -11,9 +11,9 @@ final class Painel extends Model
      * @param array<string,string> $filters
      * @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int,per_page:int}
      */
-    public function buscarAlunos(array $filters, int $page = 1, int $perPage = 15, ?DvaStatus $statusService = null): array
+    public function buscarAlunos(array $filters, int $page = 1, int $perPage = 15, ?DvaStatus $statusService = null, bool $includeHealth = true): array
     {
-        $result = (new Aluno())->paginate($filters, $page, max(10, min(50, $perPage)), $statusService);
+        $result = (new Aluno())->paginate($filters, $page, max(10, min(50, $perPage)), $statusService, $includeHealth, false);
         $fields = array_fill_keys(['id', 'nome_completo', 'data_nascimento', 'ativo', 'nome_turma', 'data_vencimento', 'no_passivo', 'dva_status'], true);
         $result['items'] = array_map(static fn (array $item): array => array_intersect_key($item, $fields), $result['items']);
         return $result;

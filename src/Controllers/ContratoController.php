@@ -173,7 +173,9 @@ final class ContratoController extends Controller
     public function detalhes(string $id): void
     {
         $contractId=$this->routeId($id); $model=$this->model();
-        $record=$this->existing($contractId); $sheets=$model->sheets($contractId); $items=$model->items($contractId);
+        $record=$this->existing($contractId);
+        try { $sheets=$model->sheets($contractId); $items=$model->items($contractId); }
+        catch (DomainException $exception) { render_http_error(422,'Pedido extenso',$exception->getMessage(),'contrato'); }
         try {
             $registered = new DateTimeImmutable((string) $record['criado_em'], new DateTimeZone('UTC'));
             $registeredText = $registered->setTimezone(new DateTimeZone(Config::string('APP_TIMEZONE', 'America/Cuiaba')))->format('d/m/Y');
@@ -364,8 +366,16 @@ final class ContratoController extends Controller
         $contractId=$this->routeId($id); $model=$this->model();
         $record=$this->existing($contractId);
         $sheet=isset($_GET['folha']) ? filter_var($_GET['folha'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : null;
-        $sheets=$model->sheets($contractId); $items=$model->items($contractId);
-        if (isset($_GET['folha']) && ($sheet===false || !in_array($sheet,array_column($sheets,'id'),false))) { render_http_error(404,'Nota indisponível','Nota não encontrada.'); }
+        if ($sheet===false) { render_http_error(404,'Nota indisponível','Nota não encontrada.'); }
+        if ($sheet!==null) {
+            try { $sheets=[$model->sheet($contractId,$sheet)]; }
+            catch (DomainException) { render_http_error(404,'Nota indisponível','Nota não encontrada.'); }
+        }
+        try {
+            if ($sheet===null) { $sheets=$model->sheets($contractId); }
+            $items=$model->items($contractId,$sheet===null ? null : (int)$sheets[0]['numero_pagina']);
+        } catch (DomainException $exception) { render_http_error(422,'Pedido extenso ou nota indisponível',$exception->getMessage(),'contrato'); }
+        if (isset($_GET['folha']) && !in_array($sheet,array_column($sheets,'id'),false)) { render_http_error(404,'Nota indisponível','Nota não encontrada.'); }
         $this->view('contratos/imprimir',['record'=>$record,'sheets'=>$sheets,'items'=>$items,'allocation'=>$model->allocationSummary($contractId),'sheetId'=>$sheet],false);
     }
 }

@@ -165,7 +165,8 @@ final class DataProtectionTest extends DatabaseTestCase
         $this->assertSame(16,(int)$this->pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame('Sintetico Migrado',$this->pdo->query('SELECT nome FROM usuarios WHERE id=41')->fetchColumn());
         $this->assertSame(0,$this->securityCli(['migrate','--maintenance-confirmed']));
-        $this->assertSame(3,(new \LoginThrottle($this->pdo))->status('migration@example.test','127.0.0.1')['account_failures']);
+        $this->assertSame(3,(int)$this->pdo->query('SELECT failure_count FROM login_attempts')->fetchColumn());
+        $this->assertSame(0,(new \LoginThrottle($this->pdo))->status('migration@example.test','127.0.0.1')['account_failures'], 'Legacy global counters are preserved but cannot deny a new account/origin pair.');
         $row = \DataProtection::user($this->pdo->query('SELECT * FROM usuarios WHERE id=41')->fetch());
         $this->assertSame('Sintetico Migrado',$row['nome']); $this->assertSame('legacy-preserved',$row['senha']);
         $this->assertSame(22,(int)$this->pdo->query('PRAGMA user_version')->fetchColumn());

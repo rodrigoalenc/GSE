@@ -1,4 +1,6 @@
 <?php
+$canViewHealth = $canViewHealth ?? AccessPolicy::allows('student.health');
+$canManageStudent = $canManageStudent ?? AccessPolicy::allows('student.manage');
 $queryBase = array_filter($filters, static fn (string $value): bool => $value !== '');
 if ($filters['ativo'] === '') {
     $queryBase['ativo'] = 'todos';
@@ -9,7 +11,7 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
 <section class="page-hero">
     <div>
         <h2>Central de cadastro e acompanhamento dos alunos</h2>
-        <p>Pesquise rapidamente por nome, revise a turma atual, abra o perfil completo e mantenha os dados de contato e DVA sempre atualizados.</p>
+        <p>Pesquise por nome, confira a turma e abra o cadastro permitido pela sua autorização.</p>
     </div>
     <div class="hero-stats" aria-label="Resumo da consulta">
         <span><strong><?= e((string) $result['total']) ?></strong> Total de alunos</span>
@@ -21,8 +23,8 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
 <div class="module-toolbar quick-actions">
     <div><h2>Ações rápidas</h2><p>Cadastre novos alunos ou use a busca para localizar um registro específico.</p></div>
     <div class="toolbar-actions">
-        <a class="btn-primary" href="<?= e(url('aluno/criar')) ?>">+ Novo Aluno</a>
-        <a class="btn-secondary" href="<?= e(url('dva')) ?>">Painel de DVAs</a>
+        <?php if ($canManageStudent): ?><a class="btn-primary" href="<?= e(url('aluno/criar')) ?>">+ Novo Aluno</a><?php endif; ?>
+        <?php if ($canViewHealth): ?><a class="btn-secondary" href="<?= e(url('dva')) ?>">Painel de DVAs</a><?php endif; ?>
         <?php if (Auth::isAdmin()): ?>
             <a class="btn-primary" href="<?= e(url('aluno/movimentar')) ?>">Movimentar alunos</a>
             <a class="btn-secondary" href="<?= e(url('aluno/importar')) ?>">Importar alunos (PDF)</a>
@@ -57,6 +59,7 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
                 <option value="todos" <?= $filters['ativo'] === '' ? 'selected' : '' ?>>Todos</option>
             </select>
         </div>
+        <?php if ($canViewHealth): ?>
         <div>
             <label for="dva">DVA</label>
             <select id="dva" name="dva">
@@ -66,6 +69,7 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
                 <?php endforeach; ?>
             </select>
         </div>
+        <?php endif; ?>
         <div class="filter-actions">
             <button class="btn-primary" type="submit">Filtrar</button>
             <a class="btn-secondary" href="<?= e(url('aluno')) ?>">Limpar</a>
@@ -99,10 +103,10 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
     <?php endif; ?>
     <div class="table-scroll">
         <table class="tabela-filtrada student-table">
-            <thead><tr><?php if ($canArchiveBatch): ?><th class="student-selection-cell" scope="col">Selecionar</th><?php endif; ?><th>Nome</th><th>Turma</th><th>Nascimento</th><th>Aluno</th><th>DVA</th><th>Vencimento</th><th>Ações</th></tr></thead>
+            <thead><tr><?php if ($canArchiveBatch): ?><th class="student-selection-cell" scope="col">Selecionar</th><?php endif; ?><th>Nome</th><th>Turma</th><th>Nascimento</th><th>Aluno</th><?php if ($canViewHealth): ?><th>DVA</th><th>Vencimento</th><?php endif; ?><th>Ações</th></tr></thead>
             <tbody>
             <?php if ($result['items'] === []): ?>
-                <tr><td colspan="<?= $canArchiveBatch ? '8' : '7' ?>" class="empty-state">Nenhum aluno encontrado.</td></tr>
+                <tr><td colspan="<?= 5 + ($canViewHealth ? 2 : 0) + ($canArchiveBatch ? 1 : 0) ?>" class="empty-state">Nenhum aluno encontrado.</td></tr>
             <?php else: ?>
                 <?php foreach ($result['items'] as $item): ?>
                     <tr>
@@ -111,12 +115,14 @@ $archiveSelectionScope = url('aluno') . '|' . (string) ($_SESSION['usuario_id'] 
                         <td><span class="turma-badge"><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></span></td>
                         <td><?= e(UiPresentation::civilDate($item['data_nascimento'])) ?></td>
                         <td><span class="badge-status <?= (int) $item['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $item['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span></td>
+                        <?php if ($canViewHealth): ?>
                         <td><span class="dva-badge dva-<?= e((string) $item['dva_status']) ?>"><?= e(DvaStatus::label((string) $item['dva_status'])) ?></span></td>
                         <td><?= e($item['data_vencimento'] ? UiPresentation::civilDate($item['data_vencimento']) : '—') ?></td>
+                        <?php endif; ?>
                         <td class="table-actions">
                             <a class="btn-acao" href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>">Perfil</a>
-                            <a class="btn-acao" href="<?= e(url('aluno/editar/' . (int) $item['id'])) ?>">Editar</a>
-                            <?php if ((int) $item['ativo'] === 1): ?>
+                            <?php if ($canManageStudent): ?><a class="btn-acao" href="<?= e(url('aluno/editar/' . (int) $item['id'])) ?>">Editar</a><?php endif; ?>
+                            <?php if ($canViewHealth && (int) $item['ativo'] === 1): ?>
                                 <a class="btn-acao" href="<?= e(url('aluno/dva/' . (int) $item['id'])) ?>"><?= $item['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a>
                             <?php endif; ?>
                         </td>

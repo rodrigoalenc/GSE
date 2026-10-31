@@ -1,6 +1,8 @@
 # Manual do usuário - GSE
 
-Revisão 23/10/2026. Destinado à secretaria escolar. O responsável técnico prepara ambiente, usuários e cópias de segurança antes do primeiro acesso.
+Revisão 30/10/2026. Destinado à secretaria escolar. O responsável técnico prepara ambiente, usuários e cópias de segurança antes do primeiro acesso.
+
+As funções disponíveis dependem da autorização vigente. Funcionários consultam o cadastro básico; contatos, DVA, edição e exportações exigem autorização específica da escola. Acesso de consulta à DVA não permite gravar alterações. Se uma função necessária não estiver disponível, solicite a revisão da sua autorização ao responsável. Administradores devem revisar acessos e evitar contas compartilhadas.
 
 ## Entrar e sair
 
@@ -13,7 +15,7 @@ Revisão 23/10/2026. Destinado à secretaria escolar. O responsável técnico pr
 
 O menu reúne Painel, Alunos, Arquivo Passivo, Certidões, Pedidos, Estoque e Relatórios. As opções administrativas aparecem conforme seu perfil. No computador, os nomes ficam visíveis por padrão; a opção de soltar/fixar o menu guarda sua preferência. No celular, abra Menu de funções e escolha a opção pelo nome. A tecla Tab percorre os controles; Enter aciona links e botões. O primeiro atalho permite pular diretamente para o conteúdo.
 
-No painel, Buscar em todos os alunos consulta a base completa, inclusive nomes sem acento. Confira turma, nascimento e situação para distinguir homônimos. Os atalhos de pendências abrem os filtros correspondentes; os de estoque abrem a lista completa, onde cada produto informa a situação e a ação disponível. Ao voltar de um cadastro, use Voltar à lista com os filtros para retomar a consulta.
+No painel, Buscar em todos os alunos consulta os campos autorizados da base, inclusive nomes sem acento. Confira turma, nascimento e situação para distinguir homônimos. A busca e os aniversariantes são paginados. Os grupos de DVA aparecem somente para quem tem autorização e mostram uma amostra com acesso à lista completa. No estoque, cada produto informa a situação e a ação disponível. Ao voltar de um cadastro, use Voltar à lista com os filtros para retomar a consulta.
 
 ## Proteger o preenchimento
 

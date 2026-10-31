@@ -23,13 +23,26 @@ foreach ([null,[],['unexpected'=>'token'],42] as $csrfValue) {
     checkHttp($hardeningBefore===$hardeningDb->query('SELECT * FROM usuarios WHERE id=1')->fetch(PDO::FETCH_ASSOC),'Conta preservada após CSRF malformado');
 }
 $hardeningPage=request('GET',$baseUrl.'/usuario/perfil',$cookieAdmin);
-$bucket=hash_hmac('sha256','CONFIRM:user:1:profile',DataProtection::keyring()['index']);
+$bucket=hash_hmac('sha256','CONFIRM:user:1:identity',DataProtection::keyring()['index']);
 $hardeningDb->prepare('INSERT INTO action_budgets(bucket,attempts,expires) VALUES(?,10,?) ON CONFLICT(bucket) DO UPDATE SET attempts=10,expires=excluded.expires')
     ->execute([$bucket,time()+120]);
 $limited=request('POST',$baseUrl.'/usuario/perfil',$cookieAdmin,['_csrf_token'=>csrf($hardeningPage['body']),
     'nome'=>'Perfil ficticio bloqueado','email'=>'limited@example.test','senha_atual'=>$permanentPassword]);
 checkHttp($limited['status']===429 && (int)($limited['headers']['retry-after'] ?? 0)>0,'Confirmação limitada retorna HTTP 429 e Retry-After');
 checkHttp($hardeningBefore===$hardeningDb->query('SELECT * FROM usuarios WHERE id=1')->fetch(PDO::FETCH_ASSOC),'Limite de confirmação preserva conta');
+$limitedAdminPage=request('GET',$baseUrl.'/usuario/editar/1',$cookieAdmin);
+$limitedAdmin=DataProtection::user($hardeningBefore);
+$limitedAdminResult=request('POST',$baseUrl.'/usuario/editar/1',$cookieAdmin,['_csrf_token'=>csrf($limitedAdminPage['body']),
+    'nome'=>$limitedAdmin['nome'],'email'=>'limited-admin@example.test','tipo'=>'administrador','senha'=>'','confirmar_senha'=>'','senha_atual'=>$permanentPassword]);
+checkHttp($limitedAdminResult['status']===429 && (int)($limitedAdminResult['headers']['retry-after']??0)>0,
+    'Mesmo orçamento impede contornar confirmação pela edição administrativa do próprio e-mail');
+$limitedPasswordPage=request('GET',$baseUrl.'/senha/alterar',$cookieAdmin);
+$limitedPasswordResult=request('POST',$baseUrl.'/senha/alterar',$cookieAdmin,['_csrf_token'=>csrf($limitedPasswordPage['body']),
+    'senha_atual'=>$permanentPassword,'nova_senha'=>'Outra frase sequencial 2030','confirmar_senha'=>'Outra frase sequencial 2030']);
+checkHttp($limitedPasswordResult['status']===429 && (int)($limitedPasswordResult['headers']['retry-after']??0)>0,
+    'Mesmo orçamento impede contornar confirmação pela troca de senha');
+checkHttp($hardeningBefore===$hardeningDb->query('SELECT * FROM usuarios WHERE id=1')->fetch(PDO::FETCH_ASSOC),
+    'Trocar entre perfil, edição administrativa e senha não permite mutação sob limite');
 $hardeningDb->prepare('DELETE FROM action_budgets WHERE bucket=?')->execute([$bucket]);
 $receiptPage=request('GET',$baseUrl.'/contrato/criar',$cookieAdmin);
 $receiptData=['_csrf_token'=>csrf($receiptPage['body']),'_request_token'=>hiddenValue($receiptPage['body'],'_request_token',32),

@@ -34,7 +34,7 @@ Notificações de certidões usam lock local exclusivo e transações curtas; o 
 
 ### Arquivo Passivo (Módulo 3)
 
-O Módulo 3 faz parte do escopo suportado. Alterações sensíveis usam POST, CSRF, autorização central, `BEGIN IMMEDIATE` e auditoria obrigatória na mesma transação. O banco bloqueia exclusão física de `alunos_passivo`; eliminação definitiva por LGPD não está implementada e depende de política formal da escola.
+O Módulo 3 faz parte do escopo suportado. Alterações sensíveis usam POST, CSRF, autorização central, `BEGIN IMMEDIATE` e auditoria obrigatória na mesma transação. O banco bloqueia exclusão física de `alunos_passivo`; eliminação integral de registros escolares não é automatizada. `bin/privacy-retention.php` trata somente contatos e observações operacionais de DVA de alunos inativos, mediante política aprovada, plano assinado, dupla conferência e auditoria. Identidade, documentos e vínculos são preservados; a temporalidade institucional e as exceções continuam dependendo da escola. Consulte `Documentação/PRIVACIDADE-INSTITUCIONAL.md`.
 
 Uploads CSV ficam fora de `public`, recebem nome aleatório, limite de 2 MiB/5.000 linhas, validação de MIME e UTF-8 e expiração de 15 minutos. Tokens de prévia são vinculados à sessão e ao administrador, não são reutilizáveis e o temporário é removido na confirmação, falha ou expiração. A confirmação revalida o SHA-256 do arquivo e a mesma análise de dados diante do estado atual do banco. A importação comum nunca executa `DELETE FROM alunos_passivo`.
 

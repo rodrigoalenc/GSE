@@ -10,6 +10,14 @@ final class PassivoCsvTest extends DatabaseTestCase
 {
     /** @var list<string> */
     private array $files = [];
+    private string $previewDirectory;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->previewDirectory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gse-csv-test-' . bin2hex(random_bytes(8));
+        $_ENV['PASSIVO_IMPORT_DIRECTORY'] = $this->previewDirectory;
+    }
 
     protected function tearDown(): void
     {
@@ -30,6 +38,14 @@ final class PassivoCsvTest extends DatabaseTestCase
                 @unlink($file);
             }
         }
+
+        if (is_dir($this->previewDirectory)) {
+            foreach (new \DirectoryIterator($this->previewDirectory) as $file) {
+                if (!$file->isDot() && !$file->isDir()) { unlink($file->getPathname()); }
+            }
+            rmdir($this->previewDirectory);
+        }
+        unset($_ENV['PASSIVO_IMPORT_DIRECTORY']);
 
         parent::tearDown();
     }

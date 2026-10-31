@@ -287,11 +287,22 @@ $httpKeyPath = test_keyring($tempRoot);
 putenv('GSE_KEYRING_PATH=' . $httpKeyPath);
 $baseEnvironment = array_merge(getenv(), [
     'APP_ENV' => 'testing',
+    'APP_TIMEZONE' => 'America/Cuiaba',
     'APP_URL' => '',
     'APP_ALLOWED_HOSTS' => '',
     'DB_PATH' => $database,
     'CERTIDAO_STORAGE_PATH' => $tempRoot . DIRECTORY_SEPARATOR . 'certidoes',
     'CERTIDAO_MAIL_ENABLED' => 'false',
+    'MAIL_ENABLED' => 'false',
+    'MAIL_HOST' => ' ',
+    'MAIL_USERNAME' => ' ',
+    'MAIL_PASSWORD' => ' ',
+    'ACCESS_HEALTH_STAFF_IDS' => ' ',
+    'ACCESS_CONTACT_STAFF_IDS' => ' ',
+    'ACCESS_EXPORT_STAFF_IDS' => ' ',
+    'ACCESS_MANAGE_STAFF_IDS' => ' ',
+    'ACCESS_APPROVAL_REFERENCE' => ' ',
+    'ACCESS_APPROVAL_VALID_UNTIL' => '2000-01-01',
     'LOG_PATH' => $tempRoot . DIRECTORY_SEPARATOR . 'technical.log',
     'FORCE_HTTPS' => 'false',
     'TRUSTED_PROXIES' => '',
@@ -798,6 +809,7 @@ try {
     checkHttp($employeeAuth['status'] === 302 && str_contains($employeeAuth['headers']['location'] ?? '', '/dashboard'), 'Login de funcionário com senha definitiva');
     checkHttp(request('GET', $baseUrl . '/usuario', $cookieEmployee)['status'] === 403, 'Funcionário recebe 403 em rota administrativa');
     checkHttp(request('GET', $baseUrl . '/aluno', $cookieEmployee)['status'] === 200, 'Funcionário autenticado consulta alunos');
+    require __DIR__ . '/http-privacy-policy.php';
     checkHttp(
         request('POST', $baseUrl . '/aluno/status/1', $cookieEmployee, ['_csrf_token' => 'irrelevante', 'ativo' => '1'])['status'] === 403,
         'Funcionário recebe 403 ao tentar reativar aluno'
@@ -840,8 +852,8 @@ try {
         'caixa' => 'CX-FUNC',
     ]);
     checkHttp(
-        $employeeExport['status'] === 200 && str_contains($employeeExport['body'], '2 - Funcionário HTTP Editado'),
-        'Funcionário exporta TXT com POST e CSRF'
+        $employeeExport['status'] === 403 && !str_contains($employeeExport['body'], '2 - Funcionário HTTP Editado'),
+        'Funcionário sem concessão não exporta TXT mesmo com POST e CSRF'
     );
 
     $employeeCsrf = csrf($employeePassive['body']);
@@ -886,9 +898,12 @@ try {
     $deletedDetails = request('GET', $baseUrl . '/passivo/detalhes/' . $employeePassiveId, $cookieEmployee);
     checkHttp($deletedDetails['status'] === 200 && !str_contains($deletedDetails['body'], 'Restaurar registro'), 'Funcionário consulta dados preservados sem ação de restauração');
     $deletedExport = request('POST', $baseUrl . '/passivo/exportar', $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'caixa' => 'CX-FUNC']);
-    checkHttp($deletedExport['status'] === 302 && ($deletedExport['headers']['location'] ?? '') === $baseUrl . '/passivo', 'Exportação de caixa sem ativos retorna à consulta acessível ao funcionário');
-    $exportFeedback = request('GET', $deletedExport['headers']['location'], $cookieEmployee);
-    checkHttp($exportFeedback['status'] === 200 && str_contains($exportFeedback['body'], 'não possui registros ativos'), 'Exportação vazia explica a ausência de registros ativos');
+    checkHttp($deletedExport['status'] === 403, 'Exportação de caixa continua protegida sem concessão mesmo quando não há ativos');
+    $adminExportPage = request('GET', $baseUrl . '/passivo', $cookieAdmin);
+    $adminDeletedExport = request('POST', $baseUrl . '/passivo/exportar', $cookieAdmin, ['_csrf_token'=>csrf($adminExportPage['body']),'caixa'=>'CX-FUNC']);
+    checkHttp($adminDeletedExport['status'] === 302, 'Administrador mantém retorno de exportação sem registros ativos');
+    $exportFeedback = request('GET', $adminDeletedExport['headers']['location'], $cookieAdmin);
+    checkHttp($exportFeedback['status'] === 200 && str_contains($exportFeedback['body'], 'não possui registros ativos'), 'Exportação vazia explica a ausência de registros ativos ao perfil autorizado');
     // Alterar o payload da rota de exclusão nunca pode restaurar um registro.
     request('POST', $baseUrl . '/passivo/excluir/' . $employeePassiveId, $cookieEmployee, ['_csrf_token' => $employeeCsrf, 'ativo' => '1']);
     checkHttp((int) $verification->query('SELECT ativo FROM alunos_passivo WHERE id = ' . $employeePassiveId)->fetchColumn() === 0, 'Payload ativo=1 não amplia permissão de exclusão para restauração');
@@ -1000,6 +1015,7 @@ try {
     require __DIR__ . '/http-usabilidade.php';
     require __DIR__ . '/http-certidao-edit-review.php';
     require __DIR__ . '/http-report-class-years.php';
+    require __DIR__ . '/http-auth-audit.php';
     $invalidCsrf = request('POST', $baseUrl . '/login/sair', $cookieAdmin, ['_csrf_token' => 'invalid']);
     checkHttp($invalidCsrf['status'] === 419, 'CSRF inválido retorna 419');
     $adminDashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);

@@ -124,7 +124,8 @@ class Usuario extends Model
         ?string $novaSenha = null,
         ?bool $recebeAlertasDva = null,
         ?int $actorId = null,
-        #[SensitiveParameter] ?string $senhaAtual = null
+        #[SensitiveParameter] ?string $senhaAtual = null,
+        ?int $sessionVersion = null
     ): bool {
         $this->lastErrorCode = null;
         $nome = trim($nome);
@@ -137,11 +138,16 @@ class Usuario extends Model
         }
 
         $ownPasswordChange = $novaSenha !== null && $actorId === $id;
-        if ($ownPasswordChange) {
-            ActionBudget::consume(self::$pdo, $id, 'password');
+        $before = $this->buscarPorId($id);
+        $ownSensitiveChange = $actorId === $id && ($novaSenha !== null
+            || ($before && self::normalizarEmail((string) $before['email']) !== $email));
+        $verified = null;
+        if ($ownSensitiveChange) {
+            $verified = $this->confirmCurrentPassword($id, $senhaAtual ?? '', $sessionVersion);
+            if ($verified === false) { return false; }
         }
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $nome, $email, $tipo, $novaSenha, $recebeAlertasDva, $actorId, $senhaAtual, $ownPasswordChange): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $nome, $email, $tipo, $novaSenha, $recebeAlertasDva, $actorId, $ownPasswordChange, $verified): bool {
                 $atual = $this->buscarPorId($id);
 
                 if (!$atual) {
@@ -162,11 +168,15 @@ class Usuario extends Model
                     return false;
                 }
 
-                if ($ownPasswordChange && $novaSenha !== null) {
-                    if ((int) $atual['ativo'] !== 1 || !PasswordPolicy::verify($senhaAtual ?? '', (string) $atual['senha'])) {
+                $emailChanged = self::normalizarEmail((string) $atual['email']) !== $email;
+                if ($actorId === $id && ($emailChanged || $novaSenha !== null)) {
+                    if (!$verified || (int) $atual['ativo'] !== 1 || $atual['senha'] !== $verified['senha']
+                        || (int) $atual['session_version'] !== (int) $verified['session_version']) {
                         $this->lastErrorCode = 'current_password_invalid';
                         return false;
                     }
+                }
+                if ($ownPasswordChange && $novaSenha !== null) {
                     if (PasswordPolicy::verify($novaSenha, (string) $atual['senha'])) {
                         $this->lastErrorCode = 'password_reused';
                         return false;
@@ -194,7 +204,7 @@ class Usuario extends Model
                     'dva_alerts' => $alertsAfter,
                 ];
 
-                if ($privilegeChanged || $novaSenha !== null) {
+                if ($privilegeChanged || $novaSenha !== null || $emailChanged) {
                     $sql .= ', session_version = session_version + 1';
                 }
 
@@ -239,13 +249,9 @@ class Usuario extends Model
     public function alterarSenha(int $id, string $senhaAtual, string $novaSenha): bool
     {
         $this->lastErrorCode = null;
-        ActionBudget::consume(self::$pdo, $id, 'password');
+        $before = $this->confirmCurrentPassword($id, $senhaAtual);
+        if ($before === false) { return false; }
         try {
-            $before = $this->buscarPorId($id);
-            if (!$before || (int) $before['ativo'] !== 1 || !PasswordPolicy::verify($senhaAtual, (string) $before['senha'])) {
-                $this->lastErrorCode = 'current_password_invalid';
-                return false;
-            }
             if (PasswordPolicy::validate($novaSenha, (string) $before['nome'], (string) $before['email']) !== []) {
                 $this->lastErrorCode = 'invalid_password';
                 return false;
@@ -288,18 +294,8 @@ class Usuario extends Model
             $this->lastErrorCode = 'invalid_data';
             return false;
         }
-        if ($senhaAtual === '' || preg_match('//u', $senhaAtual) !== 1 || str_contains($senhaAtual, "\0")
-            || mb_strlen($senhaAtual, 'UTF-8') > PasswordPolicy::MAX_LENGTH) {
-            $this->lastErrorCode = 'current_password_invalid';
-            return false;
-        }
-
-        ActionBudget::consume(self::$pdo, $id, 'profile');
-        $verified = $this->buscarPorId($id);
-        if (!$verified || !PasswordPolicy::verify($senhaAtual, (string) $verified['senha'])) {
-            $this->lastErrorCode = 'current_password_invalid';
-            return false;
-        }
+        $verified = $this->confirmCurrentPassword($id, $senhaAtual, $sessionVersion);
+        if ($verified === false) { return false; }
         try {
             return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $sessionVersion, $nome, $email, $verified): array|false {
                 $usuario = $this->buscarPorId($id);
@@ -308,7 +304,7 @@ class Usuario extends Model
                     $this->lastErrorCode = 'session_invalid';
                     return false;
                 }
-                if ($usuario['senha'] !== $verified['senha']) {
+                if ($usuario['senha'] !== $verified['senha'] || $usuario['session_version'] !== $verified['session_version']) {
                     $this->lastErrorCode = 'current_password_invalid';
                     return false;
                 }
@@ -337,6 +333,26 @@ class Usuario extends Model
             TechnicalLogger::error('user_profile_update_failed', ['exception' => $exception::class]);
             return false;
         }
+    }
+
+    /**
+     * Shared reauthentication for profile, administrative self-edit and password routes.
+     * @return array<string,mixed>|false
+     */
+    private function confirmCurrentPassword(int $id, #[SensitiveParameter] string $password, ?int $sessionVersion = null): array|false
+    {
+        // All entry points share one budget, so changing routes cannot reset it.
+        ActionBudget::consume(self::$pdo, $id, 'identity');
+        $current = $this->buscarPorId($id);
+        if (!$current || !PasswordPolicy::verify($password, (string) $current['senha'])) {
+            $this->lastErrorCode = 'current_password_invalid';
+            return false;
+        }
+        if ((int) $current['ativo'] !== 1 || ($sessionVersion !== null && (int) $current['session_version'] !== $sessionVersion)) {
+            $this->lastErrorCode = 'session_invalid';
+            return false;
+        }
+        return $current;
     }
 
     public function definirAtivo(int $id, bool $ativo, ?int $atorId = null): bool

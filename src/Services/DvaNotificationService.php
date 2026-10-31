@@ -19,18 +19,18 @@ final class DvaNotificationService
         $status = $this->statusService ?? new DvaStatus();
         $warnings = $this->warnings($status);
         $recipients = $this->recipients();
-        $result = ['warnings' => count($warnings), 'recipients' => count($recipients), 'sent' => 0, 'skipped' => 0, 'failed' => 0];
+        $result = ['warnings' => $warnings, 'recipients' => count($recipients), 'sent' => 0, 'skipped' => 0, 'failed' => 0];
 
-        if ($warnings === [] || $recipients === []) {
+        if ($warnings === 0 || $recipients === []) {
             TechnicalLogger::info('dva_notification_nothing_to_send', [
-                'warning_count' => count($warnings),
+                'warning_count' => $warnings,
                 'recipient_count' => count($recipients),
             ]);
 
             return $result;
         }
 
-        [$subject, $html, $text] = $this->message($warnings, $status);
+        [$subject, $html, $text] = $this->message($warnings);
 
         foreach ($recipients as $recipient) {
             $userId = (int) $recipient['id'];
@@ -66,20 +66,15 @@ final class DvaNotificationService
         return $result;
     }
 
-    /** @return list<array<string,mixed>> */
-    private function warnings(DvaStatus $status): array
+    private function warnings(DvaStatus $status): int
     {
         $statement = $this->pdo->prepare(
-            'SELECT a.id, a.nome_completo, t.nome_turma, d.data_vencimento
-             FROM dvas d
+            'SELECT COUNT(*) FROM dvas d
              JOIN alunos a ON a.id = d.id_aluno AND a.ativo = 1
-             LEFT JOIN turmas t ON t.id = a.id_turma
-             WHERE d.ativo = 1 AND d.data_vencimento <= :limit
-             ORDER BY d.data_vencimento, a.nome_completo COLLATE NOCASE'
+             WHERE d.ativo = 1 AND d.data_vencimento <= :limit'
         );
         $statement->execute(['limit' => $status->emailWarningLimit()]);
-
-        return $statement->fetchAll();
+        return (int) $statement->fetchColumn();
     }
 
     /** @return list<array<string,mixed>> */
@@ -164,37 +159,23 @@ final class DvaNotificationService
         ]);
     }
 
-    /**
-     * @param list<array<string,mixed>> $warnings
-     * @return array{0:string,1:string,2:string}
-     */
-    private function message(array $warnings, DvaStatus $status): array
+    /** @return array{0:string,1:string,2:string} */
+    private function message(int $warnings): array
     {
-        $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $rows = '';
-        $textRows = [];
-
-        foreach ($warnings as $item) {
-            $label = DvaStatus::label($status->classify((string) $item['data_vencimento']));
-            $rows .= '<tr><td>' . $escape((string) $item['nome_completo']) . '</td><td>'
-                . $escape((string) ($item['nome_turma'] ?: 'Sem turma')) . '</td><td>'
-                . $escape((string) $item['data_vencimento']) . '</td><td>' . $escape($label) . '</td></tr>';
-            $textRows[] = sprintf(
-                '- %s | %s | %s | %s',
-                (string) $item['nome_completo'],
-                (string) ($item['nome_turma'] ?: 'Sem turma'),
-                (string) $item['data_vencimento'],
-                $label
-            );
+        $subject = 'GSE: registros para revisar';
+        $summary = sprintf('Há %d registro(s) que precisam de revisão no GSE.', $warnings);
+        $base = Config::appUrl();
+        $scheme = strtolower((string) parse_url($base, PHP_URL_SCHEME));
+        $link = filter_var($base, FILTER_VALIDATE_URL) !== false && in_array($scheme, ['http', 'https'], true)
+            ? $base . '/dva' : '';
+        $html = '<!doctype html><html lang="pt-BR"><body><h1>Revisão de registros</h1><p>' . $summary . '</p>';
+        $text = $summary . "\n\nEntre no GSE com sua conta autorizada para consultar os registros.";
+        if ($link !== '') {
+            $html .= '<p><a href="' . htmlspecialchars($link, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">Entrar no GSE</a></p>';
+            $text .= "\n" . $link;
+        } else {
+            $html .= '<p>Entre no endereço institucional do GSE com sua conta autorizada.</p>';
         }
-
-        $subject = 'GSE: resumo de DVAs que exigem atenção';
-        $html = '<!doctype html><html lang="pt-BR"><body><h1>Resumo de DVAs</h1>'
-            . '<p>Foram encontrados ' . count($warnings) . ' registro(s) vencido(s) ou próximo(s) do vencimento.</p>'
-            . '<table><thead><tr><th>Aluno</th><th>Turma</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>'
-            . $rows . '</tbody></table><p>Acesse o GSE para revisar os dados.</p></body></html>';
-        $text = "Resumo de DVAs\n\n" . implode("\n", $textRows) . "\n\nAcesse o GSE para revisar os dados.";
-
-        return [$subject, $html, $text];
+        return [$subject, $html . '</body></html>', $text];
     }
 }

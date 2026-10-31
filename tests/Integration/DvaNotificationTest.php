@@ -49,21 +49,28 @@ final class DvaNotificationTest extends DatabaseTestCase
         ], $admin, ['data_vencimento' => '2026-08-25', 'observacao' => null]);
         $this->assertIsInt($student);
         $transport = new RecordingTransport();
+        $previousUrl = $_ENV['APP_URL'] ?? null;
+        $_ENV['APP_URL'] = 'https://school.example.test';
         $service = new \DvaNotificationService(
             $this->pdo,
             $transport,
             new \DvaStatus(new DateTimeImmutable('2026-08-20'), 30)
         );
 
-        $first = $service->notify();
-        $second = $service->notify();
+        try { $first = $service->notify(); $second = $service->notify(); }
+        finally { if ($previousUrl === null) { unset($_ENV['APP_URL']); } else { $_ENV['APP_URL'] = $previousUrl; } }
 
         $this->assertSame(1, $first['sent']);
         $this->assertSame(0, $first['failed']);
         $this->assertSame(1, $second['skipped']);
         $this->assertCount(1, $transport->messages);
-        $this->assertStringContainsString('&lt;Aluno &amp; Teste&gt;', $transport->messages[0]['html']);
-        $this->assertStringNotContainsString('<Aluno & Teste>', $transport->messages[0]['html']);
+        $this->assertStringContainsString('https://school.example.test/dva', $transport->messages[0]['html']);
+        foreach (['html', 'text'] as $format) {
+            $this->assertStringContainsString('1 registro(s)', $transport->messages[0][$format]);
+            $this->assertStringNotContainsString('Aluno', $transport->messages[0][$format]);
+            $this->assertStringNotContainsString('2026-08-25', $transport->messages[0][$format]);
+            $this->assertStringNotContainsString('1 Ano A', $transport->messages[0][$format]);
+        }
     }
 
     public function testSemAvisosOuDestinatariosNaoEnviaETransportFailurePodeSerTentadaNovamente(): void

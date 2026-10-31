@@ -8,225 +8,136 @@ use Tests\Support\DatabaseTestCase;
 
 final class LoginThrottleTest extends DatabaseTestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->setEnvironment('LOGIN_ACCOUNT_MAX_FAILURES', '5');
-        $this->setEnvironment('LOGIN_IP_MAX_FAILURES', '40');
-        $this->setEnvironment('LOGIN_THROTTLE_WINDOW_SECONDS', '900');
-        $this->setEnvironment('LOGIN_DELAY_BASE_MS', '0');
-        $this->setEnvironment('LOGIN_DELAY_MAX_MS', '0');
-        $this->unsetEnvironment('LOGIN_MAX_FAILURES');
-        $this->unsetEnvironment('LOGIN_WINDOW_SECONDS');
-    }
-
     protected function tearDown(): void
     {
-        $this->setEnvironment('LOGIN_ACCOUNT_MAX_FAILURES', '5');
-        $this->setEnvironment('LOGIN_IP_MAX_FAILURES', '40');
-        $this->setEnvironment('LOGIN_THROTTLE_WINDOW_SECONDS', '900');
-        $this->setEnvironment('LOGIN_DELAY_BASE_MS', '0');
-        $this->setEnvironment('LOGIN_DELAY_MAX_MS', '0');
-        $this->unsetEnvironment('LOGIN_MAX_FAILURES');
-        $this->unsetEnvironment('LOGIN_WINDOW_SECONDS');
+        foreach (['LOGIN_PAIR_MAX_ATTEMPTS','LOGIN_PAIR_WINDOW_SECONDS','LOGIN_ORIGIN_MAX_ATTEMPTS','LOGIN_ORIGIN_WINDOW_SECONDS'] as $name) {
+            unset($_ENV[$name]); putenv($name);
+        }
+        $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+        (new \ReflectionProperty(\PasswordPolicy::class, 'runtime'))->setValue(null, null);
         parent::tearDown();
     }
 
-    public function testAccountBlocksAfterFiveFailuresAcrossDifferentIpsAndNormalizesCase(): void
+    public function testAccountBudgetIsScopedToOriginAndNormalizesCase(): void
     {
         $throttle = new \LoginThrottle($this->pdo);
         $now = 1_800_000_000;
-
-        for ($attempt = 1; $attempt <= 5; $attempt++) {
-            $result = $throttle->recordFailure(
-                $attempt % 2 === 0 ? 'CONTA@example.test' : 'conta@EXAMPLE.test',
-                '192.0.2.' . $attempt,
-                $now + $attempt
-            );
-        }
-
-        $this->assertTrue($result['blocked']);
-        $this->assertTrue($result['account_blocked']);
-        $this->assertFalse($result['ip_blocked']);
-        $this->assertTrue($throttle->status('Conta@example.test', '198.51.100.1', $now + 6)['blocked']);
-    }
-
-    public function testFiveFailuresFromSharedIpDoNotBlockAnotherAccount(): void
-    {
-        $throttle = new \LoginThrottle($this->pdo);
-        $now = 1_800_000_000;
-        $sharedIp = '192.0.2.20';
-
-        for ($attempt = 1; $attempt <= 5; $attempt++) {
-            $throttle->recordFailure("conta{$attempt}@example.test", $sharedIp, $now + $attempt);
-        }
-
-        $status = $throttle->status('legitima@example.test', $sharedIp, $now + 6);
-        $this->assertFalse($status['blocked']);
-        $this->assertSame(5, $status['ip_failures']);
-        $this->assertSame(0, $status['account_failures']);
-    }
-
-    public function testIpBlocksAfterItsIndependentHigherThreshold(): void
-    {
-        $throttle = new \LoginThrottle($this->pdo);
-        $now = 1_800_000_000;
-        $sharedIp = '192.0.2.30';
-
-        for ($attempt = 1; $attempt <= 40; $attempt++) {
-            $result = $throttle->recordFailure("conta{$attempt}@example.test", $sharedIp, $now + $attempt);
-        }
-
-        $this->assertTrue($result['blocked']);
-        $this->assertFalse($result['account_blocked']);
-        $this->assertTrue($result['ip_blocked']);
-        $this->assertTrue($throttle->status('legitima@example.test', $sharedIp, $now + 41)['blocked']);
-    }
-
-    public function testSuccessfulLoginClearsOnlyAccountHistory(): void
-    {
-        $throttle = new \LoginThrottle($this->pdo);
-        $now = 1_800_000_000;
-        $throttle->recordFailure('conta@example.test', '192.0.2.40', $now);
-        $throttle->recordSuccess('CONTA@example.test', '192.0.2.40');
-
-        $status = $throttle->status('conta@example.test', '192.0.2.40', $now + 1);
-        $this->assertSame(0, $status['account_failures']);
-        $this->assertSame(1, $status['ip_failures']);
-        $this->assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM login_attempts')->fetchColumn());
-        $this->assertSame('ip', $this->pdo->query('SELECT key_type FROM login_attempts')->fetchColumn());
-    }
-
-    public function testBlockAndCountingWindowExpire(): void
-    {
-        $throttle = new \LoginThrottle($this->pdo);
-        $now = 1_800_000_000;
-
         for ($attempt = 0; $attempt < 5; $attempt++) {
-            $throttle->recordFailure('expira@example.test', '192.0.2.50', $now + $attempt);
+            $this->assertTrue($throttle->reserve('CONTA@example.test', '192.0.2.1', $now)['admitted']);
         }
-
-        $this->assertTrue($throttle->status('expira@example.test', '198.51.100.50', $now + 10)['blocked']);
-        $this->assertFalse($throttle->status('expira@example.test', '198.51.100.50', $now + 910)['blocked']);
-
-        $reset = $throttle->recordFailure('expira@example.test', '198.51.100.50', $now + 910);
-        $this->assertSame(1, $reset['account_failures']);
-        $this->assertFalse($reset['blocked']);
+        $this->assertFalse($throttle->reserve('conta@EXAMPLE.test', '192.0.2.1', $now + 1)['admitted']);
+        $this->assertTrue($throttle->reserve('conta@example.test', '198.51.100.1', $now + 1)['admitted']);
+        $this->assertTrue($throttle->reserve('outra@example.test', '192.0.2.1', $now + 1)['admitted']);
     }
 
-    public function testInvalidConfigurationFallsBackToSafeSeparatedDefaults(): void
+    public function testOriginBudgetBoundsPasswordSprayingButSharedSchoolRecoversWithinTenSeconds(): void
     {
-        $this->setEnvironment('LOGIN_ACCOUNT_MAX_FAILURES', 'invalido');
-        $this->setEnvironment('LOGIN_IP_MAX_FAILURES', 'invalido');
-        $this->setEnvironment('LOGIN_THROTTLE_WINDOW_SECONDS', 'invalido');
         $throttle = new \LoginThrottle($this->pdo);
         $now = 1_800_000_000;
-
-        for ($attempt = 1; $attempt <= 5; $attempt++) {
-            $result = $throttle->recordFailure('padrao@example.test', '192.0.2.' . $attempt, $now + $attempt);
+        for ($attempt = 0; $attempt < 60; $attempt++) {
+            $this->assertTrue($throttle->reserve("conta{$attempt}@example.test", '192.0.2.2', $now)['admitted']);
         }
-
-        $this->assertTrue($result['account_blocked']);
-        $this->assertFalse($result['ip_blocked']);
-        $this->assertFalse($throttle->status('outra@example.test', '192.0.2.1', $now + 6)['blocked']);
+        $refused = $throttle->reserve('legitima@example.test', '192.0.2.2', $now + 1);
+        $this->assertFalse($refused['admitted']);
+        $this->assertSame(9, $refused['retry_after']);
+        $this->assertTrue($throttle->reserve('legitima@example.test', '192.0.2.2', $now + 10)['admitted']);
     }
 
-    public function testLegacyAccountAndWindowSettingsRemainCompatibleWithoutLoweringIpLimit(): void
+    public function testRejectedRequestsAreReadOnlyAndCannotExtendDeadlineOrCounter(): void
     {
-        $this->unsetEnvironment('LOGIN_ACCOUNT_MAX_FAILURES');
-        $this->unsetEnvironment('LOGIN_THROTTLE_WINDOW_SECONDS');
-        $this->setEnvironment('LOGIN_MAX_FAILURES', '3');
-        $this->setEnvironment('LOGIN_WINDOW_SECONDS', '60');
         $throttle = new \LoginThrottle($this->pdo);
         $now = 1_800_000_000;
-
-        for ($attempt = 1; $attempt <= 3; $attempt++) {
-            $result = $throttle->recordFailure('legada@example.test', '192.0.2.' . $attempt, $now + $attempt);
-        }
-
-        $this->assertTrue($result['account_blocked']);
-        $this->assertFalse($result['ip_blocked']);
-        $this->assertFalse($throttle->status('outra@example.test', '192.0.2.1', $now + 4)['blocked']);
-        $this->assertFalse($throttle->status('legada@example.test', '198.51.100.1', $now + 904)['blocked']);
+        for ($i = 0; $i < 5; $i++) { $throttle->reserve('conta@example.test', '192.0.2.3', $now); }
+        $before = $this->pdo->query('SELECT * FROM login_attempts ORDER BY key_type')->fetchAll();
+        $this->pdo->exec('PRAGMA query_only=ON');
+        try {
+            for ($i = 1; $i < 10; $i++) {
+                $result = $throttle->reserve('conta@example.test', '192.0.2.3', $now + $i);
+                $this->assertFalse($result['admitted']);
+                $this->assertSame(60 - $i, $result['retry_after']);
+                $this->assertSame([], $result['reached']);
+            }
+            $this->assertSame($before, $this->pdo->query('SELECT * FROM login_attempts ORDER BY key_type')->fetchAll());
+        } finally { $this->pdo->exec('PRAGMA query_only=OFF'); }
+        $this->assertTrue($throttle->reserve('conta@example.test', '192.0.2.3', $now + 60)['admitted']);
     }
 
-    public function testProgressiveDelayUsesAccountHistoryInsteadOfSharedIpHistory(): void
+    public function testSuccessClearsOnlyItsPairNotOtherOriginsOrSharedOriginBudget(): void
     {
-        $this->setEnvironment('LOGIN_DELAY_BASE_MS', '100');
-        $this->setEnvironment('LOGIN_DELAY_MAX_MS', '2000');
         $throttle = new \LoginThrottle($this->pdo);
         $now = 1_800_000_000;
-
-        $first = $throttle->recordFailure('primeira@example.test', '192.0.2.60', $now);
-        $secondAccount = $throttle->recordFailure('segunda@example.test', '192.0.2.60', $now + 1);
-        $secondFailure = $throttle->recordFailure('primeira@example.test', '198.51.100.60', $now + 2);
-
-        $this->assertSame(100, $first['delay_ms']);
-        $this->assertSame(100, $secondAccount['delay_ms']);
-        $this->assertSame(200, $secondFailure['delay_ms']);
-
-        $this->setEnvironment('LOGIN_DELAY_BASE_MS', '0');
-        $this->setEnvironment('LOGIN_DELAY_MAX_MS', '0');
+        $throttle->reserve('conta@example.test', '192.0.2.4', $now);
+        $throttle->reserve('conta@example.test', '192.0.2.5', $now);
+        $throttle->recordSuccess('CONTA@example.test', '192.0.2.4');
+        $this->assertSame(0, $throttle->status('conta@example.test', '192.0.2.4', $now)['account_failures']);
+        $this->assertSame(1, $throttle->status('conta@example.test', '192.0.2.4', $now)['ip_failures']);
+        $this->assertSame(1, $throttle->status('conta@example.test', '192.0.2.5', $now)['account_failures']);
     }
 
-    public function testValidLoginWorksAfterExpiredHistoricalBlock(): void
+    public function testLegacyGlobalBlocksCannotLockOutNewScopedBudgets(): void
     {
-        $this->insertUsuario('Conta Expirada', 'funcionario', true, 'Frase expirada 2026');
+        $now = time();
+        $key = \DataProtection::keyring()['index'];
+        $query = $this->pdo->prepare('INSERT INTO login_attempts(key_type,key_hash,failure_count,first_failure_at,last_failure_at,blocked_until) VALUES(?,?,40,?,?,?)');
+        foreach ([['account','login-account:' . hash('sha256', 'victim@example.test')], ['ip','login-ip:192.0.2.6']] as [$type,$value]) {
+            $query->execute([$type,hash_hmac('sha256',$value,$key),gmdate('Y-m-d H:i:s',$now),gmdate('Y-m-d H:i:s',$now),gmdate('Y-m-d H:i:s',$now+900)]);
+        }
+        $this->assertTrue((new \LoginThrottle($this->pdo))->reserve('victim@example.test','192.0.2.6',$now)['admitted']);
+    }
+
+    public function testBlockedAuthenticationDoesNotChooseHashSleepOrWriteAudit(): void
+    {
         $throttle = new \LoginThrottle($this->pdo);
-        $past = time() - 2000;
+        for ($i=0;$i<5;$i++) { $throttle->reserve('blocked@example.test','127.0.0.1'); }
+        $runtime = new class extends \PasswordHashRuntime {
+            public function algorithms(): array { throw new \LogicException('Blocked request must never select a password algorithm.'); }
+        };
+        (new \ReflectionProperty(\PasswordPolicy::class,'runtime'))->setValue(null,$runtime);
+        $before = (int) $this->pdo->query('SELECT total_changes()')->fetchColumn();
+        $this->pdo->exec('PRAGMA query_only=ON');
+        try {
+            for ($i=0;$i<20;$i++) {
+                $this->assertFalse(\Auth::attempt('blocked@example.test','private-input'));
+                $this->assertSame(\Auth::ATTEMPT_BLOCKED,\Auth::lastAttemptStatus());
+                $this->assertGreaterThan(0,\Auth::retryAfter());
+            }
+            $this->assertSame($before,(int)$this->pdo->query('SELECT total_changes()')->fetchColumn());
+            $this->assertSame(0,(int)$this->pdo->query('SELECT COUNT(*) FROM security_audit')->fetchColumn());
+        } finally { $this->pdo->exec('PRAGMA query_only=OFF'); }
+    }
 
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            $throttle->recordFailure('conta.expirada@teste.local', '127.0.0.1', $past + $attempt);
+    public function testThresholdAuditIsAggregatedAndDoesNotRevealWhetherAccountExists(): void
+    {
+        $this->insertUsuario('Conta Auditada','funcionario',true,'Frase auditada 2026');
+        foreach (['conta.auditada@teste.local','inexistente@example.test'] as $email) {
+            for ($i=0;$i<6;$i++) { $this->assertFalse(\Auth::attempt($email,'private-wrong-password')); }
         }
-
-        $this->assertTrue(\Auth::attempt('CONTA.EXPIRADA@teste.local', 'Frase expirada 2026'));
+        $events = $this->pdo->query("SELECT description,target_user_id FROM security_audit WHERE action='login.blocked'")->fetchAll();
+        $this->assertCount(2,$events);
+        $this->assertSame($events[0],$events[1]);
+        $this->assertNull($events[0]['target_user_id']);
+        $this->assertStringContainsString('5 tentativas em 60 segundos',$events[0]['description']);
+        $this->assertStringNotContainsString('private-wrong-password',json_encode($events));
+        $this->assertSame(10,(int)$this->pdo->query("SELECT COUNT(*) FROM security_audit WHERE action='login.invalid'")->fetchColumn());
     }
 
-    public function testAuthenticationUsesGenericOutcomeForExistingAndUnknownAccounts(): void
+    public function testConcurrentReservationsCannotExceedPairBudget(): void
     {
-        $this->insertUsuario('Conta Auditada', 'funcionario', true, 'Frase auditada 2026');
-
-        $this->assertFalse(\Auth::attempt('conta.auditada@teste.local', 'tentativa incorreta'));
-        $this->assertSame(\Auth::ATTEMPT_INVALID, \Auth::lastAttemptStatus());
-        $this->assertFalse(\Auth::attempt('inexistente@teste.local', 'tentativa incorreta'));
-        $this->assertSame(\Auth::ATTEMPT_INVALID, \Auth::lastAttemptStatus());
-
-        $events = $this->pdo->query(
-            "SELECT action, result, description FROM security_audit WHERE action = 'login.invalid' ORDER BY id"
-        )->fetchAll();
-        $this->assertCount(2, $events);
-        $this->assertSame($events[0]['action'], $events[1]['action']);
-        $this->assertSame($events[0]['result'], $events[1]['result']);
-        $this->assertSame($events[0]['description'], $events[1]['description']);
-        $this->assertStringNotContainsString('tentativa incorreta', $events[0]['description']);
-    }
-
-    public function testAuthenticationAuditsBlockWithoutSensitiveInput(): void
-    {
-        $this->insertUsuario('Conta Bloqueada', 'funcionario', true, 'Frase bloqueada 2026');
-
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            $this->assertFalse(\Auth::attempt('conta.bloqueada@teste.local', 'segredo de teste incorreto'));
+        $processes=[];
+        for ($i=0;$i<8;$i++) {
+            $process=proc_open([PHP_BINARY,ROOT_PATH.'/tests/fixtures/login-reservation.php',(string)getenv('DB_PATH')],
+                [1=>['pipe','w'],2=>['pipe','w']],$pipes,ROOT_PATH,getenv(),['bypass_shell'=>true,'create_no_window'=>true]);
+            $this->assertIsResource($process);
+            $processes[]=[$process,$pipes];
         }
-
-        $actions = $this->pdo->query('SELECT action FROM security_audit ORDER BY id')->fetchAll(\PDO::FETCH_COLUMN);
-        $this->assertContains('login.invalid', $actions);
-        $this->assertContains('login.blocked', $actions);
-        $this->assertSame(
-            0,
-            (int) $this->pdo->query("SELECT COUNT(*) FROM security_audit WHERE description LIKE '%segredo de teste%'")->fetchColumn()
-        );
-    }
-
-    private function setEnvironment(string $name, string $value): void
-    {
-        $_ENV[$name] = $value;
-        putenv("{$name}={$value}");
-    }
-
-    private function unsetEnvironment(string $name): void
-    {
-        unset($_ENV[$name]);
-        putenv($name);
+        $admitted=0;
+        foreach ($processes as [$process,$pipes]) {
+            $output=stream_get_contents($pipes[1]); $error=stream_get_contents($pipes[2]);
+            fclose($pipes[1]); fclose($pipes[2]);
+            $this->assertSame(0,proc_close($process),$error);
+            $admitted+=(int)$output;
+        }
+        $this->assertSame(5,$admitted);
+        $this->assertSame(5,(new \LoginThrottle($this->pdo))->status('parallel@example.test','192.0.2.9')['account_failures']);
     }
 }

@@ -6,8 +6,10 @@ require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Core/TextNormalizer.php';
 
 use Smalot\PdfParser\Config as PdfConfig;
-use Smalot\PdfParser\Parser as PdfParser;
 use src\Core\TextNormalizer;
+
+require_once __DIR__ . '/AlunoPdfWorker.php';
+require_once __DIR__ . '/BoundedPdfParser.php';
 
 /**
  * Lê o relatório SGDE pela posição dos textos, independentemente da ordem dos streams.
@@ -24,10 +26,22 @@ final class AlunoPdfParser
     public const MAX_PAGES = 200;
     public const MAX_ROWS = 5_000;
     private const MAX_PAGE_CELLS = 20_000;
-    private const DECODE_MEMORY_LIMIT = 8_388_608;
+    public const MAX_STREAM_BYTES = 8_388_608;
+    public const MAX_DECODED_BYTES = 33_554_432;
+    public const MAX_OBJECTS = 20_000;
+    private const MAX_TOTAL_CELLS = 60_000;
+    private const MAX_TEXT_BYTES = 4_194_304;
 
     /** @return ParsedReport */
     public function parseFile(string $path): array
+    {
+        $this->validateFile($path);
+        /** @var ParsedReport $report */
+        $report = (new AlunoPdfWorker())->parse($path);
+        return $report;
+    }
+
+    private function validateFile(string $path): void
     {
         if (!is_file($path) || is_link($path) || !is_readable($path)) {
             throw new DomainException('Não foi possível ler o PDF enviado.');
@@ -46,18 +60,28 @@ final class AlunoPdfParser
         if (!is_string($header) || preg_match('/\A%PDF-\d\.\d/', $header) !== 1 || $mime !== 'application/pdf') {
             throw new DomainException('O conteúdo enviado não é um arquivo PDF válido.');
         }
+    }
+
+    /** @internal Only the standalone, resource-limited CLI child may parse bytes.
+     * @return ParsedReport */
+    public function parseFileInWorker(string $path): array
+    {
+        if (PHP_SAPI !== 'cli' || !defined('GSE_PDF_WORKER')) {
+            throw new LogicException('PDF parsing requires the isolated worker.');
+        }
+        $this->validateFile($path);
 
         $config = new PdfConfig();
         $config->setRetainImageContent(false);
-        $config->setDecodeMemoryLimit(self::DECODE_MEMORY_LIMIT);
+        $config->setDecodeMemoryLimit(self::MAX_STREAM_BYTES);
         $config->setMaxNestingDepth(128);
 
         try {
-            $document = (new PdfParser([], $config))->parseFile($path);
+            $document = (new BoundedPdfParser($config))->parseFile($path);
             // O fallback Flate da biblioteca pode devolver exatamente o limite truncado.
             // Rejeita esse resultado antes de analisar linhas para evitar importações parciais.
             foreach ($document->getObjects() as $object) {
-                if (strlen((string) $object->getContent()) >= self::DECODE_MEMORY_LIMIT) {
+                if (strlen((string) $object->getContent()) >= self::MAX_STREAM_BYTES) {
                     throw new DomainException('O PDF ultrapassa o limite de expansão de conteúdo. Exporte o relatório em arquivos menores.');
                 }
             }
@@ -67,9 +91,12 @@ final class AlunoPdfParser
             }
 
             $positionedPages = [];
+            $cellCount = 0;
+            $textBytes = 0;
             foreach ($pages as $page) {
                 $data = $page->getDataTm();
-                if (count($data) > self::MAX_PAGE_CELLS) {
+                $cellCount += count($data);
+                if (count($data) > self::MAX_PAGE_CELLS || $cellCount > self::MAX_TOTAL_CELLS) {
                     throw new DomainException('O PDF contém uma página com conteúdo excessivo.');
                 }
                 $cells = [];
@@ -78,6 +105,8 @@ final class AlunoPdfParser
                         || !is_numeric($item[0][4]) || !is_numeric($item[0][5])) {
                         throw new DomainException('Não foi possível reconhecer a posição dos textos do PDF.');
                     }
+                    $textBytes += strlen($item[1]);
+                    if ($textBytes > self::MAX_TEXT_BYTES) { throw new DomainException('O PDF contém texto em excesso. Exporte arquivos menores.'); }
                     $cells[] = ['x' => (float) $item[0][4], 'y' => (float) $item[0][5], 'text' => $item[1]];
                 }
                 $positionedPages[] = $cells;

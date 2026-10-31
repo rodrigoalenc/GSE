@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once ROOT_PATH . '/src/Model/Passivo.php';
 require_once ROOT_PATH . '/src/Model/Aluno.php';
 require_once ROOT_PATH . '/src/Services/PassivoCsvService.php';
+require_once ROOT_PATH . '/src/Core/AccessPolicy.php';
 
 final class PassivoController extends Controller
 {
@@ -218,6 +219,8 @@ final class PassivoController extends Controller
 
     public function exportar(): never
     {
+        require_once ROOT_PATH . '/src/Core/AccessPolicy.php';
+        AccessPolicy::require('student.export');
         $box = input_string($_POST['caixa'] ?? '');
         $model = new Passivo();
         $rows = $model->listarParaTxt($box);

@@ -74,6 +74,19 @@ final class AlunoPdfFixture
         ]);
     }
 
+    /** Several individually admissible streams must still share one decode budget. */
+    public static function writeCompressedStreams(string $path, int $count, int $bytes): string
+    {
+        $compressed = gzcompress(str_repeat(' ', $bytes));
+        if ($compressed === false) { throw new \RuntimeException('PDF fixture compression failed.'); }
+        $objects = [1 => '<< /Type /Catalog /Pages 2 0 R >>', 2 => '<< /Type /Pages /Count 1 /Kids [3 0 R] >>',
+            3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents [4 0 R] >>'];
+        for ($index = 0; $index < $count; $index++) {
+            $objects[4 + $index] = '<< /Length ' . strlen($compressed) . " /Filter /FlateDecode >>\nstream\n" . $compressed . "\nendstream";
+        }
+        return self::writeObjects($path, $objects);
+    }
+
     /** @param array<int,string> $objects */
     private static function writeObjects(string $path, array $objects): string
     {

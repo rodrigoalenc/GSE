@@ -13,22 +13,25 @@ final class Auth
     private const DUMMY_DEFAULT_HASH = '$2y$12$yDxE4gqN7yBgWUscbzGRTe71RGrh8scVcZlOUEuvRjfFMf2xHaDDC';
     private const DUMMY_ARGON2ID_HASH = '$argon2id$v=19$m=65536,t=4,p=1$VUt3Vk5uSmZZTW9Oc3VNcg$Hq5HJNxqjXzWoXzvucAn0Od2suQDlExvVELlnW9ijOE';
     private static string $lastAttemptStatus = self::ATTEMPT_INVALID;
+    private static int $lastRetryAfter = 0;
 
     public static function attempt(string $email, string $senha): bool
     {
         self::$lastAttemptStatus = self::ATTEMPT_INVALID;
+        self::$lastRetryAfter = 0;
         $normalizedEmail = Usuario::normalizarEmail($email);
         $ip = RequestContext::clientIp();
         $throttle = new LoginThrottle();
-        $status = $throttle->status($normalizedEmail, $ip);
+        $reservation = $throttle->reserve($normalizedEmail, $ip);
 
-        if ($status['blocked']) {
-            password_verify('invalid-password-placeholder', self::dummyPasswordHash());
+        if (!$reservation['admitted']) {
             self::$lastAttemptStatus = self::ATTEMPT_BLOCKED;
-            LoginThrottle::delay(Config::int('LOGIN_DELAY_MAX_MS', 2000, 0, 10000));
-            AuditLogger::record('login.blocked', AuditLogger::BLOCKED, null, null, 'Tentativa recusada pelo limite de autenticação.');
-
+            self::$lastRetryAfter = max(1, $reservation['retry_after']);
             return false;
+        }
+        foreach ($reservation['reached'] as $limit) {
+            AuditLogger::record('login.blocked', AuditLogger::BLOCKED, null, null,
+                sprintf('Orçamento de autenticação esgotado (%s): %d tentativas em %d segundos.', $limit['scope'], $limit['attempts'], $limit['window']));
         }
 
         $usuarios = new Usuario();
@@ -44,15 +47,8 @@ final class Auth
         $contaAtiva = is_array($usuario) && (int) ($usuario['ativo'] ?? 0) === 1;
 
         if (!$senhaValida || !$contaAtiva) {
-            $failure = $throttle->recordFailure($normalizedEmail, $ip);
-            LoginThrottle::delay($failure['delay_ms']);
             $targetId = is_array($usuario) ? (int) $usuario['id'] : null;
             AuditLogger::record('login.invalid', AuditLogger::FAILURE, null, $targetId, 'Falha de autenticação.');
-
-            if ($failure['blocked']) {
-                self::$lastAttemptStatus = self::ATTEMPT_BLOCKED;
-                AuditLogger::record('login.blocked', AuditLogger::BLOCKED, null, $targetId, 'Limite temporário de autenticação aplicado.');
-            }
 
             return false;
         }
@@ -83,6 +79,8 @@ final class Auth
     {
         return self::$lastAttemptStatus;
     }
+
+    public static function retryAfter(): int { return self::$lastRetryAfter; }
 
     private static function dummyPasswordHash(): string
     {

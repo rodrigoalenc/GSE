@@ -9,6 +9,17 @@ use Tests\Support\DatabaseTestCase;
 
 final class MaintenanceTest extends DatabaseTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $_ENV['PASSIVO_LEGACY_IMPORT_DIRECTORY'] = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gse-maintenance-test-' . bin2hex(random_bytes(8)) . DIRECTORY_SEPARATOR . 'gse-passive-imports';
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_ENV['PASSIVO_LEGACY_IMPORT_DIRECTORY']);
+        parent::tearDown();
+    }
     public function testMaintenanceRemovesOnlyExpiredRecordsAndIsIdempotent(): void
     {
         $now = 1_800_000_000;
@@ -34,8 +45,8 @@ final class MaintenanceTest extends DatabaseTestCase
 
         $maintenance = new Maintenance($this->pdo);
 
-        $this->assertSame(['login_attempts' => 1, 'security_audit' => 1], $maintenance->run($now));
-        $this->assertSame(['login_attempts' => 0, 'security_audit' => 0], $maintenance->run($now));
+        $this->assertSame(['login_attempts' => 1, 'security_audit' => 1, 'passive_previews' => 0], $maintenance->run($now));
+        $this->assertSame(['login_attempts' => 0, 'security_audit' => 0, 'passive_previews' => 0], $maintenance->run($now));
         $this->assertSame('recent', $this->pdo->query('SELECT key_hash FROM login_attempts')->fetchColumn());
         $this->assertSame('recent.event', $this->pdo->query('SELECT action FROM security_audit')->fetchColumn());
     }

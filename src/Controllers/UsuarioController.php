@@ -100,11 +100,13 @@ final class UsuarioController extends Controller
                 $novaSenha,
                 $dados['recebe_alertas_dva'],
                 (int) $_SESSION['usuario_id'],
-                $senhaAtual
+                $senhaAtual,
+                (int) ($_SESSION['auth_version'] ?? 0)
             )) {
                 $actor = (int) $_SESSION['usuario_id'];
                 $target = (int) $usuarioId;
-                $securityChange = (string) $usuario['tipo'] !== $dados['tipo'] || $novaSenha !== null;
+                $securityChange = (string) $usuario['tipo'] !== $dados['tipo'] || $novaSenha !== null
+                    || Usuario::normalizarEmail((string) $usuario['email']) !== $dados['email'];
 
                 if ($actor === $target && $securityChange) {
                     SessionManager::terminate();
@@ -125,7 +127,8 @@ final class UsuarioController extends Controller
                 $erros[] = match ($code) {
                     'duplicate_email' => 'O e-mail informado já está em uso.',
                     'last_active_admin' => 'A alteração foi bloqueada: o sistema deve manter um administrador ativo.',
-                    'current_password_invalid' => 'Para alterar sua própria senha, informe a senha atual corretamente.',
+                    'current_password_invalid' => 'Para alterar seu e-mail ou senha, informe a senha atual corretamente.',
+                    'session_invalid' => 'Sua conta foi alterada. Faça login novamente antes de continuar.',
                     'password_reused' => 'A nova senha deve ser diferente da senha atual.',
                     default => 'Não foi possível atualizar o usuário.',
                 };

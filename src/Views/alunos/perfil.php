@@ -1,4 +1,6 @@
 <?php
+$canViewHealth = $canViewHealth ?? AccessPolicy::allows('student.health');
+$canViewContacts = $canViewContacts ?? AccessPolicy::allows('student.contacts');
 $phone = static function (?string $value): string {
     $digits = (string) $value;
     if (strlen($digits) === 11) {
@@ -9,10 +11,11 @@ $phone = static function (?string $value): string {
     }
     return 'Não informado';
 };
-$studentPhoneDigits = (string) preg_replace('/\D/', '', (string) $student['telefone_aluno']);
-$guardianPhoneDigits = (string) preg_replace('/\D/', '', (string) $student['telefone_responsavel']);
+$studentPhoneDigits = (string) preg_replace('/\D/', '', (string) ($student['telefone_aluno'] ?? ''));
+$guardianPhoneDigits = (string) preg_replace('/\D/', '', (string) ($student['telefone_responsavel'] ?? ''));
 $studentPhoneValid = in_array(strlen($studentPhoneDigits), [10, 11], true);
 $guardianPhoneValid = in_array(strlen($guardianPhoneDigits), [10, 11], true);
+if ($canViewHealth) {
 $dvaStatus = (string) $student['dva_status'];
 $daysRemaining = $student['dva_dias_restantes'];
 $dvaDate = $student['data_vencimento'] ? UiPresentation::civilDate($student['data_vencimento']) : null;
@@ -29,6 +32,7 @@ $dvaTiming = match ($dvaStatus) {
     DvaStatus::VIGENTE => 'Vence em ' . $dvaDate . '.',
     default => 'Este aluno não possui data de vencimento cadastrada.',
 };
+}
 $historyTime = static function (?string $value): string {
     if (!$value) { return '—'; }
     try {
@@ -42,7 +46,7 @@ $historyTime = static function (?string $value): string {
 <section class="profile-head">
     <div>
         <h2><?= e((string) $student['nome_completo']) ?></h2>
-        <p>Resumo completo do cadastro, situação da DVA e canais de contato disponíveis.</p>
+        <p>Cadastro escolar disponível para a sua autorização de acesso.</p>
     </div>
     <div class="profile-identifiers">
         <span class="perfil-id">ID: #<?= e((string) $student['id']) ?></span>
@@ -50,19 +54,24 @@ $historyTime = static function (?string $value): string {
     </div>
 </section>
 
+<?php if ($canViewHealth): ?>
 <section class="status-box dva-status-large dva-<?= e($dvaStatus) ?>" aria-label="Situação atual da DVA">
     <h2><?= e($dvaHeading) ?></h2>
     <p><?php if ($dvaStatus === DvaStatus::VENCIDA): ?>Venceu há <strong><?= abs((int) $daysRemaining) ?> dias</strong> (<?= e($dvaDate) ?>)<?php elseif ($dvaStatus === DvaStatus::A_VENCER): ?>Vence em <strong><?= (int) $daysRemaining ?> dias</strong> (<?= e($dvaDate) ?>)<?php else: ?><?= e($dvaTiming) ?><?php endif; ?></p>
 </section>
+<?php endif; ?>
 
 <dl class="perfil-info-grid">
     <div class="info-item"><dt class="info-label">Nome completo</dt><dd class="info-valor"><?= e((string) $student['nome_completo']) ?></dd></div>
     <div class="info-item"><dt class="info-label">Turma</dt><dd class="info-valor"><?= e((string) ($student['nome_turma'] ?: 'Sem turma')) ?><?= $student['ano_letivo'] ? ' — ' . e((string) $student['ano_letivo']) : '' ?></dd></div>
     <div class="info-item"><dt class="info-label">Data de nascimento</dt><dd class="info-valor"><?= e(UiPresentation::civilDate($student['data_nascimento'])) ?></dd></div>
+    <?php if ($canViewHealth): ?>
     <div class="info-item"><dt class="info-label">Vencimento DVA</dt><dd class="info-valor"><?= $student['data_vencimento'] ? e(UiPresentation::civilDate($student['data_vencimento'])) : '—' ?></dd></div>
     <div class="info-item wide"><dt class="info-label">Observações DVA</dt><dd class="info-valor textual"><?= nl2br(e((string) ($student['dva_observacao'] ?: '-'))) ?></dd></div>
+    <?php endif; ?>
 </dl>
 
+<?php if ($canViewContacts): ?>
 <section class="contatos-container" aria-labelledby="contatos-titulo">
     <h2 id="contatos-titulo" class="contatos-titulo">Contatos Registrados</h2>
     <div class="contatos-grid">
@@ -78,10 +87,11 @@ $historyTime = static function (?string $value): string {
         </div>
     </div>
 </section>
+<?php endif; ?>
 
 <div class="profile-actions perfil-actions">
-    <a class="btn-primary" href="<?= e(url('aluno/editar/' . (int) $student['id'])) ?>">✏️ Editar Dados</a>
-    <?php if ((int) $student['ativo'] === 1): ?><a class="btn-secondary" href="<?= e(url('aluno/dva/' . (int) $student['id'])) ?>"><?= $student['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a><?php endif; ?>
+    <?php if ($canEditStudent ?? $canManageStudent): ?><a class="btn-primary" href="<?= e(url('aluno/editar/' . (int) $student['id'])) ?>">✏️ Editar Dados</a><?php endif; ?>
+    <?php if ($canViewHealth && (int) $student['ativo'] === 1): ?><a class="btn-secondary" href="<?= e(url('aluno/dva/' . (int) $student['id'])) ?>"><?= $student['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a><?php endif; ?>
     <?php if ($canManageStudent && (int) $student['ativo'] === 1): ?><a class="btn-secondary" href="<?= e(url('aluno/transferir/' . (int) $student['id'])) ?>">Transferir entre turmas</a><?php endif; ?>
     <?php if ($canManageStudent): ?><form class="student-status-form" method="post" action="<?= e(url('aluno/status/' . (int) $student['id'])) ?>" data-confirm-status="<?= (int) $student['ativo'] === 1 ? 'Inativar este aluno? O histórico será preservado.' : 'Reativar este aluno?' ?>"><input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ativo" value="<?= (int) $student['ativo'] === 1 ? '0' : '1' ?>"><button class="btn-secondary student-status-button" type="submit"><?= (int) $student['ativo'] === 1 ? '⛔ Inativar aluno' : '✓ Reativar aluno' ?></button></form><?php endif; ?>
     <?php if ($canArchivePassive): ?><details class="profile-more-actions"><summary>Arquivo Passivo</summary><a class="btn-secondary" href="<?= e(url('aluno/arquivar/' . (int) $student['id'])) ?>">Enviar para o Arquivo Passivo</a></details><?php endif; ?>
@@ -101,6 +111,7 @@ $historyTime = static function (?string $value): string {
 
 <?php require __DIR__ . '/historico-vinculos.php'; ?>
 
+<?php if ($canViewHealth): ?>
 <details class="relatorio student-history">
     <summary>Histórico de DVAs</summary>
     <div class="table-scroll">
@@ -114,3 +125,4 @@ $historyTime = static function (?string $value): string {
         </table>
     </div>
 </details>
+<?php endif; ?>

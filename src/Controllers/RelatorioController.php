@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Model/RelatorioAlunos.php';
+require_once ROOT_PATH . '/src/Core/AccessPolicy.php';
 
 final class RelatorioController extends Controller
 {
@@ -14,6 +15,7 @@ final class RelatorioController extends Controller
 
     public function index(): void
     {
+        AccessPolicy::require('student.export');
         try {
             $page=filter_var($_GET['pagina'] ?? 1,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 1;
             $model=new RelatorioAlunos(); $result=$model->query($this->filters(),$page);
@@ -26,7 +28,8 @@ final class RelatorioController extends Controller
 
     private function export(string $format): void
     {
-        try { $result=(new RelatorioAlunos())->query($this->filters(),1,true); }
+        AccessPolicy::require('student.export');
+        try { $result=(new RelatorioAlunos())->query($this->filters(),1,true,$format==='pdf' ? 500 : 10000); }
         catch (DomainException $e) { render_http_error(422,'Filtro inválido',$e->getMessage(),'relatorio'); }
         if ($format==='pdf' && $result['total']>500) { render_http_error(422,'Relatório extenso','O PDF aceita até 500 alunos. Aplique filtros mais específicos.','relatorio'); }
         $actor=(int)($_SESSION['usuario_id'] ?? 0);

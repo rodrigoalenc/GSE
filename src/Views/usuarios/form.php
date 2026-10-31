@@ -28,9 +28,9 @@ $editingSelf = $editingSelf ?? false;
                         </div></div>
                     </div>
                     <?php if ($editingSelf): ?>
-                        <label for="senha_atual">Senha atual (necessária ao definir uma nova senha):</label>
+                        <label for="senha_atual">Senha atual (necessária ao alterar seu e-mail ou senha):</label>
                         <input type="password" id="senha_atual" name="senha_atual" autocomplete="current-password" data-password-max="128" <?= UiPresentation::fieldAttributes($fieldErrors, 'senha_atual') ?>><?php if (isset($fieldErrors['senha_atual'])): ?><small class="field-error" id="senha_atual-error"><?= e(implode(' ', $fieldErrors['senha_atual'])) ?></small><?php endif; ?>
-                        <p class="form-help">Sua nova senha será definitiva. Após salvar, entre novamente com ela.</p>
+                        <p class="form-help">Ao alterar seu e-mail ou senha, todas as sessões serão encerradas. Entre novamente com os dados atualizados.</p>
                     <?php else: ?>
                         <p class="form-help">A senha redefinida para outro usuário é temporária e deverá ser trocada no próximo acesso.</p>
                     <?php endif; ?>
@@ -61,7 +61,7 @@ $editingSelf = $editingSelf ?? false;
                     <div class="form-actions">
                         <button type="submit"><?= $edicao ? 'Salvar Alterações' : 'Salvar' ?></button>
                         <a class="cancelar" href="<?= e(url('usuario')) ?>">Cancelar</a>
-                        <details class="usuario-access-help"><summary>Orientações de acesso</summary><p>Use de 15 a 128 caracteres. Frases-senha, espaços e letras com acentos são aceitas; senhas comuns ou semelhantes ao nome/e-mail são recusadas.<?= $edicao ? ' Deixe os campos de nova senha e confirmação em branco para manter a senha atual.' : '' ?> <?= $editingSelf ? 'A alteração da própria senha exige confirmação da senha atual.' : 'A senha definida para outro usuário será temporária.' ?> Alterações de perfil e senha invalidam as sessões anteriores.</p></details>
+                        <details class="usuario-access-help"><summary>Orientações de acesso</summary><p>Use de 15 a 128 caracteres. Frases-senha, espaços e letras com acentos são aceitas; senhas comuns ou semelhantes ao nome/e-mail são recusadas.<?= $edicao ? ' Deixe os campos de nova senha e confirmação em branco para manter a senha atual.' : '' ?> <?= $editingSelf ? 'Sua nova senha será definitiva. A alteração do próprio e-mail ou senha exige confirmação da senha atual.' : 'A senha definida para outro usuário será temporária.' ?> Alterações de e-mail, perfil de acesso e senha invalidam as sessões anteriores.</p></details>
                     </div>
                 </form>
         </section>

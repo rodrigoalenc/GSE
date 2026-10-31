@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use src\Core\TextNormalizer;
+require_once __DIR__ . '/CertidaoStorage.php';
+
+final class LegacyPassivePreviewsPending extends RuntimeException {}
 
 final class PassivoCsvService
 {
@@ -12,6 +15,8 @@ final class PassivoCsvService
     public const MAX_ERRORS = 50;
 
     private ?string $lastErrorCode = null;
+
+    public function __construct(private readonly ?string $storageDirectory = null) {}
 
     /**
      * @param array<string,mixed> $file
@@ -73,7 +78,7 @@ final class PassivoCsvService
         $path = is_string($preview['path'] ?? null) ? $preview['path'] : '';
 
         try {
-            if (!$this->isRegularPrivateFile($path)
+            if (!$this->isOwnedPreviewFile($path)
                 || !hash_equals((string) ($preview['sha256'] ?? ''), (string) hash_file('sha256', $path))) {
                 $this->lastErrorCode = 'preview_changed';
 
@@ -171,13 +176,12 @@ final class PassivoCsvService
             return false;
         }
 
-        $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gse-passive-imports';
-
-        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        try { $directory = $this->privateDirectory(true); }
+        catch (Throwable) {
             $this->lastErrorCode = 'storage_failed';
-
             return false;
         }
+        if ($directory === null) { $this->lastErrorCode = 'storage_failed'; return false; }
 
         $destination = $directory . DIRECTORY_SEPARATOR . bin2hex(random_bytes(24)) . '.csv';
         $stored = $uploaded ? move_uploaded_file($source, $destination) : copy($source, $destination);
@@ -189,8 +193,11 @@ final class PassivoCsvService
         }
 
         if (DIRECTORY_SEPARATOR === '/') {
-            @chmod($directory, 0700);
-            @chmod($destination, 0600);
+            if (!chmod($destination, 0600)) {
+                $this->removePreviewFile($destination);
+                $this->lastErrorCode = 'storage_failed';
+                return false;
+            }
         }
 
         $analysis = $this->analyze($destination, $model);
@@ -356,24 +363,105 @@ final class PassivoCsvService
         }
     }
 
-    private function cleanupExpiredDirectory(): void
+    /** Periodic maintenance entrypoint; independent from sessions and new imports. */
+    public function cleanupExpiredFiles(?int $now = null): int
     {
-        $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gse-passive-imports';
-
-        if (!is_dir($directory)) {
-            return;
-        }
-
+        $directory = $this->privateDirectory(false);
+        if ($directory === null) { return 0; }
         $files = glob($directory . DIRECTORY_SEPARATOR . '*.csv') ?: [];
-        $expiration = time() - self::PREVIEW_TTL;
-
+        $expiration = ($now ?? time()) - self::PREVIEW_TTL;
+        $removed = 0;
         foreach ($files as $file) {
+            if (preg_match('/^[a-f0-9]{48}\.csv$/D', basename($file)) !== 1 || is_link($file)) { continue; }
             $modified = filemtime($file);
-
-            if (is_file($file) && !is_link($file) && $modified !== false && $modified < $expiration) {
-                @unlink($file);
+            if (is_file($file) && $modified !== false && $modified < $expiration) {
+                if (!unlink($file) || is_file($file)) { throw new RuntimeException('Falha na limpeza de uma prévia expirada.'); }
+                $removed++;
             }
         }
+        return $removed;
+    }
+
+    /** The legacy directory has no marker; require ownership or explicit operator approval. */
+    public function cleanupLegacyExpiredFiles(?int $now = null, bool $approved = false): int
+    {
+        $directory = Config::string('PASSIVO_LEGACY_IMPORT_DIRECTORY', sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gse-passive-imports');
+        CertidaoStorage::rejectLinks($directory);
+        if (!is_dir($directory)) { return 0; }
+        $resolved = realpath($directory);
+        $public = realpath(ROOT_PATH . '/public');
+        if ($resolved === false || $public === false || basename($resolved) !== 'gse-passive-imports'
+            || str_starts_with(strtolower(str_replace('\\', '/', $resolved)) . '/', strtolower(str_replace('\\', '/', $public)) . '/')) {
+            throw new LegacyPassivePreviewsPending('Confira o diretório legado de prévias CSV antes da limpeza.');
+        }
+        $owned = DIRECTORY_SEPARATOR === '/' && function_exists('posix_geteuid')
+            && fileowner($resolved) === posix_geteuid() && (fileperms($resolved) & 0077) === 0;
+        $removed = 0;
+        foreach (glob($resolved . DIRECTORY_SEPARATOR . '*.csv') ?: [] as $file) {
+            if (preg_match('/^[a-f0-9]{48}\.csv$/D', basename($file)) !== 1 || is_link($file) || !is_file($file)) { continue; }
+            $modified = filemtime($file);
+            if ($modified === false || $modified >= ($now ?? time()) - self::PREVIEW_TTL) { continue; }
+            $fileOwned = $owned && fileowner($file) === fileowner($resolved);
+            if (!$fileOwned && !$approved) {
+                throw new LegacyPassivePreviewsPending('Prévias CSV legadas expiradas exigem conferência de propriedade e ACL. Após conferir, execute maintenance.php --cleanup-legacy-previews.');
+            }
+            if (!unlink($file)) { throw new RuntimeException('Falha na limpeza de prévias CSV legadas.'); }
+            $removed++;
+        }
+        return $removed;
+    }
+
+    private function cleanupExpiredDirectory(): void
+    {
+        $this->cleanupExpiredFiles();
+    }
+
+    private function privateDirectory(bool $create): ?string
+    {
+        $database = \src\Core\Database::resolvePath();
+        $directory = $this->storageDirectory ?? Config::string('PASSIVO_IMPORT_DIRECTORY');
+        if ($this->storageDirectory === null && $directory === '') {
+            $directory = dirname($database) . DIRECTORY_SEPARATOR . '.gse-passive-imports-' . substr(hash('sha256', $database), 0, 16);
+        }
+        if ($directory === '' || str_contains($directory, "\0")) { throw new RuntimeException('Diretório de prévias inválido.'); }
+        $normalized = str_replace('\\', '/', $directory);
+        $publicPath = strtolower(str_replace('\\', '/', (string) realpath(ROOT_PATH . '/public')));
+        if ((!str_starts_with($normalized, '/') && preg_match('/^[a-z]:\//i', $normalized) !== 1)
+            || str_contains($normalized, '/../') || str_ends_with($normalized, '/..')
+            || strtolower($normalized) === $publicPath || str_starts_with(strtolower($normalized), $publicPath . '/')) {
+            throw new RuntimeException('Diretório de prévias precisa ser absoluto e privado.');
+        }
+        CertidaoStorage::rejectLinks($directory);
+        if (!file_exists($directory) && !$create) { return null; }
+        $created = false;
+        if (!is_dir($directory)) {
+            if (!mkdir($directory, 0700, true) && !is_dir($directory)) { throw new RuntimeException('Diretório de prévias indisponível.'); }
+            $created = true;
+        }
+        $resolved = realpath($directory);
+        $public = realpath(ROOT_PATH . '/public');
+        if ($resolved === false || $public === false) { throw new RuntimeException('Diretório de prévias inválido.'); }
+        $candidate = strtolower(str_replace('\\', '/', $resolved));
+        $public = strtolower(str_replace('\\', '/', $public));
+        if ($candidate === $public || str_starts_with($candidate, $public . '/')) {
+            throw new RuntimeException('As prévias precisam ficar fora da raiz pública.');
+        }
+        $marker = $resolved . DIRECTORY_SEPARATOR . '.gse-import-owner';
+        if ($created) {
+            $stream = fopen($marker, 'x+b');
+            if ($stream === false) { throw new RuntimeException('Não foi possível identificar o diretório de prévias.'); }
+            fwrite($stream, "GSE passive imports v1\n");
+            fclose($stream);
+        }
+        if (is_link($marker) || !is_file($marker) || file_get_contents($marker) !== "GSE passive imports v1\n") {
+            throw new RuntimeException('Diretório de prévias sem identificação de propriedade.');
+        }
+        if (DIRECTORY_SEPARATOR === '/') {
+            if (!chmod($resolved, 0700) || !chmod($marker, 0600)) { throw new RuntimeException('Permissões das prévias indisponíveis.'); }
+            clearstatcache(true, $resolved);
+            if ((fileperms($resolved) & 0077) !== 0) { throw new RuntimeException('Permissões das prévias precisam ser privadas.'); }
+        }
+        return $resolved;
     }
 
     private function validMime(string $path): bool
@@ -415,10 +503,20 @@ final class PassivoCsvService
         return $path !== '' && is_file($path) && !is_link($path) && is_readable($path);
     }
 
+    private function isOwnedPreviewFile(string $path): bool
+    {
+        if (!$this->isRegularPrivateFile($path) || preg_match('/^[a-f0-9]{48}\.csv$/D', basename($path)) !== 1) { return false; }
+        $directory = $this->privateDirectory(false);
+        return $directory !== null && realpath(dirname($path)) === $directory;
+    }
+
     private function removePreviewFile(mixed $path): void
     {
-        if (is_string($path) && $path !== '' && is_file($path)) {
-            @unlink($path);
+        if (!is_string($path) || $path === '' || is_link($path) || !is_file($path)
+            || preg_match('/^[a-f0-9]{48}\.csv$/D', basename($path)) !== 1) { return; }
+        $directory = $this->privateDirectory(false);
+        if ($directory !== null && realpath(dirname($path)) === $directory && !unlink($path)) {
+            throw new RuntimeException('Falha ao remover uma prévia do GSE.');
         }
     }
 }

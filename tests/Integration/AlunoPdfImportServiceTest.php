@@ -255,6 +255,22 @@ final class AlunoPdfImportServiceTest extends DatabaseTestCase
         }
     }
 
+    public function testAggregateDecodeRejectionDoesNotCreateAPreviewOrWriteStudentsOrClasses(): void
+    {
+        $actor = $this->insertUsuario('Admin PDF expansão');
+        $file = $this->temporaryFile();
+        AlunoPdfFixture::writeCompressedStreams($file, 5, 7 * 1024 * 1024);
+        try {
+            (new \AlunoPdfImportService())->previewFile($file, 2026, $actor);
+            $this->fail('An over-budget document produced a partial preview.');
+        } catch (DomainException $exception) {
+            $this->assertStringContainsString('expansão', $exception->getMessage());
+        }
+        $this->assertSame([], $_SESSION['aluno_pdf_previews'] ?? []);
+        $this->assertSame(0, (int)$this->pdo->query('SELECT COUNT(*) FROM alunos')->fetchColumn());
+        $this->assertSame(0, (int)$this->pdo->query('SELECT COUNT(*) FROM turmas')->fetchColumn());
+    }
+
     /**
      * @param list<array{nome_completo:string,data_nascimento:string,turma:string,codigo_sgde:string,situacao:string,pagina:int}> $rows
      * @return array<string,mixed>

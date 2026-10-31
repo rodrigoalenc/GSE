@@ -13,6 +13,9 @@ require_once ROOT_PATH . '/src/Services/ContratoCertidaoService.php';
 /** @phpstan-import-type ExpiredCertificate from ContratoCertidaoService */
 final class Contrato extends Model
 {
+    public const MAX_SHEETS = 20;
+    public const MAX_ITEMS = 100;
+
     public function __construct(private readonly ?CertidaoStatus $certificateDates = null)
     {
         parent::__construct();
@@ -113,6 +116,7 @@ final class Contrato extends Model
     /** @return list<array<string,mixed>> */
     public function sheets(int $contractId): array
     {
+        $this->assertCapacity($contractId);
         $query = self::$pdo->prepare('SELECT * FROM pedido_paginas WHERE id_pedido=? ORDER BY numero_pagina,id');
         $query->execute([$contractId]);
         return $query->fetchAll();
@@ -143,10 +147,19 @@ final class Contrato extends Model
     }
 
     /** @return list<array<string,mixed>> */
-    public function items(int $contractId): array
+    public function items(int $contractId, ?int $sheetNumber = null): array
     {
-        $query = self::$pdo->prepare("SELECT i.*, COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, EXISTS(SELECT 1 FROM modulo5_valores_legados v WHERE v.tabela='pedido_produtos' AND v.registro_id=i.id) AS legado, CASE WHEN i.estoque_inicializado=1 AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id) AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id AND o.tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida')) THEN 1 ELSE 0 END AS abertura_sem_comprovacao FROM pedido_produtos i WHERE i.id_pedido=? ORDER BY i.numero_pagina,i.id");
-        $query->execute([$contractId]);
+        $arguments = [$contractId];
+        if ($sheetNumber === null) { $this->assertCapacity($contractId); }
+        else {
+            $arguments[] = $sheetNumber;
+            $count = self::$pdo->prepare('SELECT COUNT(*) FROM pedido_produtos WHERE id_pedido=? AND numero_pagina=?');
+            $count->execute($arguments);
+            if ((int)$count->fetchColumn() > self::MAX_ITEMS) { throw new DomainException('Esta nota ultrapassa 100 produtos e precisa de revisão técnica antes da impressão.'); }
+        }
+        $scope = $sheetNumber === null ? '' : ' AND i.numero_pagina=?';
+        $query = self::$pdo->prepare("SELECT i.*, COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, EXISTS(SELECT 1 FROM modulo5_valores_legados v WHERE v.tabela='pedido_produtos' AND v.registro_id=i.id) AS legado, CASE WHEN i.estoque_inicializado=1 AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id) AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id AND o.tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida')) THEN 1 ELSE 0 END AS abertura_sem_comprovacao FROM pedido_produtos i WHERE i.id_pedido=?" . $scope . ' ORDER BY i.numero_pagina,i.id');
+        $query->execute($arguments);
         return $query->fetchAll();
     }
 
@@ -220,7 +233,7 @@ final class Contrato extends Model
         $title = $this->title($title);
         $cents = self::cents($money);
         $supplierId = $this->supplier($supplier, null);
-        if ($sheets === [] || count($sheets) > 20) { throw new DomainException('Informe de 1 a 20 notas.'); }
+        if ($sheets === [] || count($sheets) > self::MAX_SHEETS) { throw new DomainException('Informe de 1 a 20 notas.'); }
         $validated = [];
         $allocated = 0;
         $itemCount = 0;
@@ -248,7 +261,7 @@ final class Contrato extends Model
                 if ($allocated > PHP_INT_MAX-$total) { throw new DomainException('Total fora do limite.'); }
                 $allocated += $total;
                 $normalized[] = [$name,$brand,$unit,$quantity,$price,$total];
-                if (++$itemCount > 100) { throw new DomainException('Limite de 100 produtos por pedido.'); }
+                if (++$itemCount > self::MAX_ITEMS) { throw new DomainException('Limite de 100 produtos por pedido.'); }
             }
             $validated[] = [trim($note),$normalized];
         }
@@ -332,6 +345,13 @@ final class Contrato extends Model
             if ((int)$contract['revisao'] !== $revision) { throw new DomainException('Pedido alterado por outra pessoa. Atualize a página.'); }
             $copy = $copyId === null ? null : $this->sheet($id,$copyId);
             if ($copy !== null && $copy['excluido_em'] !== null) { throw new DomainException('Nota excluída não pode ser duplicada.'); }
+            $copiedItems = 0;
+            if ($copy !== null) {
+                $count = $pdo->prepare('SELECT COUNT(*) FROM pedido_produtos WHERE id_pedido=? AND numero_pagina=? AND excluido_em IS NULL');
+                $count->execute([$id, $copy['numero_pagina']]);
+                $copiedItems = (int) $count->fetchColumn();
+            }
+            $this->assertCapacity($id, 1, $copiedItems);
             $isAdditive=$copy === null ? $additive : (int)$copy['aditivo']===1;
             if ($isAdditive) { $this->ensureAllocation($id,0,true); }
             if ($copy !== null) {
@@ -363,6 +383,7 @@ final class Contrato extends Model
             $contract=$this->find($contractId); $this->active($contract);
             $sheet=$this->sheet($contractId,$sheetId);
             if ($sheet['excluido_em'] !== null || (int)$contract['revisao'] !== $revision) { throw new DomainException('Nota indisponível ou pedido alterado. Atualize a página.'); }
+            $this->assertCapacity($contractId, 0, 1);
             $name=$this->title((string)($data['nome'] ?? ''));
             $brand=mb_substr(trim((string)($data['marca'] ?? '')),0,100);
             $unit=mb_substr(trim((string)($data['unidade'] ?? '')),0,30);
@@ -657,7 +678,7 @@ final class Contrato extends Model
     }
 
     /** @return array<string,mixed> */
-    private function sheet(int $contractId,int $sheetId): array
+    public function sheet(int $contractId,int $sheetId): array
     {
         $q=self::$pdo->prepare('SELECT * FROM pedido_paginas WHERE id=? AND id_pedido=?'); $q->execute([$sheetId,$contractId]);
         return $q->fetch() ?: throw new DomainException('Nota não pertence ao pedido.');
@@ -752,5 +773,16 @@ final class Contrato extends Model
     private function audit(PDO $pdo,string $action,string $resource,int $id,int $actor): void
     {
         AuditLogger::recordRequired($pdo,'contrato.'.$action,AuditLogger::SUCCESS,$actor,null,'Módulo 5: '.$action,$resource,$id);
+    }
+
+    /** Includes excluded history: repeated create/delete operations cannot evade the quota. */
+    private function assertCapacity(int $contractId, int $extraSheets = 0, int $extraItems = 0): void
+    {
+        $query = self::$pdo->prepare('SELECT (SELECT COUNT(*) FROM pedido_paginas WHERE id_pedido=?) AS sheets, (SELECT COUNT(*) FROM pedido_produtos WHERE id_pedido=?) AS items');
+        $query->execute([$contractId, $contractId]);
+        $counts = $query->fetch();
+        if ((int) $counts['sheets'] + $extraSheets > self::MAX_SHEETS || (int) $counts['items'] + $extraItems > self::MAX_ITEMS) {
+            throw new DomainException('O pedido aceita até 20 notas e 100 produtos no total, incluindo o histórico excluído. Use outro pedido para novos lançamentos. Pedidos antigos acima desse limite precisam de revisão técnica antes de abrir o conjunto completo.');
+        }
     }
 }

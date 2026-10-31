@@ -255,6 +255,41 @@ final class AlunoPdfParserTest extends TestCase
         (new AlunoPdfParser())->parseFile($path);
     }
 
+    public function testManySmallCompressedStreamsShareOneAggregateBudget(): void
+    {
+        $path = AlunoPdfFixture::writeCompressedStreams($this->directory . '/aggregate.pdf', 5, 7 * 1024 * 1024);
+        self::assertLessThan(100_000, filesize($path));
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('expansão');
+        (new AlunoPdfParser())->parseFile($path);
+    }
+
+    public function testDirectParsingCannotBypassIsolatedWorker(): void
+    {
+        $path = AlunoPdfFixture::write($this->directory . '/direct.pdf');
+        $this->expectException(\LogicException::class);
+        (new AlunoPdfParser())->parseFileInWorker($path);
+    }
+
+    public function testSyntheticFiveThousandStudentReportFitsTheWorkerBudget(): void
+    {
+        $pages = [];
+        for ($page = 0; $page < 200; $page++) {
+            $rows = [];
+            for ($row = 0; $row < 25; $row++) {
+                $rows[] = ['codigo_sgde' => (string)(9_000_000 + $page * 25 + $row), 'nome_completo' => 'ALUNO FICTICIO VOLUME',
+                    'data_nascimento' => '10/03/2019', 'situacao' => 'Em curso'];
+            }
+            $pages[] = ['turma' => '1º Ano A - EF - TURMA A', 'rows' => $rows];
+        }
+        $path = AlunoPdfFixture::writePages($this->directory . '/maximum.pdf', $pages);
+        $report = (new AlunoPdfParser())->parseFile($path);
+        self::assertSame(200, $report['pages']);
+        self::assertSame(5_000, $report['total']);
+        self::assertSame(5_000, $report['eligible']);
+        self::assertSame('9004999', $report['rows'][4_999]['codigo_sgde']);
+    }
+
     /** @return list<array{x:float,y:float,text:string}> */
     private function page(): array
     {

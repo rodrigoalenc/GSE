@@ -31,22 +31,26 @@ use src\Core\DatabaseInitializer;
 use src\Core\Maintenance;
 
 try {
+    $options = array_slice($argv, 1);
+    if (array_diff($options, ['--cleanup-legacy-previews']) !== []) { throw new InvalidArgumentException('Opção de manutenção inválida.'); }
     TechnicalLogger::configure();
     $pdo = Database::getConnection();
     DatabaseInitializer::initialize($pdo);
     Model::setConexao($pdo);
-    $result = (new Maintenance($pdo))->run();
+    $result = (new Maintenance($pdo))->run(null, in_array('--cleanup-legacy-previews', $options, true));
 
     fwrite(
         STDOUT,
         sprintf(
-            "Manutenção concluída: %d tentativa(s) de login e %d evento(s) de auditoria removido(s).\n",
+            "Manutenção concluída: %d tentativa(s) de login, %d evento(s) de auditoria e %d prévia(s) CSV expirada(s) removido(s).\n",
             $result['login_attempts'],
-            $result['security_audit']
+            $result['security_audit'],
+            $result['passive_previews']
         )
     );
 } catch (Throwable $exception) {
     TechnicalLogger::error('maintenance_failed', ['exception' => $exception::class]);
-    fwrite(STDERR, "Falha ao executar a manutenção. Consulte o log técnico.\n");
+    fwrite(STDERR, $exception instanceof LegacyPassivePreviewsPending
+        ? $exception->getMessage() . "\n" : "Falha ao executar a manutenção. Consulte o log técnico.\n");
     exit(1);
 }

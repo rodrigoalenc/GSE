@@ -5,7 +5,7 @@
 <section class="passivo-hero" aria-labelledby="passivo-summary-title">
     <div>
         <h2 id="passivo-summary-title">Consulta central do acervo físico e histórico</h2>
-        <p>Use os filtros para localizar rapidamente caixas, pesquisar ex-alunos e importar ou exportar conteúdos.</p>
+        <p>Use os filtros para localizar caixas e pesquisar registros escolares conforme sua autorização.</p>
     </div>
     <div class="passivo-stats" aria-label="Resumo do Arquivo Passivo">
         <span><strong><?= e((string) $summary['caixas']) ?></strong> caixas</span>
@@ -96,11 +96,13 @@
     <div class="section-head"><div><h2 id="passivo-results-title"><?= $filters['ativo'] === '0' ? 'Registros excluídos do acervo ativo' : ($filters['caixa'] !== '' ? 'Conteúdo da caixa ' . e($filters['caixa']) : 'Registros encontrados') ?></h2><p><?= $filters['ativo'] === '0' ? 'Os dados e o histórico estão preservados. A restauração depende de um administrador.' : 'Consulte os registros ou abra os detalhes para editar e excluir do acervo ativo.' ?></p></div></div>
     <?php if ($filters['caixa'] !== ''): ?>
     <div class="passivo-toolbar-actions">
+        <?php if (AccessPolicy::allows('student.export')): ?>
         <form id="passivo-export-form" method="post" data-submit-download="true" action="<?= e(url('passivo/exportar')) ?>">
             <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
             <input id="exportar-caixa" type="hidden" name="caixa" value="<?= e($filters['caixa']) ?>">
             <button class="btn-secondary" type="submit">Exportar lista da caixa (TXT)</button>
         </form>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
     <?php $paginationPosition = 'início'; require __DIR__ . '/paginacao.php'; ?>

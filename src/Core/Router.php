@@ -151,6 +151,15 @@ final class Router
             }
 
             $this->authorize($route);
+            require_once __DIR__ . '/AccessPolicy.php';
+            $permission = match (true) {
+                str_starts_with($route['pattern'], 'relatorio'), $route['pattern'] === 'passivo/exportar' => 'student.export',
+                $route['pattern'] === 'dva', str_starts_with($route['pattern'], 'aluno/dva/') => 'student.health',
+                in_array($route['pattern'], ['aluno/criar', 'aluno/editar/{id}', 'aluno/status/{id}'], true) => 'student.manage',
+                default => null,
+            };
+            if ($route['auth'] && $permission !== null) { AccessPolicy::require($permission); }
+            if ($method === 'POST' && $route['pattern'] === 'aluno/dva/{id}') { AccessPolicy::require('student.manage'); }
 
             if ($method === 'POST' && !csrf_valido($_POST['_csrf_token'] ?? null)) {
                 render_http_error(419, 'Sessão expirada', 'Atualize a página e tente enviar o formulário novamente.');
@@ -158,7 +167,7 @@ final class Router
 
             require_once __DIR__ . '/ActionBudget.php';
             try {
-                if ($route['auth'] && preg_match('~(?:exportar|imprimir|download|baixar|preview|backup/criar|relatorio/(?:csv|pdf)|certidao/(?:pdf|cadastrar|renovar|editar))~', $path) === 1) {
+                if ($route['auth'] && preg_match('~(?:^(?:dashboard|aluno|dva)$|^aluno/(?:perfil|dva)/[0-9]+$|exportar|imprimir|download|baixar|preview|backup/criar|relatorio/(?:csv|pdf)|certidao/(?:pdf|cadastrar|renovar|editar))~', $path) === 1) {
                     ActionBudget::consume(\src\Core\Database::getConnection(), (int) $_SESSION['usuario_id'], $route['pattern'], false);
                 }
                 $this->invoke($route, $params);

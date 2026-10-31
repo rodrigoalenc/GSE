@@ -19,7 +19,7 @@ final class SqliteTransaction
      * @param callable(PDO): T $operation
      * @return T
      */
-    public static function immediate(PDO $pdo, callable $operation): mixed
+    public static function immediate(PDO $pdo, callable $operation, bool $checkSession = true): mixed
     {
         $started = false;
 
@@ -28,7 +28,7 @@ final class SqliteTransaction
             $started = true;
             // Read under the write lock: another writer cannot revoke this identity
             // between this check and the business commit. CLI jobs have no HTTP session.
-            if (PHP_SAPI !== 'cli' && isset($_SESSION['usuario_id'], $_SESSION['auth_version'])) {
+            if ($checkSession && PHP_SAPI !== 'cli' && isset($_SESSION['usuario_id'], $_SESSION['auth_version'])) {
                 $identity = $pdo->prepare('SELECT ativo,session_version,tipo FROM usuarios WHERE id=?');
                 $identity->execute([(int)$_SESSION['usuario_id']]);
                 $row = $identity->fetch(PDO::FETCH_ASSOC);
