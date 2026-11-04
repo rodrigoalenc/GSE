@@ -55,7 +55,7 @@ final class DatabaseInitializer
         if (count($applied) === self::LATEST_VERSION
             && min($applied) === 1
             && max($applied) === self::LATEST_VERSION) {
-            Database::protectFiles();
+            self::protectDatabaseFiles($pdo);
 
             return;
         }
@@ -72,7 +72,7 @@ final class DatabaseInitializer
             }
 
             $pdo->exec('PRAGMA user_version = ' . self::LATEST_VERSION);
-            Database::protectFiles();
+            self::protectDatabaseFiles($pdo);
         } catch (Throwable $exception) {
             if ($backupPath !== null && class_exists('\TechnicalLogger', false)) {
                 \TechnicalLogger::error('database_migration_failed', [
@@ -1355,11 +1355,22 @@ final class DatabaseInitializer
         return in_array($column, array_column($columns, 'name'), true);
     }
 
+    private static function protectDatabaseFiles(PDO $pdo): void
+    {
+        $databasePath = self::mainDatabasePath($pdo);
+        if ($databasePath !== '') {
+            Database::protectFiles($databasePath);
+        }
+    }
+
+    private static function mainDatabasePath(PDO $pdo): string
+    {
+        return (string) $pdo->query("SELECT file FROM pragma_database_list WHERE name = 'main'")->fetchColumn();
+    }
+
     private static function createValidatedBackup(PDO $pdo, ?\BackupSnapshot $snapshot = null): ?string
     {
-        $databases = $pdo->query('PRAGMA database_list')->fetchAll();
-        $rows = array_values(array_filter($databases, static fn (array $row): bool => ($row['name'] ?? '') === 'main'));
-        $databasePath = (string) ($rows[0]['file'] ?? '');
+        $databasePath = self::mainDatabasePath($pdo);
         if ($databasePath === '' || !is_file($databasePath)) { return null; }
         $directory = dirname($databasePath) . DIRECTORY_SEPARATOR . 'backups';
         if (is_link($directory) || (!is_dir($directory) && !mkdir($directory,0700,true))) {
