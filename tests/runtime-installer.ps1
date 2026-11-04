@@ -193,3 +193,6 @@ catch { [Console]::Error.WriteLine($_.ToString()); exit 1 }
         [IO.Path]::GetFileName($resolvedTestRoot) -notlike 'gse-installer-test-*') { throw 'Unsafe test cleanup path.' }
     if (Test-Path -LiteralPath $resolvedTestRoot) { Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force }
 }
+
+# The final scenario expects a nonzero child exit code. Report the suite's result to CI.
+exit 0
