@@ -1,0 +1,59 @@
+.dva-page { min-width: 0; }
+.dva-page-description { margin: -9px 0 22px; color: #61748b; font-size: 13px; }
+.dva-status-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.dva-status-tabs a { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 19px; border: 1px solid #c7d7e9; border-radius: 6px; background: #fff; color: #244463; font-size: 12px; font-weight: 600; line-height: 1.4; }
+.dva-status-tabs a:hover { border-color: #16508f; background: #f6faff; color: #16508f; }
+.dva-status-tabs a.active { background: #16508f; border-color: #16508f; color: #fff; }
+.dva-workspace { min-width: 0; padding: 22px; border: 1px solid #dbe5f0; border-radius: 10px; background: #fff; box-shadow: 0 2px 4px #0c356604; }
+.dva-page .dva-filters { display: grid; grid-template-columns: minmax(220px, 1.8fr) minmax(160px, 1fr) auto; align-items: end; gap: 16px; margin: 0 0 24px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.dva-filters > div { min-width: 0; }
+.dva-filters label { display: block; margin: 0 0 6px; color: #0c3566; font-size: 12px; font-weight: 650; }
+.dva-page .dva-filters input,
+.dva-page .dva-filters select { width: 100%; min-height: 42px; margin: 0; padding: 9px 12px; border: 1px solid #b9cadd; border-radius: 6px; color: #233b56; background-color: #fff; font: inherit; font-size: 13px; }
+.dva-search-input { position: relative; }
+.dva-search-input > .gse-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: #61748b; pointer-events: none; }
+.dva-page .dva-search-input input { padding-left: 38px; }
+.dva-page .dva-filters .filter-actions { display: flex; gap: 8px; }
+.dva-page .dva-filters .filter-actions > * { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; margin: 0; padding: 9px 16px; border-radius: 6px; font-size: 12px; line-height: 1.4; }
+.dva-result-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 14px; }
+.dva-result-heading h2 { margin: 0; color: #0c3566; font-size: 15px; font-weight: 700; }
+.dva-result-heading p { margin: 0; color: #61748b; font-size: 11px; }
+.dva-result-heading p span { padding: 0 4px; }
+.dva-page .table-scroll { border: 1px solid #d8e3ef; border-radius: 7px; }
+.dva-page .dva-table { width: 100%; min-width: 650px; margin: 0; border-collapse: collapse; }
+.dva-page .dva-table th { padding: 12px 14px; border-bottom: 1px solid #d4e0ee; background: #eaf1f9; color: #153456; font-size: 11px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+.dva-page .dva-table td { padding: 15px 14px; border-bottom: 1px solid #e1e9f2; color: #233b56; font-size: 12px; line-height: 1.5; }
+.dva-page .dva-table tbody tr:last-child td { border-bottom: 0; }
+.dva-page .dva-table tbody tr:nth-child(even) { background: #fbfdff; }
+.dva-page .dva-table tbody tr:hover { background: #f4f8fd; }
+.dva-page .dva-table .student-name a { color: #173b62; font-weight: 600; }
+.dva-page .dva-table .student-name a:hover { text-decoration: underline; }
+.dva-page .dva-badge { display: inline-block; min-width: 70px; justify-content: center; padding: 3px 8px; border: 0; border-radius: 5px; font-size: 11px; font-weight: 600; text-align: center; line-height: 1.5; }
+.dva-page .dva-sem_dva { color: #526174; background: #edf1f5; }
+.dva-page .dva-vencida { color: #a62922; background: #fff0ee; }
+.dva-page .dva-vence_hoje,
+.dva-page .dva-a_vencer { color: #815700; background: #fff5dc; }
+.dva-page .dva-vigente { color: #166437; background: #edf8f0; }
+.dva-open-link { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; color: #16508f; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.dva-open-link:hover { color: #0c3566; text-decoration: underline; }
+.dva-open-link .gse-icon { width: 15px; height: 15px; }
+.dva-table-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding-top: 20px; }
+.dva-table-footer p { margin: 0; color: #61748b; font-size: 12px; }
+.dva-table-footer .pagination { margin: 0; padding: 0; flex-wrap: wrap; }
+.dva-page .empty-state { padding: 36px 18px; color: #61748b; font-size: 13px; text-align: center; }
+@media (max-width: 1050px) {
+    .dva-page .dva-filters { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; }
+    .dva-page .dva-filters .filter-actions { grid-column: 1 / -1; }
+    .dva-status-tabs a { padding: 9px 15px; }
+}
+@media (max-width: 600px) {
+    .dva-page-description { margin: -6px 0 18px; font-size: 12px; }
+    .dva-workspace { padding: 16px; }
+    .dva-status-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-bottom: 16px; }
+    .dva-status-tabs a { min-width: 0; padding: 10px 6px; font-size: 11px; }
+    .dva-page .dva-filters { grid-template-columns: minmax(0, 1fr); margin-bottom: 20px; }
+    .dva-page .dva-filters .filter-actions { grid-column: auto; }
+    .dva-page .dva-filters .filter-actions > * { flex: 1; }
+    .dva-result-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+    .dva-table-footer { gap: 12px; padding-top: 16px; }
+}

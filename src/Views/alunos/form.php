@@ -3,7 +3,7 @@
 
 
 <?php if ($editing): ?>
-    <section class="page-intro">
+    <section class="page-intro student-edit-intro">
         <h2>Atualize dados pessoais e contatos</h2>
         <p>Revise os campos abaixo com atenção antes de salvar.</p>
     </section>
@@ -28,34 +28,26 @@
         </section>
     <?php endif; ?>
 
-    <section class="form-section form-block">
-        <div class="section-head"><div><h2>Dados Pessoais</h2></div>
-            <?php if (!$editing && $canViewHealth): ?>
-                <details class="dva-observation"<?= $data['observacao'] !== '' ? ' open' : '' ?>><summary>Observações DVA (opcional)</summary>
-                    <label for="observacao">Observações DVA (opcional)</label>
-                    <textarea id="observacao" name="observacao" maxlength="1000" rows="3"><?= e($data['observacao']) ?></textarea>
-                    <p class="form-help">Deixe a data vazia para cadastrar o aluno sem DVA.</p>
-                </details>
-            <?php endif; ?>
-        </div>
-        <div class="form-grid identity-grid<?= !$editing && $canViewHealth ? ' has-initial-dva' : '' ?>">
+    <section class="form-section form-block" aria-labelledby="student-personal-title">
+        <div class="section-head"><div><h2 id="student-personal-title">Dados pessoais</h2></div></div>
+        <div class="form-grid identity-grid">
             <div class="field-wide">
-                <label for="nome_completo">Nome Completo:</label>
+                <label for="nome_completo">Nome completo</label>
                 <input id="nome_completo" name="nome_completo" value="<?= e($data['nome_completo']) ?>" maxlength="150" autocomplete="name" placeholder="Ex: Maria da Silva" required <?= UiPresentation::fieldAttributes($fieldErrors, 'nome_completo') ?>><?php if (isset($fieldErrors['nome_completo'])): ?><small class="field-error" id="nome_completo-error"><?= e(implode(' ', $fieldErrors['nome_completo'])) ?></small><?php endif; ?>
             </div>
             <div>
-                <label for="data_nascimento">Data de Nascimento:</label>
+                <label for="data_nascimento">Nascimento</label>
                 <input type="date" id="data_nascimento" name="data_nascimento" value="<?= e($data['data_nascimento']) ?>" max="<?= e((new DateTimeImmutable('now', new DateTimeZone(Config::string('APP_TIMEZONE', 'America/Cuiaba'))))->format('Y-m-d')) ?>" required <?= UiPresentation::fieldAttributes($fieldErrors, 'data_nascimento') ?>><?php if (isset($fieldErrors['data_nascimento'])): ?><small class="field-error" id="data_nascimento-error"><?= e(implode(' ', $fieldErrors['data_nascimento'])) ?></small><?php endif; ?>
             </div>
             <div>
                 <?php if ($editing && ($classChangeLocked ?? false)): ?>
-                <label for="turma_atual">Turma atual:</label>
+                <label for="turma_atual">Turma atual</label>
                 <input id="turma_atual" value="<?= e((string) $currentClass['nome_turma']) ?><?= $currentClass['ano_letivo'] ? ' — ' . e((string) $currentClass['ano_letivo']) : '' ?><?= (int) $currentClass['turma_ativa'] === 0 ? ' (inativa)' : '' ?>" readonly aria-describedby="turma-movement-help<?= isset($fieldErrors['turma_atual']) ? ' turma_atual-error' : '' ?>"<?= isset($fieldErrors['turma_atual']) ? ' aria-invalid="true"' : '' ?>>
                 <?php if (isset($fieldErrors['turma_atual'])): ?><small class="field-error" id="turma_atual-error"><?= e(implode(' ', $fieldErrors['turma_atual'])) ?></small><?php endif; ?>
                 <input type="hidden" name="id_turma" value="<?= e((string) $currentClass['id_turma']) ?>">
                 <p class="form-help" id="turma-movement-help">Este aluno possui histórico de movimentação escolar. <?php if ($canManageMovement ?? false): ?>Para alterar a turma, use <a href="<?= e(url('aluno/movimentar')) ?>">Movimentar alunos</a> e confira a progressão ou regressão adequada.<?php else: ?>Para alterar a turma, solicite a um administrador a movimentação adequada.<?php endif; ?></p>
                 <?php else: ?>
-                <label for="id_turma">Turma:</label>
+                <label for="id_turma">Turma</label>
                 <select id="id_turma" name="id_turma" required <?= UiPresentation::fieldAttributes($fieldErrors, 'id_turma') ?>>
                     <option value="">Selecione</option>
                     <?php foreach ($turmas as $class): ?>
@@ -66,19 +58,33 @@
                 </select><?php if (isset($fieldErrors['id_turma'])): ?><small class="field-error" id="id_turma-error"><?= e(implode(' ', $fieldErrors['id_turma'])) ?></small><?php endif; ?>
                 <?php endif; ?>
             </div>
-            <?php if (!$editing && $canViewHealth): ?>
-                <div class="box-dva"><label for="data_vencimento">📅 Vencimento da DVA <span class="field-optional">(opcional)</span>:</label><input type="date" id="data_vencimento" name="data_vencimento" value="<?= e($data['data_vencimento']) ?>" aria-describedby="dva-initial-help<?= isset($fieldErrors['data_vencimento']) ? ' data_vencimento-error' : '' ?>"<?= isset($fieldErrors['data_vencimento']) ? ' aria-invalid="true"' : '' ?>><?php if (isset($fieldErrors['data_vencimento'])): ?><small class="field-error" id="data_vencimento-error"><?= e(implode(' ', $fieldErrors['data_vencimento'])) ?></small><?php endif; ?><p class="form-help" id="dva-initial-help">DVA: Declaração de Vacina Atualizada. Se não foi apresentada, deixe a data em branco. O cadastro ficará como “Sem DVA”.</p></div>
-            <?php endif; ?>
         </div>
     </section>
 
-    <section class="form-section form-block">
-        <div class="section-head"><div><h2>Contatos <span class="field-optional">(opcionais)</span></h2><p>Informe os contatos disponíveis. Você pode completar esses dados depois.</p></div></div>
+    <section class="form-section form-block" aria-labelledby="student-contacts-title">
+        <div class="section-head"><div><h2 id="student-contacts-title">Contatos <span class="field-optional">(opcionais)</span></h2></div></div>
         <div class="form-grid contact-grid">
-            <div><label for="telefone_aluno">📱 WhatsApp / Celular do Aluno:</label><input id="telefone_aluno" name="telefone_aluno" value="<?= e($data['telefone_aluno']) ?>" maxlength="30" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" <?= UiPresentation::fieldAttributes($fieldErrors, 'telefone_aluno') ?>><?php if (isset($fieldErrors['telefone_aluno'])): ?><small class="field-error" id="telefone_aluno-error"><?= e(implode(' ', $fieldErrors['telefone_aluno'])) ?></small><?php endif; ?></div>
-            <div><label for="telefone_responsavel">👨‍👩‍👦 Telefone do Responsável:</label><input id="telefone_responsavel" name="telefone_responsavel" value="<?= e($data['telefone_responsavel']) ?>" maxlength="30" inputmode="tel" placeholder="(00) 00000-0000" <?= UiPresentation::fieldAttributes($fieldErrors, 'telefone_responsavel') ?>><?php if (isset($fieldErrors['telefone_responsavel'])): ?><small class="field-error" id="telefone_responsavel-error"><?= e(implode(' ', $fieldErrors['telefone_responsavel'])) ?></small><?php endif; ?></div>
+            <div><label for="telefone_aluno">Telefone do aluno</label><input id="telefone_aluno" name="telefone_aluno" value="<?= e($data['telefone_aluno']) ?>" maxlength="30" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" <?= UiPresentation::fieldAttributes($fieldErrors, 'telefone_aluno') ?>><?php if (isset($fieldErrors['telefone_aluno'])): ?><small class="field-error" id="telefone_aluno-error"><?= e(implode(' ', $fieldErrors['telefone_aluno'])) ?></small><?php endif; ?></div>
+            <div><label for="telefone_responsavel">Telefone do responsável</label><input id="telefone_responsavel" name="telefone_responsavel" value="<?= e($data['telefone_responsavel']) ?>" maxlength="30" inputmode="tel" placeholder="(00) 00000-0000" <?= UiPresentation::fieldAttributes($fieldErrors, 'telefone_responsavel') ?>><?php if (isset($fieldErrors['telefone_responsavel'])): ?><small class="field-error" id="telefone_responsavel-error"><?= e(implode(' ', $fieldErrors['telefone_responsavel'])) ?></small><?php endif; ?></div>
         </div>
     </section>
+
+    <?php if (!$editing && $canViewHealth): ?>
+        <section class="form-section form-block student-initial-dva" aria-labelledby="student-dva-title">
+            <div class="section-head"><div><h2 id="student-dva-title">DVA inicial <span class="field-optional">(opcional)</span></h2></div></div>
+            <div class="student-dva-grid">
+                <div>
+                    <label for="data_vencimento">Vencimento</label>
+                    <input type="date" id="data_vencimento" name="data_vencimento" value="<?= e($data['data_vencimento']) ?>" aria-describedby="dva-initial-help<?= isset($fieldErrors['data_vencimento']) ? ' data_vencimento-error' : '' ?>"<?= isset($fieldErrors['data_vencimento']) ? ' aria-invalid="true"' : '' ?>><?php if (isset($fieldErrors['data_vencimento'])): ?><small class="field-error" id="data_vencimento-error"><?= e(implode(' ', $fieldErrors['data_vencimento'])) ?></small><?php endif; ?>
+                </div>
+                <p class="form-help" id="dva-initial-help">Sem declaração? Deixe a data em branco. O cadastro ficará como “Sem DVA”.</p>
+            </div>
+            <details class="dva-observation"<?= $data['observacao'] !== '' ? ' open' : '' ?>><summary>Observações DVA (opcional)</summary>
+                <label for="observacao">Observações da DVA</label>
+                <textarea id="observacao" name="observacao" maxlength="1000" rows="3"><?= e($data['observacao']) ?></textarea>
+            </details>
+        </section>
+    <?php endif; ?>
 
     <?php if ($possibleDuplicate): ?>
         <section class="duplicate-confirmation" role="alert">
@@ -89,11 +95,12 @@
         </section>
     <?php endif; ?>
 
-    <div class="form-actions">
-        <button class="btn-primary" type="submit"><?= $editing ? 'Salvar Alterações' : 'Salvar Cadastro' ?></button>
+    <div class="form-actions student-form-footer">
+        <?php if (!$editing && $canViewHealth): ?><small class="student-dva-definition">DVA: Declaração de Vacina Atualizada</small><?php endif; ?>
         <?php if ($editing && $canViewHealth): ?>
             <a class="btn-secondary" href="<?= e(url('aluno/dva/' . (int) $studentId)) ?>">Acessar renovação de DVA</a>
         <?php endif; ?>
-        <a class="btn-secondary" href="<?= e(url($editing ? 'aluno/perfil/' . (int) $studentId : 'aluno')) ?>"><?= $editing ? 'Cancelar' : 'Cancelar e Voltar' ?></a>
+        <a class="btn-secondary student-form-cancel" href="<?= e(url($editing ? 'aluno/perfil/' . (int) $studentId : 'aluno')) ?>">Cancelar</a>
+        <button class="btn-primary" type="submit"><?= $editing ? 'Salvar alterações' : 'Salvar cadastro' ?></button>
     </div>
 </form>

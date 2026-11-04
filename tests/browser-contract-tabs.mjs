@@ -140,7 +140,6 @@ async function run() {
     const moneyScript = await readFile(join(root, 'public/assets/js/pedidos-usabilidade.js'));
     const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Contract tab regression</title>
         <style>section{min-height:1800px}h2{padding-top:700px}details{margin:100px 0}</style>
-        <aside class="sidebar"><button type="button" data-sidebar-pin hidden aria-pressed="false"><span class="sidebar-pin-label">Fixar menu aberto</span></button></aside>
         <script src="/pedidos-usabilidade.js" defer></script><script src="/app.js" defer></script><nav data-contract-tabs>${[1,2,3].map(id=>`<a href="#folha-${id}">Nota ${id}</a>`).join('')}</nav>
         ${[1,2,3].map(id=>`<section id="folha-${id}"><h2>Nota ${id}</h2><a href="#add-product-${id}" data-open-details>Adicionar Produto</a>
         <a href="#billing-note-${id}" data-open-details>Faturamento</a><a href="#%E0%A4%A" data-open-details>Invalid fragment</a>
@@ -173,19 +172,6 @@ async function run() {
         const state=()=>page.evaluate(`[...document.querySelectorAll('[role="tabpanel"]')].map(p=>({hidden:p.hidden,visible:p.getBoundingClientRect().height>0}))`);
         const selected=id=>[{hidden:id!==1,visible:id===1},{hidden:id!==2,visible:id===2},{hidden:id!==3,visible:id===3}];
         await page.navigate(base);
-        check(await page.evaluate(`document.querySelector('.sidebar').classList.contains('is-pinned')`),true,'Menu names are visible by default');
-        await page.click('[data-sidebar-pin]');
-        check(await page.evaluate(`document.querySelector('.sidebar').classList.contains('is-pinned')`),false,'Menu can be collapsed');
-        await page.navigate(base);
-        check(await page.evaluate(`document.querySelector('[data-sidebar-pin]').getAttribute('aria-pressed')`),'false','Menu preference persists after navigation');
-        const noStorage = await browser.newPage();
-        await noStorage.command('Page.addScriptToEvaluateOnNewDocument', {source:`Object.defineProperty(window,'localStorage',{get(){throw new Error('storage disabled')}})`});
-        await noStorage.navigate(base);
-        check(await noStorage.evaluate(`document.querySelector('.sidebar').classList.contains('is-pinned')`),true,'Menu defaults to showing names when storage is blocked');
-        await noStorage.click('[data-sidebar-pin]');
-        check(await noStorage.evaluate(`document.querySelector('.sidebar').classList.contains('is-pinned')`),false,'Menu works when browser storage is blocked');
-        await browser.command('Target.closeTarget', {targetId:noStorage.targetId});
-        await page.command('Page.bringToFront');
         check(await state(), selected(1), 'Initial note');
         await page.click(`[data-contract-tabs] a[href="#folha-2"]`); await page.until(`location.hash === '#folha-2'`);
         await page.evaluate('history.back()'); await page.until(`location.hash === '' && !document.getElementById('folha-1').hidden`);

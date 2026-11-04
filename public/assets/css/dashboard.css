@@ -1,259 +1,188 @@
 .dashboard-home {
     color: #0c3566;
+    min-width: 0;
 }
-
-.dashboard-home [hidden] {
-    display: none !important;
-}
-
-.dashboard-birthday-today {
-    margin-bottom: 24px;
-    padding: 18px 20px;
-    border: 1px solid #f7cadb;
-    border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, #fff1f7 0%, #ffe4ef 100%);
-    box-shadow: var(--shadow-sm);
-}
-.dashboard-birthday-today h2 {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0 0 14px;
-    color: #b42372;
-    font-size: 1.35rem;
-}
-.dashboard-birthday-today-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    margin-bottom: 8px;
-    color: #7f1d57;
-    background: rgba(255, 255, 255, .68);
-    border-radius: 14px;
-    overflow-wrap: anywhere;
-}
-
-.dashboard-certificate-alert,
-.dashboard-birthdays,
-.dashboard-dva-panel {
-    background: #fff;
-    border: 1px solid #d5e3f2;
-    border-radius: 20px;
-    box-shadow: 0 12px 28px rgba(15, 36, 64, .07);
-}
-
-.dashboard-certificate-alert {
-    margin-bottom: 24px;
-    color: #805200;
-    background: #fffaf0;
-    border-color: #f5cc77;
-}
-
-.dashboard-certificate-alert summary,
-.dashboard-dva-panel summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    min-height: 74px;
-    padding: 16px 24px;
-    list-style: none;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.dashboard-certificate-alert summary::-webkit-details-marker,
-.dashboard-dva-panel summary::-webkit-details-marker {
-    display: none;
-}
-
-.dashboard-certificate-alert summary {
-    min-height: 62px;
-    padding: 14px 18px;
-}
-
-.dashboard-chevron {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    flex: 0 0 30px;
-    color: #0c3566;
-    background: #ebf3fc;
-    border-radius: 50%;
-}
-
-.dashboard-chevron::before { content: '▼'; font-size: .8rem; }
-details[open] > summary .dashboard-chevron::before { content: '▲'; }
-
-.dashboard-alert-content {
-    padding: 0 18px 18px;
-}
-
-.dashboard-alert-content p { margin: 0 0 8px; }
-.dashboard-alert-content a { color: #0c3566; font-weight: 700; text-decoration: underline; }
+.dashboard-home [hidden] { display: none !important; }
+.dashboard-home svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.dashboard-introduction { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.dashboard-greeting { margin: 0 0 2px; color: #0c3566; font-size: 1.15rem; font-weight: 700; }
+.dashboard-school { margin: 0; color: #61748b; font-size: .88rem; }
+.dashboard-school span { padding: 0 4px; }
+.dashboard-new-student { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; white-space: nowrap; }
 
 .dashboard-summary-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 22px;
-    margin-bottom: 34px;
+    gap: 14px;
+    margin-bottom: 22px;
 }
-
 .dashboard-number-card {
-    position: relative;
-    display: flex;
-    min-width: 0;
-    min-height: 120px;
-    flex-direction: column;
-    justify-content: center;
-    gap: 7px;
-    overflow: hidden;
-    padding: 24px;
-    color: #16508f;
-    background: #fff;
-    border: 1px solid #d5e3f2;
-    border-radius: 20px;
-    box-shadow: 0 12px 28px rgba(15, 36, 64, .07);
-}
-
-.dashboard-number-card::before {
-    content: '';
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 5px;
-    background: currentColor;
-    opacity: .22;
-}
-
-.dashboard-number-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); }
-.dashboard-number-card span { color: #627691; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.dashboard-number-card strong { font-size: 2.35rem; line-height: 1; }
-.dashboard-number-card.missing { color: #d9730d; }
-.dashboard-number-card.expired { color: #cf453c; }
-.dashboard-number-card.due { color: #d89a1d; }
-
-.dashboard-search { margin-bottom: 18px; }
-.dashboard-search label { display: block; margin-bottom: 6px; color: #526f91; font-size: .92rem; }
-.dashboard-search input {
-    display: block;
-    width: 100%;
-    min-height: 48px;
-    padding: 10px 15px;
-    color: #0c3566;
-    background: #fff;
-    border: 1px solid #cbdbea;
-    border-radius: 12px;
-}
-.dashboard-search input::placeholder { color: #8a96a6; }
-.dashboard-search-feedback { margin: 8px 0 0; color: #526f91; }
-
-.dashboard-birthdays {
-    margin-bottom: 24px;
-    padding: 26px;
-    border-left: 5px solid #d94697;
-}
-.dashboard-birthdays h2 { margin: 0 0 16px; color: #0c2445; font-size: 1.08rem; }
-.dashboard-birthday-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; }
-.dashboard-birthday-card {
-    display: flex;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
     align-items: center;
-    gap: 12px;
-    padding: 14px;
+    gap: 4px 12px;
+    min-width: 0;
+    min-height: 100px;
+    padding: 18px;
     color: #0c3566;
     background: #fff;
-    border: 1px solid #d5e3f2;
-    border-radius: 14px;
-    box-shadow: 0 8px 18px rgba(15, 36, 64, .05);
+    border: 1px solid #dbe5f0;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px #0c356604;
 }
-.dashboard-birthday-card:hover { color: #0c3566; background: #f6faff; }
-.dashboard-birthday-icon { flex: 0 0 auto; font-size: 1rem; }
-.dashboard-birthday-card strong { display: block; line-height: 1.45; }
-.dashboard-birthday-card small { display: block; color: #627691; font-size: .9rem; }
-.dashboard-empty { margin: 0; padding: 18px; color: #627691; }
-
-.dashboard-dva-panel { margin-bottom: 24px; }
-.dashboard-dva-panel summary { color: #0c2445; }
-.dashboard-dva-panel.vencidas summary { color: #cf453c; }
-.dashboard-dva-panel.a-vencer summary { color: #cc8500; }
-.dashboard-dva-panel.vigentes summary { color: #168143; }
-.dashboard-dva-body { padding: 0 24px 24px; }
-.dashboard-student-table { width: 100%; border-collapse: collapse; }
-.dashboard-student-table th {
-    padding: 14px 16px;
-    color: #627691;
-    background: #f5f8fc;
-    font-size: .8rem;
-    letter-spacing: .07em;
-    text-align: left;
-    text-transform: uppercase;
-}
-.dashboard-student-table td { padding: 14px 16px; border-top: 1px solid #e2ebf4; }
-.dashboard-student-table tbody tr:nth-child(even) { background: #f9fbfe; }
-.dashboard-student-table td a { color: #0c3566; font-weight: 700; }
-.dashboard-student-table td a:hover { text-decoration: underline; }
-.dashboard-dva-panel.vencidas .dashboard-student-table td a,
-.dashboard-dva-panel.vencidas .dashboard-student-table td:last-child { color: var(--danger-color); }
-.dashboard-dva-panel.a-vencer .dashboard-student-table td a,
-.dashboard-dva-panel.a-vencer .dashboard-student-table td:last-child { color: var(--warning-color); }
-.dashboard-dva-panel.vigentes .dashboard-student-table td:last-child { color: var(--success-color); }
-.dashboard-dva-panel:is(.vencidas,.a-vencer,.vigentes) .dashboard-student-table td:last-child { font-weight: 700; }
-
-@media (max-width: 1100px) {
-    .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 600px) {
-    .dashboard-summary-grid { gap: 10px; }
-    .dashboard-number-card { min-height: 100px; padding: 14px 17px; border-radius: 15px; }
-    .dashboard-number-card strong { font-size: 2rem; }
-    .dashboard-birthdays { padding: 18px; }
-    .dashboard-birthday-grid { grid-template-columns: 1fr; }
-    .dashboard-dva-panel summary { padding: 14px 18px; }
-    .dashboard-dva-body { padding: 0 12px 16px; }
-    .dashboard-student-table { min-width: 0; }
-}
-
-.dashboard-number-card { min-height: 0; gap: 12px; border-color: #dbe5f0; box-shadow: var(--shadow-sm); }
-.dashboard-number-card::before { opacity: .18; }
-.dashboard-dva-panel, .dashboard-birthdays { background: linear-gradient(180deg,rgba(255,255,255,.98),#fff); border-color: #dbe5f0; box-shadow: var(--shadow-sm); }
-.dashboard-dva-panel summary { min-height: 0; padding: 26px; font-size: 1.08rem; }
-.dashboard-dva-body { padding: 18px 26px 26px; }
-.dashboard-student-table { border-collapse: separate; border-spacing: 0; }
-.dashboard-student-table th { padding: 15px; color: var(--text-muted); background: var(--bg-soft); border-bottom: 1px solid var(--border-color); letter-spacing: .08em; }
-.dashboard-student-table td { padding: 15px; border-top: 0; border-bottom: 1px solid #e8eff6; }
-.dashboard-student-table tbody tr:last-child td { border-bottom: 0; }
-.dashboard-student-table tbody tr:nth-child(even) { background: rgba(248,251,255,.55); }
-.dashboard-birthdays { border-left: 5px solid #d94697; }
-.dashboard-search label { color: var(--text-muted); }
-.dashboard-search input { padding: 12px 15px; border-color: #d5dee8; color: var(--text-main); font: inherit; }
-@media (max-width: 768px) { .dashboard-summary-grid { grid-template-columns: 1fr; } .dashboard-dva-panel summary { padding: 20px; } .dashboard-dva-body { padding: 18px 20px 20px; } }
+.dashboard-number-card > svg { grid-row: 1 / 3; width: 26px; height: 26px; color: #16508f; }
+.dashboard-number-card > span { align-self: end; color: #4f6177; font-size: .82rem; font-weight: 600; line-height: 1.35; }
+.dashboard-number-card > strong { align-self: start; font-size: 1.9rem; font-weight: 750; line-height: 1.15; letter-spacing: -.03em; }
+.dashboard-number-card:hover { color: #0c3566; border-color: #2c7ed6; background: #f9fcff; }
 
 .dashboard-search,
-.dashboard-search-results {
-    margin-bottom: 24px;
-    padding: 24px;
-    border: 1px solid #dbe5f0;
-    border-radius: 20px;
+.dashboard-search-results,
+.dashboard-pending,
+.dashboard-birthdays,
+.dashboard-dva-panel,
+.dashboard-certificate-alert,
+.dashboard-birthday-today {
+    min-width: 0;
     background: #fff;
-    box-shadow: var(--shadow-sm);
+    border: 1px solid #dbe5f0;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px #0c356604;
 }
+.dashboard-search,
+.dashboard-search-results { margin-bottom: 22px; padding: 18px 20px; }
+.dashboard-home h2 { color: #0c3566; font-size: 1rem; line-height: 1.4; letter-spacing: -.01em; }
 .dashboard-search h2,
-.dashboard-search-results h2 { margin: 0 0 12px; color: #0c2445; font-size: 1.15rem; }
-.dashboard-search p { color: #526f91; }
-.dashboard-search-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.dashboard-search-name { grid-column: 1 / -1; }
-.dashboard-search select { min-height: 48px; width: 100%; font: inherit; }
-.dashboard-search-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.dashboard-birthdays h2,
+.dashboard-birthday-today h2,
+.dashboard-section-heading h2 { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; }
+.dashboard-search h2 > svg,
+.dashboard-birthdays h2 > svg,
+.dashboard-section-heading h2 > svg { color: #16508f; }
+.dashboard-search form { margin: 0; padding: 0; background: transparent; border: 0; box-shadow: none; }
+.dashboard-search-fields { display: grid; grid-template-columns: minmax(200px, 1.7fr) repeat(3, minmax(120px, 1fr)); gap: 12px; }
+.dashboard-search-fields > div { min-width: 0; }
+.dashboard-search label { display: block; margin: 0 0 5px; color: #334b66; font-size: .8rem; font-weight: 600; }
+.dashboard-search input,
+.dashboard-search select { display: block; width: 100%; min-height: 42px; margin: 0; padding: 9px 12px; border: 1px solid #c7d5e5; border-radius: 6px; background-color: #fff; color: #172e49; font: inherit; font-size: .88rem; }
+.dashboard-search select { padding-right: 30px; }
+.dashboard-search input::placeholder { color: #6e7f92; }
+.dashboard-search p { margin: 10px 0 12px; color: #61748b; font-size: .8rem; line-height: 1.5; }
+.dashboard-search-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .dashboard-search-actions a,
-.dashboard-search-actions button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.dashboard-search-actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; margin: 0; padding: 7px 16px; font-size: .85rem; }
 .dashboard-search-results { scroll-margin-top: 20px; }
-.dashboard-search-results:focus { outline: 3px solid #1763a6; outline-offset: 3px; }
-.dashboard-search-table { min-width: 650px; margin-bottom: 18px; }
-@media (max-width: 700px) {
-    .dashboard-search-fields { grid-template-columns: 1fr; }
-    .dashboard-search,
-    .dashboard-search-results { padding: 18px; }
+.dashboard-search-results:focus { outline: 3px solid #16508f; outline-offset: 3px; }
+.dashboard-search-results > p { color: #61748b; font-size: .88rem; }
+.dashboard-search-results > a { color: #16508f; font-size: .85rem; font-weight: 600; }
+
+.dashboard-workspace { display: grid; grid-template-columns: minmax(0, 7fr) minmax(250px, 3fr); align-items: start; gap: 20px; margin-bottom: 26px; }
+.dashboard-workspace-basic { grid-template-columns: minmax(0, 1fr); }
+.dashboard-pending,
+.dashboard-birthdays { padding: 20px; }
+.dashboard-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 8px; padding-bottom: 14px; border-bottom: 1px solid #e4ecf4; }
+.dashboard-section-heading h2 { margin-bottom: 0; }
+.dashboard-section-heading > a { display: inline-flex; align-items: center; gap: 5px; color: #16508f; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+.dashboard-section-heading > a svg { width: 15px; height: 15px; }
+.dashboard-section-meta { margin: 0 0 10px; color: #61748b; font-size: .78rem; line-height: 1.5; }
+.dashboard-pending > .dashboard-section-meta { padding: 0 0 4px; }
+.dashboard-pending-list { margin: 0; padding: 0; list-style: none; }
+.dashboard-pending-list li + li { border-top: 1px solid #e7eef5; }
+.dashboard-pending-list li > a { display: flex; align-items: center; gap: 12px; min-height: 65px; padding: 10px 2px; color: #172e49; }
+.dashboard-pending-list li > a:hover { background: #f5f9fe; }
+.dashboard-pending-icon { display: inline-flex; color: #61748b; }
+.dashboard-pending-icon svg { width: 18px; height: 18px; }
+.dashboard-pending-student { flex: 1; min-width: 0; }
+.dashboard-pending-student strong { display: block; font-size: .86rem; line-height: 1.4; overflow-wrap: anywhere; }
+.dashboard-pending-student small { display: block; margin-top: 3px; color: #61748b; font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
+.dashboard-status { flex: 0 0 auto; display: inline-block; padding: 3px 9px; border-radius: 5px; color: #16508f; background: #e9f2fc; font-size: .72rem; font-weight: 650; line-height: 1.5; white-space: nowrap; }
+.dashboard-status.vencida { color: #a62922; background: #fff0ee; }
+.dashboard-status:is(.a_vencer,.vence_hoje,.sem_dva) { color: #815700; background: #fff5dc; }
+.dashboard-status.vigente { color: #166437; background: #edf8f0; }
+.dashboard-birthdays h2 { padding-bottom: 14px; margin-bottom: 8px; border-bottom: 1px solid #e4ecf4; }
+.dashboard-birthday-grid { display: grid; grid-template-columns: minmax(0, 1fr); max-height: 494px; overflow-y: auto; scrollbar-width: thin; }
+.dashboard-birthday-card { display: flex; align-items: flex-start; gap: 10px; min-height: 62px; padding: 12px 2px; color: #172e49; }
+.dashboard-birthday-card + .dashboard-birthday-card { border-top: 1px solid #e7eef5; }
+.dashboard-birthday-card:hover { color: #16508f; background: #f5f9fe; }
+.dashboard-birthday-card > span:last-child { min-width: 0; }
+.dashboard-birthday-icon { display: inline-flex; flex: 0 0 auto; color: #61748b; padding-top: 2px; }
+.dashboard-birthday-icon svg { width: 17px; height: 17px; }
+.dashboard-birthday-card strong { display: block; font-size: .82rem; line-height: 1.45; overflow-wrap: anywhere; }
+.dashboard-birthday-card small { display: block; margin-top: 2px; color: #61748b; font-size: .75rem; }
+.dashboard-birthdays .pagination { flex-wrap: wrap; }
+.dashboard-empty { margin: 0; padding: 28px 0; color: #61748b; font-size: .88rem; line-height: 1.6; }
+.dashboard-empty p { margin: 0 0 4px; color: #334b66; }
+.dashboard-empty span { font-size: .8rem; }
+
+.dashboard-certificate-alert,
+.dashboard-birthday-today { margin-bottom: 18px; background: #f5f9ff; }
+.dashboard-certificate-alert summary,
+.dashboard-dva-panel summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 52px; padding: 14px 18px; color: #0c3566; list-style: none; font-size: .88rem; font-weight: 650; cursor: pointer; }
+.dashboard-certificate-alert summary::-webkit-details-marker,
+.dashboard-dva-panel summary::-webkit-details-marker { display: none; }
+.dashboard-chevron { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 20px; width: 20px; height: 20px; color: #16508f; }
+.dashboard-chevron::before { content: ''; width: 7px; height: 7px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+details[open] > summary .dashboard-chevron::before { transform: rotate(225deg); }
+.dashboard-alert-content { padding: 0 18px 16px; color: #526c88; font-size: .83rem; }
+.dashboard-alert-content p { margin: 0 0 6px; }
+.dashboard-alert-content a { display: inline-block; margin-right: 12px; color: #16508f; font-weight: 600; text-decoration: underline; }
+.dashboard-birthday-today { padding: 16px 18px; }
+.dashboard-birthday-today h2 { margin-bottom: 8px; font-size: .92rem; }
+.dashboard-birthday-today-card { color: #526c88; font-size: .85rem; line-height: 1.6; overflow-wrap: anywhere; }
+.dashboard-birthday-today-card strong { color: #0c3566; }
+
+.dashboard-home .dashboard-dva-groups-title { margin-bottom: 12px; font-size: .9rem; }
+.dashboard-dva-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px; }
+.dashboard-dva-body { padding: 0 18px 18px; }
+.dashboard-dva-body > p { margin: 0 0 12px; color: #61748b; font-size: .78rem; }
+.dashboard-dva-body > p > a { display: inline-block; color: #16508f; font-weight: 600; }
+.dashboard-student-table { width: 100%; border-collapse: collapse; color: #172e49; }
+.dashboard-student-table th { padding: 10px 12px; color: #334b66; background: #eef4fb; font-size: .75rem; font-weight: 650; text-align: left; white-space: nowrap; }
+.dashboard-student-table td { padding: 11px 12px; border-bottom: 1px solid #e7eef5; font-size: .8rem; line-height: 1.5; }
+.dashboard-student-table tbody tr:last-child td { border-bottom: 0; }
+.dashboard-student-table tbody tr:hover { background: #f8fbff; }
+.dashboard-student-table td a { color: #16508f; font-weight: 600; }
+.dashboard-student-table td a:hover { text-decoration: underline; }
+.dashboard-search-table { min-width: 600px; margin-bottom: 16px; }
+.dashboard-dva-body .dashboard-student-table { min-width: 360px; }
+
+@media (max-width: 1120px) {
+    .dashboard-number-card { grid-template-columns: 24px minmax(0, 1fr); padding: 15px 12px; gap: 4px 9px; }
+    .dashboard-number-card > svg { width: 22px; height: 22px; }
+    .dashboard-number-card > span { font-size: .75rem; }
+    .dashboard-search-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .dashboard-search-name { grid-column: 1 / -1; }
+    .dashboard-workspace { grid-template-columns: minmax(0, 1.7fr) minmax(220px, 1fr); gap: 14px; }
+    .dashboard-workspace-basic { grid-template-columns: minmax(0, 1fr); }
+    .dashboard-pending, .dashboard-birthdays { padding: 16px; }
+    .dashboard-pending-list li > a { gap: 8px; }
+}
+@media (max-width: 900px) {
+    .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dashboard-number-card > span { font-size: .82rem; }
+    .dashboard-workspace { grid-template-columns: minmax(0, 1fr); }
+    .dashboard-birthday-grid { max-height: 300px; }
+    .dashboard-dva-groups { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+    .dashboard-introduction { align-items: flex-start; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+    .dashboard-greeting { font-size: 1.05rem; }
+    .dashboard-school { font-size: .8rem; }
+    .dashboard-summary-grid { gap: 10px; margin-bottom: 18px; }
+    .dashboard-number-card { min-height: 94px; grid-template-columns: minmax(0, 1fr); gap: 5px; padding: 14px; }
+    .dashboard-number-card > svg { display: none; }
+    .dashboard-number-card > span { font-size: .77rem; }
+    .dashboard-number-card > strong { font-size: 1.75rem; }
+    .dashboard-search-fields { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .dashboard-search-name { grid-column: auto; }
+    .dashboard-search, .dashboard-search-results { padding: 16px; margin-bottom: 18px; }
+    .dashboard-search-actions { gap: 8px; }
+    .dashboard-search-actions a, .dashboard-search-actions button { flex: 1; padding: 8px 10px; }
+    .dashboard-pending-icon { display: none; }
+    .dashboard-pending-student strong { font-size: .8rem; }
+    .dashboard-pending-student small { font-size: .7rem; }
+    .dashboard-status { padding: 3px 6px; font-size: .65rem; }
+    .dashboard-section-heading h2, .dashboard-birthdays h2 { font-size: .9rem; }
+    .dashboard-workspace { margin-bottom: 20px; }
+    .dashboard-dva-panel summary { padding: 14px; }
+    .dashboard-dva-body { padding: 0 14px 14px; }
 }

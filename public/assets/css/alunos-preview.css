@@ -1,0 +1,102 @@
+.students-workspace { min-width: 0; }
+.students-page-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 22px; }
+.students-page-context { min-width: 0; }
+.students-page-context p { margin: 6px 0 0; color: #61738a; font-size: .88rem; }
+.students-count { display: inline-flex; padding: 3px 10px; border-radius: 5px; background: #e0ecfa; color: #16508f; font-size: .87rem; font-weight: 700; }
+.students-page-toolbar .toolbar-actions { justify-content: flex-end; gap: 8px; }
+.students-page-toolbar .btn-primary, .students-page-toolbar .btn-secondary { white-space: nowrap; }
+.students-more-actions { position: relative; }
+.students-more-actions summary { padding: 9px 10px; color: #16508f; cursor: pointer; font-size: .87rem; font-weight: 600; white-space: nowrap; }
+.students-more-actions > div { position: absolute; right: 0; z-index: 5; min-width: 200px; padding: 6px; background: #fff; border: 1px solid #dbe5f0; border-radius: 8px; box-shadow: 0 8px 20px #0c35661a; }
+.students-more-actions a { display: block; padding: 9px 12px; border-radius: 5px; font-size: .87rem; }
+.students-more-actions a:hover { background: #eef4fb; color: #16508f; }
+.students-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 264px; align-items: start; gap: 20px; }
+.students-workspace .students-list-card { min-width: 0; padding: 20px; margin: 0; overflow: visible; border: 1px solid #dbe5f0; border-radius: 10px; background: #fff; box-shadow: 0 2px 5px #0c356604; }
+.students-list-card .student-filters { grid-template-columns: minmax(165px, 1.5fr) repeat(3, minmax(105px, 1fr)); gap: 12px; margin: 0 0 18px; }
+.students-list-card .student-filters label { color: #19334f; font-size: .78rem; font-weight: 650; }
+.students-list-card .student-filters input, .students-list-card .student-filters select { padding: 9px 10px; font-size: .84rem; border-color: #c5d2e2; border-radius: 6px; }
+.students-list-card .filter-actions { grid-column: 1 / -1; justify-content: flex-end; }
+.students-list-card .filter-actions .btn-primary, .students-list-card .filter-actions .btn-secondary { min-height: 34px; padding: 6px 14px; font-size: .8rem; }
+.students-list-card .student-batch-toolbar { gap: 10px; margin: 0 0 18px; padding: 12px; background: #f6f9fd; border-color: #e0e9f3; border-radius: 6px; box-shadow: none; }
+.students-list-card .student-batch-summary { flex: 1 1 100%; font-size: .78rem; }
+.students-list-card .student-batch-summary strong { display: inline; margin-right: 8px; color: #0c3566; }
+.students-list-card .student-batch-summary span { display: inline; margin: 0; font-size: .77rem; }
+.students-list-card .student-batch-actions { gap: 6px; }
+.students-list-card .student-batch-actions button { min-height: 32px; padding: 5px 9px; font-size: .75rem; }
+.students-list-card .table-scroll { border: 1px solid #dbe5f0; border-radius: 7px; }
+.students-list-card .student-table { min-width: 665px; margin: 0; font-size: .8rem; }
+.students-list-card .student-table th { padding: 12px 10px; background: #eaf1f9; color: #183652; border-bottom: 1px solid #dbe5f0; white-space: nowrap; font-size: .77rem; }
+.students-list-card .student-table td { padding: 13px 10px; line-height: 1.45; border-bottom: 1px solid #e4ebf3; }
+.students-list-card .student-table .student-selection-cell { width: 36px; min-width: 36px; padding-right: 0; text-align: center; }
+.students-list-card .student-selection-cell input { width: 15px; height: 15px; min-width: 15px; min-height: 15px; accent-color: #16508f; }
+.students-list-card .student-selection-unavailable { max-width: 66px; font-size: .63rem; white-space: normal; }
+.students-list-card .student-name { min-width: 140px; max-width: 220px; font-weight: 600; }
+.students-list-card .student-name a { color: #183652; }
+.students-list-card .student-name a:hover { color: #16508f; text-decoration: underline; }
+.students-list-card .student-table tbody tr { cursor: pointer; }
+.students-list-card .student-table .is-preview-selected td { background: #edf5fe; }
+.students-list-card .student-table .is-preview-selected td:first-child { box-shadow: inset 3px 0 #2c7ed6; }
+.students-list-card .student-table tbody tr:hover td { background: #f2f7fd; }
+.students-list-card .student-table .dva-badge, .students-list-card .student-table .badge-status { padding: 3px 7px; border-radius: 5px; font-size: .71rem; font-weight: 650; }
+.students-list-card .student-table .table-actions { display: table-cell; min-width: 76px; white-space: nowrap; }
+.student-preview-trigger, .student-row-actions summary { display: inline-flex; justify-content: center; align-items: center; width: 30px; height: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 5px; color: #16508f; background: transparent; vertical-align: middle; cursor: pointer; }
+.student-preview-trigger[hidden] { display: none; }
+.student-preview-trigger:hover, .student-preview-trigger[aria-pressed="true"], .student-row-actions summary:hover { background: #dbeafb; }
+.student-row-actions { display: inline-block; position: relative; vertical-align: middle; }
+.student-row-actions summary { list-style: none; font-size: 1.25rem; font-weight: 700; }
+.student-row-actions summary::-webkit-details-marker { display: none; }
+.student-row-actions > div { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 120px; margin-top: 4px; padding: 5px; background: #fff; border: 1px solid #c5d2e2; border-radius: 6px; }
+.student-row-actions:not([open]) > div { display: none; }
+.student-row-actions > div .btn-acao { display: block; margin: 0; padding: 8px 10px; color: #16508f; background: #fff; border: 0; border-radius: 4px; font-size: .8rem; text-align: left; white-space: nowrap; }
+.student-row-actions > div .btn-acao:hover { background: #eef4fb; }
+.students-list-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 18px; }
+.students-list-footer .result-summary { margin: 0; font-size: .78rem; }
+.students-list-footer .pagination { margin: 0; gap: 4px; }
+.students-list-footer .pagination a, .students-list-footer .pagination span { min-width: 30px; min-height: 32px; padding: 4px 8px; font-size: .77rem; }
+.student-detail-preview { position: sticky; top: 24px; min-width: 0; overflow: hidden; border: 1px solid #ccddef; border-radius: 10px; background: #fff; box-shadow: 0 2px 5px #0c356604; scroll-margin-top: 20px; }
+.student-preview-heading { display: flex; align-items: center; gap: 9px; padding: 16px; color: #16508f; background: #e9f2fd; border-bottom: 1px solid #d8e5f4; }
+.student-preview-heading h2 { margin: 0; color: #0c3566; font-size: .95rem; font-weight: 700; }
+.student-preview-body { padding: 18px; }
+.student-preview-hint { margin: 0 0 18px; color: #63758b; font-size: .76rem; line-height: 1.6; }
+.student-preview-fields { margin: 0; }
+.student-preview-fields > div { margin-bottom: 19px; }
+.student-preview-fields dt { margin-bottom: 4px; color: #68798d; font-size: .75rem; font-weight: 500; }
+.student-preview-fields dd { margin: 0; color: #17314d; font-size: .86rem; font-weight: 600; overflow-wrap: anywhere; }
+.student-preview-fields .student-preview-secondary { margin-top: 3px; color: #68798d; font-size: .74rem; font-weight: 400; }
+.student-preview-contacts dd { margin-top: 8px; font-weight: 500; }
+.student-preview-contacts dd > span { display: block; }
+.student-preview-contacts dd > span:first-child { margin-bottom: 2px; color: #68798d; font-size: .71rem; font-weight: 400; }
+.student-preview-fields .dva-badge { padding: 3px 8px; border-radius: 5px; font-size: .75rem; }
+.student-preview-profile { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 23px; font-size: .84rem; }
+.student-preview-return { display: none; width: 100%; margin-top: 10px; padding: 8px; border: 1px solid #c5d2e2; border-radius: 6px; background: #fff; color: #16508f; font-size: .8rem; }
+.student-preview-empty { padding: 22px 18px; margin: 0; color: #63758b; font-size: .85rem; }
+@media (max-width: 1280px) {
+    .students-detail-layout { grid-template-columns: minmax(0, 1fr) 240px; gap: 16px; }
+    .students-workspace .students-list-card { padding: 16px; }
+    .students-page-toolbar { align-items: flex-start; }
+    .students-page-toolbar .toolbar-actions { flex-wrap: wrap; }
+    .students-list-card .student-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .students-list-card .student-filters > div:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 1050px) {
+    .students-detail-layout { grid-template-columns: minmax(0, 1fr); }
+    .student-detail-preview { position: static; }
+    .student-preview-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 20px; }
+    .student-preview-profile { max-width: 280px; margin-top: 6px; }
+    .student-preview-return:not([hidden]) { display: block; max-width: 280px; }
+}
+@media (max-width: 600px) {
+    .students-page-toolbar { flex-direction: column; gap: 14px; }
+    .students-page-toolbar .toolbar-actions { width: 100%; justify-content: flex-start; }
+    .students-more-actions > div { left: 0; right: auto; }
+    .students-workspace .students-list-card { padding: 12px; }
+    .students-list-card .student-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .students-list-card .filter-actions { grid-column: auto; align-self: end; }
+    .students-list-card .filter-actions .btn-primary, .students-list-card .filter-actions .btn-secondary { flex: 1; padding: 9px; }
+    .students-list-card .student-batch-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+    .students-list-card .student-batch-actions button { min-height: 40px; font-size: .72rem; }
+    .students-list-card .student-batch-summary strong, .students-list-card .student-batch-summary span { display: block; }
+    .students-list-footer .pagination { flex-wrap: wrap; }
+    .student-preview-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .students-workspace * { scroll-behavior: auto; } }

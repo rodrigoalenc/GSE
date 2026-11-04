@@ -30,6 +30,36 @@ $flashClass = [
     'warning' => 'warning',
     'info' => 'info',
 ];
+$navigation = [
+    ['dashboard', 'Painel geral', 'layout', $dashboardActive, true],
+    ['aluno', 'Alunos', 'users', $studentsActive, true],
+    ['dva', 'DVAs', 'clipboard', $dvaActive, AccessPolicy::allows('student.health')],
+    ['passivo', 'Arquivo passivo', 'archive', $passiveActive, true],
+    ['certidao', 'Certidões', 'certificate', $certActive, true],
+    ['contrato', 'Pedidos', 'orders', $contractActive, true],
+    ['estoque', 'Estoque', 'box', $stockActive, true],
+    ['relatorio', 'Relatórios', 'chart', $reportActive, AccessPolicy::allows('student.export')],
+];
+$adminNavigation = [
+    ['usuario', 'Usuários', 'users', $usersActive],
+    ['turma', 'Turmas', 'school', $classesActive],
+    ['auditoria', 'Auditoria', 'shield', $auditActive],
+    ['backup', 'Backups', 'database', $backupActive],
+];
+$pageIcon = match (true) {
+    $dashboardActive => 'layout', $studentsActive => 'users', $dvaActive => 'clipboard',
+    $passiveActive => 'archive', $certActive => 'certificate', $contractActive => 'orders',
+    $stockActive => 'box', $reportActive => 'chart', $classesActive => 'school',
+    $auditActive => 'shield', $backupActive => 'database', $passwordActive => 'key', default => 'user',
+};
+$pageHeading = match ($currentPath) {
+    'dashboard', 'painel', '' => 'Painel geral', 'aluno' => 'Alunos', 'aluno/criar' => 'Novo aluno',
+    'dva' => 'Declarações de vacina', 'usuario' => 'Usuários', 'usuario/criar' => 'Novo usuário',
+    'certidao' => 'Certidões', 'relatorio' => 'Relatórios', default => $title,
+};
+$userName = (string) ($_SESSION['usuario_nome'] ?? 'Usuário');
+$nameParts = preg_split('/\s+/u', trim($userName), -1, PREG_SPLIT_NO_EMPTY) ?: ['U'];
+$userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts) > 1 ? mb_substr($nameParts[count($nameParts) - 1], 0, 1) : ''));
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -59,93 +89,67 @@ $flashClass = [
     <?php if ($passiveActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/passivo.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/passivo.css'), 0, 12))) ?>">
     <?php endif; ?>
+    <link rel="stylesheet" href="<?= e(url('assets/css/institucional.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/institucional.css'), 0, 12))) ?>">
+    <?php if ($currentPath === 'aluno/criar' || str_starts_with($currentPath, 'aluno/editar/')): ?><link rel="stylesheet" href="<?= e(url('assets/css/alunos-form.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/alunos-form.css'), 0, 12))) ?>"><?php endif; ?>
+    <?php if ($dvaActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/dva.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/dva.css'), 0, 12))) ?>"><?php endif; ?>
+    <?php if ($currentPath === 'aluno'): ?><link rel="stylesheet" href="<?= e(url('assets/css/alunos-preview.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/alunos-preview.css'), 0, 12))) ?>"><?php endif; ?>
 </head>
 <body data-draft-endpoint="<?= e(url('formulario/rascunho')) ?>" data-list-context="<?= e(json_encode(NavigationContext::links(), JSON_THROW_ON_ERROR)) ?>" data-list-page="<?= e($listPage ?? '') ?>">
 <a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
 <div class="layout-container">
     <aside class="sidebar" aria-label="Menu principal">
         <div class="sidebar-header">
-            <div class="sidebar-brand">
+            <a class="sidebar-brand" href="<?= e(url($mustChangePassword ? 'senha/alterar' : 'dashboard')) ?>" aria-label="GSE — E.E. São José">
                 <img class="sidebar-brand-icon" src="<?= e(url('assets/image/logo_escola.png')) ?>" alt="Logotipo da E.E. São José">
-                <span class="sidebar-brand-text">GSE</span>
-            </div>
+                <span class="sidebar-brand-text"><strong>GSE</strong><small>Gestor de<br>Secretaria Escolar</small></span>
+            </a>
+            <span class="sidebar-school">E.E. São José</span>
         </div>
 
-        <button type="button" class="sidebar-pin" data-sidebar-pin aria-pressed="false" hidden><span aria-hidden="true">☰</span><span class="sidebar-pin-label">Fixar menu aberto</span></button>
-        <button type="button" class="sidebar-mobile-toggle" data-sidebar-toggle aria-expanded="false" aria-controls="gse-main-navigation" hidden>☰ Menu de funções</button>
+        <button type="button" class="sidebar-mobile-toggle" data-sidebar-toggle aria-expanded="false" aria-controls="gse-main-navigation" hidden><?= gse_icon('menu') ?> Menu de funções <?= gse_icon('chevron-down') ?></button>
         <nav id="gse-main-navigation">
             <?php if (!$mustChangePassword): ?>
-                <a href="<?= e(url('dashboard')) ?>" class="sidebar-link <?= $dashboardActive ? 'active' : '' ?>" <?= $dashboardActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#127968;</span><span class="sidebar-label">Painel Geral</span>
+                <?php foreach ($navigation as [$path, $label, $icon, $active, $allowed]): if (!$allowed) { continue; } ?>
+                <a href="<?= e(url($path)) ?>" class="sidebar-link <?= $active ? 'active' : '' ?>" <?= $active ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon"><?= gse_icon($icon) ?></span><span class="sidebar-label"><?= e($label) ?></span>
                 </a>
-                <a href="<?= e(url('aluno')) ?>" class="sidebar-link <?= $studentsActive ? 'active' : '' ?>" <?= $studentsActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#127891;</span>
-                    <span class="sidebar-label">Gestão de Alunos</span>
-                </a>
-                <a href="<?= e(url('certidao')) ?>" class="sidebar-link <?= $certActive ? 'active' : '' ?>" <?= $certActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#128196;</span><span class="sidebar-label">Certidões</span>
-                </a>
-                <a href="<?= e(url('contrato')) ?>" class="sidebar-link <?= $contractActive ? 'active' : '' ?>" <?= $contractActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128221;</span><span class="sidebar-label">Pedidos</span></a>
-                <a href="<?= e(url('passivo')) ?>" class="sidebar-link <?= $passiveActive ? 'active' : '' ?>" <?= $passiveActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#128230;</span>
-                    <span class="sidebar-label">Arquivo Passivo</span>
-                </a>
-                <?php if (AccessPolicy::allows('student.export')): ?>
-                <a href="<?= e(url('relatorio')) ?>" class="sidebar-link <?= $reportActive ? 'active' : '' ?>" <?= $reportActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#128202;</span><span class="sidebar-label">Relatórios</span></a>
-                <?php endif; ?>
-                <a href="<?= e(url('estoque')) ?>" class="sidebar-link <?= $stockActive ? 'active' : '' ?>" <?= $stockActive ? 'aria-current="page"' : '' ?>><span class="sidebar-icon" aria-hidden="true">&#9635;</span><span class="sidebar-label">Estoque</span></a>
-                <?php if (AccessPolicy::allows('student.health')): ?>
-                <a href="<?= e(url('dva')) ?>" class="sidebar-link <?= $dvaActive ? 'active' : '' ?>" <?= $dvaActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#128196;</span>
-                    <span class="sidebar-label">DVAs</span>
-                </a>
-                <?php endif; ?>
+                <?php endforeach; ?>
             <?php endif; ?>
 
             <?php if ($isAdmin && !$mustChangePassword): ?>
                 <div class="sidebar-divider"></div>
-                <small class="sidebar-section-label">Admin</small>
-                <a href="<?= e(url('usuario')) ?>" class="sidebar-link <?= $usersActive ? 'active' : '' ?>" <?= $usersActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#128101;</span>
-                    <span class="sidebar-label">Usuários</span>
+                <small class="sidebar-section-label">Administração</small>
+                <?php foreach ($adminNavigation as [$path, $label, $icon, $active]): ?>
+                <a href="<?= e(url($path)) ?>" class="sidebar-link <?= $active ? 'active' : '' ?>" <?= $active ? 'aria-current="page"' : '' ?>>
+                    <span class="sidebar-icon"><?= gse_icon($icon) ?></span><span class="sidebar-label"><?= e($label) ?></span>
                 </a>
-                <a href="<?= e(url('turma')) ?>" class="sidebar-link <?= $classesActive ? 'active' : '' ?>" <?= $classesActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#9638;</span>
-                    <span class="sidebar-label">Turmas</span>
-                </a>
-                <a href="<?= e(url('auditoria')) ?>" class="sidebar-link <?= $auditActive ? 'active' : '' ?>" <?= $auditActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#128737;</span>
-                    <span class="sidebar-label">Auditoria</span>
-                </a>
-                <a href="<?= e(url('backup')) ?>" class="sidebar-link <?= $backupActive ? 'active' : '' ?>" <?= $backupActive ? 'aria-current="page"' : '' ?>>
-                    <span class="sidebar-icon" aria-hidden="true">&#128190;</span>
-                    <span class="sidebar-label">Backups</span>
-                </a>
+                <?php endforeach; ?>
             <?php endif; ?>
 
             <a href="<?= e(url('senha/alterar')) ?>" class="sidebar-link <?= $passwordActive ? 'active' : '' ?>" <?= $passwordActive ? 'aria-current="page"' : '' ?>>
-                <span class="sidebar-icon" aria-hidden="true">&#128273;</span>
+                <span class="sidebar-icon"><?= gse_icon('key') ?></span>
                 <span class="sidebar-label">Alterar senha</span>
             </a>
         </nav>
 
         <div class="sidebar-footer">
             <div class="sidebar-user">
-                <span class="sidebar-footer-icon" aria-hidden="true">&#128100;</span>
-                <div class="sidebar-footer-label">Olá, <strong><?php if ($mustChangePassword): ?><?= e((string) ($_SESSION['usuario_nome'] ?? 'Usuário')) ?><?php else: ?><a class="sidebar-profile-link" href="<?= e(url('usuario/perfil')) ?>" <?= $profileActive ? 'aria-current="page"' : '' ?> title="Editar meu perfil"><?= e((string) ($_SESSION['usuario_nome'] ?? 'Usuário')) ?></a><?php endif; ?></strong>
-                    <small class="sidebar-user-role visually-hidden"><?= e(nome_perfil((string) ($_SESSION['usuario_tipo'] ?? ''))) ?></small>
+                <span class="sidebar-avatar" aria-hidden="true"><?= e($userInitials) ?></span>
+                <div class="sidebar-footer-label"><strong><?php if ($mustChangePassword): ?><?= e($userName) ?><?php else: ?><a class="sidebar-profile-link" href="<?= e(url('usuario/perfil')) ?>" <?= $profileActive ? 'aria-current="page"' : '' ?> title="Editar meu perfil"><?= e($userName) ?></a><?php endif; ?></strong>
+                    <small class="sidebar-user-role"><?= e(nome_perfil((string) ($_SESSION['usuario_tipo'] ?? ''))) ?></small>
                 </div>
             </div>
             <form class="logout-form" method="post" action="<?= e(url('login/sair')) ?>">
                 <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
-                <button class="btn-sair" type="submit"><span class="sidebar-footer-icon" aria-hidden="true">&#10140;</span><span class="sidebar-footer-label">Sair do Sistema</span></button>
+                <button class="btn-sair" type="submit"><?= gse_icon('logout') ?><span>Sair do sistema</span></button>
             </form>
         </div>
     </aside>
 
     <div class="main-content-wrapper">
-        <header class="<?= e($certHeaderClass) ?>">
-            <h1><?= e($reportActive ? '📊 Gerador de Relatórios' : (str_starts_with($currentPath, 'usuario/editar/') ? '✏️ ' . $title : $title)) ?></h1>
+        <div class="app-topbar"><span>E.E. São José <span class="topbar-divider">/</span> Secretaria escolar</span><span class="topbar-account"><?= gse_icon('user') ?> <?= e($userName) ?></span></div>
+        <header class="page-header <?= e($certHeaderClass) ?>">
+            <div class="page-heading"><p class="page-breadcrumb"><?= $usersActive || $auditActive || $backupActive || $classesActive ? 'Administração' : 'Secretaria' ?><span>/</span><?php if ($usersActive && $currentPath !== 'usuario'): ?><a href="<?= e(url('usuario')) ?>">Usuários</a><span>/</span><?php elseif ($studentsActive && $currentPath !== 'aluno'): ?><a href="<?= e(url('aluno')) ?>">Alunos</a><span>/</span><?php endif; ?><?= e($pageHeading) ?></p><h1><?= gse_icon($pageIcon) ?><?= e($pageHeading) ?></h1></div>
             <?php $contextList = $studentsActive ? 'aluno' : ($passiveActive ? 'passivo' : ($contractActive ? 'contrato' : ($stockActive ? 'estoque' : ($certActive ? 'certidao' : ($usersActive ? 'usuario' : ($classesActive ? 'turma' : null)))))); ?>
             <?php if ($contextList !== null && $currentPath !== $contextList): ?><a class="context-return" href="<?= e(url(NavigationContext::back($contextList))) ?>">Voltar à lista com os filtros</a><?php endif; ?>
             <?php if (isset($headerMeta) || $dashboardActive || $currentPath === 'passivo'): ?>
@@ -171,5 +175,6 @@ $flashClass = [
 <script src="<?= e(url('assets/js/pedidos-usabilidade.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/pedidos-usabilidade.js'), 0, 12))) ?>"></script>
 <script src="<?= e(url('assets/js/app.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/app.js'), 0, 12))) ?>"></script>
 <script src="<?= e(url('assets/js/usabilidade.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/usabilidade.js'), 0, 12))) ?>"></script>
+<?php if ($currentPath === 'aluno'): ?><script src="<?= e(url('assets/js/alunos-preview.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/alunos-preview.js'), 0, 12))) ?>"></script><?php endif; ?>
 </body>
 </html>

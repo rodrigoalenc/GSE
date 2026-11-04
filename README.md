@@ -77,7 +77,7 @@ Componentes principais:
 
 ## Identidade visual e acessibilidade
 
-A interface usa a identidade azul e o logo institucional da E.E. São José. Login, painel, usuários, senha, auditoria, backups, alunos, DVAs, turmas, passivo, certidões, contratos, estoque, relatórios e erros compartilham a organização visual do GSE. A sidebar expande por `hover` ou `focus-within` no desktop e dispõe de apresentação móvel. Logo e favicon usam assets locais; CSP continua sem `unsafe-inline`. A inspeção do código e os testes HTTP não substituem a validação visual e de acessibilidade no navegador.
+A interface usa a identidade azul e o brasão original da E.E. São José. Login, painel, usuários, senha, auditoria, backups, alunos, DVAs, turmas, passivo, certidões, pedidos, estoque e relatórios seguem o visual institucional moderno: menu lateral permanente de 228 px com ícones de linha e texto no desktop, fundo azul-claro e superfícies brancas. No celular, o menu abre por botão. A lista de alunos inclui uma prévia à direita do cadastro selecionado, com contatos e DVA somente para quem tem permissão; em telas menores, a prévia fica abaixo da lista. Logo, favicon e ícones usam assets locais; CSP continua sem `unsafe-inline`. Os testes de navegador verificam responsividade, navegação por teclado, seleção da prévia e restrições de acesso.
 
 As decisões seguem as recomendações de [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) e [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) da OWASP, além das APIs nativas de senha do [manual do PHP](https://www.php.net/manual/en/book.password.php).
 

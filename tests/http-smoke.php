@@ -386,7 +386,7 @@ try {
     $dashboard = request('GET', $baseUrl . '/dashboard', $cookieAdmin);
     checkHttp(
         $dashboard['status'] === 200
-        && str_contains($dashboard['body'], 'Total de alunos')
+        && str_contains($dashboard['body'], 'Alunos ativos')
         && str_contains($dashboard['body'], 'Alunos Sem DVA')
         && str_contains($dashboard['body'], 'assets/css/dashboard.css')
         && str_contains($dashboard['body'], 'assets/image/logo_escola.png')

@@ -269,3 +269,36 @@
 .usuario-profile-card .usuario-form .form-actions button { color: #fff; background: linear-gradient(135deg,var(--primary-color),var(--primary-dark)); }
 @media (max-width: 640px) { .usuario-profile-card>.relatorio { padding: 20px; } }
 @media (max-width: 640px) { .usuario-edit-grid { grid-template-columns: 1fr; gap: 0; } .usuario-form-card-edit>.relatorio { padding: 20px; } }
+
+/* Formulário institucional: uma única superfície, com campos em duas colunas. */
+.usuario-form-card { width: 100%; max-width: 1060px; margin: 0; }
+.usuario-form-card > .relatorio { padding: 28px; border: 1px solid var(--border-color); border-radius: 10px; box-shadow: 0 2px 5px rgba(12,53,102,.025); }
+.usuario-form-card .usuario-form { max-width: none; padding: 0; background: transparent; border-radius: 0; box-shadow: none; }
+.usuario-form-card .usuario-form-grid, .usuario-form-card .usuario-password-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+.usuario-form-card .usuario-form label { color: var(--primary-dark); font-size: 13px; font-weight: 650; }
+.usuario-form-card .usuario-form input, .usuario-form-card .usuario-form select { min-width: 0; min-height: 44px; margin-bottom: 24px; padding: 10px 12px; color: var(--text-main); border: 1px solid #c7d4e3; border-radius: 6px; font-family: inherit; font-size: 14px; }
+.usuario-form-card .usuario-form input::placeholder { color: #6b7c90; }
+.usuario-form-card .usuario-form input:focus, .usuario-form-card .usuario-form select:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(44,126,214,.12); }
+.usuario-form-card .usuario-form input[aria-invalid="true"], .usuario-form-card .usuario-form select[aria-invalid="true"] { border-color: #9e1c28; }
+.usuario-form-card .usuario-form .input-with-toggle { margin-bottom: 24px; }
+.usuario-form-card .usuario-form .input-with-toggle input { margin-bottom: 0; padding-right: 44px; }
+.usuario-form-card .usuario-form .toggle-password { right: 5px; width: 34px; min-height: 34px; border: 0; border-radius: 5px; background: transparent; box-shadow: none; }
+.usuario-form-card .usuario-form .field-error { display: block; margin-top: -15px; margin-bottom: 20px; }
+.usuario-form-card .form-help { margin: -10px 0 24px; font-size: 13px; }
+.usuario-form-card .usuario-check-option { padding: 14px 16px; margin: 0 0 24px; background: #f6f9fd; border-color: var(--border-color); border-radius: 6px; }
+.usuario-form-card .usuario-form .usuario-check-option input { width: 16px; min-height: 16px; height: 16px; margin: 0; padding: 0; accent-color: var(--primary-color); }
+.usuario-form-card .usuario-check-option small { font-size: 12px; }
+.usuario-form-card .usuario-form .form-actions { justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 8px; padding-top: 22px; border-top: 1px solid var(--border-color); }
+.usuario-form-card .usuario-access-help { margin: 0 auto 0 0; font-size: 12px; }
+.usuario-form-card .usuario-access-help p { right: auto; left: 0; }
+.usuario-form-card .form-actions > .cancelar, .usuario-form-card .usuario-form .form-actions > button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 10px 22px; border: 1px solid #b6c8dc; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 650; line-height: 1.4; text-decoration: none; }
+.usuario-form-card .form-actions > .cancelar { color: var(--primary-dark); background: #fff; }
+.usuario-form-card .usuario-form .form-actions > button { color: #fff; background: var(--primary-color); border-color: var(--primary-color); box-shadow: none; }
+.usuario-form-card .usuario-form .form-actions > button:hover { background: var(--primary-dark); border-color: var(--primary-dark); transform: none; }
+@media (max-width: 640px) {
+    .usuario-form-card > .relatorio { padding: 20px; }
+    .usuario-form-card .usuario-form-grid, .usuario-form-card .usuario-password-grid { grid-template-columns: minmax(0,1fr); gap: 0; }
+    .usuario-form-card .usuario-form .form-actions { gap: 10px; }
+    .usuario-form-card .usuario-access-help { width: 100%; margin-bottom: 8px; }
+    .usuario-form-card .form-actions > .cancelar, .usuario-form-card .usuario-form .form-actions > button { flex: 1; padding-inline: 10px; }
+}

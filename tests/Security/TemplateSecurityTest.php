@@ -47,7 +47,7 @@ final class TemplateSecurityTest extends TestCase
         $this->assertStringContainsString('name="_csrf_token"', $layout);
     }
 
-    public function testResponsiveVisualStructureKeepsOriginalProportions(): void
+    public function testInstitutionalStructureKeepsPermanentNavigationAndResponsiveContent(): void
     {
         $panelCss = (string) file_get_contents(ROOT_PATH . '/public/assets/css/painel.css');
         $studentsCss = (string) file_get_contents(ROOT_PATH . '/public/assets/css/alunos.css');
@@ -55,10 +55,11 @@ final class TemplateSecurityTest extends TestCase
         $dashboard = (string) file_get_contents(ROOT_PATH . '/src/Views/dashboard/index.php');
         $studentForm = (string) file_get_contents(ROOT_PATH . '/src/Views/alunos/form.php');
 
-        $this->assertStringContainsString('--sidebar-width: 78px', $panelCss);
-        $this->assertStringContainsString('--sidebar-expanded-width: 260px', $panelCss);
-        $this->assertStringContainsString('.sidebar:has(:focus-visible)', $panelCss);
-        $this->assertStringContainsString('width: 30px; height: 30px', $panelCss);
+        $this->assertStringContainsString('--sidebar-width: 228px', $panelCss);
+        $this->assertStringNotContainsString('.sidebar:has(:focus-visible)', $panelCss);
+        $layout = (string) file_get_contents(ROOT_PATH . '/src/Views/layouts/app.php');
+        $this->assertStringNotContainsString('data-sidebar-pin', $layout);
+        $this->assertStringContainsString('data-sidebar-toggle', $layout);
         $this->assertStringContainsString('@media (max-width: 390px)', $studentsCss);
         $this->assertStringNotContainsString('dashboard-hero', $dashboard);
         $this->assertSame(4, substr_count($dashboard, 'class="dashboard-number-card'));

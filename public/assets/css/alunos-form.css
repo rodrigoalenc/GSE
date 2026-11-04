@@ -1,0 +1,81 @@
+/* Cadastro e edição de aluno acompanham o formulário institucional. */
+.student-form.form-container {
+    width: 100%;
+    max-width: 1060px;
+    margin: 0 0 24px;
+    padding: 24px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+    overflow: visible;
+}
+.student-form.form-container .form-block {
+    margin: 0;
+    padding: 18px;
+    border: 1px solid #d5e1ee;
+    border-radius: 7px;
+    background: #fff;
+}
+.student-form.form-container .form-block + .form-block { margin-top: 14px; }
+.student-form.form-container .section-head { display: block; margin: 0 0 14px; padding: 0; border: 0; }
+.student-form.form-container .section-head h2 { margin: 0; color: var(--primary-dark); font-size: 14px; font-weight: 700; line-height: 1.4; }
+.student-form.form-container .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
+.student-form.form-container .form-grid > div { min-width: 0; }
+.student-form.form-container label { margin-bottom: 6px; color: var(--primary-dark); font-size: 12px; font-weight: 650; }
+.student-form.form-container input:not([type="hidden"]):not([type="checkbox"]),
+.student-form.form-container select,
+.student-form.form-container textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    margin: 0;
+    padding: 10px 12px;
+    color: var(--text-main);
+    background: #fff;
+    border: 1px solid #b9cadd;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.student-form.form-container input::placeholder { color: #6b7c90; }
+.student-form.form-container input[readonly] { background: #f5f8fc; }
+.student-form.form-container [aria-invalid="true"] { border-color: #9e1c28 !important; }
+.student-form.form-container .form-help { margin: 8px 0 0; color: #536b84; font-size: 12px; line-height: 1.5; }
+.student-form.form-container .contact-grid input { margin-bottom: 0; }
+.student-form.form-container .student-initial-dva { background: #e7f1fc; border-color: #c3d9ef; }
+.student-dva-grid { display: grid; grid-template-columns: minmax(190px, .9fr) minmax(0, 1.5fr); align-items: end; gap: 24px; }
+.student-form.form-container .student-dva-grid > .form-help { margin: 0; padding-bottom: 10px; }
+.student-form.form-container .dva-observation { margin-top: 14px; color: var(--primary-dark); font-size: 12px; }
+.student-form.form-container .dva-observation > summary { padding: 8px 10px; border: 1px solid #c3d9ef; border-radius: 5px; background: #f4f8fd; font-weight: 600; cursor: pointer; }
+.student-form.form-container .dva-observation[open] > summary { margin-bottom: 12px; }
+.student-form.form-container .student-form-footer { flex-direction: row; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-color); }
+.student-dva-definition { margin-right: auto; color: #536b84; font-size: 11px; }
+.student-form.form-container .student-form-footer .btn-primary,
+.student-form.form-container .student-form-footer .btn-secondary { width: auto; min-height: 40px; margin: 0; padding: 9px 18px; border: 1px solid #b9cadd; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 650; line-height: 1.4; }
+.student-form.form-container .student-form-footer .btn-primary { color: #fff; background: var(--primary-color); border-color: var(--primary-color); }
+.student-form.form-container .student-form-footer .btn-secondary { color: var(--primary-dark); background: #fff; }
+.student-form.form-container .student-form-footer .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.student-edit-intro.page-intro { width: 100%; max-width: 1060px; margin: 0 0 18px; padding: 16px 20px; border-radius: 7px; }
+.student-edit-intro.page-intro h2 { font-size: 15px; }
+.student-edit-intro.page-intro p { font-size: 12px; }
+.student-form.form-container .duplicate-confirmation { margin-top: 14px; }
+.student-form.form-container .duplicate-confirmation input { min-height: 16px; width: 16px; vertical-align: middle; }
+.student-form.form-container .conflict-review { margin-top: 0; }
+@media (max-width: 640px) {
+    .student-form.form-container { padding: 16px; }
+    .student-form.form-container .form-block { padding: 14px; }
+    .student-form.form-container .form-grid, .student-dva-grid { grid-template-columns: minmax(0,1fr); gap: 16px; }
+    .student-form.form-container .student-dva-grid > .form-help { padding-bottom: 0; }
+    .student-form.form-container .student-form-footer { align-items: stretch; }
+    .student-dva-definition { width: 100%; margin-bottom: 4px; }
+    .student-form.form-container .student-form-footer .btn-primary,
+    .student-form.form-container .student-form-footer .btn-secondary { flex: 1 1 auto; padding-inline: 12px; }
+    .student-edit-intro.page-intro { padding: 14px 16px; }
+}
+@media (max-width: 390px) {
+    .student-form.form-container { padding: 12px; }
+    .student-form.form-container .form-block { padding: 12px; }
+    .student-form.form-container .student-form-footer { flex-wrap: wrap; }
+}

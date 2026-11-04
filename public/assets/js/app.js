@@ -1,19 +1,3 @@
-const sidebarPin = document.querySelector('[data-sidebar-pin]');
-if (sidebarPin) {
-    const sidebar = sidebarPin.closest('.sidebar');
-    const applyPin = (pinned) => {
-        sidebar.classList.toggle('is-pinned', pinned);
-        sidebarPin.setAttribute('aria-pressed', String(pinned));
-        sidebarPin.querySelector('.sidebar-pin-label').textContent = pinned ? 'Soltar menu' : 'Fixar menu aberto';
-    };
-    let pinned = true;
-    try { const saved = localStorage.getItem('gse.menu.pinned'); pinned = saved === null || saved === 'true'; } catch (_) { /* Names remain visible without storage. */ }
-    applyPin(pinned); sidebarPin.hidden = false;
-    sidebarPin.addEventListener('click', () => {
-        pinned = !pinned; applyPin(pinned);
-        try { localStorage.setItem('gse.menu.pinned', String(pinned)); } catch (_) { /* Keep the current preference for this page. */ }
-    });
-}
 document.querySelector('[data-form-errors]')?.focus();
 document.querySelectorAll('[data-form-errors] a').forEach((link) => {
     link.addEventListener('click', () => document.getElementById(link.hash.slice(1))?.focus());

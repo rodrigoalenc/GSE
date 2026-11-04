@@ -39,6 +39,10 @@ try {
             }
             check(await page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'),true,`${route} reflows at ${width}px`);
             check(await page.evaluate('document.querySelector("main").id'),'conteudo-principal','Skip link has a content target');
+            if (width===1366) {
+                check(await page.evaluate('document.querySelector(".sidebar").getBoundingClientRect().width'),228,'Desktop navigation keeps its permanent reference width');
+                check(await page.evaluate('[...document.querySelectorAll(".sidebar-label")].every(label=>label.getBoundingClientRect().width>0 && getComputedStyle(label).opacity!=="0")'),true,'Navigation labels remain visible without hover');
+            }
             if(route==='/aluno/criar') {
                 await page.evaluate('document.querySelector("#nome_completo").focus()');
                 check(await page.evaluate('parseFloat(getComputedStyle(document.querySelector("#nome_completo")).outlineWidth) >= 2'),true,'Keyboard focus remains visible on form fields');

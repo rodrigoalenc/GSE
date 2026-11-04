@@ -58,8 +58,8 @@ final class StudentPaginationTest extends DatabaseTestCase
         parse_str((string) parse_url($next->getAttribute('href'), PHP_URL_QUERY), $query);
         $second = $this->renderList($query);
 
-        self::assertSame((string) $total, trim($second->evaluate('string(//div[@class="hero-stats"]/span[1]/strong)')));
-        self::assertSame('2', trim($second->evaluate('string(//div[@class="hero-stats"]/span[2]/strong)')));
+        self::assertSame($total . ' alunos', trim($second->evaluate('string(//span[@class="students-count"])')));
+        self::assertSame('2', trim($second->evaluate('string(//nav[@aria-label="Páginas de alunos"]/*[@aria-current="page"])')));
         self::assertSame($situation, $second->evaluate('string(//select[@id="ativo"]/option[@selected]/@value)'));
         self::assertSame('Pessoa Paginacao', $query['q'] ?? null);
         self::assertSame((string) $class, $query['turma'] ?? null);
