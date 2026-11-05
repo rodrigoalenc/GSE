@@ -185,9 +185,7 @@ class Usuario extends Model
 
                 $privilegeChanged = (string) $atual['tipo'] !== $tipo;
                 $identityChanged = (string) $atual['nome'] !== $nome || (string) $atual['email'] !== $email;
-                $alertsAfter = $tipo === self::PERFIL_ADMINISTRADOR
-                    ? ($recebeAlertasDva === null ? (int) $atual['recebe_alertas_dva'] : ($recebeAlertasDva ? 1 : 0))
-                    : 0;
+                $alertsAfter = (int) ($recebeAlertasDva ?? $atual['recebe_alertas_dva']);
                 $alertsChanged = (int) $atual['recebe_alertas_dva'] !== $alertsAfter;
                 if (!$identityChanged && !$privilegeChanged && $novaSenha === null && !$alertsChanged) {
                     return true;
@@ -527,7 +525,7 @@ class Usuario extends Model
             'id' => $id, 'nome' => DataProtection::encrypt($nome, 'usuarios.nome', $id),
             'email' => DataProtection::encrypt($email, 'usuarios.email', $id), 'lookup' => DataProtection::emailIndex($email), 'senha' => PasswordPolicy::hash($senha), 'tipo' => $tipo,
             'temporary' => $senhaTemporaria ? 1 : 0, 'changed_at' => $senhaTemporaria ? null : gmdate('Y-m-d H:i:s'),
-            'dva_alerts' => $tipo === self::PERFIL_ADMINISTRADOR && $recebeAlertasDva ? 1 : 0,
+            'dva_alerts' => (int) $recebeAlertasDva,
         ]);
         $id = (int) $pdo->lastInsertId();
         $description = $action === 'user.initial_admin_created'

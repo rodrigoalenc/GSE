@@ -460,8 +460,13 @@ try {
         'tipo' => 'funcionario',
         'senha' => $employeeTemporaryPassword,
         'confirmar_senha' => $employeeTemporaryPassword,
+        'recebe_alertas_dva' => '1',
     ]);
     checkHttp($createdUser['status'] === 302 && str_contains($createdUser['headers']['location'] ?? '', '/usuario'), 'Criação administrativa de usuário');
+    $employeeAlertsListUrl = $baseUrl . '/usuario?q=' . rawurlencode('employee@example.test');
+    $employeeAlertsList = request('GET', $employeeAlertsListUrl, $cookieAdmin);
+    checkHttp($employeeAlertsList['status'] === 200 && str_contains($employeeAlertsList['body'], 'Funcionário HTTP')
+        && str_contains($employeeAlertsList['body'], '>Habilitados</span>'), 'Funcionário cadastrado com opt-in aparece com alertas DVA habilitados');
 
     $editPage = request('GET', $baseUrl . '/usuario/editar/2', $cookieAdmin);
     $editedUser = request('POST', $baseUrl . '/usuario/editar/2', $cookieAdmin, [
@@ -473,6 +478,9 @@ try {
         'confirmar_senha' => '',
     ]);
     checkHttp($editedUser['status'] === 302, 'Edição administrativa de usuário');
+    $employeeAlertsList = request('GET', $employeeAlertsListUrl, $cookieAdmin);
+    checkHttp($employeeAlertsList['status'] === 200 && str_contains($employeeAlertsList['body'], 'Funcionário HTTP Editado')
+        && str_contains($employeeAlertsList['body'], '>Desabilitados</span>'), 'Desmarcar alertas na edição desabilita o resumo para o funcionário');
 
     $classPage = request('GET', $baseUrl . '/turma/criar', $cookieAdmin);
     $createdClass = request('POST', $baseUrl . '/turma/criar', $cookieAdmin, [

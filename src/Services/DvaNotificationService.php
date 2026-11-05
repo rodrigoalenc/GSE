@@ -82,7 +82,7 @@ final class DvaNotificationService
     {
         $recipients = $this->pdo->query(
             "SELECT id, nome, email FROM usuarios
-             WHERE ativo = 1 AND tipo = 'administrador' AND recebe_alertas_dva = 1
+             WHERE ativo = 1 AND tipo IN ('administrador', 'funcionario') AND recebe_alertas_dva = 1
              ORDER BY id"
         )->fetchAll();
 
@@ -96,7 +96,7 @@ final class DvaNotificationService
     {
         return SqliteTransaction::immediate($this->pdo, function (PDO $pdo) use ($date, $userId, $email): bool {
             $active = $pdo->prepare(
-                "SELECT 1 FROM usuarios WHERE id = :user AND ativo = 1 AND tipo = 'administrador'
+                "SELECT 1 FROM usuarios WHERE id = :user AND ativo = 1 AND tipo IN ('administrador', 'funcionario')
                  AND recebe_alertas_dva = 1 AND email_lookup = :email"
             );
             $active->execute(['user' => $userId, 'email' => DataProtection::emailIndex($email)]);

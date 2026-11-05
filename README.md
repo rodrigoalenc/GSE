@@ -168,7 +168,7 @@ Senhas definidas ou redefinidas por administrador para outras contas são tempor
 
 Funcionários e administradores acessam `/usuario/perfil` pelo próprio nome no rodapé do menu. Nome e e-mail só podem ser alterados para a conta da sessão, com senha atual e CSRF. A auditoria participa da mesma transação: se falhar, a alteração é desfeita. Alterar apenas o nome mantém a sessão; alterar o e-mail encerra todas as sessões anteriores e exige novo login. A troca de senha permanece em `/senha/alterar`. Perfil, situação e preferência de alertas continuam sob administração.
 
-Alertas de DVA são opt-in. O primeiro administrador inicia sem alertas; para uma escolha explícita já na criação, acrescente `--enable-dva-alerts`. A preferência também pode ser habilitada depois pela tela administrativa.
+Alertas de DVA são opt-in. Na tela **Usuários**, marque **Receber o resumo diário de DVAs** para habilitar a preferência de um administrador ou funcionário. O primeiro administrador começa com os alertas desabilitados por padrão. Para habilitá-los ao criar essa conta por CLI, acrescente `--enable-dva-alerts`.
 
 ## Política de senhas
 
@@ -270,7 +270,7 @@ Datas vencidas podem ser registradas para correção histórica e são sinalizad
 
 ## Notificações opcionais de DVA
 
-O comando `php bin/notify-dva.php` funciona somente em CLI, consolida DVAs vencidas ou dentro de `DVA_EMAIL_WARNING_DAYS` e envia somente a administradores ativos que habilitaram a preferência. Migrações e criação por CLI mantêm essa opção em `0`; funcionários, contas rebaixadas e contas inativas não são destinatários. O e-mail não inclui telefone, nascimento nem observação integral. A execução do mesmo dia não duplica uma entrega já concluída; falhas parciais ficam aptas a nova tentativa. Testes usam transporte falso e nunca enviam e-mail real.
+O comando `php bin/notify-dva.php` funciona somente em CLI, consolida DVAs vencidas ou dentro de `DVA_EMAIL_WARNING_DAYS` e envia o resumo a administradores e funcionários ativos que habilitaram a preferência. A inativação da conta desabilita os alertas. O e-mail contém uma contagem agregada e um link para o GSE. A execução do mesmo dia evita duplicar entregas concluídas e permite repetir entregas com falha. Os testes usam transporte simulado.
 
 O envio usa PHPMailer por SMTP. `tls` é mapeado para `PHPMailer::ENCRYPTION_STARTTLS`, `smtps` para `PHPMailer::ENCRYPTION_SMTPS` e `none` desativa também `SMTPAutoTLS`. Produção exige `tls` ou `smtps` e rejeita combinações incoerentes com as portas padrão; a validação de certificados não é relaxada. Com `MAIL_ENABLED=false`, o comando retorna zero sem abrir conexão. Sempre teste o SMTP institucional em homologação. Exemplo de cron diário:
 

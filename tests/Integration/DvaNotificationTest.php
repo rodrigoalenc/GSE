@@ -10,38 +10,38 @@ use Tests\Support\DatabaseTestCase;
 
 final class DvaNotificationTest extends DatabaseTestCase
 {
-    public function testAlertasSaoOptInEDesabilitadosAoRebaixarOuInativarAdministrador(): void
+    public function testAlertasSaoOptInEPreservadosEntrePerfisAtivos(): void
     {
-        $admin = $this->insertUsuario('Admin Opt In');
-        $this->insertUsuario('Admin Guardiao');
-        $this->assertSame(0, (int) $this->pdo->query("SELECT recebe_alertas_dva FROM usuarios WHERE id = {$admin}")->fetchColumn());
-        $this->pdo->prepare('UPDATE usuarios SET recebe_alertas_dva = 1 WHERE id = ?')->execute([$admin]);
-
+        $admin = $this->insertUsuario('Admin Guardiao');
+        $employee = $this->insertUsuario('Funcionario Opt In', 'funcionario');
         $users = new \Usuario();
-        $row = $users->buscarPorId($admin);
-        $this->assertTrue($users->atualizar(
-            $admin,
-            (string) $row['nome'],
-            (string) $row['email'],
-            \Usuario::PERFIL_FUNCIONARIO,
-            null,
-            true
-        ));
+        $row = $users->buscarPorId($employee);
         $this->assertSame(0, (int) $users->buscarPorId($admin)['recebe_alertas_dva']);
+        $this->assertSame(0, (int) $row['recebe_alertas_dva']);
+        $name = (string) $row['nome'];
+        $email = (string) $row['email'];
 
-        $otherAdmin = $this->insertUsuario('Admin Inativado');
-        $this->pdo->prepare('UPDATE usuarios SET recebe_alertas_dva = 1 WHERE id = ?')->execute([$otherAdmin]);
-        $this->assertTrue($users->definirAtivo($otherAdmin, false));
-        $this->assertSame(0, (int) $users->buscarPorId($otherAdmin)['recebe_alertas_dva']);
+        $this->assertTrue($users->atualizar($employee, $name, $email, \Usuario::PERFIL_FUNCIONARIO, null, true, $admin));
+        $this->assertSame(1, (int) $users->buscarPorId($employee)['recebe_alertas_dva']);
+        foreach ([\Usuario::PERFIL_ADMINISTRADOR, \Usuario::PERFIL_FUNCIONARIO] as $role) {
+            $this->assertTrue($users->atualizar($employee, $name, $email, $role, actorId: $admin));
+            $this->assertSame(1, (int) $users->buscarPorId($employee)['recebe_alertas_dva']);
+        }
+
+        $this->assertTrue($users->definirAtivo($employee, false, $admin));
+        $this->assertSame(0, (int) $users->buscarPorId($employee)['recebe_alertas_dva']);
+        $this->assertTrue($users->definirAtivo($employee, true, $admin));
+        $this->assertSame(0, (int) $users->buscarPorId($employee)['recebe_alertas_dva']);
     }
 
-    public function testEnviaSomenteParaAdministradoresAtivosHabilitadosEIdempotente(): void
+    public function testEnviaSomenteParaUsuariosAtivosHabilitadosEIdempotente(): void
     {
         $admin = $this->insertUsuario('Admin Alerta');
-        $inactive = $this->insertUsuario('Admin Inativo');
         $employee = $this->insertUsuario('Funcionario Alerta', 'funcionario');
+        $inactive = $this->insertUsuario('Funcionario Inativo', 'funcionario', false);
+        $this->insertUsuario('Admin Sem Alerta');
+        $this->insertUsuario('Funcionario Sem Alerta', 'funcionario');
         $this->pdo->exec("UPDATE usuarios SET recebe_alertas_dva = 1 WHERE id IN ({$admin}, {$inactive}, {$employee})");
-        $this->pdo->prepare('UPDATE usuarios SET ativo = 0 WHERE id = ?')->execute([$inactive]);
         $class = $this->insertTurma();
         $student = (new \Aluno())->cadastrar([
             'nome_completo' => '<Aluno & Teste>', 'data_nascimento' => '2010-01-01', 'id_turma' => $class,
@@ -60,16 +60,17 @@ final class DvaNotificationTest extends DatabaseTestCase
         try { $first = $service->notify(); $second = $service->notify(); }
         finally { if ($previousUrl === null) { unset($_ENV['APP_URL']); } else { $_ENV['APP_URL'] = $previousUrl; } }
 
-        $this->assertSame(1, $first['sent']);
-        $this->assertSame(0, $first['failed']);
-        $this->assertSame(1, $second['skipped']);
-        $this->assertCount(1, $transport->messages);
-        $this->assertStringContainsString('https://school.example.test/dva', $transport->messages[0]['html']);
-        foreach (['html', 'text'] as $format) {
-            $this->assertStringContainsString('1 registro(s)', $transport->messages[0][$format]);
-            $this->assertStringNotContainsString('Aluno', $transport->messages[0][$format]);
-            $this->assertStringNotContainsString('2026-08-25', $transport->messages[0][$format]);
-            $this->assertStringNotContainsString('1 Ano A', $transport->messages[0][$format]);
+        $this->assertSame(['warnings'=>1, 'recipients'=>2, 'sent'=>2, 'skipped'=>0, 'failed'=>0], $first);
+        $this->assertSame(['warnings'=>1, 'recipients'=>2, 'sent'=>0, 'skipped'=>2, 'failed'=>0], $second);
+        $this->assertSame(['admin.alerta@teste.local', 'funcionario.alerta@teste.local'], array_column($transport->messages, 'recipientAddress'));
+        foreach ($transport->messages as $message) {
+            $this->assertStringContainsString('https://school.example.test/dva', $message['html']);
+            foreach (['html', 'text'] as $format) {
+                $this->assertStringContainsString('1 registro(s)', $message[$format]);
+                $this->assertStringNotContainsString('Aluno', $message[$format]);
+                $this->assertStringNotContainsString('2026-08-25', $message[$format]);
+                $this->assertStringNotContainsString('1 Ano A', $message[$format]);
+            }
         }
     }
 
@@ -110,10 +111,10 @@ final class DvaNotificationTest extends DatabaseTestCase
         $this->assertSame(0, (int) $this->pdo->query('SELECT COUNT(*) FROM dva_notification_deliveries')->fetchColumn());
     }
 
-    public function testRevalidatesActiveProfilePreferenceAndEmailBeforeEachRecipient(): void
+    public function testRevalidatesActivityPreferenceAndEmailBeforeEachRecipient(): void
     {
         $first = $this->insertUsuario('Admin Primeiro');
-        $inactive = $this->insertUsuario('Admin Inativado Durante Envio');
+        $inactive = $this->insertUsuario('Funcionario Inativado Durante Envio', 'funcionario');
         $employee = $this->insertUsuario('Admin Rebaixado Durante Envio');
         $optOut = $this->insertUsuario('Admin Preferencia Alterada');
         $email = $this->insertUsuario('Admin Email Alterado');
@@ -138,9 +139,9 @@ final class DvaNotificationTest extends DatabaseTestCase
         $result = (new \DvaNotificationService($this->pdo, $transport,
             new \DvaStatus(new DateTimeImmutable('2026-08-20'), 30)))->notify();
 
-        $this->assertSame(['warnings'=>1, 'recipients'=>5, 'sent'=>1, 'skipped'=>4, 'failed'=>0], $result);
-        $this->assertSame(1, $transport->sent);
-        $this->assertSame([$first], $this->pdo->query('SELECT user_id FROM dva_notification_deliveries')->fetchAll(\PDO::FETCH_COLUMN));
+        $this->assertSame(['warnings'=>1, 'recipients'=>5, 'sent'=>2, 'skipped'=>3, 'failed'=>0], $result);
+        $this->assertSame(2, $transport->sent);
+        $this->assertSame([$first, $employee], $this->pdo->query('SELECT user_id FROM dva_notification_deliveries ORDER BY user_id')->fetchAll(\PDO::FETCH_COLUMN));
     }
 }
 

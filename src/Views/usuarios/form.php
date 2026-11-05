@@ -56,7 +56,7 @@ $editingSelf = $editingSelf ?? false;
 
             <label class="checkbox-field usuario-check-option" for="recebe_alertas_dva">
                 <input type="checkbox" id="recebe_alertas_dva" name="recebe_alertas_dva" value="1" <?= !empty($dados['recebe_alertas_dva']) ? 'checked' : '' ?>>
-                <span><strong>Receber o resumo diário de DVAs</strong><small>Opção voluntária disponível somente para administradores ativos.</small></span>
+                <span><strong>Receber o resumo diário de DVAs</strong><small>Opção voluntária para administradores e funcionários com conta ativa.</small></span>
             </label>
 
             <div class="form-actions">

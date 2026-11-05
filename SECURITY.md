@@ -64,7 +64,7 @@ Use contas e senhas artificiais em qualquer prova de conceito.
 - restrinja o acesso aos dados pessoais de alunos à finalidade escolar e revise periodicamente contas ativas;
 - não envie bancos, telas reais de alunos ou relatórios de DVA em canais públicos de suporte;
 - mantenha alunos inativos para preservação controlada do histórico; qualquer futura política de eliminação deve ser formal, auditada e aprovada pela escola;
-- execute notificações de DVA somente em CLI, com SMTP institucional protegido por STARTTLS/TLS implícito, destinatários administradores habilitados por opt-in e logs restritos;
+- execute notificações de DVA somente em CLI, com SMTP institucional protegido por STARTTLS/TLS implícito e logs restritos. Envie o resumo a administradores e funcionários ativos com a preferência habilitada.
 - antes de migrar um banco real, valide o backup `pre-migration` e ensaie a v11 em cópia com a mesma versão de PHP/SQLite e `ext-intl`; confirme IDs, sequências, mapas aluno/turma e DVA/aluno, `PRAGMA foreign_key_check` vazio e `PRAGMA integrity_check=ok`;
 - trate colisões Unicode de turmas manualmente em homologação; nunca mescle ou renomeie registros automaticamente em produção;
 - mantenha uma janela de manutenção sem escritores durante a migração e um procedimento de rollback testado a partir do backup validado;
