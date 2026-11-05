@@ -39,9 +39,8 @@
 .students-list-card .student-table tbody tr:hover td { background: #f2f7fd; }
 .students-list-card .student-table .dva-badge, .students-list-card .student-table .badge-status { padding: 3px 7px; border-radius: 5px; font-size: .71rem; font-weight: 650; }
 .students-list-card .student-table .table-actions { display: table-cell; min-width: 76px; white-space: nowrap; }
-.student-preview-trigger, .student-row-actions summary { display: inline-flex; justify-content: center; align-items: center; width: 30px; height: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 5px; color: #16508f; background: transparent; vertical-align: middle; cursor: pointer; }
-.student-preview-trigger[hidden] { display: none; }
-.student-preview-trigger:hover, .student-preview-trigger[aria-pressed="true"], .student-row-actions summary:hover { background: #dbeafb; }
+.student-row-actions summary { display: inline-flex; justify-content: center; align-items: center; width: 30px; height: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 5px; color: #16508f; background: transparent; vertical-align: middle; cursor: pointer; }
+.student-row-actions summary:hover { background: #dbeafb; }
 .student-row-actions { display: inline-block; position: relative; vertical-align: middle; }
 .student-row-actions summary { list-style: none; font-size: 1.25rem; font-weight: 700; }
 .student-row-actions summary::-webkit-details-marker { display: none; }

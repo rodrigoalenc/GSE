@@ -124,7 +124,7 @@ $lastResult = min((int) $result['total'], $firstResult + count($result['items'])
                 <?php foreach ($result['items'] as $index => $item): ?>
                     <tr class="<?= $index === 0 ? 'is-preview-selected' : '' ?>" data-student-preview-row data-student-preview="<?= e(json_encode($previewData($item), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)) ?>">
                         <?php if ($canArchiveBatch): ?><td class="student-selection-cell"><input type="checkbox" name="alunos[]" value="<?= e((string) $item['id']) ?>" form="student-archive-selection" data-student-selection-id aria-label="Selecionar <?= e((string) $item['nome_completo']) ?> para arquivar ou regredir" <?= (int) ($item['no_passivo'] ?? 0) === 1 ? 'disabled data-student-selection-unavailable' : '' ?>><?php if ((int) ($item['no_passivo'] ?? 0) === 1): ?><small class="student-selection-unavailable">Já no Arquivo Passivo</small><?php endif; ?></td><?php endif; ?>
-                        <td class="student-name"><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>" data-student-preview-name aria-controls="student-detail-preview"><?= e((string) $item['nome_completo']) ?></a></td>
+                        <td class="student-name"><a href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>" data-student-preview-name aria-controls="student-detail-preview"<?= $index === 0 ? ' aria-current="true"' : '' ?>><?= e((string) $item['nome_completo']) ?></a></td>
                         <td><?= e(UiPresentation::civilDate($item['data_nascimento'])) ?></td>
                         <td><?= e((string) ($item['nome_turma'] ?: 'Sem turma')) ?></td>
                         <td><span class="badge-status <?= (int) $item['ativo'] === 1 ? 'badge-ativo' : 'badge-inativo' ?>"><?= (int) $item['ativo'] === 1 ? 'Ativo' : 'Inativo' ?></span></td>
@@ -132,7 +132,6 @@ $lastResult = min((int) $result['total'], $firstResult + count($result['items'])
                         <td><span class="dva-badge dva-<?= e((string) $item['dva_status']) ?>"><?= e(DvaStatus::label((string) $item['dva_status'])) ?></span></td>
                         <?php endif; ?>
                         <td class="table-actions">
-                            <button class="student-preview-trigger" type="button" data-student-preview-select aria-controls="student-detail-preview" aria-pressed="<?= $index === 0 ? 'true' : 'false' ?>" aria-label="Ver detalhes de <?= e((string) $item['nome_completo']) ?>" title="Ver detalhes do aluno" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
                             <details class="student-row-actions"><summary aria-label="Ações para <?= e((string) $item['nome_completo']) ?>" title="Ações do aluno"><span aria-hidden="true">⋮</span><span class="visually-hidden">Ações</span></summary><div>
                             <a class="btn-acao" href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>">Perfil</a>
                             <?php if ($canManageStudent): ?><a class="btn-acao" href="<?= e(url('aluno/editar/' . (int) $item['id'])) ?>">Editar</a><?php endif; ?>

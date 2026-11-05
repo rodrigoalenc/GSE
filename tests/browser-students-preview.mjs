@@ -15,6 +15,7 @@ for (const mode of ['all', 'restricted', 'empty']) {
     if (fixture.status !== 0) throw new Error(fixture.error?.message || fixture.stderr || fixture.stdout);
     pages.set('/' + mode, fixture.stdout);
 }
+pages.set('/no-preview-js', pages.get('/all').replace(/<script src="[^"]*\/alunos-preview\.js[^"<>]*"><\/script>/, ''));
 const server = createServer(async (req, res) => {
     const path = new URL(req.url, 'http://local').pathname;
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'");
@@ -39,26 +40,39 @@ try {
     for (const width of [1440, 1366, 375, 320]) {
         await page.command('Emulation.setDeviceMetricsOverride', {width, height: 1000, deviceScaleFactor: 1, mobile: false});
         await page.navigate(base + '/all');
-        await page.until('!document.querySelector("[data-student-preview-select]").hidden');
         check(await page.evaluate('document.querySelector("[data-preview-field=name]").textContent'), 'Ana Clara Santos', 'First student is shown without a click');
+        check(await page.evaluate('document.querySelector("[data-student-preview-name][aria-current=true]").textContent'), 'Ana Clara Santos', 'First student name is initially current');
+        check(await page.evaluate('document.querySelectorAll("[data-student-preview-select]").length'), 0, 'Rows have no redundant preview button');
         check(await page.evaluate('document.querySelector("[data-preview-field=studentPhone]").textContent'), '(67) 99999-0001', 'Authorized contacts are formatted');
         if (width > 1050) {
             check(await page.evaluate('document.querySelector(".student-detail-preview").getBoundingClientRect().left > document.querySelector(".students-list-card").getBoundingClientRect().left'), true, 'Preview is on the right on desktop');
         } else {
             await page.click('[data-student-preview-return]');
-            check(await page.evaluate('document.activeElement === document.querySelector("[data-student-preview-select][aria-pressed=true]")'), true, 'Mobile return works for the initially displayed student');
+            check(await page.evaluate('document.activeElement === document.querySelector("[data-student-preview-name][aria-current=true]")'), true, 'Mobile return focuses the initially displayed student name');
         }
-        const second = '[data-student-preview-row]:nth-child(2) [data-student-preview-select]';
-        await page.command('Page.bringToFront');
-        await page.evaluate(`document.querySelector(${JSON.stringify(second)}).focus()`);
-        await page.command('Input.dispatchKeyEvent', {type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32});
-        await page.command('Input.dispatchKeyEvent', {type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32});
+        const second = '[data-student-preview-row]:nth-child(2) [data-student-preview-name]';
+        if (width === 1440 || width === 375) {
+            await page.command('Page.bringToFront');
+            await page.evaluate(`document.querySelector(${JSON.stringify(second)}).focus()`);
+            await page.command('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13});
+            await page.command('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13});
+        } else {
+            await page.click(second);
+        }
         await page.until('document.querySelector("[data-preview-field=name]").textContent === "Bruno Lima & Souza"');
-        check(await page.evaluate('document.querySelector("[data-preview-dva]").textContent'), 'Vencida', 'Keyboard selection updates the health status');
+        check(await page.evaluate('location.pathname'), '/all', 'Selecting a name updates the preview without navigating');
+        check(await page.evaluate('document.querySelector("[data-preview-dva]").textContent'), 'Vencida', 'Selecting a name updates the health status');
         check(await page.evaluate('document.querySelector("[data-preview-profile]").getAttribute("href")'), '/aluno/perfil/2', 'Profile action follows the selected student');
         check(await page.evaluate('document.querySelector("[data-preview-field=guardianPhone]").textContent'), 'Não informado', 'Missing contact does not reuse the previous student');
-        check(await page.evaluate('document.querySelectorAll("[data-student-preview-select][aria-pressed=true]").length'), 1, 'Exactly one detail control is selected');
+        check(await page.evaluate('[...document.querySelectorAll("[data-student-preview-name][aria-current=true]")].map(link => link.textContent)'), ['Bruno Lima & Souza'], 'Only the selected name is current');
         check(await page.evaluate('document.querySelectorAll("[data-student-selection-id]:checked").length'), 0, 'Preview selection does not change batch selection');
+        if (width === 1440) {
+            const firstCheckbox = '[data-student-preview-row]:first-child [data-student-selection-id]';
+            await page.click(firstCheckbox);
+            check(await page.evaluate(`document.querySelector(${JSON.stringify(firstCheckbox)}).checked`), true, 'Batch checkbox remains usable');
+            check(await page.evaluate('document.querySelector("[data-preview-field=name]").textContent'), 'Bruno Lima & Souza', 'Batch selection does not change the preview');
+            await page.click(firstCheckbox);
+        }
         check(await page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), true, `Page reflows at ${width}px`);
         if (width < 1050) {
             await page.click('[data-student-preview-return]');
@@ -79,6 +93,10 @@ try {
     await page.navigate(base + '/empty');
     check(await page.evaluate('document.querySelectorAll("[data-student-preview-row]").length'), 0, 'Empty search has no stale student rows');
     check(await page.evaluate('document.querySelector("[data-preview-profile]")'), null, 'Empty search has no stale profile action');
+    await page.navigate(base + '/no-preview-js');
+    await page.click('[data-student-preview-row]:nth-child(2) [data-student-preview-name]');
+    await page.until('location.pathname === "/aluno/perfil/2" && document.readyState === "complete"');
+    check(await page.evaluate('location.pathname'), '/aluno/perfil/2', 'Name link opens the profile without the preview script');
     check(browser.errors, [], 'No JavaScript exceptions under the strict content policy');
     console.log(`Students detail preview: ${checks} checks passed, including permissions, keyboard, batch independence and responsive layouts.`);
 } finally {
