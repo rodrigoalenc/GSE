@@ -25,7 +25,7 @@ final class FormDraftController extends Controller
     {
         $user = (int) $_SESSION['usuario_id'];
         $target = input_string($_POST['form'] ?? '');
-        $this->authorizeTarget($target, true);
+        $this->authorizeTarget($target);
         if (FormDraft::target($target) !== $target) { $this->respond(['ok' => false], 422); return; }
         if (!FormDraft::acceptsContext($user, $target, input_string($_POST['context'] ?? ''))) { $this->respond(['ok' => false], 409); return; }
         if (input_string($_POST['operation'] ?? '') === 'discard') {
@@ -61,11 +61,10 @@ final class FormDraftController extends Controller
         echo json_encode($data, JSON_THROW_ON_ERROR);
     }
 
-    private function authorizeTarget(string $target, bool $write = false): void
+    private function authorizeTarget(string $target): void
     {
         if (str_starts_with($target, 'aluno/dva/')) {
             AccessPolicy::require('student.health');
-            if ($write) { AccessPolicy::require('student.manage'); }
         }
         elseif (str_starts_with($target, 'aluno/')) { AccessPolicy::require('student.manage'); }
     }

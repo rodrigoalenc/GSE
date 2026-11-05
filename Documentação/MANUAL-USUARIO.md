@@ -2,7 +2,7 @@
 
 Revisão 30/10/2026. Destinado à secretaria escolar. O responsável técnico prepara ambiente, usuários e cópias de segurança antes do primeiro acesso.
 
-As funções disponíveis dependem da autorização vigente. Funcionários consultam o cadastro básico; contatos, DVA, edição e exportações exigem autorização específica da escola. Acesso de consulta à DVA não permite gravar alterações. Se uma função necessária não estiver disponível, solicite a revisão da sua autorização ao responsável. Administradores devem revisar acessos e evitar contas compartilhadas.
+Funcionários e administradores podem consultar, registrar e renovar declarações pelo item **DVAs** no menu lateral. Funcionários também consultam o cadastro básico. O acesso de funcionários a contatos, edição cadastral e exportações exige autorização específica da escola. Administradores devem revisar acessos e evitar contas compartilhadas.
 
 ## Entrar e sair
 

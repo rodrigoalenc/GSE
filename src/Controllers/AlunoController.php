@@ -221,7 +221,6 @@ final class AlunoController extends Controller
     public function dva(string $id): void
     {
         AccessPolicy::require('student.health');
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') { AccessPolicy::require('student.manage'); }
         $studentId = $this->validId($id);
         $student = (new Aluno())->buscarPorId($studentId, true, false);
 
@@ -267,7 +266,6 @@ final class AlunoController extends Controller
             'currentDays' => $statusService->daysRemaining(is_array($current) ? (string) $current['data_vencimento'] : null),
             'data' => $data,
             'errors' => $errors,
-            'canManageHealth' => AccessPolicy::allows('student.manage'),
         ]);
     }
 

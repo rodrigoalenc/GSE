@@ -73,10 +73,9 @@ try {
         }
     }
     await page.navigate(base + '/restricted');
-    check(await page.evaluate('document.querySelector("[data-preview-dva]")'), null, 'Basic permission does not render health details');
+    check(await page.evaluate('document.querySelector("[data-preview-dva]").textContent'), 'Vigente', 'Employees see the DVA status');
     check(await page.evaluate('document.querySelector("[data-preview-field=studentPhone]")'), null, 'Basic permission does not render contacts');
     check(await page.evaluate('[...document.querySelectorAll("[data-student-preview-row]")].some(row => { const data = JSON.parse(row.dataset.studentPreview); return Object.hasOwn(data, "studentPhone") || Object.hasOwn(data, "guardianPhone"); })'), false, 'Restricted contact properties are absent from every row');
-    check(await page.evaluate('document.querySelector("[data-student-preview-row]").dataset.studentPreview.includes("dvaStatus")'), false, 'Restricted health values are absent from row data');
     await page.navigate(base + '/empty');
     check(await page.evaluate('document.querySelectorAll("[data-student-preview-row]").length'), 0, 'Empty search has no stale student rows');
     check(await page.evaluate('document.querySelector("[data-preview-profile]")'), null, 'Empty search has no stale profile action');

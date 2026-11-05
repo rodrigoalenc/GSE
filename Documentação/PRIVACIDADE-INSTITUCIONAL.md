@@ -15,9 +15,9 @@ Modelo a preencher e aprovar pela escola. Os campos vazios não constituem aprov
 
 ## Matriz de acesso
 
-O padrão técnico permite a funcionários o cadastro básico; administradores têm acesso aos dados operacionais restritos. A escola deve revisar também as contas administrativas. Não compartilhe credenciais.
+Funcionários autenticados podem consultar o cadastro básico e consultar, registrar e renovar DVAs. Administradores têm acesso aos dados operacionais restritos. A escola deve revisar também as contas administrativas. Não compartilhe credenciais.
 
-Concessões a funcionários são nominativas e temporárias: `ACCESS_HEALTH_STAFF_IDS` permite DVA; `ACCESS_CONTACT_STAFF_IDS`, telefones; `ACCESS_EXPORT_STAFF_IDS`, relatórios/exportações (também requer saúde); `ACCESS_MANAGE_STAFF_IDS`, edição de cadastro (também requer contatos). Todas exigem `ACCESS_APPROVAL_REFERENCE` e `ACCESS_APPROVAL_VALID_UNTIL`. A ausência ou expiração da aprovação recusa a concessão no backend. Os IDs devem corresponder a contas individuais; reveja afastamentos, desligamentos e mudança de função.
+Concessões adicionais a funcionários são nominativas e temporárias. `ACCESS_CONTACT_STAFF_IDS` autoriza a consulta de telefones. `ACCESS_MANAGE_STAFF_IDS` autoriza a edição cadastral quando há concessão de contatos. Relatórios e exportações com dados de DVA exigem `ACCESS_EXPORT_STAFF_IDS` e `ACCESS_HEALTH_STAFF_IDS`. Todas essas concessões exigem `ACCESS_APPROVAL_REFERENCE` e `ACCESS_APPROVAL_VALID_UNTIL`. Os IDs devem corresponder a contas individuais. Reveja os acessos em caso de afastamento, desligamento ou mudança de função.
 
 Este mecanismo concede capacidades sobre a base escolar compartilhada. Não representa segregação automática por turma ou unidade. Se a escola exigir essa segregação, mantenha a capacidade restrita até implementar e testar o escopo institucional aprovado.
 

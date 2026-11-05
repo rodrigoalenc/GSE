@@ -44,9 +44,10 @@ $totalPendencias = (int) $moduloDois['sem_dva'] + (int) $moduloDois['vencidas'] 
 
     <?php if ($aniversariantesHoje !== []): ?>
         <section class="dashboard-birthday-today" aria-labelledby="dashboard-birthday-today-title">
-            <h2 id="dashboard-birthday-today-title"><?= gse_icon('gift') ?> Aniversariantes de hoje</h2>
+            <h2 id="dashboard-birthday-today-title"><span aria-hidden="true">🎈</span> Aniversariantes de hoje</h2>
             <?php foreach ($aniversariantesHoje as $item): ?>
                 <div class="dashboard-birthday-today-card">
+                    <span aria-hidden="true">🎈</span>
                     <span><strong><?= e((string) $item['nome_completo']) ?></strong> completa <strong><?= (int) (new DateTimeImmutable((string) $item['data_nascimento']))->diff($dataAtual)->y ?> anos</strong> hoje.</span>
                 </div>
             <?php endforeach; ?>

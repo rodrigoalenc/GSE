@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-/** Conservative defaults until the school approves named, time-limited grants. */
+/** DVA access follows the user's role. Other student permissions use named grants. */
 final class AccessPolicy
 {
     private const GRANTS = [
-        'student.health' => 'ACCESS_HEALTH_STAFF_IDS',
         'student.contacts' => 'ACCESS_CONTACT_STAFF_IDS',
         'student.export' => 'ACCESS_EXPORT_STAFF_IDS',
         'student.manage' => 'ACCESS_MANAGE_STAFF_IDS',
@@ -14,16 +13,18 @@ final class AccessPolicy
 
     public static function allows(string $permission): bool
     {
-        if (!isset(self::GRANTS[$permission])) { return false; }
+        if ($permission !== 'student.health' && !isset(self::GRANTS[$permission])) { return false; }
         $user = Auth::user();
         if ($user === null) { return false; }
         if (($user['tipo'] ?? '') === Usuario::PERFIL_ADMINISTRADOR) { return true; }
-        if (($user['tipo'] ?? '') !== Usuario::PERFIL_FUNCIONARIO || !self::approvalCurrent()) { return false; }
+        if (($user['tipo'] ?? '') !== Usuario::PERFIL_FUNCIONARIO) { return false; }
+        if ($permission === 'student.health') { return true; }
+        if (!self::approvalCurrent()) { return false; }
         $id = (string) $user['id'];
         if (!in_array($id, Config::list(self::GRANTS[$permission]), true)) { return false; }
-        // Exports contain DVA; editing a full record also exposes its contacts.
+        // Exports containing DVA require a separate grant. Full records also expose contacts.
         return match ($permission) {
-            'student.export' => in_array($id, Config::list(self::GRANTS['student.health']), true),
+            'student.export' => in_array($id, Config::list('ACCESS_HEALTH_STAFF_IDS'), true),
             'student.manage' => in_array($id, Config::list(self::GRANTS['student.contacts']), true),
             default => true,
         };

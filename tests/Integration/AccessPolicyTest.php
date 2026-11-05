@@ -25,13 +25,17 @@ final class AccessPolicyTest extends DatabaseTestCase
         parent::tearDown();
     }
 
-    public function testDefaultDeniesSensitivePermissionsToEmployeesAndRevalidatesRevocation(): void
+    public function testDvaAccessAppliesToActiveEmployeesAndAdministrators(): void
     {
+        $this->assertFalse(\AccessPolicy::allows('student.health'));
         $employee = $this->insertUsuario('Funcionario Privacidade', 'funcionario');
         \SessionManager::authenticate((new \Usuario())->buscarPorId($employee));
-        foreach (['student.health','student.contacts','student.export','student.manage','unknown'] as $permission) {
+        $this->assertTrue(\AccessPolicy::allows('student.health'));
+        foreach (['student.contacts','student.export','student.manage','unknown'] as $permission) {
             $this->assertFalse(\AccessPolicy::allows($permission));
         }
+        $this->pdo->prepare('UPDATE usuarios SET ativo=0 WHERE id=?')->execute([$employee]);
+        $this->assertFalse(\AccessPolicy::allows('student.health'));
         $admin = $this->insertUsuario('Admin Privacidade');
         $this->insertUsuario('Admin Guardiao Privacidade');
         \SessionManager::authenticate((new \Usuario())->buscarPorId($admin));
@@ -47,27 +51,28 @@ final class AccessPolicyTest extends DatabaseTestCase
         $_ENV['ACCESS_EXPORT_STAFF_IDS'] = (string) $employee;
         $_ENV['ACCESS_APPROVAL_REFERENCE'] = 'TESTE SINTETICO';
         $_ENV['ACCESS_APPROVAL_VALID_UNTIL'] = gmdate('Y-m-d', time()+86400);
-        $this->assertFalse(\AccessPolicy::allows('student.export'), 'Exportar DVA também exige acesso a saúde.');
-        $_ENV['ACCESS_HEALTH_STAFF_IDS'] = (string) $employee;
         $this->assertTrue(\AccessPolicy::allows('student.health'));
+        $this->assertFalse(\AccessPolicy::allows('student.export'), 'Exportar DVA exige concessão nominal de saúde.');
+        $_ENV['ACCESS_HEALTH_STAFF_IDS'] = (string) $employee;
         $this->assertTrue(\AccessPolicy::allows('student.export'));
         $this->assertFalse(\AccessPolicy::allows('student.contacts'));
         $_ENV['ACCESS_APPROVAL_VALID_UNTIL'] = '2000-01-01';
-        $this->assertFalse(\AccessPolicy::allows('student.health'));
+        $this->assertFalse(\AccessPolicy::allows('student.export'));
+        $this->assertTrue(\AccessPolicy::allows('student.health'));
         $_ENV['ACCESS_APPROVAL_VALID_UNTIL'] = '2099-02-31';
-        $this->assertFalse(\AccessPolicy::allows('student.health'));
+        $this->assertFalse(\AccessPolicy::allows('student.export'));
         $_ENV['ACCESS_APPROVAL_VALID_UNTIL'] = gmdate('Y-m-d', time()+86400);
         unset($_ENV['ACCESS_APPROVAL_REFERENCE']);
-        $this->assertFalse(\AccessPolicy::allows('student.health'));
+        $this->assertFalse(\AccessPolicy::allows('student.export'));
     }
 
-    public function testEmployeeProfileAndListContainOnlyBasicSchoolFields(): void
+    public function testEmployeeProfileAndListShowDvaWithContactsProtected(): void
     {
-        $employee = $this->insertUsuario('Funcionario Perfil Minimo', 'funcionario');
+        $employee = $this->insertUsuario('Funcionario Perfil DVA', 'funcionario');
         $class = $this->insertTurma();
         $student = $this->insertAlunoComDva('Cadastro Minimo', '2037-12-31', $class);
         $this->pdo->prepare("UPDATE alunos SET telefone_aluno='65999991234',telefone_responsavel='65999994321' WHERE id=?")->execute([$student]);
-        $this->pdo->prepare("UPDATE dvas SET observacao='OBSERVACAO_RESTRITA' WHERE id_aluno=?")->execute([$student]);
+        $this->pdo->prepare("UPDATE dvas SET observacao='OBSERVACAO_DVA' WHERE id_aluno=?")->execute([$student]);
         \SessionManager::authenticate((new \Usuario())->buscarPorId($employee));
         $_SERVER['REQUEST_METHOD']='GET'; $_SERVER['REQUEST_URI']='/aluno/perfil/'.$student;
         ob_start(); (new \AlunoController())->perfil((string)$student); $profile=(string)ob_get_clean();
@@ -75,14 +80,18 @@ final class AccessPolicyTest extends DatabaseTestCase
         ob_start(); (new \AlunoController())->index(); $list=(string)ob_get_clean();
         foreach ([$profile, $list] as $html) {
             $this->assertStringContainsString('Cadastro Minimo', $html);
-            foreach (['OBSERVACAO_RESTRITA','65999991234','65999994321','2037-12-31','31/12/2037','name="dva"','dva-badge','Histórico de DVAs'] as $restricted) {
+            foreach (['65999991234','65999994321','Contatos Registrados','Editar Dados'] as $restricted) {
                 $this->assertStringNotContainsString($restricted, $html);
             }
         }
+        $this->assertStringContainsString('OBSERVACAO_DVA', $profile);
+        $this->assertStringContainsString('Histórico de DVAs', $profile);
+        $this->assertStringContainsString('name="dva"', $list);
+        $this->assertStringContainsString('dva-badge', $list);
         $this->assertSame(1, (int)$this->pdo->query("SELECT COUNT(*) FROM security_audit WHERE action='student.profile_read'")->fetchColumn());
     }
 
-    public function testHealthAndContactGrantsRemainIndependentInProfilesAndDrafts(): void
+    public function testDvaAccessIsIndependentOfContactGrantsInProfilesAndDrafts(): void
     {
         $employee = $this->insertUsuario('Funcionario Escopos Independentes', 'funcionario');
         $class = $this->insertTurma();
@@ -92,18 +101,15 @@ final class AccessPolicyTest extends DatabaseTestCase
         \SessionManager::authenticate((new \Usuario())->buscarPorId($employee));
         $_ENV['ACCESS_APPROVAL_REFERENCE'] = 'TESTE SINTETICO';
         $_ENV['ACCESS_APPROVAL_VALID_UNTIL'] = gmdate('Y-m-d', time()+86400);
-        $_ENV['ACCESS_HEALTH_STAFF_IDS'] = (string)$employee;
-        $_ENV['ACCESS_CONTACT_STAFF_IDS'] = (string)$employee;
         $target='aluno/dva/'.$student;
         $this->assertTrue(\FormDraft::save($employee,$target,['telefone_aluno'=>'65999991234','observacao'=>'OBSERVACAO_ESCOPO_RESTRITO']));
-        $_ENV['ACCESS_CONTACT_STAFF_IDS']='';
         $_SERVER['REQUEST_METHOD']='GET'; $_SERVER['REQUEST_URI']='/aluno/perfil/'.$student;
         ob_start(); (new \AlunoController())->perfil((string)$student); $health=(string)ob_get_clean();
         $this->assertStringContainsString('OBSERVACAO_ESCOPO_RESTRITO',$health);
         $this->assertStringNotContainsString('65999991234',$health);
         $_SERVER['REQUEST_URI']='/aluno/dva/'.$student;
-        ob_start(); (new \AlunoController())->dva((string)$student); $readonly=(string)ob_get_clean();
-        $this->assertStringNotContainsString('action="/aluno/dva/'.$student.'"',$readonly);
+        ob_start(); (new \AlunoController())->dva((string)$student); $dvaForm=(string)ob_get_clean();
+        $this->assertStringContainsString('action="/aluno/dva/'.$student.'"',$dvaForm);
         $_SERVER['REQUEST_URI']='/dva';
         ob_start(); (new \AlunoController())->painelDva(); ob_end_clean();
         $reads=$this->pdo->query("SELECT actor_user_id,resource_type,resource_id,result,description FROM security_audit WHERE action='student.sensitive_read' ORDER BY id")->fetchAll();
@@ -121,21 +127,12 @@ final class AccessPolicyTest extends DatabaseTestCase
         ob_start(); (new \FormDraftController())->read(); $draft=json_decode((string)ob_get_clean(),true,512,JSON_THROW_ON_ERROR);
         $this->assertArrayNotHasKey('telefone_aluno',$draft['draft']['fields']);
         $this->assertSame('OBSERVACAO_ESCOPO_RESTRITO',$draft['draft']['fields']['observacao']);
-        $_ENV['ACCESS_HEALTH_STAFF_IDS']=''; $_ENV['ACCESS_CONTACT_STAFF_IDS']=(string)$employee;
+        $_ENV['ACCESS_CONTACT_STAFF_IDS']=(string)$employee;
         $_GET=[];
         ob_start(); (new \AlunoController())->perfil((string)$student); $contacts=(string)ob_get_clean();
         $this->assertStringContainsString('65999991234',$contacts);
-        $this->assertStringNotContainsString('OBSERVACAO_ESCOPO_RESTRITO',$contacts);
+        $this->assertStringContainsString('OBSERVACAO_ESCOPO_RESTRITO',$contacts);
         $this->assertFalse(\AccessPolicy::allows('student.export'));
-        $_ENV['ACCESS_MANAGE_STAFF_IDS']=(string)$employee;
-        $editingTarget='aluno/editar/'.$student;
-        // A draft created under an older health grant must not bypass its revocation.
-        $this->assertTrue(\FormDraft::save($employee,$editingTarget,['telefone_aluno'=>'65999991234','observacao'=>'OBSERVACAO_ESCOPO_RESTRITO','data_vencimento'=>'2037-12-31']));
-        $_GET=['form'=>$editingTarget];
-        ob_start(); (new \FormDraftController())->read(); $contactsDraft=json_decode((string)ob_get_clean(),true,512,JSON_THROW_ON_ERROR);
-        $this->assertSame('65999991234',$contactsDraft['draft']['fields']['telefone_aluno']);
-        $this->assertArrayNotHasKey('observacao',$contactsDraft['draft']['fields']);
-        $this->assertArrayNotHasKey('data_vencimento',$contactsDraft['draft']['fields']);
         $basic=(new \Aluno())->paginate([],1,15,null,false,false)['items'][0];
         foreach (['telefone_aluno','telefone_responsavel','data_vencimento','dva_status','dva_observacao'] as $field) {
             $this->assertArrayNotHasKey($field,$basic);

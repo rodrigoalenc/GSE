@@ -159,7 +159,6 @@ final class Router
                 default => null,
             };
             if ($route['auth'] && $permission !== null) { AccessPolicy::require($permission); }
-            if ($method === 'POST' && $route['pattern'] === 'aluno/dva/{id}') { AccessPolicy::require('student.manage'); }
 
             if ($method === 'POST' && !csrf_valido($_POST['_csrf_token'] ?? null)) {
                 render_http_error(419, 'Sessão expirada', 'Atualize a página e tente enviar o formulário novamente.');

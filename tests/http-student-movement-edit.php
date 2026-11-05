@@ -100,8 +100,8 @@ try {
     checkHttp($movementEditEmployeePage['status'] === 200
         && str_contains($movementEditEmployeePage['body'], 'solicite a um administrador')
         && !str_contains($movementEditEmployeePage['body'], '>Movimentar alunos</a>')
-        && !str_contains($movementEditEmployeePage['body'], 'Acessar renovação de DVA'),
-        'Concessao de contatos e edicao mantem orientacao administrativa sem ampliar acesso a movimentacao ou saude');
+        && str_contains($movementEditEmployeePage['body'], 'Acessar renovação de DVA'),
+        'Concessao de contatos e edicao mantem orientacao administrativa para movimentacao e acesso a DVA do funcionario');
     $movementEditFields['_csrf_token'] = csrf($movementEditEmployeePage['body']);
     $movementEditFields['revisao'] = formRevision($movementEditEmployeePage['body']);
     $movementEditEmployeeRejected = request('POST', $movementEditGrantUrl, $movementEditEmployeeCookie, $movementEditFields);

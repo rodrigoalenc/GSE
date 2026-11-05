@@ -9,7 +9,7 @@ import {launchBrowser} from './browser-contract-tabs.mjs';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const php=process.env.PHP_BINARY || 'php';
 const pages=new Map();
-for(const [route,argument] of [['/dashboard','dashboard'],['/aluno/criar','aluno'],['/aluno/dva/1','dva-readonly']]) {
+for(const [route,argument] of [['/dashboard','dashboard'],['/aluno/criar','aluno'],['/aluno/dva/1','dva-employee']]) {
     const fixture=spawnSync(php,['tests/fixtures/usabilidade-browser.php',argument],{cwd:root,encoding:'utf8',windowsHide:true});
     if(fixture.status!==0) throw new Error(fixture.stderr || fixture.stdout);
     pages.set(route,fixture.stdout);
@@ -48,7 +48,7 @@ try {
                 check(await page.evaluate('parseFloat(getComputedStyle(document.querySelector("#nome_completo")).outlineWidth) >= 2'),true,'Keyboard focus remains visible on form fields');
             }
             if(route==='/aluno/dva/1') {
-                check(await page.evaluate('[...document.forms].filter(form=>new URL(form.action).pathname.startsWith("/aluno/dva/")).length'),0,'Health read permission does not expose a write form');
+                check(await page.evaluate('[...document.forms].filter(form=>new URL(form.action).pathname.startsWith("/aluno/dva/")).length'),1,'Employees can register a DVA');
             }
             if(width===375) {
                 await page.click('[data-sidebar-toggle]');
@@ -66,7 +66,7 @@ try {
             if(process.env.GSE_BROWSER_EVIDENCE_DIR) {
                 await mkdir(process.env.GSE_BROWSER_EVIDENCE_DIR,{recursive:true});
                 const screenshot=await page.command('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});
-                const evidencePage=route==='/aluno/dva/1'?'dva-consulta':route==='/aluno/criar'?'aluno':'painel';
+                const evidencePage=route==='/aluno/dva/1'?'dva-funcionario':route==='/aluno/criar'?'aluno':'painel';
                 await writeFile(join(process.env.GSE_BROWSER_EVIDENCE_DIR,`${evidencePage}-${width}.png`),Buffer.from(screenshot.data,'base64'));
             }
         }
