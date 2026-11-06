@@ -133,6 +133,41 @@ final class ModuleTwoAuditAtomicityTest extends DatabaseTestCase
         $this->assertSame($before, $this->domainState());
     }
 
+    public function testFailedDvaAuditAlsoRollsBackItsIdempotencyReceipt(): void
+    {
+        $classId = $this->insertTurma();
+        $actor = $this->insertUsuario();
+        $studentId = $this->insertAlunoComDva('Aluno com recibo', '2027-09-30', $classId);
+        $model = new \Dva();
+        $current = $model->atualDoAluno($studentId);
+        $this->assertIsArray($current);
+        $renewal = $model->registrar(
+            $studentId,
+            '2027-10-15',
+            'Recibo confirmado',
+            $actor,
+            (int) $current['id'],
+            str_repeat('8', 32)
+        );
+        $this->assertIsArray($renewal);
+        $this->assertSame(1, (int) $this->pdo->query("SELECT COUNT(*) FROM request_receipts WHERE operation='dva.register'")->fetchColumn());
+        $this->rejectAudit('dva.renewed');
+
+        $this->assertFalse($model->registrar(
+            $studentId,
+            '2027-10-31',
+            'Auditoria obrigatória',
+            $actor,
+            (int) $renewal['id'],
+            str_repeat('9', 32)
+        ));
+
+        $this->assertSame('database_error', $model->lastErrorCode());
+        $this->assertSame(1, (int) $this->pdo->query("SELECT COUNT(*) FROM request_receipts WHERE operation='dva.register'")->fetchColumn());
+        $this->assertSame((int) $renewal['id'], (int) $model->atualDoAluno($studentId)['id']);
+        $this->assertCount(2, $model->historicoDoAluno($studentId));
+    }
+
     public function testClassCreationRequiresAuditEvenWithoutActor(): void
     {
         $actor = $this->insertUsuario();

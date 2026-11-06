@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Core/Model.php';
+require_once ROOT_PATH . '/src/Core/RequestReceipt.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 
 use src\Core\SqliteTransaction;
@@ -56,85 +57,130 @@ final class Dva extends Model
     }
 
     /** @return array{id:int, renewed:bool}|false */
-    public function registrar(int $studentId, string $expirationDate, ?string $observation, int $actorId): array|false
+    public function registrar(
+        int $studentId,
+        string $expirationDate,
+        ?string $observation,
+        int $actorId,
+        ?int $expectedCurrentId = null,
+        ?string $requestToken = null
+    ): array|false
     {
         $this->lastErrorCode = null;
         $normalized = self::validateData($expirationDate, $observation);
 
-        if ($studentId < 1 || $actorId < 1 || $normalized === false) {
+        if ($studentId < 1 || $actorId < 1 || $normalized === false
+            || ($expectedCurrentId !== null && $expectedCurrentId < 0)
+            || ($requestToken !== null && $expectedCurrentId === null)) {
             $this->lastErrorCode = 'invalid_data';
 
             return false;
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($studentId, $normalized, $actorId): array|false {
-                $student = $pdo->prepare('SELECT ativo FROM alunos WHERE id = :id LIMIT 1');
-                $student->execute(['id' => $studentId]);
-                $studentActive = $student->fetchColumn();
+            $renewed = $expectedCurrentId !== null && $expectedCurrentId > 0;
+            $dvaId = SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use (
+                $studentId,
+                $normalized,
+                $actorId,
+                $expectedCurrentId,
+                $requestToken,
+                &$renewed
+            ): int|false {
+                return RequestReceipt::run(
+                    $pdo,
+                    $actorId,
+                    'dva.register',
+                    $requestToken,
+                    [$studentId, $expectedCurrentId, $normalized],
+                    function () use ($pdo, $studentId, $normalized, $actorId, $expectedCurrentId, &$renewed): int|false {
+                        $student = $pdo->prepare('SELECT ativo FROM alunos WHERE id = :id LIMIT 1');
+                        $student->execute(['id' => $studentId]);
+                        $studentActive = $student->fetchColumn();
 
-                if ($studentActive === false) {
-                    $this->lastErrorCode = 'student_not_found';
+                        if ($studentActive === false) {
+                            $this->lastErrorCode = 'student_not_found';
 
-                    return false;
-                }
+                            return false;
+                        }
 
-                if ((int) $studentActive !== 1) {
-                    $this->lastErrorCode = 'inactive_student';
+                        if ((int) $studentActive !== 1) {
+                            $this->lastErrorCode = 'inactive_student';
 
-                    return false;
-                }
+                            return false;
+                        }
 
-                $actor = $pdo->prepare('SELECT 1 FROM usuarios WHERE id = :id AND ativo = 1 LIMIT 1');
-                $actor->execute(['id' => $actorId]);
+                        $actor = $pdo->prepare('SELECT 1 FROM usuarios WHERE id = :id AND ativo = 1 LIMIT 1');
+                        $actor->execute(['id' => $actorId]);
 
-                if ($actor->fetchColumn() === false) {
-                    $this->lastErrorCode = 'invalid_actor';
+                        if ($actor->fetchColumn() === false) {
+                            $this->lastErrorCode = 'invalid_actor';
 
-                    return false;
-                }
+                            return false;
+                        }
 
-                $current = $pdo->prepare('SELECT id FROM dvas WHERE id_aluno = :student AND ativo = 1 LIMIT 1');
-                $current->execute(['student' => $studentId]);
-                $currentId = $current->fetchColumn();
-                $now = gmdate('Y-m-d H:i:s');
+                        $current = $pdo->prepare('SELECT id FROM dvas WHERE id_aluno = :student AND ativo = 1 LIMIT 1');
+                        $current->execute(['student' => $studentId]);
+                        $currentId = $current->fetchColumn();
+                        $actualCurrentId = $currentId === false ? 0 : (int) $currentId;
 
-                if ($currentId !== false) {
-                    $archive = $pdo->prepare(
-                        'UPDATE dvas SET ativo = 0, substituido_em = :now, atualizado_em = :now
-                         WHERE id = :id AND ativo = 1'
-                    );
-                    $archive->execute(['now' => $now, 'id' => (int) $currentId]);
+                        if ($expectedCurrentId !== null && $actualCurrentId !== $expectedCurrentId) {
+                            $this->lastErrorCode = 'stale_dva';
 
-                    if ($archive->rowCount() !== 1) {
-                        throw new RuntimeException('Falha ao arquivar a DVA atual.');
+                            return false;
+                        }
+
+                        $renewed = $currentId !== false;
+                        $now = gmdate('Y-m-d H:i:s');
+
+                        if ($currentId !== false) {
+                            $archive = $pdo->prepare(
+                                'UPDATE dvas SET ativo = 0, substituido_em = :now, atualizado_em = :now
+                                 WHERE id = :id AND ativo = 1'
+                            );
+                            $archive->execute(['now' => $now, 'id' => (int) $currentId]);
+
+                            if ($archive->rowCount() !== 1) {
+                                throw new RuntimeException('Falha ao arquivar a DVA atual.');
+                            }
+                        }
+
+                        $insert = $pdo->prepare(
+                            'INSERT INTO dvas
+                                (id_aluno, id_usuario_registro, data_vencimento, observacao, ativo, criado_em, atualizado_em)
+                             VALUES (:student, :actor, :expiration, :observation, 1, :now, :now)'
+                        );
+                        $insert->execute([
+                            'student' => $studentId,
+                            'actor' => $actorId,
+                            'expiration' => $normalized['expiration_date'],
+                            'observation' => $normalized['observation'],
+                            'now' => $now,
+                        ]);
+
+                        $newDvaId = (int) $pdo->lastInsertId();
+                        AuditLogger::recordRequired(
+                            $pdo, $renewed ? 'dva.renewed' : 'dva.created', AuditLogger::SUCCESS,
+                            $actorId, null,
+                            $renewed ? 'DVA renovada e versão anterior arquivada.' : 'DVA inicial registrada.',
+                            'dva', $newDvaId
+                        );
+
+                        return $newDvaId;
                     }
-                }
-
-                $insert = $pdo->prepare(
-                    'INSERT INTO dvas
-                        (id_aluno, id_usuario_registro, data_vencimento, observacao, ativo, criado_em, atualizado_em)
-                     VALUES (:student, :actor, :expiration, :observation, 1, :now, :now)'
                 );
-                $insert->execute([
-                    'student' => $studentId,
-                    'actor' => $actorId,
-                    'expiration' => $normalized['expiration_date'],
-                    'observation' => $normalized['observation'],
-                    'now' => $now,
-                ]);
-
-                $dvaId = (int) $pdo->lastInsertId();
-                $renewed = $currentId !== false;
-                AuditLogger::recordRequired(
-                    $pdo, $renewed ? 'dva.renewed' : 'dva.created', AuditLogger::SUCCESS,
-                    $actorId, null,
-                    $renewed ? 'DVA renovada e versão anterior arquivada.' : 'DVA inicial registrada.',
-                    'dva', $dvaId
-                );
-
-                return ['id' => $dvaId, 'renewed' => $renewed];
             });
+            if ($dvaId === false) {
+                return false;
+            }
+
+            return ['id' => $dvaId, 'renewed' => $renewed];
+        } catch (DomainException $exception) {
+            $this->lastErrorCode = str_contains($exception->getMessage(), 'já utilizada')
+                ? 'request_reused'
+                : 'invalid_data';
+
+            return false;
         } catch (Throwable $exception) {
             $this->lastErrorCode = 'database_error';
             TechnicalLogger::error('dva_write_failed', ['exception' => $exception::class]);

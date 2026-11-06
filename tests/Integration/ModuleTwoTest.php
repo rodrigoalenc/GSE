@@ -169,6 +169,80 @@ final class ModuleTwoTest extends DatabaseTestCase
         $statement->execute([$studentId, $actor, '2027-01-01']);
     }
 
+    public function testRenovacaoRecusaDvaDiferenteDaQueFoiConferida(): void
+    {
+        $classId = $this->insertTurma();
+        $actor = $this->insertUsuario();
+        $studentId = (new \Aluno())->cadastrar($this->validStudentData($classId), $actor);
+        $this->assertIsInt($studentId);
+        $model = new \Dva();
+        $initial = $model->registrar($studentId, '2027-01-10', 'Inicial', $actor, 0, str_repeat('1', 32));
+        $this->assertIsArray($initial);
+
+        $firstRenewal = $model->registrar(
+            $studentId,
+            '2027-02-10',
+            'Primeira sessão',
+            $actor,
+            $initial['id'],
+            str_repeat('2', 32)
+        );
+        $this->assertIsArray($firstRenewal);
+        $history = $model->historicoDoAluno($studentId);
+
+        $this->assertFalse($model->registrar(
+            $studentId,
+            '2027-03-10',
+            'Formulário antigo',
+            $actor,
+            $initial['id'],
+            str_repeat('3', 32)
+        ));
+        $this->assertSame('stale_dva', $model->lastErrorCode());
+        $this->assertSame($firstRenewal['id'], (int) $model->atualDoAluno($studentId)['id']);
+        $this->assertSame($history, $model->historicoDoAluno($studentId));
+    }
+
+    public function testRepeticaoDaMesmaRenovacaoRetornaOReciboSemDuplicarHistoricoOuAuditoria(): void
+    {
+        $classId = $this->insertTurma();
+        $actor = $this->insertUsuario();
+        $studentId = (new \Aluno())->cadastrar($this->validStudentData($classId), $actor);
+        $this->assertIsInt($studentId);
+        $model = new \Dva();
+        $initial = $model->registrar($studentId, '2027-04-10', null, $actor, 0, str_repeat('4', 32));
+        $this->assertIsArray($initial);
+        $token = str_repeat('5', 32);
+
+        $first = $model->registrar($studentId, '2027-05-10', 'Idempotente', $actor, $initial['id'], $token);
+        $replay = $model->registrar($studentId, '2027-05-10', 'Idempotente', $actor, $initial['id'], $token);
+
+        $this->assertSame($first, $replay);
+        $this->assertCount(2, $model->historicoDoAluno($studentId));
+        $this->assertSame(1, (int) $this->pdo->query("SELECT COUNT(*) FROM security_audit WHERE action='dva.renewed'")->fetchColumn());
+        $this->assertSame(2, (int) $this->pdo->query("SELECT COUNT(*) FROM request_receipts WHERE operation='dva.register'")->fetchColumn());
+    }
+
+    public function testTokenDeDvaReutilizadoComOutroConteudoEhRecusadoSemMutacao(): void
+    {
+        $classId = $this->insertTurma();
+        $actor = $this->insertUsuario();
+        $studentId = (new \Aluno())->cadastrar($this->validStudentData($classId), $actor);
+        $this->assertIsInt($studentId);
+        $model = new \Dva();
+        $initial = $model->registrar($studentId, '2027-06-10', null, $actor, 0, str_repeat('6', 32));
+        $this->assertIsArray($initial);
+        $token = str_repeat('7', 32);
+        $renewal = $model->registrar($studentId, '2027-07-10', 'Conteúdo original', $actor, $initial['id'], $token);
+        $this->assertIsArray($renewal);
+        $history = $model->historicoDoAluno($studentId);
+
+        $this->assertFalse($model->registrar($studentId, '2027-08-10', 'Conteúdo alterado', $actor, $initial['id'], $token));
+        $this->assertSame('request_reused', $model->lastErrorCode());
+        $this->assertSame($renewal['id'], (int) $model->atualDoAluno($studentId)['id']);
+        $this->assertSame($history, $model->historicoDoAluno($studentId));
+    }
+
     public function testFalhaNaInsercaoDeRenovacaoRestauraDvaAnterior(): void
     {
         $classId = $this->insertTurma();

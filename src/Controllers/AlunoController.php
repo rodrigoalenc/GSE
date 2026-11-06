@@ -234,28 +234,87 @@ final class AlunoController extends Controller
         ];
         $errors = [];
         $current = (new Dva())->atualDoAluno($studentId);
+        $expectedCurrentId = is_array($current) ? (int) $current['id'] : 0;
+        $requestToken = bin2hex(random_bytes(16));
+        $conflictReview = null;
         $statusService = new DvaStatus();
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') { $this->recordSensitiveRead('dva_individual', 1, $studentId); }
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+            unset($_SESSION['dva_conflict_reviews'][$studentId]);
+            $this->recordSensitiveRead('dva_individual', 1, $studentId);
+        }
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $model = new Dva();
-            $result = $model->registrar(
-                $studentId,
-                $data['data_vencimento'],
-                $data['observacao'],
-                (int) $_SESSION['usuario_id']
-            );
+            $postedExpected = filter_var($_POST['dva_esperada'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            $postedToken = input_string($_POST['_request_token'] ?? '');
+            $reviewToken = input_string($_POST['_dva_conflict_token'] ?? '');
+            $pendingReview = $_SESSION['dva_conflict_reviews'][$studentId] ?? null;
+            $reviewRequired = ($reviewToken !== '' || is_array($pendingReview)) && (!is_array($pendingReview)
+                || !is_string($pendingReview['token'] ?? null) || !hash_equals($pendingReview['token'], $reviewToken)
+                || (int) ($pendingReview['user'] ?? 0) !== (int) $_SESSION['usuario_id']
+                || (int) ($pendingReview['expires'] ?? 0) < time()
+                || (int) ($pendingReview['expected'] ?? -1) !== $postedExpected
+                || ($pendingReview['attempt'] ?? null) !== $data
+                || input_string($_POST['confirmar_revisao'] ?? '') !== '1');
+            $result = false;
+
+            if (!$reviewRequired && $postedExpected !== false) {
+                $result = $model->registrar(
+                    $studentId,
+                    $data['data_vencimento'],
+                    $data['observacao'],
+                    (int) $_SESSION['usuario_id'],
+                    (int) $postedExpected,
+                    $postedToken
+                );
+            }
 
             if ($result !== false) {
+                unset($_SESSION['dva_conflict_reviews'][$studentId]);
                 $this->redirectWithFlash('aluno/perfil/' . $studentId, 'success', $result['renewed'] ? 'DVA renovada com sucesso.' : 'DVA registrada com sucesso.');
             }
 
-            $errors[] = match ($model->lastErrorCode()) {
+            $errorCode = $reviewRequired ? 'review_required' : ($postedExpected === false ? 'invalid_data' : $model->lastErrorCode());
+            if ($errorCode === 'stale_dva') {
+                $current = $model->atualDoAluno($studentId);
+                $expectedCurrentId = is_array($current) ? (int) $current['id'] : 0;
+                $conflictToken = bin2hex(random_bytes(16));
+                foreach ($_SESSION['dva_conflict_reviews'] ?? [] as $reviewId => $entry) {
+                    if (!is_array($entry) || (int) ($entry['expires'] ?? 0) < time()) {
+                        unset($_SESSION['dva_conflict_reviews'][$reviewId]);
+                    }
+                }
+                $_SESSION['dva_conflict_reviews'][$studentId] = [
+                    'token' => $conflictToken,
+                    'user' => (int) $_SESSION['usuario_id'],
+                    'expires' => time() + 1800,
+                    'expected' => $expectedCurrentId,
+                    'attempt' => $data,
+                ];
+                while (count($_SESSION['dva_conflict_reviews']) > 10) {
+                    unset($_SESSION['dva_conflict_reviews'][array_key_first($_SESSION['dva_conflict_reviews'])]);
+                }
+                $conflictReview = ['current' => $current, 'attempt' => $data, 'token' => $conflictToken];
+                $requestToken = bin2hex(random_bytes(16));
+                http_response_code(409);
+            } else {
+                $expectedCurrentId = $postedExpected === false
+                    ? (is_array($current) ? (int) $current['id'] : 0)
+                    : (int) $postedExpected;
+                $requestToken = preg_match('/\A[a-f0-9]{32}\z/D', $postedToken) === 1 && $errorCode !== 'request_reused'
+                    ? $postedToken
+                    : bin2hex(random_bytes(16));
+                http_response_code($errorCode === 'review_required' ? 409 : 422);
+            }
+
+            $errors[] = match ($errorCode) {
                 'inactive_student' => 'Reative o aluno antes de registrar uma nova DVA.',
                 'student_not_found' => 'Aluno não encontrado.',
+                'stale_dva' => 'A DVA mudou enquanto este formulário estava aberto. Revise a versão atual antes de confirmar novamente.',
+                'review_required' => 'Marque a confirmação depois de comparar a DVA atual com os dados que você pretende registrar.',
+                'request_reused' => 'Este envio já foi utilizado com outros dados. Revise o formulário e tente novamente.',
                 default => 'Informe uma data válida e uma observação com até 1.000 caracteres.',
             };
-            http_response_code(422);
         }
 
         $this->view('alunos/dva', [
@@ -266,6 +325,9 @@ final class AlunoController extends Controller
             'currentDays' => $statusService->daysRemaining(is_array($current) ? (string) $current['data_vencimento'] : null),
             'data' => $data,
             'errors' => $errors,
+            'expectedCurrentId' => $expectedCurrentId,
+            'requestToken' => $requestToken,
+            'conflictReview' => $conflictReview,
         ]);
     }
 

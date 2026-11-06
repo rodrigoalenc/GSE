@@ -193,6 +193,17 @@ function hiddenValue(string $html, string $name, int $length = 64): string
     return $match[1];
 }
 
+function hiddenIntegerValue(string $html, string $name, bool $allowZero = false): string
+{
+    $quoted = preg_quote($name, '/');
+    $pattern = $allowZero ? '(?:0|[1-9][0-9]*)' : '[1-9][0-9]*';
+    if (preg_match('/name="' . $quoted . '" value="(' . $pattern . ')"/', $html, $match) !== 1) {
+        throw new RuntimeException("Campo inteiro oculto {$name} não encontrado na resposta.");
+    }
+
+    return $match[1];
+}
+
 function formRevision(string $html): string
 {
     if (preg_match('/name="revisao" value="([1-9][0-9]*)"/', $html, $match) !== 1) {
@@ -558,6 +569,8 @@ try {
     $renewedExpiration = date('Y-m-d', strtotime('+20 days'));
     $renewedDva = request('POST', $baseUrl . '/aluno/dva/1', $cookieAdmin, [
         '_csrf_token' => csrf($dvaPage['body']),
+        'dva_esperada' => hiddenIntegerValue($dvaPage['body'], 'dva_esperada', true),
+        '_request_token' => hiddenValue($dvaPage['body'], '_request_token', 32),
         'data_vencimento' => $renewedExpiration,
         'observacao' => 'Renovação HTTP',
     ]);

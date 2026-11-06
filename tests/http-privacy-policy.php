@@ -24,9 +24,15 @@ foreach (['/aluno/criar','/aluno/editar/'.$privacyStudent,'/relatorio','/relator
 }
 $privacyDvaUrl=$baseUrl.'/aluno/dva/'.$privacyStudent;
 $privacyDva=request('GET',$privacyDvaUrl,$cookieEmployee);
-checkHttp($privacyDva['status']===200 && str_contains($privacyDva['body'],'Confirmar renovação'), 'Funcionário acessa o formulário de renovação');
+checkHttp($privacyDva['status']===200 && str_contains($privacyDva['body'],'Confirmar renovação')
+    && str_contains($privacyDva['body'],'name="dva_esperada"') && str_contains($privacyDva['body'],'name="_request_token"'),
+    'Funcionário acessa o formulário de renovação com versão esperada e idempotência');
 $privacyCsrf=csrf($privacyDva['body']);
-$privacyDvaFields=['data_vencimento'=>'2038-12-31','observacao'=>'RENOVACAO_FUNCIONARIO_HTTP'];
+$privacyDvaFields=[
+    'dva_esperada'=>hiddenIntegerValue($privacyDva['body'],'dva_esperada',true),
+    '_request_token'=>hiddenValue($privacyDva['body'],'_request_token',32),
+    'data_vencimento'=>'2038-12-31','observacao'=>'RENOVACAO_FUNCIONARIO_HTTP',
+];
 checkHttp(request('GET',$baseUrl.'/dva',$cookieGuest)['status']===302
     && request('POST',$privacyDvaUrl,$cookieGuest,$privacyDvaFields)['status']===302
     && request('POST',$privacyDvaUrl,$cookieEmployee,$privacyDvaFields)['status']===419,
@@ -55,6 +61,40 @@ checkHttp($privacyActor>0 && (int)$privacyDvaAudit->fetchColumn()===$privacyActo
     'Renovação de DVA registra o funcionário responsável na auditoria');
 $privacyDvaAudit->closeCursor();
 $privacyActorQuery->closeCursor();
+
+$privacyConcurrentA=request('GET',$privacyDvaUrl,$cookieEmployee);
+$privacyConcurrentB=request('GET',$privacyDvaUrl,$cookieEmployee);
+$privacyConcurrentFields=static fn(array $page,string $date,string $note): array => [
+    '_csrf_token'=>csrf($page['body']),
+    'dva_esperada'=>hiddenIntegerValue($page['body'],'dva_esperada',true),
+    '_request_token'=>hiddenValue($page['body'],'_request_token',32),
+    'data_vencimento'=>$date,
+    'observacao'=>$note,
+];
+$privacyFirstConcurrent=request('POST',$privacyDvaUrl,$cookieEmployee,$privacyConcurrentFields($privacyConcurrentA,'2039-12-31','PRIMEIRA_SESSAO_DVA'));
+$privacyStaleConcurrent=request('POST',$privacyDvaUrl,$cookieEmployee,$privacyConcurrentFields($privacyConcurrentB,'2040-12-31','FORMULARIO_ANTIGO_DVA'));
+checkHttp($privacyFirstConcurrent['status']===302 && $privacyStaleConcurrent['status']===409
+    && str_contains($privacyStaleConcurrent['body'],'A DVA mudou enquanto este formulário estava aberto')
+    && str_contains($privacyStaleConcurrent['body'],'FORMULARIO_ANTIGO_DVA')
+    && str_contains($privacyStaleConcurrent['body'],'PRIMEIRA_SESSAO_DVA'),
+    'Duas sessões exigem revisão consciente antes de substituir a DVA mais recente');
+$privacyConfirmFields=[
+    '_csrf_token'=>csrf($privacyStaleConcurrent['body']),
+    'dva_esperada'=>hiddenIntegerValue($privacyStaleConcurrent['body'],'dva_esperada',true),
+    '_request_token'=>hiddenValue($privacyStaleConcurrent['body'],'_request_token',32),
+    '_dva_conflict_token'=>hiddenValue($privacyStaleConcurrent['body'],'_dva_conflict_token',32),
+    'confirmar_revisao'=>'1',
+    'data_vencimento'=>'2040-12-31',
+    'observacao'=>'FORMULARIO_ANTIGO_DVA',
+];
+$privacyConfirmWithoutReviewToken=$privacyConfirmFields;
+unset($privacyConfirmWithoutReviewToken['_dva_conflict_token']);
+checkHttp(request('POST',$privacyDvaUrl,$cookieEmployee,$privacyConfirmWithoutReviewToken)['status']===409,
+    'Confirmação concorrente não pode omitir o token da revisão apresentada');
+checkHttp(request('POST',$privacyDvaUrl,$cookieEmployee,$privacyConfirmFields)['status']===302,
+    'Funcionário confirma a renovação somente após revisar a DVA concorrente');
+checkHttp((int)$privacyDb->query('SELECT COUNT(*) FROM dvas WHERE id_aluno='.$privacyStudent)->fetchColumn()===4,
+    'Conflito recusado não cria DVA e confirmação posterior cria uma única versão');
 checkHttp(request('POST',$baseUrl.'/aluno/status/'.$privacyStudent,$cookieEmployee,['_csrf_token'=>$privacyCsrf,'ativo'=>'0'])['status']===403,
     'Acesso a DVA não permite inativar o aluno');
 checkHttp(request('POST',$baseUrl.'/passivo/exportar',$cookieEmployee,['_csrf_token'=>$privacyCsrf,'caixa'=>'CX-HTTP'])['status']===403,
