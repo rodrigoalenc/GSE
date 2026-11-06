@@ -40,7 +40,7 @@ try {
     }
 
     $pdo = Database::getConnection();
-    DatabaseInitializer::initialize($pdo);
+    DatabaseInitializer::assertCurrent($pdo);
     Model::setConexao($pdo);
     $result = (new DvaNotificationService($pdo, PhpMailerTransport::fromConfig()))->notify();
 

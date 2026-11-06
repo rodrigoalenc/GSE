@@ -7,7 +7,7 @@ require_once __DIR__ . '/certidao-bootstrap.php';
 // This command inventories only; it never deletes documents, including orphans.
 try {
     $pdo = src\Core\Database::getConnection();
-    src\Core\DatabaseInitializer::initialize($pdo);
+    src\Core\DatabaseInitializer::assertCurrent($pdo);
     Model::setConexao($pdo);
     $model = new Certidao(); $storage = new CertidaoStorage();
     $issues = $model->diagnostics();

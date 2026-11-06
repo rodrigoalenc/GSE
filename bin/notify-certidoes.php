@@ -10,7 +10,7 @@ try {
         fwrite(STDOUT, "Envio real de certidões desabilitado.\n"); exit(0);
     }
     $pdo = src\Core\Database::getConnection();
-    src\Core\DatabaseInitializer::initialize($pdo);
+    src\Core\DatabaseInitializer::assertCurrent($pdo);
     $result = (new CertidaoNotificationService($pdo, PhpMailerTransport::fromConfig()))->notify();
     fwrite(STDOUT, sprintf("Certidões: %d aviso(s), %d destinatário(s), %d envio(s), %d ignorado(s) (entrega anterior, destinatário alterado ou trabalhador ativo), %d falha(s).\n", ...array_values($result)));
     exit($result['failed'] > 0 ? 2 : 0);

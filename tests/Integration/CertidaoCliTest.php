@@ -65,4 +65,36 @@ final class CertidaoCliTest extends DatabaseTestCase
             $this->assertFileDoesNotExist($path);
         }
     }
+
+    /** @return iterable<string,array{string}> */
+    public static function periodicCommands(): iterable
+    {
+        yield 'manutenção geral' => ['bin/maintenance.php'];
+        yield 'notificação DVA' => ['bin/notify-dva.php'];
+        yield 'notificação certidões' => ['bin/notify-certidoes.php'];
+        yield 'inventário certidões' => ['bin/certidoes-maintenance.php'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('periodicCommands')]
+    public function testPeriodicCommandRefusesOutdatedSchemaWithoutApplyingMigration(string $command): void
+    {
+        $database = $this->root . '/' . basename($command, '.php') . '.sqlite';
+        $quotedDatabase = str_replace("'", "''", $database);
+        $this->pdo->exec("VACUUM INTO '{$quotedDatabase}'");
+        $old = new \PDO('sqlite:' . $database, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+        $old->exec('DELETE FROM schema_migrations WHERE version = 22; PRAGMA user_version = 21;');
+        $old = null;
+
+        $result = $this->runCommand([$command], [
+            'APP_ENV' => 'production',
+            'DB_PATH' => $database,
+            'MAIL_ENABLED' => 'true',
+            'CERTIDAO_MAIL_ENABLED' => 'true',
+        ]);
+
+        $this->assertSame(1, $result[0], $result[1] . $result[2]);
+        $verification = new \PDO('sqlite:' . $database);
+        $this->assertSame(21, (int) $verification->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(0, (int) $verification->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 22')->fetchColumn());
+    }
 }

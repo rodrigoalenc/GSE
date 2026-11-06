@@ -35,7 +35,7 @@ try {
     if (array_diff($options, ['--cleanup-legacy-previews']) !== []) { throw new InvalidArgumentException('Opção de manutenção inválida.'); }
     TechnicalLogger::configure();
     $pdo = Database::getConnection();
-    DatabaseInitializer::initialize($pdo);
+    DatabaseInitializer::assertCurrent($pdo);
     Model::setConexao($pdo);
     $result = (new Maintenance($pdo))->run(null, in_array('--cleanup-legacy-previews', $options, true));
 
