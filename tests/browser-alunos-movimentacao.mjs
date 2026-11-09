@@ -236,7 +236,9 @@ try {
     await page.evaluate(`document.querySelectorAll('input[name="alunos[]"]:checked').forEach(input=>input.click())`);
     await submit('button[name="manter_todos"]');await awaitMovement();
     await go('/aluno/movimentar?ano=2030&tipo=progressao');
-    await page.click('[data-movement-all]');await awaitMovement();
+    const beforeBulkNavigation = await page.evaluate('performance.timeOrigin');
+    await page.click('[data-movement-all]');
+    await page.until(`performance.timeOrigin!==${JSON.stringify(beforeBulkNavigation)} && document.readyState==='complete' && !!document.querySelector('#movement-all')`);
     check(await page.evaluate(`document.querySelector('[data-bulk-automatic="8"]')!==null && document.querySelector('[data-bulk-automatic="10"]')!==null`),true,'Bulk annual flow distinguishes Fundamental and Médio automatically');
     await responsive('progressao-todas-automatica','#movement-all-title');
     const beforeBulk=fixture();
