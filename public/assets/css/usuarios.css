@@ -221,8 +221,8 @@
 .tabela-logs .acao-login { color: #004a91; }
 .tabela-logs [hidden] { display: none; }
 .pagination { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
-.pagination a { min-width: 36px; padding: 6px 10px; text-align: center; border: 1px solid #d5dee8; border-radius: 8px; }
-.pagination a.active { color: #ffffff; background: var(--primary-color); border-color: var(--primary-color); }
+.pagination a, .pagination button { min-width: 36px; padding: 6px 10px; text-align: center; border: 1px solid #d5dee8; border-radius: 8px; font: inherit; cursor: pointer; }
+.pagination a.active, .pagination button.active { color: #ffffff; background: var(--primary-color); border-color: var(--primary-color); }
 
 @media (max-width: 768px) {
     .usuarios-toolbar { align-items: stretch; flex-direction: column; }

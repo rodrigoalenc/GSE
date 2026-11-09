@@ -333,9 +333,10 @@
 .cert-toolbar-heading h2 { margin:0 0 4px; color:#0c2445; font-size:1rem; }
 .cert-toolbar-heading p { margin:0; color:#627691; font-size:.9rem; }
 .cert-quick-actions,.cert-toolbar-controls,.cert-status-filters { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.cert-status-filters form,.cert-toolbar-controls > form { margin:0; }
 .cert-quick-actions a { white-space:nowrap; }
 .cert-toolbar-controls { margin-top:18px; }
-.cert-filter-chip { display:inline-flex; align-items:center; min-height:40px; padding:7px 13px; border:1px solid transparent; border-radius:999px; font-size:.82rem; font-weight:700; white-space:nowrap; }
+.cert-filter-chip { display:inline-flex; align-items:center; min-height:40px; padding:7px 13px; border:1px solid transparent; border-radius:999px; font-size:.82rem; font-weight:700; white-space:nowrap; font-family:inherit; cursor:pointer; }
 .cert-filter-chip::before { content:''; width:9px; height:9px; margin-right:6px; background:currentColor; border-radius:50%; }
 .cert-filter-chip.all { color:#0c3566; background:#eaf3ff; border-color:#c7d9ed; }
 .cert-filter-chip.all::before { display:none; }
@@ -344,7 +345,7 @@
 .cert-filter-chip.valid { color:#158343; background:#d4fae7; }
 .cert-filter-chip.active { box-shadow:0 6px 16px rgba(15,36,64,.13); }
 .cert-main-filter select { min-width:235px; min-height:46px; padding:10px 13px; color:#0c2445; background:#f6f9fd; border:1px solid #d3dfed; border-radius:8px; font-weight:650; }
-.cert-pending-link { display:inline-flex; align-items:center; min-height:42px; padding:9px 13px; color:#0c2445; border:1px solid #d5e3f2; border-radius:9px; font-size:.85rem; font-weight:650; }
+.cert-pending-link { display:inline-flex; align-items:center; min-height:42px; padding:9px 13px; color:#0c2445; background:#fff; border:1px solid #d5e3f2; border-radius:9px; font-size:.85rem; font-weight:650; font-family:inherit; cursor:pointer; }
 .cert-pending-link.active { color:var(--primary-dark); background:#e8f1fb; border-color:#bfd1e4; }
 .cert-fullscreen-controls .btn-secondary { background:#fff; border-color:#d5e3f2; font-size:.85rem; }
 .cert-advanced-filters { margin-top:14px; padding:0; color:#526276; font-size:.9rem; overflow:hidden; }

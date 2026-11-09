@@ -36,15 +36,15 @@ try {
     foreach ([2026, 2027, 0] as $reportYear) {
         $reportYearClass = $reportYearClasses[$reportYear];
         $reportYearLabel = $reportYear === 0 ? 'Legada HTTP — Ano não informado' : '=Turma <HTTP> — ' . $reportYear;
-        $reportYearQuery = http_build_query(['turma' => $reportYearClass, 'ativo' => '0']);
-        $reportYearPreview = request('GET', $baseUrl . '/relatorio?' . $reportYearQuery, $cookieAdmin);
+        $reportYearFilters = ['turma' => (string) $reportYearClass, 'ativo' => '0'];
+        $reportYearPreview = listRequest($baseUrl, 'relatorio', $cookieAdmin, $reportYearFilters);
         $reportYearEscaped = htmlspecialchars($reportYearLabel, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         checkHttp($reportYearPreview['status'] === 200
             && str_contains($reportYearPreview['body'], 'value="' . $reportYearClass . '" selected>' . $reportYearEscaped . '</option>')
             && str_contains($reportYearPreview['body'], '<td>' . $reportYearEscaped . '</td>'),
             'Relatório distingue turma e ano no seletor e na prévia: ' . $reportYear);
 
-        $reportYearCsv = request('GET', $baseUrl . '/relatorio/csv?' . $reportYearQuery, $cookieAdmin);
+        $reportYearCsv = request('POST', $baseUrl . '/relatorio/csv', $cookieAdmin, $reportYearFilters + ['_csrf_token'=>csrf(request('GET',$baseUrl.'/relatorio',$cookieAdmin)['body'])]);
         $reportYearRows = $reportYearCsvRows($reportYearCsv['body']);
         $reportYearSafeLabel = ($reportYear === 0 ? '' : "'") . $reportYearLabel;
         checkHttp($reportYearCsv['status'] === 200 && str_starts_with($reportYearCsv['body'], "\xEF\xBB\xBF")
@@ -58,7 +58,7 @@ try {
             && count($reportYearRows[4] ?? []) === 6 && count($reportYearRows[5] ?? []) === 6,
             'CSV exporta apenas o ID selecionado, descreve ano e neutraliza fórmulas: ' . $reportYear);
 
-        $reportYearPdf = request('GET', $baseUrl . '/relatorio/pdf?' . $reportYearQuery, $cookieAdmin);
+        $reportYearPdf = request('POST', $baseUrl . '/relatorio/pdf', $cookieAdmin, $reportYearFilters + ['_csrf_token'=>csrf(request('GET',$baseUrl.'/relatorio',$cookieAdmin)['body'])]);
         $reportYearText = $reportYearPdfText($reportYearPdf['body']);
         checkHttp($reportYearPdf['status'] === 200 && str_starts_with($reportYearPdf['body'], '%PDF-')
             && str_contains($reportYearPdf['headers']['content-type'] ?? '', 'application/pdf')
@@ -76,12 +76,12 @@ try {
         }
     }
 
-    $reportYearAllCsv = request('GET', $baseUrl . '/relatorio/csv?ativo=0', $cookieAdmin);
+    $reportYearAllCsv = request('POST', $baseUrl . '/relatorio/csv', $cookieAdmin, ['ativo'=>'0','_csrf_token'=>csrf(request('GET',$baseUrl.'/relatorio',$cookieAdmin)['body'])]);
     $reportYearAllRows = $reportYearCsvRows($reportYearAllCsv['body']);
     $reportYearUnassigned = array_values(array_filter($reportYearAllRows, static fn (array $row): bool => ($row[0] ?? '') === 'Aluno sem turma HTTP'));
     checkHttp($reportYearAllCsv['status'] === 200 && ($reportYearAllRows[1][1] ?? '') === 'Todas'
         && ($reportYearUnassigned[0][1] ?? '') === 'Sem turma', 'CSV sem filtro descreve aluno sem turma');
-    $reportYearAllPdf = request('GET', $baseUrl . '/relatorio/pdf?ativo=0', $cookieAdmin);
+    $reportYearAllPdf = request('POST', $baseUrl . '/relatorio/pdf', $cookieAdmin, ['ativo'=>'0','_csrf_token'=>csrf(request('GET',$baseUrl.'/relatorio',$cookieAdmin)['body'])]);
     $reportYearAllText = $reportYearPdfText($reportYearAllPdf['body']);
     checkHttp($reportYearAllPdf['status'] === 200 && str_contains($reportYearAllText, 'Aluno sem turma HTTP')
         && str_contains($reportYearAllText, 'Sem turma'), 'PDF real descreve aluno sem turma');

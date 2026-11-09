@@ -374,7 +374,8 @@ header h1 { margin: 0; font-size: 2rem; }
 [aria-invalid="true"] { border-color: #b42332; }
 .form-error-summary:focus { outline: 3px solid #b42332; outline-offset: 3px; }
 .compact-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 12px 0; }
-.compact-pagination a { padding: 8px 12px; min-width: 36px; text-align: center; border: 1px solid #c8d1dd; border-radius: 6px; text-decoration: none; color: #183d62; background: #fff; }
+.compact-pagination a, .compact-pagination button { padding: 8px 12px; min-width: 36px; text-align: center; border: 1px solid #c8d1dd; border-radius: 6px; text-decoration: none; color: #183d62; background: #fff; font: inherit; cursor: pointer; }
+.list-state-page-form { display: inline-flex; margin: 0; }
 .compact-pagination [aria-current="page"] { background: #183d62; color: #fff; font-weight: 700; }
 @media (max-width: 768px) {
     .sidebar-header { padding: 8px 12px; }

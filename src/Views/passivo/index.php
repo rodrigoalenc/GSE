@@ -19,7 +19,7 @@
         <div><h2 id="passivo-search-title">Busca e navegação</h2><p>Os caracteres %, _ e barra invertida são pesquisados literalmente.</p></div>
         <span class="result-pill"><?= e((string) $result['total']) ?> resultado(s)</span>
     </div>
-    <form class="passivo-filters" method="get" action="<?= e(url('passivo')) ?>">
+    <form class="passivo-filters" method="post" action="<?= e(url('passivo')) ?>" data-list-state-form><?= list_state_fields() ?>
         <div class="field-wide">
             <label for="passivo-q">Nome ou número</label>
             <input id="passivo-q" type="search" name="q" maxlength="<?= e((string) Passivo::SEARCH_MAX_LENGTH) ?>" value="<?= e($filters['q']) ?>" placeholder="Ex.: José da Silva ou 127">
@@ -73,11 +73,11 @@
     <?php else: ?>
         <div class="passivo-box-grid">
             <?php foreach ($boxes as $box): ?>
-                <a class="passivo-box-card" href="<?= e(url('passivo?caixa=' . rawurlencode($box['caixa']) . '&ordem=numero&ativo=' . ($filters['ativo'] === '' ? 'todos' : $filters['ativo']))) ?>">
+                <form method="post" action="<?= e(url('passivo')) ?>" data-list-state-form><?= list_state_fields() ?><input type="hidden" name="caixa" value="<?= e($box['caixa']) ?>"><input type="hidden" name="ordem" value="numero"><input type="hidden" name="ativo" value="<?= e($filters['ativo'] === '' ? 'todos' : $filters['ativo']) ?>"><button type="submit" class="passivo-box-card">
                     <span class="passivo-box-label">Caixa</span>
                     <strong><?= e($box['caixa']) ?></strong>
                     <small><?= e((string) $box['total']) ?> aluno(s)</small>
-                </a>
+                </button></form>
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
@@ -86,9 +86,10 @@
 
 <?php if ($filters['caixa'] !== '' && $navigation['lista'] !== []): ?>
 <nav class="passivo-box-navigation" aria-label="Navegação entre caixas">
-    <?php if ($navigation['anterior'] !== null): ?><a href="<?= e(url('passivo?caixa=' . rawurlencode($navigation['anterior']) . '&ordem=numero&ativo=' . ($filters['ativo'] === '' ? 'todos' : $filters['ativo']))) ?>">Caixa anterior</a><?php endif; ?>
-    <?php foreach ($navigation['lista'] as $box): ?><a class="<?= $box === $filters['caixa'] ? 'active' : '' ?>" <?= $box === $filters['caixa'] ? 'aria-current="page"' : '' ?> href="<?= e(url('passivo?caixa=' . rawurlencode($box) . '&ordem=numero&ativo=' . ($filters['ativo'] === '' ? 'todos' : $filters['ativo']))) ?>"><?= e($box) ?></a><?php endforeach; ?>
-    <?php if ($navigation['proxima'] !== null): ?><a href="<?= e(url('passivo?caixa=' . rawurlencode($navigation['proxima']) . '&ordem=numero&ativo=' . ($filters['ativo'] === '' ? 'todos' : $filters['ativo']))) ?>">Próxima caixa</a><?php endif; ?>
+    <?php $boxButton = static function (string $box, string $label, bool $active = false) use ($filters): void { ?><form method="post" action="<?= e(url('passivo')) ?>" data-list-state-form><?= list_state_fields() ?><input type="hidden" name="caixa" value="<?= e($box) ?>"><input type="hidden" name="ordem" value="numero"><input type="hidden" name="ativo" value="<?= e($filters['ativo'] === '' ? 'todos' : $filters['ativo']) ?>"><button type="submit" class="<?= $active ? 'active' : '' ?>"<?= $active ? ' aria-current="page"' : '' ?>><?= e($label) ?></button></form><?php }; ?>
+    <?php if ($navigation['anterior'] !== null): $boxButton($navigation['anterior'], 'Caixa anterior'); endif; ?>
+    <?php foreach ($navigation['lista'] as $box): $boxButton($box, $box, $box === $filters['caixa']); endforeach; ?>
+    <?php if ($navigation['proxima'] !== null): $boxButton($navigation['proxima'], 'Próxima caixa'); endif; ?>
 </nav>
 <?php endif; ?>
 

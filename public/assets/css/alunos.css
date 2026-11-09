@@ -383,8 +383,8 @@
 .action-group .btn-acao { padding: 0; color: #16508f; background: none; border: 0; border-radius: 0; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
 .action-group .btn-acao:hover, .action-group .btn-acao:focus-visible { color: #0c3566; text-decoration: underline; }
 .pagination { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin-top: 20px; }
-.pagination a { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 38px; padding: 0 10px; color: #16508f; background: #f2f6fa; border: 1px solid #dbe5f0; border-radius: 10px; }
-.pagination a.active { color: #fff; background: #16508f; border-color: #16508f; }
+.pagination a, .pagination button { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 38px; padding: 0 10px; color: #16508f; background: #f2f6fa; border: 1px solid #dbe5f0; border-radius: 10px; font: inherit; cursor: pointer; }
+.pagination a.active, .pagination button.active { color: #fff; background: #16508f; border-color: #16508f; }
 
 .dashboard-section { margin-bottom: 26px; }
 .dashboard-overview { margin-bottom: 28px; }

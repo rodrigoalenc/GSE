@@ -22,6 +22,8 @@ $usabilityRejected = $usabilityFields; $usabilityRejected['context'] = str_repea
 checkHttp(request('POST', $usabilityUrl, $cookieAdmin, $usabilityRejected)['status'] === 409, 'Contexto inexistente não pode sobrescrever rascunho');
 $usabilityFields['operation'] = 'discard';
 checkHttp(request('POST', $usabilityUrl, $cookieAdmin, $usabilityFields)['status'] === 200 && json_decode(request('GET', $usabilityUrl . '?form=aluno/criar', $cookieAdmin)['body'], true)['draft'] === null, 'Descartar remove somente o rascunho da sessão');
-$usabilityList = request('GET', $baseUrl . '/aluno?q=Pessoa&page=2', $cookieAdmin);
-checkHttp(str_contains($usabilityList['body'], 'data-list-context=') && str_contains($usabilityList['body'], 'q=Pessoa'), 'Contexto de retorno preserva os filtros da lista no servidor');
+$usabilityList = listRequest($baseUrl, 'aluno', $cookieAdmin, ['q'=>'Pessoa','page'=>'2']);
+checkHttp(str_contains($usabilityList['body'], 'data-list-context=')
+    && preg_match('/data-list-state-token="[a-f0-9]{32}"/',$usabilityList['body'])===1
+    && !str_contains($usabilityList['body'], 'aluno?q=Pessoa'), 'Contexto de retorno usa token temporário sem reconstruir os filtros na URL');
 checkHttp(str_contains($usabilityForm['body'], 'Pular para o conteúdo') && str_contains($usabilityForm['body'], 'id="dva-initial-help"'), 'Formulário oferece atalho de teclado e ajuda DVA junto ao campo');

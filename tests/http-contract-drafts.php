@@ -133,7 +133,7 @@ $draftBillingConfirmed=array_replace(contractDraftFields($draftBillingMissingRec
 $draftBillingConfirmedResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingConfirmed);
 checkHttp(!str_contains($draftBillingConfirmedResponse['headers']['location'],'rascunho=')
     && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn()==='2026-10-02','Funcionário confirma o primeiro faturamento com checkbox e data válida');
-$draftBilledStock=request('GET',$baseUrl.'/estoque?busca=Produto%203',$cookieEmployee);
+$draftBilledStock=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Produto 3']);
 checkHttp($draftBilledStock['status']===200
     && str_contains($draftBilledStock['body'],'estoque/iniciar/'.$draftProduct3)
     && (int)$draftDb->query('SELECT estoque_inicializado FROM pedido_produtos WHERE id='.$draftProduct3)->fetchColumn()===0
@@ -187,7 +187,7 @@ checkHttp($draftSaved['status']===302 && !str_contains($draftSaved['headers']['l
 $draftStockPage=request('GET',$draftUrl,$cookieEmployee);
 $draftOpening=array_replace(contractDraftLegacyStockFields($draftStockPage['body'],'stock-config-'.$draftProduct1,$draftProduct1),['minimo'=>'0','maximo'=>'20','abertura'=>'5','confirmar_abertura'=>'1']);
 request('POST',$baseUrl.'/contrato/estoque/'.$draftContract,$cookieEmployee,$draftOpening);
-$draftOpenedStock=request('GET',$baseUrl.'/estoque?busca=Pedido%20HTTP%20rascunhos',$cookieEmployee);
+$draftOpenedStock=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Pedido HTTP rascunhos']);
 checkHttp($draftOpenedStock['status']===200
     && str_contains($draftOpenedStock['body'],'estoque/receber/'.$draftProduct1)
     && str_contains($draftOpenedStock['body'],'estoque/consumir/'.$draftProduct1)

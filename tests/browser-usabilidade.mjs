@@ -8,7 +8,7 @@ let saved = null;
 const script = await readFile(new URL('../public/assets/js/usabilidade.js', import.meta.url)).catch(()=>Buffer.from(''));
 const stylesheet = await readFile(new URL('../public/assets/css/usabilidade.css', import.meta.url));
 const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Usabilidade — dados fictícios</title>
-<link rel="stylesheet" href="/usabilidade.css"><body data-draft-endpoint="/formulario/rascunho" data-list-context='{"/aluno":"/aluno?q=Pessoa&page=2"}'>
+<link rel="stylesheet" href="/usabilidade.css"><body data-draft-endpoint="/formulario/rascunho" data-list-context='{"/aluno":"/aluno"}'>
 <aside class="sidebar"><button type="button" data-sidebar-toggle aria-controls="gse-main-navigation" aria-expanded="false" hidden>Menu</button><nav id="gse-main-navigation"><a href="/aluno">Alunos</a></nav></aside>
 <main id="conteudo-principal"><form id="student" method="post" action="/aluno/editar/4">
 <input type="hidden" name="_csrf_token" value="csrf-ficticio"><input type="hidden" name="revisao" value="4">
@@ -52,7 +52,7 @@ try {
     await page.until('document.querySelector("[data-draft-status]").textContent.includes("descartado")');
     assert.equal(stored,null);
     assert.equal(await page.evaluate('document.querySelector("#nome").value'),'Pessoa alterada','Discarding a draft does not erase the open form');
-    assert.equal(await page.evaluate('document.querySelector("#student a").getAttribute("href")'),'/aluno?q=Pessoa&page=2','Return retains filters');
+    assert.equal(await page.evaluate('document.querySelector("#student a").getAttribute("href")'),'/aluno','Return keeps a clean address');
     await page.command('Emulation.setDeviceMetricsOverride',{width:375,height:812,deviceScaleFactor:1,mobile:true});
     await page.until('innerWidth < 769');
     assert.equal(await page.evaluate('document.querySelector("[data-sidebar-toggle]").hidden'),false,'Mobile navigation can be discovered by its label');

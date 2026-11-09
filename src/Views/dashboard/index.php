@@ -36,8 +36,8 @@ $totalPendencias = (int) $moduloDois['sem_dva'] + (int) $moduloDois['vencidas'] 
             <summary>Atenção: certidões prestes a vencer (<?= $certidoesAtencao ?>)<span class="dashboard-chevron" aria-hidden="true"></span></summary>
             <div class="dashboard-alert-content">
                 <p><?= (int) ($certidoes['vence_hoje'] ?? 0) ?> vence(m) hoje e <?= (int) ($certidoes['a_vencer'] ?? 0) ?> está(ão) a vencer.</p>
-                <?php if ((int) ($certidoes['vence_hoje'] ?? 0) > 0): ?><a href="<?= e(url('certidao?validade=vence_hoje')) ?>">Ver certidões que vencem hoje</a><?php endif; ?>
-                <?php if ((int) ($certidoes['a_vencer'] ?? 0) > 0): ?><a href="<?= e(url('certidao?validade=a_vencer')) ?>">Ver certidões a vencer</a><?php endif; ?>
+                <?php if ((int) ($certidoes['vence_hoje'] ?? 0) > 0): ?><form method="post" action="<?= e(url('certidao')) ?>" data-list-state-form><?= list_state_fields() ?><input type="hidden" name="validade" value="vence_hoje"><button type="submit" class="dashboard-filter-link">Ver certidões que vencem hoje</button></form><?php endif; ?>
+                <?php if ((int) ($certidoes['a_vencer'] ?? 0) > 0): ?><form method="post" action="<?= e(url('certidao')) ?>" data-list-state-form><?= list_state_fields() ?><input type="hidden" name="validade" value="a_vencer"><button type="submit" class="dashboard-filter-link">Ver certidões a vencer</button></form><?php endif; ?>
             </div>
         </details>
     <?php endif; ?>
@@ -56,18 +56,16 @@ $totalPendencias = (int) $moduloDois['sem_dva'] + (int) $moduloDois['vencidas'] 
 
     <section class="dashboard-summary" aria-label="Indicadores dos alunos e DVAs">
         <div class="dashboard-summary-grid">
-            <a class="dashboard-number-card total" href="<?= e(url('aluno?ativo=1')) ?>"><?= gse_icon('users') ?><span>Alunos ativos</span><strong><?= (int) $moduloDois['alunos_ativos'] ?></strong></a>
+            <form method="post" action="<?= e(url('aluno')) ?>" data-list-state-form><?= list_state_fields() ?><input type="hidden" name="ativo" value="1"><button class="dashboard-number-card total" type="submit"><?= gse_icon('users') ?><span>Alunos ativos</span><strong><?= (int) $moduloDois['alunos_ativos'] ?></strong></button></form>
             <?php if ($canViewHealth): ?>
-            <a class="dashboard-number-card missing" href="<?= e(url('dva?dva=sem_dva')) ?>"><?= gse_icon('file') ?><span>Sem DVA</span><strong><?= (int) $moduloDois['sem_dva'] ?></strong></a>
-            <a class="dashboard-number-card expired" href="<?= e(url('dva?dva=vencida')) ?>"><?= gse_icon('calendar') ?><span>DVAs vencidas</span><strong><?= (int) $moduloDois['vencidas'] ?></strong></a>
-            <a class="dashboard-number-card due" href="<?= e(url('dva?dva=a_vencer')) ?>"><?= gse_icon('calendar') ?><span>DVAs a vencer</span><strong><?= (int) $moduloDois['a_vencer'] ?></strong></a>
+            <?php foreach ([['sem_dva','missing','file','Sem DVA','sem_dva'],['vencida','expired','calendar','DVAs vencidas','vencidas'],['a_vencer','due','calendar','DVAs a vencer','a_vencer']] as [$status,$cardClass,$icon,$label,$countKey]): ?><form method="post" action="<?= e(url('dva')) ?>" data-list-state-form><?= list_state_fields() ?><input type="hidden" name="dva" value="<?= e($status) ?>"><button class="dashboard-number-card <?= e($cardClass) ?>" type="submit"><?= gse_icon($icon) ?><span><?= e($label) ?></span><strong><?= (int) $moduloDois[$countKey] ?></strong></button></form><?php endforeach; ?>
             <?php endif; ?>
         </div>
     </section>
 
     <section class="dashboard-search" aria-labelledby="dashboard-search-title">
         <h2 id="dashboard-search-title"><?= gse_icon('search') ?> Buscar aluno</h2>
-        <form id="dashboard-search-form" method="get" action="<?= e(url('dashboard')) ?>#dashboard-search-results">
+        <form id="dashboard-search-form" method="post" action="<?= e(url('dashboard')) ?>#dashboard-search-results" data-list-state-form><?= list_state_fields() ?>
             <div class="dashboard-search-fields">
                 <div class="dashboard-search-name">
                     <label for="dashboard-search-input">Nome do aluno</label>
@@ -187,7 +185,7 @@ $totalPendencias = (int) $moduloDois['sem_dva'] + (int) $moduloDois['vencidas'] 
             <details class="dashboard-dva-panel <?= e($secao['classe']) ?>" data-dashboard-section>
                 <summary><?= e($secao['titulo']) ?> (<?= (int) $secao['total'] ?>)<span class="dashboard-chevron" aria-hidden="true"></span></summary>
                 <div class="dashboard-dva-body">
-                    <p>Exibindo <?= count($secao['alunos']) ?> de <?= (int) $secao['total'] ?> alunos. <?php foreach ($secao['links'] as $status => $label): ?><a href="<?= e(url('dva?dva=' . $status)) ?>"><?= e($label) ?></a> <?php endforeach; ?></p>
+                    <p>Exibindo <?= count($secao['alunos']) ?> de <?= (int) $secao['total'] ?> alunos.</p><?php foreach ($secao['links'] as $status => $label): ?><form method="post" action="<?= e(url('dva')) ?>" data-list-state-form><?= list_state_fields() ?><input type="hidden" name="dva" value="<?= e($status) ?>"><button type="submit" class="dashboard-filter-link"><?= e($label) ?></button></form><?php endforeach; ?>
                     <?php if ($secao['alunos'] === []): ?>
                         <p class="dashboard-empty">Nenhum aluno nesta situação.</p>
                     <?php else: ?>

@@ -17,12 +17,12 @@ $lastResult = $result['total'] > 0 ? $firstResult + count($result['items']) - 1 
     <nav class="dva-status-tabs" aria-label="Filtrar por situação da DVA">
         <?php foreach ($statusTabs as $status => $label): ?>
             <?php $tabQuery = array_filter(array_merge($queryBase, ['dva' => $status]), static fn (string $value): bool => $value !== ''); ?>
-            <a href="<?= e(url('dva' . ($tabQuery !== [] ? '?' . http_build_query($tabQuery) : ''))) ?>"<?= $filters['dva'] === $status ? ' class="active" aria-current="page"' : '' ?>><?= e($label) ?></a>
+            <form method="post" action="<?= e(url('dva')) ?>" data-list-state-form><?= list_state_fields() ?><?= list_state_hidden_fields($tabQuery) ?><button type="submit"<?= $filters['dva'] === $status ? ' class="active" aria-current="page"' : '' ?>><?= e($label) ?></button></form>
         <?php endforeach; ?>
     </nav>
 
 <section class="dva-workspace" aria-labelledby="dva-results-title">
-    <form class="student-filters dva-filters" method="get" action="<?= e(url('dva')) ?>" role="search">
+    <form class="student-filters dva-filters" method="post" action="<?= e(url('dva')) ?>" role="search" data-list-state-form><?= list_state_fields() ?>
         <?php if ($filters['turma'] !== ''): ?><input type="hidden" name="turma" value="<?= e($filters['turma']) ?>"><?php endif; ?>
         <div class="dva-search-field"><label for="q">Buscar aluno</label><div class="dva-search-input"><?= gse_icon('search') ?><input id="q" type="search" name="q" value="<?= e($filters['q']) ?>" maxlength="100" placeholder="Buscar por nome do aluno"></div></div>
         <div>

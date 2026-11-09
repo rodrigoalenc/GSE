@@ -1,8 +1,10 @@
 (() => {
     'use strict';
+    const init = () => {
     const workspace = document.querySelector('[data-student-workspace]');
     const card = workspace?.querySelector('[data-student-preview-card]');
-    if (!workspace || !card) return;
+    if (!workspace || !card || workspace.dataset.studentPreviewReady === '1') return;
+    workspace.dataset.studentPreviewReady = '1';
 
     const rows = [...workspace.querySelectorAll('[data-student-preview-row]')];
     const announcement = workspace.querySelector('[data-student-preview-announcement]');
@@ -66,4 +68,7 @@
             menu.querySelector('summary')?.focus();
         }
     });
+    };
+    init();
+    document.addEventListener('gse:list-state-restored', init);
 })();

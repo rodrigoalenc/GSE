@@ -47,6 +47,7 @@ require_once ROOT_PATH . '/src/Core/Database.php';
 require_once ROOT_PATH . '/src/Core/DatabaseInitializer.php';
 require_once ROOT_PATH . '/src/Core/Model.php';
 require_once ROOT_PATH . '/src/Core/Controller.php';
+require_once ROOT_PATH . '/src/Core/ListState.php';
 require_once ROOT_PATH . '/src/Core/Router.php';
 require_once ROOT_PATH . '/src/Model/Usuario.php';
 require_once ROOT_PATH . '/src/Core/Auth.php';

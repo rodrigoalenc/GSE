@@ -61,8 +61,8 @@ $guardXPath = new DOMXPath($guardDom);
 checkHttp($guardXPath->query('//form[contains(@action,"/contrato/folha/")]//button')->length === 4
     && $guardXPath->query('//form[contains(@action,"/contrato/folha/")]//button[not(@disabled)]')->length === 0,
     'Novas notas e duplicações ficam desabilitadas somente no pedido afetado');
-$guardListA = request('GET', $baseUrl . '/contrato?busca=' . rawurlencode('Guarda certidão A'), $cookieAdmin);
-$guardListB = request('GET', $baseUrl . '/contrato?busca=' . rawurlencode('Guarda certidão B'), $cookieAdmin);
+$guardListA = listRequest($baseUrl, 'contrato', $cookieAdmin, ['busca'=>'Guarda certidão A']);
+$guardListB = listRequest($baseUrl, 'contrato', $cookieAdmin, ['busca'=>'Guarda certidão B']);
 checkHttp(!$guardAlertHidden($guardListA['body']) && $guardAlertHidden($guardListB['body']), 'Lista de pedidos alerta somente sobre fornecedores dos pedidos exibidos');
 $guardGoodDetails = request('GET', $baseUrl . '/contrato/detalhes/' . $guardGoodId, $cookieAdmin);
 checkHttp($guardAlertHidden($guardGoodDetails['body']), 'Certidão vencida de outro fornecedor não alerta no pedido regular');

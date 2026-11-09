@@ -25,7 +25,7 @@ $date = static function (?string $value): string {
 
 <section class="relatorio contract-list-panel" aria-labelledby="contract-list-title">
     <div class="contract-list-heading"><h2 id="contract-list-title"><?= $status === 'ativos' ? 'Pedidos Cadastrados' : 'Pedidos Excluídos' ?></h2>
-        <form method="get" action="<?= e(url('contrato')) ?>" class="contract-list-filters">
+        <form method="post" action="<?= e(url('contrato')) ?>" class="contract-list-filters" data-list-state-form><?= list_state_fields() ?>
             <label for="busca">Buscar pedido<input id="busca" name="busca" value="<?= e($search) ?>" placeholder="Título do pedido"></label>
             <label for="situacao">Situação<select id="situacao" name="situacao"><option value="ativos" <?= $status === 'ativos' ? 'selected' : '' ?>>Ativos</option><option value="excluidos" <?= $status === 'excluidos' ? 'selected' : '' ?>>Excluídos</option></select></label>
             <button class="btn-secondary" type="submit">Consultar</button>
@@ -43,7 +43,7 @@ $date = static function (?string $value): string {
                 <td><span class="contract-pill <?= $billedCount > 0 ? 'paid' : 'pending' ?>"><?= $billedCount ?> de <?= $noteCount ?> nota(s)</span></td>
                 <td><span class="contract-average"><?= $row['valor_centavos'] !== null && $noteCount > 0 ? e(Contrato::money((int) round((int) $row['valor_centavos'] / $noteCount))) : '—' ?></span></td>
                 <td class="contract-date"><?php $registeredParts = explode(' ', $date($status === 'ativos' ? $row['criado_em'] : $row['excluido_em']), 2); ?><?= e($registeredParts[0]) ?><?php if (isset($registeredParts[1])): ?><small><?= e($registeredParts[1]) ?></small><?php endif; ?><?php if ($status === 'excluidos'): ?><small>Por <?= e($row['excluido_por_nome'] ?? 'Usuário indisponível') ?></small><?php endif; ?></td>
-                <td><div class="contract-row-actions"><a class="btn-secondary contract-details-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '?' . http_build_query($params + ['pagina' => $result['page']]))) ?>">Ver detalhes</a><?php if ($status === 'ativos'): ?><a class="contract-delete-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '#delete-contract')) ?>">🗑️ Apagar</a><?php endif; ?></div></td>
+                <td><div class="contract-row-actions"><a class="btn-secondary contract-details-link" href="<?= e(url('contrato/detalhes/' . $row['id'])) ?>">Ver detalhes</a><?php if ($status === 'ativos'): ?><a class="contract-delete-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '#delete-contract')) ?>">🗑️ Apagar</a><?php endif; ?></div></td>
             </tr>
         <?php endforeach; ?>
     </tbody></table></div>

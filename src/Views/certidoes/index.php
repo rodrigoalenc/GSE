@@ -16,7 +16,7 @@ foreach ($result['items'] as $item) {
 $dates = new CertidaoStatus();
 $displayDate = static fn ($value): string => CertidaoStatus::validDate((string) $value) ? (new DateTimeImmutable($value))->format('d/m/Y') : 'Data pendente';
 $displayFullDate = static fn ($value): string => CertidaoStatus::validDate((string) $value) ? (new DateTimeImmutable($value))->format('d/m/Y') : 'Data pendente';
-$statusUrl = static fn (string $validade): string => url($route . '?' . http_build_query(array_merge($filters, ['validade' => $validade, 'page' => 1])));
+$statusFilters = static fn (string $validade): array => array_merge($filters, ['validade' => $validade, 'page' => 1]);
 $activeSuppliers = count(array_filter($fornecedores, static fn (array $option): bool => (int) $option['ativo'] === 1));
 $activeTypes = count(array_filter($tipos, static fn (array $option): bool => (int) $option['ativo'] === 1));
 $overviewTitle = match ($state) { 'arquivada' => 'Histórico completo das certidões movimentadas', 'excluida' => 'Certidões excluídas', default => 'Painel central das certidões' };
@@ -42,12 +42,9 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
     <?php ob_start(); ?>
         <div class="cert-toolbar-controls">
             <nav class="cert-status-filters" aria-label="Filtrar por validade">
-                <a class="cert-filter-chip all <?= $filters['validade'] === '' ? 'active' : '' ?>" href="<?= e($statusUrl('')) ?>">Todas</a>
-                <a class="cert-filter-chip expired <?= $filters['validade'] === 'vencida' ? 'active' : '' ?>" href="<?= e($statusUrl('vencida')) ?>">Vencida</a>
-                <a class="cert-filter-chip warning <?= $filters['validade'] === 'a_vencer' ? 'active' : '' ?>" href="<?= e($statusUrl('a_vencer')) ?>">A vencer</a>
-                <a class="cert-filter-chip valid <?= $filters['validade'] === 'vigente' ? 'active' : '' ?>" href="<?= e($statusUrl('vigente')) ?>">Vigente</a>
+                <?php foreach (['' => ['all','Todas'], 'vencida' => ['expired','Vencida'], 'a_vencer' => ['warning','A vencer'], 'vigente' => ['valid','Vigente']] as $validity => [$chipClass, $chipLabel]): ?><form method="post" action="<?= e(url($route)) ?>" data-list-state-form><?= list_state_fields() ?><?= list_state_hidden_fields($statusFilters($validity)) ?><button type="submit" class="cert-filter-chip <?= e($chipClass) ?> <?= $filters['validade'] === $validity ? 'active' : '' ?>"><?= e($chipLabel) ?></button></form><?php endforeach; ?>
             </nav>
-            <form method="get" action="<?= e(url($route)) ?>" class="cert-main-filter">
+            <form method="post" action="<?= e(url($route)) ?>" class="cert-main-filter" data-list-state-form><?= list_state_fields() ?>
                 <?php foreach (['tipo', 'validade', 'ano', 'busca', 'pendencias'] as $field): ?>
                     <?php if ($filters[$field] !== ''): ?><input type="hidden" name="<?= e($field) ?>" value="<?= e($filters[$field]) ?>"><?php endif; ?>
                 <?php endforeach; ?>
@@ -59,13 +56,13 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
                 <button type="button" class="btn-secondary" id="cert-fullscreen" aria-pressed="false" aria-controls="cert-workspace" hidden><i class="cert-icon cert-icon-expand" aria-hidden="true"></i> Tela cheia</button>
                 <span id="cert-fullscreen-status" role="status"></span>
             </div>
-            <a class="cert-pending-link <?= $filters['pendencias'] === '1' ? 'active' : '' ?>" href="<?= e(url($route . '?' . http_build_query(array_merge($filters, ['pendencias' => $filters['pendencias'] === '1' ? '' : '1', 'page' => 1])))) ?>"><i class="cert-icon cert-icon-warning" aria-hidden="true"></i> Somente pendências</a>
+            <form method="post" action="<?= e(url($route)) ?>" data-list-state-form><?= list_state_fields() ?><?= list_state_hidden_fields(array_merge($filters, ['pendencias' => $filters['pendencias'] === '1' ? '' : '1', 'page' => 1])) ?><button type="submit" class="cert-pending-link <?= $filters['pendencias'] === '1' ? 'active' : '' ?>"><i class="cert-icon cert-icon-warning" aria-hidden="true"></i> Somente pendências</button></form>
         </div>
     <?php $mainControls = ob_get_clean(); ?>
     <div class="cert-panel cert-toolbar <?= $state !== 'corrente' ? 'cert-toolbar-history' : '' ?>">
         <div class="cert-toolbar-heading">
             <div><h2><?= $state === 'corrente' ? 'Ações rápidas' : 'Filtro do histórico' ?></h2><p><?= $state === 'corrente' ? 'Cadastre, configure ou consulte o histórico sem sair do módulo.' : 'Selecione um ano específico ou veja todo o acervo arquivado.' ?></p></div>
-            <?php if ($state !== 'corrente'): ?><form method="get" action="<?= e(url($route)) ?>" class="cert-year-filter">
+            <?php if ($state !== 'corrente'): ?><form method="post" action="<?= e(url($route)) ?>" class="cert-year-filter" data-list-state-form><?= list_state_fields() ?>
                 <?php foreach (['fornecedor', 'tipo', 'validade', 'busca', 'pendencias'] as $field): ?><?php if ($filters[$field] !== ''): ?><input type="hidden" name="<?= e($field) ?>" value="<?= e($filters[$field]) ?>"><?php endif; ?><?php endforeach; ?>
                 <label for="cert-year"><i class="cert-icon cert-icon-calendar" aria-hidden="true"></i> Ano do Histórico:</label><select id="cert-year" name="ano" data-cert-auto-submit><option value="todos" <?= $filters['ano'] === '' || $filters['ano'] === 'todos' ? 'selected' : '' ?>>Todos os Anos</option><?php foreach ($years as $year): ?><option value="<?= e($year) ?>" <?= $filters['ano'] === $year ? 'selected' : '' ?>><?= e($year) ?></option><?php endforeach; ?></select>
                 <button class="visually-hidden" type="submit">Aplicar ano</button>
@@ -87,7 +84,7 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
             <summary>Mais filtros e opções de consulta</summary>
             <div class="cert-advanced-body">
             <?php if ($state !== 'corrente'): ?><?= $mainControls ?><?php endif; ?>
-            <form method="get" action="<?= e(url($route)) ?>" class="cert-filters">
+            <form method="post" action="<?= e(url($route)) ?>" class="cert-filters" data-list-state-form><?= list_state_fields() ?>
                 <div><label for="busca">Buscar fornecedor, tipo ou nº</label><input id="busca" name="busca" maxlength="150" placeholder="Fornecedor, tipo ou número" value="<?= e($filters['busca']) ?>"></div>
                 <div><label for="tipo">Tipo de certidão</label><select id="tipo" name="tipo"><option value="">Todos</option><?php foreach ($tipos as $option): ?><option value="<?= (int) $option['id'] ?>" <?= (string) $option['id'] === $filters['tipo'] ? 'selected' : '' ?>><?= e($option['nome']) ?></option><?php endforeach; ?></select></div>
                 <div><label for="validade">Validade</label><select id="validade" name="validade"><option value="">Todas</option><?php foreach (CertidaoStatus::LABELS as $key => $label): ?><option value="<?= e($key) ?>" <?= $filters['validade'] === $key ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>

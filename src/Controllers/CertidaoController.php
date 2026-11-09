@@ -142,7 +142,7 @@ final class CertidaoController extends Controller
     public function configurar(): void
     {
         $model = new Certidao();
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && input_string($_POST['_list_state_action'] ?? '') === '') {
             try {
                 $raw = self::input($_POST,'id');
                 $active = self::input($_POST,'ativo');

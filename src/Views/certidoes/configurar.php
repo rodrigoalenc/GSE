@@ -30,4 +30,4 @@
 <?php endforeach; ?>
 </div>
 <div class="cert-config-footer"><a href="<?= e(url('certidao')) ?>"><i class="cert-icon cert-icon-arrow-left" aria-hidden="true"></i> Voltar para a Tela Inicial</a></div>
-<details class="cert-config-search"><summary>Pesquisar nos catálogos</summary><form class="cert-filters" method="get"><div><label for="busca">Pesquisar nomes</label><input id="busca" name="busca" maxlength="150" value="<?= e($search) ?>"></div><button type="submit" class="btn-primary">Pesquisar</button></form></details>
+<details class="cert-config-search"><summary>Pesquisar nos catálogos</summary><form class="cert-filters" method="post" action="<?= e(url('certidao/configurar')) ?>" data-list-state-form><?= list_state_fields() ?><div><label for="busca">Pesquisar nomes</label><input id="busca" name="busca" maxlength="150" value="<?= e($search) ?>"></div><button type="submit" class="btn-primary">Pesquisar</button></form></details>

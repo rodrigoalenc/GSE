@@ -36,9 +36,9 @@ checkHttp(str_contains($matrix['body'],'aria-label="Certidões correntes"')
     && str_contains($matrix['body'],'/certidao/excluidas'),'Matriz mostra contagem corrente correta e acesso às excluídas');
 checkHttp(str_contains($matrix['body'],'cert-fullscreen-status-bar') && str_contains($matrix['body'],'data-cert-fullscreen-filter="vigente"') && str_contains($matrix['body'],'cert-fullscreen-exit-btn'),'Tela cheia oferece filtros e saída próprios');
 checkHttp(str_contains($matrix['body'],'Somente pendências') && str_contains($matrix['body'],'cert-fullscreen') && str_contains($matrix['body'],'Emissão') && str_contains($matrix['body'],'cert-deadline'),'Matriz apresenta filtros, tela cheia, emissão e prazo');
-$pendingMatrix=request('GET',$baseUrl.'/certidao?pendencias=1&validade=vigente',$cookieEmployee);
+$pendingMatrix=listRequest($baseUrl,'certidao',$cookieEmployee,['pendencias'=>'1','validade'=>'vigente']);
 checkHttp($pendingMatrix['status']===200 && str_contains($pendingMatrix['body'],'Somente pendências ativado') && str_contains($pendingMatrix['body'],'filtros preenchidos'),'Filtros combinados e totais explícitos');
-checkHttp(request('GET',$baseUrl.'/certidao?documentos[1][bad]=1',$cookieEmployee)['status']===200,'Paginação rejeita estrutura inesperada sem erro interno');
+checkHttp(listRequest($baseUrl,'certidao',$cookieEmployee,['documentos'=>[1=>['bad'=>1]]])['status']===200,'Paginação rejeita estrutura inesperada sem erro interno');
 $details=request('GET',$baseUrl.'/certidao/detalhes/'.$certId,$cookieEmployee);
 checkHttp($details['status']===200 && str_contains($details['body'],'&lt;script&gt;'),'Detalhes escapam observações');
 $checkCertificatePdfActions = static function (array $response, string $context, bool $expectDownload = true): void {
@@ -81,10 +81,10 @@ $renewed=requestMultipart($baseUrl.'/certidao/renovar/'.$certId,$cookieEmployee,
 $new=$certDb->query('SELECT * FROM certidoes ORDER BY id DESC LIMIT 1')->fetch();
 checkHttp($renewed['status']===302 && (int)$new['anterior_id']===$certId && (int)$certDb->query('SELECT arquivado FROM certidoes WHERE id='.$certId)->fetchColumn()===1,'Renovação mantém vínculo e arquiva a selecionada');
 checkHttp(request('GET',$baseUrl.'/certidao/pdf/'.$certId,$cookieEmployee)['body']===$pdf['body'],'PDF anterior continua acessível');
-$archivedPage=request('GET',$baseUrl.'/certidao/arquivadas?ano=todos',$cookieEmployee);
+$archivedPage=listRequest($baseUrl,'certidao/arquivadas',$cookieEmployee,['ano'=>'todos']);
 $checkCertificatePdfActions($archivedPage, 'Arquivadas');
 checkHttp($archivedPage['status']===200 && str_contains($archivedPage['body'],'Histórico completo das certidões movimentadas') && str_contains($archivedPage['body'],'Registros no filtro') && str_contains($archivedPage['body'],'cert-archive-table') && str_contains($archivedPage['body'],'Todos os Anos') && str_contains($archivedPage['body'],'#cert-desarquivar') && !str_contains($archivedPage['body'],'data-cert-fullscreen-filter='),'Histórico de todos os anos usa tabela, filtro e retorno à matriz');
-checkHttp(str_contains(request('GET',$baseUrl.'/certidao/arquivadas?ano=2026',$cookieEmployee)['body'],'cert-archive-table') && str_contains(request('GET',$baseUrl.'/certidao/arquivadas?ano=2025',$cookieEmployee)['body'],'Nenhuma certidão encontrada'),'Filtro de ano consulta o histórico paginado');
+checkHttp(str_contains(listRequest($baseUrl,'certidao/arquivadas',$cookieEmployee,['ano'=>'2026'])['body'],'cert-archive-table') && str_contains(listRequest($baseUrl,'certidao/arquivadas',$cookieEmployee,['ano'=>'2025'])['body'],'Nenhuma certidão encontrada'),'Filtro de ano consulta o histórico paginado');
 $excludedPage=request('GET',$baseUrl.'/certidao/excluidas',$cookieEmployee);
 checkHttp($excludedPage['status']===200 && str_contains($excludedPage['body'],'Certidões excluídas') && !str_contains($excludedPage['body'],'#cert-excluir'),'Lista de excluídas usa resumo próprio e não oferece exclusão repetida');
 $newId=(int)$new['id'];

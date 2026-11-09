@@ -14,6 +14,7 @@ final class StudentPaginationTest extends DatabaseTestCase
     protected function tearDown(): void
     {
         $_GET = [];
+        $_POST = [];
         unset($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);
         parent::tearDown();
     }
@@ -52,14 +53,16 @@ final class StudentPaginationTest extends DatabaseTestCase
         $this->pdo->prepare('UPDATE dvas SET ativo=1 WHERE id_aluno=?')->execute([$withDva]);
 
         $first = $this->renderList(['ativo' => $situation, 'q' => 'Pessoa Paginacao', 'turma' => (string) $class, 'dva' => 'sem_dva']);
-        $next = $first->query('//nav[@aria-label="Páginas de alunos"]/a[@rel="next"]')->item(0);
+        $next = $first->query('//nav[@aria-label="Páginas de alunos"]/form[button[@rel="next"]]')->item(0);
         self::assertNotNull($next, 'A primeira página deve oferecer um link para a próxima.');
         $query = [];
-        parse_str((string) parse_url($next->getAttribute('href'), PHP_URL_QUERY), $query);
+        foreach ($first->query('.//input[@type="hidden"]', $next) as $input) {
+            if (!str_starts_with($input->getAttribute('name'), '_')) { $query[$input->getAttribute('name')] = $input->getAttribute('value'); }
+        }
         $second = $this->renderList($query);
 
         self::assertSame($total . ' alunos', trim($second->evaluate('string(//span[@class="students-count"])')));
-        self::assertSame('2', trim($second->evaluate('string(//nav[@aria-label="Páginas de alunos"]/*[@aria-current="page"])')));
+        self::assertSame('2', trim($second->evaluate('string(//nav[@aria-label="Páginas de alunos"]//button[@aria-current="page"])')));
         self::assertSame($situation, $second->evaluate('string(//select[@id="ativo"]/option[@selected]/@value)'));
         self::assertSame('Pessoa Paginacao', $query['q'] ?? null);
         self::assertSame((string) $class, $query['turma'] ?? null);
@@ -74,12 +77,13 @@ final class StudentPaginationTest extends DatabaseTestCase
     /** @param array<string,mixed> $query */
     private function renderList(array $query): DOMXPath
     {
-        $_GET = $query;
-        $_SERVER['REQUEST_METHOD'] = 'GET';
-        $_SERVER['REQUEST_URI'] = '/aluno?' . http_build_query($query);
+        $_GET = [];
+        $_POST = $query + ['_csrf_token' => \csrf_token(), '_list_state_action' => 'apply'];
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_SERVER['REQUEST_URI'] = '/aluno';
         ob_start();
         try {
-            (new \Router())->dispatch('aluno', 'GET');
+            (new \Router())->dispatch('aluno', 'POST');
             $html = (string) ob_get_contents();
         } finally {
             ob_end_clean();

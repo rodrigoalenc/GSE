@@ -8,8 +8,15 @@ abstract class Controller
     protected function view(string $view, array $viewData = [], bool $useLayout = true): void
     {
         require_once ROOT_PATH . '/src/Core/NavigationContext.php';
-        $listPage = NavigationContext::route((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH));
-        if ($listPage !== null && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') { NavigationContext::remember($listPage, $_GET); }
+        require_once ROOT_PATH . '/src/Core/ListState.php';
+        $requestPath = trim((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
+        $basePath = trim((string) parse_url(url(''), PHP_URL_PATH), '/');
+        if ($basePath !== '' && ($requestPath === $basePath || str_starts_with($requestPath, $basePath . '/'))) {
+            $requestPath = trim(substr($requestPath, strlen($basePath)), '/');
+        }
+        $listPage = ListState::configured($requestPath) ? $requestPath : null;
+        $listStateToken = ListState::currentToken();
+        $listStateExpired = ListState::expired();
         $viewFile = ROOT_PATH . '/src/Views/' . trim($view, '/') . '.php';
 
         if (!is_file($viewFile)) {

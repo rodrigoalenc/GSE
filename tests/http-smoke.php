@@ -183,6 +183,17 @@ function csrf(string $html): string
     return $match[1];
 }
 
+/** @param array<string,mixed> $filters @return array{status:int,headers:array<string,string>,body:string} */
+function listRequest(string $baseUrl, string $path, string $cookie, array $filters): array
+{
+    $clean = request('GET', $baseUrl . '/' . ltrim($path, '/'), $cookie);
+    if ($clean['status'] !== 200) { return $clean; }
+    return request('POST', $baseUrl . '/' . ltrim($path, '/'), $cookie, $filters + [
+        '_csrf_token' => csrf($clean['body']),
+        '_list_state_action' => 'apply',
+    ]);
+}
+
 function hiddenValue(string $html, string $name, int $length = 64): string
 {
     $quoted = preg_quote($name, '/');
@@ -444,7 +455,7 @@ try {
         '_csrf_token' => csrf($contractDetails['body']), 'revisao' => '1', 'confirmar' => '1',
     ]);
     checkHttp($deletedContract['status'] === 302, 'Exclusão lógica HTTP de contrato');
-    $deletedList = request('GET', $baseUrl . '/contrato?situacao=excluidos&busca=Contrato%20HTTP', $cookieAdmin);
+    $deletedList = listRequest($baseUrl, 'contrato', $cookieAdmin, ['situacao'=>'excluidos','busca'=>'Contrato HTTP']);
     checkHttp($deletedList['status'] === 200 && str_contains($deletedList['body'], 'Contrato HTTP') && str_contains($deletedList['body'], 'excluído'), 'Contrato excluído localizado pela busca');
     checkHttp(request('GET', $baseUrl . '/contrato/editar/' . $contractId, $cookieAdmin)['status'] === 404, 'Contrato excluído não oferece edição');
     $reportPdf = request('GET', $baseUrl . '/relatorio/pdf', $cookieAdmin);
@@ -452,7 +463,8 @@ try {
     checkHttp(str_starts_with($reportPdf['headers']['content-disposition'] ?? '', 'inline;')
         && str_contains($reportPdf['headers']['content-type'] ?? '', 'application/pdf')
         && str_contains($reportPdf['headers']['cache-control'] ?? '', 'no-store'), 'PDF permite visualização no navegador sem cache dos dados');
-    $reportPdfDownload = request('GET', $baseUrl . '/relatorio/pdf?baixar=1', $cookieAdmin);
+    $reportPdfPage = request('GET', $baseUrl . '/relatorio', $cookieAdmin);
+    $reportPdfDownload = request('POST', $baseUrl . '/relatorio/pdf', $cookieAdmin, ['_csrf_token'=>csrf($reportPdfPage['body']),'baixar'=>'1','ativo'=>'1']);
     checkHttp($reportPdfDownload['status'] === 200 && str_starts_with($reportPdfDownload['body'], '%PDF-')
         && str_starts_with($reportPdfDownload['headers']['content-disposition'] ?? '', 'attachment;'), 'Download explícito do relatório PDF continua disponível');
     $reportPage = request('GET', $baseUrl . '/relatorio', $cookieAdmin);
@@ -474,8 +486,7 @@ try {
         'recebe_alertas_dva' => '1',
     ]);
     checkHttp($createdUser['status'] === 302 && str_contains($createdUser['headers']['location'] ?? '', '/usuario'), 'Criação administrativa de usuário');
-    $employeeAlertsListUrl = $baseUrl . '/usuario?q=' . rawurlencode('employee@example.test');
-    $employeeAlertsList = request('GET', $employeeAlertsListUrl, $cookieAdmin);
+    $employeeAlertsList = listRequest($baseUrl, 'usuario', $cookieAdmin, ['q'=>'employee@example.test']);
     checkHttp($employeeAlertsList['status'] === 200 && str_contains($employeeAlertsList['body'], 'Funcionário HTTP')
         && str_contains($employeeAlertsList['body'], '>Habilitados</span>'), 'Funcionário cadastrado com opt-in aparece com alertas DVA habilitados');
 
@@ -489,7 +500,7 @@ try {
         'confirmar_senha' => '',
     ]);
     checkHttp($editedUser['status'] === 302, 'Edição administrativa de usuário');
-    $employeeAlertsList = request('GET', $employeeAlertsListUrl, $cookieAdmin);
+    $employeeAlertsList = listRequest($baseUrl, 'usuario', $cookieAdmin, ['q'=>'employee@example.test']);
     checkHttp($employeeAlertsList['status'] === 200 && str_contains($employeeAlertsList['body'], 'Funcionário HTTP Editado')
         && str_contains($employeeAlertsList['body'], '>Desabilitados</span>'), 'Desmarcar alertas na edição desabilita o resumo para o funcionário');
 
@@ -535,8 +546,8 @@ try {
         && str_contains($profile['body'], 'WhatsApp do responsável'),
         'Perfil do aluno escapa HTML e exibe DVA'
     );
-    $unicodeSearch = request('GET', $baseUrl . '/aluno?q=' . rawurlencode('JOÃO'), $cookieAdmin);
-    $canonicalSearch = request('GET', $baseUrl . '/aluno?q=' . rawurlencode("JOA\u{0303}O"), $cookieAdmin);
+    $unicodeSearch = listRequest($baseUrl, 'aluno', $cookieAdmin, ['q'=>'JOÃO']);
+    $canonicalSearch = listRequest($baseUrl, 'aluno', $cookieAdmin, ['q'=>"JOA\u{0303}O"]);
     checkHttp(
         $unicodeSearch['status'] === 200 && str_contains($unicodeSearch['body'], 'João HTTP'),
         'Pesquisa de aluno reconhece caixa acentuada'
@@ -578,7 +589,7 @@ try {
     $profile = request('GET', $baseUrl . '/aluno/perfil/1', $cookieAdmin);
     checkHttp(str_contains($profile['body'], 'Arquivada') && str_contains($profile['body'], 'Renovação HTTP'), 'Histórico da DVA preservado');
 
-    $dvaFilter = request('GET', $baseUrl . '/dva?dva=a_vencer', $cookieAdmin);
+    $dvaFilter = listRequest($baseUrl, 'dva', $cookieAdmin, ['dva'=>'a_vencer']);
     checkHttp($dvaFilter['status'] === 200 && str_contains($dvaFilter['body'], 'Aluno HTTP Editado'), 'Semáforo e filtro de DVA integrados');
 
     $invalidStudentCsrf = request('POST', $baseUrl . '/aluno/status/1', $cookieAdmin, ['_csrf_token' => 'invalid', 'ativo' => '0']);
@@ -623,7 +634,7 @@ try {
         $passiveCreated['status'] === 302 && str_contains($passiveCreated['headers']['location'] ?? '', '/passivo/detalhes/1'),
         'Cadastro PRG no Arquivo Passivo'
     );
-    $passiveSearch = request('GET', $baseUrl . '/passivo?q=Jose', $cookieAdmin);
+    $passiveSearch = listRequest($baseUrl, 'passivo', $cookieAdmin, ['q'=>'Jose']);
     checkHttp($passiveSearch['status'] === 200 && str_contains($passiveSearch['body'], 'Jose HTTP Passivo'), 'Busca global do Arquivo Passivo');
     checkHttp(request('GET', $baseUrl . '/passivo/detalhes/999999', $cookieAdmin)['status'] === 404, 'ID passivo inexistente retorna 404');
 
@@ -640,7 +651,7 @@ try {
         '_csrf_token' => csrf($pendingEdit['body']), 'nome_completo' => 'Jose HTTP Passivo',
         'data_nascimento' => '2000-01-01', 'numero' => '', 'caixa' => 'CX-HTTP',
     ]);
-    $pendingList = request('GET', $baseUrl . '/passivo?localizacao=pendente', $cookieAdmin);
+    $pendingList = listRequest($baseUrl, 'passivo', $cookieAdmin, ['localizacao'=>'pendente']);
     $pendingExport = request('POST', $baseUrl . '/passivo/exportar', $cookieAdmin, [
         '_csrf_token' => csrf($pendingList['body']), 'caixa' => 'CX-HTTP',
     ]);
@@ -724,7 +735,7 @@ try {
     ]);
     checkHttp($formulaCreated['status'] === 302, 'Cadastro de valor para proteção de fórmula na exportação');
 
-    $tools = request('GET', $baseUrl . '/passivo?caixa=CX-HTTP', $cookieAdmin);
+    $tools = listRequest($baseUrl, 'passivo', $cookieAdmin, ['caixa'=>'CX-HTTP']);
     $invalidExportCsrf = request('POST', $baseUrl . '/passivo/exportar', $cookieAdmin, [
         '_csrf_token' => 'invalid',
         'caixa' => 'CX-HTTP',
@@ -774,7 +785,7 @@ try {
         'preview_token' => hiddenValue($importConfirmationPage['body'], 'preview_token'),
     ]);
     checkHttp($importConfirmed['status'] === 302, 'Importação CSV aditiva confirmada');
-    $csvSearch = request('GET', $baseUrl . '/passivo?caixa=CX-CSV', $cookieAdmin);
+    $csvSearch = listRequest($baseUrl, 'passivo', $cookieAdmin, ['caixa'=>'CX-CSV']);
     checkHttp($csvSearch['status'] === 200 && str_contains($csvSearch['body'], 'CSV HTTP')
         && !str_contains($csvSearch['body'], 'CSV sem posição'), 'CSV confirmado importa completos e rejeita linha sem posição');
     $passiveStatusGet = request('GET', $baseUrl . '/passivo/status/1', $cookieAdmin);
@@ -799,7 +810,7 @@ try {
     ]);
     checkHttp($missingStatus['status'] === 404, 'Alteração de ID passivo inexistente retorna 404');
 
-    $wrongMethod = request('POST', $baseUrl . '/dashboard', $cookieAdmin, ['_csrf_token' => csrf($dashboard['body'])]);
+    $wrongMethod = request('POST', $baseUrl . '/aluno/perfil/1', $cookieAdmin, ['_csrf_token' => csrf($dashboard['body'])]);
     checkHttp($wrongMethod['status'] === 405 && ($wrongMethod['headers']['allow'] ?? '') === 'GET', 'Método não permitido retorna 405 e Allow');
     checkHttp(request('GET', $baseUrl . '/rota-inexistente', $cookieAdmin)['status'] === 404, 'Rota inexistente retorna 404');
     $spoofed = request('GET', $baseUrl . '/login', $cookieEmployee, [], ['X-Forwarded-Proto: https', 'X-Forwarded-For: 203.0.113.8']);
@@ -837,7 +848,7 @@ try {
     );
     checkHttp(request('GET', $baseUrl . '/turma', $cookieEmployee)['status'] === 403, 'Funcionário não gerencia turmas');
 
-    $employeePassive = request('GET', $baseUrl . '/passivo?q=HTTP&caixa=CX-HTTP&ativo=todos', $cookieEmployee);
+    $employeePassive = listRequest($baseUrl, 'passivo', $cookieEmployee, ['q'=>'HTTP','caixa'=>'CX-HTTP','ativo'=>'todos']);
     checkHttp($employeePassive['status'] === 200 && str_contains($employeePassive['body'], 'Jose HTTP Passivo Editado'), 'Funcionário consulta, pesquisa e filtra o Arquivo Passivo');
     checkHttp(request('GET', $baseUrl . '/passivo/detalhes/1', $cookieEmployee)['status'] === 200, 'Funcionário detalha registro passivo');
 
@@ -913,8 +924,8 @@ try {
     $deletionAudit = $verification->query("SELECT actor_user_id, resource_type, resource_id FROM security_audit WHERE action = 'passive.deactivated' AND result = 'success' AND resource_id = " . $employeePassiveId . ' ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
     $employeeActorId = (int) $verification->query("SELECT id FROM usuarios WHERE email_lookup = '" . DataProtection::emailIndex('employee@example.test') . "'")->fetchColumn();
     checkHttp($deletionAudit !== false && (int) $deletionAudit['actor_user_id'] === $employeeActorId && (int) $deletedRecord['inativado_por'] === $employeeActorId && $deletionAudit['resource_type'] === 'passive_record', 'Auditoria identifica funcionário, ação e registro excluído');
-    $activeSearch = request('GET', $baseUrl . '/passivo?q=' . rawurlencode('Funcionário HTTP Editado'), $cookieEmployee);
-    $deletedSearch = request('GET', $baseUrl . '/passivo/inativos?caixa=CX-FUNC', $cookieEmployee);
+    $activeSearch = listRequest($baseUrl, 'passivo', $cookieEmployee, ['q'=>'Funcionário HTTP Editado']);
+    $deletedSearch = listRequest($baseUrl, 'passivo/inativos', $cookieEmployee, ['caixa'=>'CX-FUNC']);
     checkHttp(!str_contains($activeSearch['body'], 'class="passivo-name"') && str_contains($deletedSearch['body'], 'Funcionário HTTP Editado') && str_contains($deletedSearch['body'], 'value="CX-FUNC" selected'), 'Consultas padrão excluem o registro e consulta histórica mantém a caixa selecionável');
     $deletedDetails = request('GET', $baseUrl . '/passivo/detalhes/' . $employeePassiveId, $cookieEmployee);
     checkHttp($deletedDetails['status'] === 200 && !str_contains($deletedDetails['body'], 'Restaurar registro'), 'Funcionário consulta dados preservados sem ação de restauração');

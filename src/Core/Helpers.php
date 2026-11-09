@@ -116,6 +116,24 @@ function csrf_valido(mixed $token): bool
         && hash_equals($_SESSION['_csrf_token'], $token);
 }
 
+function list_state_fields(): string
+{
+    return '<input type="hidden" name="_csrf_token" value="' . e(csrf_token()) . '">'
+        . '<input type="hidden" name="_list_state_action" value="apply">';
+}
+
+/** @param array<mixed> $values */
+function list_state_hidden_fields(array $values, string $prefix = ''): string
+{
+    $html = '';
+    foreach ($values as $name => $value) {
+        $field = $prefix === '' ? (string) $name : $prefix . '[' . $name . ']';
+        if (is_array($value)) { $html .= list_state_hidden_fields($value, $field); continue; }
+        if (is_scalar($value)) { $html .= '<input type="hidden" name="' . e($field) . '" value="' . e((string) $value) . '">'; }
+    }
+    return $html;
+}
+
 function input_string(mixed $value): string
 {
     if (!is_string($value) && PHP_SAPI !== 'cli') {

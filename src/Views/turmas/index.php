@@ -10,7 +10,7 @@
 
 <section class="relatorio">
     <div class="section-head"><div><h2>Filtros</h2><p>Pesquise por nome e situação da turma.</p></div></div>
-    <form class="student-filters" method="get" action="<?= e(url('turma')) ?>" role="search">
+    <form class="student-filters" method="post" action="<?= e(url('turma')) ?>" role="search" data-list-state-form><?= list_state_fields() ?>
         <div><label for="q">Nome</label><input id="q" name="q" value="<?= e($search) ?>" maxlength="100" placeholder="Nome da turma"></div>
         <div>
             <label for="ativo">Situação</label>

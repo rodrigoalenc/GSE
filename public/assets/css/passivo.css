@@ -38,7 +38,8 @@
 .passivo-row-actions a { color: #16508f; font-weight: 750; }
 
 .passivo-box-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 16px; }
-.passivo-box-card { display: flex; min-height: 140px; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; background: #fff; border: 1px solid #dbe5f0; border-radius: 15px; box-shadow: 0 8px 20px rgba(15,36,64,.06); }
+.passivo-box-grid form { margin:0; }
+.passivo-box-card { display: flex; width:100%; min-height: 140px; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; background: #fff; border: 1px solid #dbe5f0; border-radius: 15px; box-shadow: 0 8px 20px rgba(15,36,64,.06); font:inherit; cursor:pointer; }
 .passivo-box-card:hover,
 .passivo-box-card:focus-visible { transform: translateY(-4px); border-color: #2c7ed6; box-shadow: 0 14px 28px rgba(15,36,64,.12); }
 .passivo-box-label { color: #69788c; font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
@@ -47,8 +48,9 @@
 .passivo-box-badge { display: inline-flex; padding: 5px 10px; color: #16508f; background: #eef6ff; border: 1px solid #cde2f8; border-radius: 999px; font-weight: 750; }
 
 .passivo-box-navigation { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin-bottom: 22px; }
-.passivo-box-navigation a { display: inline-flex; align-items: center; min-height: 38px; padding: 7px 12px; color: #16508f; background: #fff; border: 1px solid #dbe5f0; border-radius: 10px; }
-.passivo-box-navigation a.active { color: #fff; background: #16508f; border-color: #16508f; }
+.passivo-box-navigation form { margin:0; }
+.passivo-box-navigation button { display: inline-flex; align-items: center; min-height: 38px; padding: 7px 12px; color: #16508f; background: #fff; border: 1px solid #dbe5f0; border-radius: 10px; font:inherit; cursor:pointer; }
+.passivo-box-navigation button.active { color: #fff; background: #16508f; border-color: #16508f; }
 .passivo-name { color: #0c3566; font-weight: 750; }
 .passivo-pagination-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
 .passivo-page-summary { margin: 0; color: #526174; font-size: .9rem; }

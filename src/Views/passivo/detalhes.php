@@ -25,7 +25,7 @@ if ((int) $record['ativo'] === 1) {
         <div><dt>Origem</dt><dd><?php if ($record['aluno_origem_id']): ?><a href="<?= e(url('aluno/perfil/' . (int) $record['aluno_origem_id'])) ?>">Abrir cadastro do aluno de origem</a><?php else: ?>Cadastro manual<?php endif; ?></dd></div>
         <div><dt>Responsável pela atualização</dt><dd><?= e((string) ($record['atualizado_por_nome'] ?: 'Não informado')) ?></dd></div>
     </dl>
-    <div class="form-actions"><a class="btn-primary" href="<?= e(url('passivo/editar/' . (int) $record['id'])) ?>">Editar</a><a class="btn-secondary" href="<?= e(url('passivo?caixa=' . rawurlencode((string) $record['caixa']) . '&ativo=' . (int) $record['ativo'])) ?>">Voltar para a caixa</a></div>
+    <div class="form-actions"><a class="btn-primary" href="<?= e(url('passivo/editar/' . (int) $record['id'])) ?>">Editar</a><a class="btn-secondary context-return" href="<?= e(url('passivo')) ?>">Voltar para a caixa</a></div>
 </section>
 
 <section class="relatorio passivo-admin-panel">

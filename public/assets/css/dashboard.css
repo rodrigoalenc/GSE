@@ -16,6 +16,7 @@
     gap: 14px;
     margin-bottom: 22px;
 }
+.dashboard-summary-grid > form { min-width:0; margin:0; }
 .dashboard-number-card {
     display: grid;
     grid-template-columns: 30px minmax(0, 1fr);
@@ -29,6 +30,10 @@
     border: 1px solid #dbe5f0;
     border-radius: 10px;
     box-shadow: 0 2px 4px #0c356604;
+    width:100%;
+    font:inherit;
+    text-align:left;
+    cursor:pointer;
 }
 .dashboard-number-card > svg { grid-row: 1 / 3; width: 26px; height: 26px; color: #16508f; }
 .dashboard-number-card > span { align-self: end; color: #4f6177; font-size: .82rem; font-weight: 600; line-height: 1.35; }
@@ -132,6 +137,8 @@ details[open] > summary .dashboard-chevron::before { transform: rotate(225deg); 
 .dashboard-alert-content { padding: 0 18px 16px; color: #6d4c14; font-size: .83rem; }
 .dashboard-alert-content p { margin: 0 0 6px; }
 .dashboard-alert-content a { display: inline-block; margin-right: 12px; color: #16508f; font-weight: 600; text-decoration: underline; }
+.dashboard-alert-content form { display:inline; margin:0; }
+.dashboard-filter-link { padding:0; color:#16508f; background:transparent; border:0; font:inherit; font-weight:600; text-decoration:underline; cursor:pointer; }
 .dashboard-birthday-today {
     padding: 16px 18px;
     background: #fff1f7;

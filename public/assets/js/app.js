@@ -74,12 +74,12 @@ document.querySelectorAll('[data-contract-certificate-form]').forEach((form) => 
     update();
 });
 
-const certWorkspace = document.getElementById('cert-workspace');
-document.querySelectorAll('[data-cert-auto-submit]').forEach((select) => {
-    select.addEventListener('change', () => select.form.requestSubmit());
+document.addEventListener('change', (event) => {
+    const select = event.target.closest?.('[data-cert-auto-submit]');
+    if (select?.form) select.form.requestSubmit();
 });
 
-document.querySelectorAll('[data-cert-option-dialog]').forEach((content) => {
+const initCertOptionDialogs = (root = document) => root.querySelectorAll('[data-cert-option-dialog]').forEach((content) => {
     if (typeof HTMLDialogElement === 'undefined') return;
     const item = content.closest('details');
     const opener = item.querySelector('summary');
@@ -111,6 +111,8 @@ document.querySelectorAll('[data-cert-option-dialog]').forEach((content) => {
         }
     });
 });
+initCertOptionDialogs();
+document.addEventListener('gse:list-state-restored', () => initCertOptionDialogs());
 
 const certIssueDate = document.getElementById('data_emissao');
 const certPdfInput = document.querySelector('[data-pdf-input]');
@@ -169,8 +171,12 @@ if (certIssueDate && certExpiryDate && certValidityDays) {
     refreshValidity();
 }
 
-const certFullscreen = document.getElementById('cert-fullscreen');
-if (certWorkspace && certFullscreen) {
+let certFullscreenListener = null;
+const initCertFullscreen = () => {
+    const certWorkspace = document.getElementById('cert-workspace');
+    const certFullscreen = document.getElementById('cert-fullscreen');
+    if (!certWorkspace || !certFullscreen || certFullscreen.dataset.fullscreenReady === '1') return;
+    certFullscreen.dataset.fullscreenReady = '1';
     const status = document.getElementById('cert-fullscreen-status');
     const fullscreenIcon = certFullscreen.querySelector('.cert-icon');
     const fullscreenLabel = document.createTextNode(' Tela cheia');
@@ -208,7 +214,8 @@ if (certWorkspace && certFullscreen) {
             status.textContent = 'O navegador não permitiu a tela cheia. A consulta continua disponível.';
         }
     });
-    document.addEventListener('fullscreenchange', () => {
+    if (certFullscreenListener) document.removeEventListener('fullscreenchange', certFullscreenListener);
+    certFullscreenListener = () => {
         const active = document.fullscreenElement === certWorkspace;
         fullscreenBar.hidden = !active;
         if (!active && fullscreenFilters[0]) fullscreenFilters[0].click();
@@ -217,8 +224,11 @@ if (certWorkspace && certFullscreen) {
         status.textContent = active ? 'Pressione Esc para sair.' : '';
         if (active) (fullscreenFilters[0] || fullscreenBar.querySelector('[data-cert-fullscreen-exit]')).focus();
         else certFullscreen.focus();
-    });
-}
+    };
+    document.addEventListener('fullscreenchange', certFullscreenListener);
+};
+initCertFullscreen();
+document.addEventListener('gse:list-state-restored', initCertFullscreen);
 
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -240,16 +250,13 @@ document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     });
 });
 
-document.querySelectorAll('[data-confirm-status]').forEach((form) => {
-    form.addEventListener('submit', (event) => {
-        if (!window.confirm(form.dataset.confirmStatus)) {
-            event.preventDefault();
-        }
-    });
+document.addEventListener('submit', (event) => {
+    const form = event.target.closest?.('[data-confirm-status]');
+    if (form && !window.confirm(form.dataset.confirmStatus)) event.preventDefault();
 });
 
-document.querySelectorAll('[data-print-page]').forEach((button) => {
-    button.addEventListener('click', () => window.print());
+document.addEventListener('click', (event) => {
+    if (event.target.closest?.('[data-print-page]')) window.print();
 });
 document.querySelectorAll('[data-contract-item-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -489,12 +496,14 @@ if (contractTabs) {
     window.addEventListener('afterprint', () => { select(printIndex); followHash(false); window.scrollTo(0, printScroll); });
 }
 
-const reportGenerator = document.querySelector('[data-report-generator]');
-if (reportGenerator) {
+const initReportGenerator = (root = document) => {
+    const reportGenerator = root.querySelector('[data-report-generator]');
+    if (!reportGenerator || reportGenerator.dataset.reportGeneratorReady === '1') return;
+    reportGenerator.dataset.reportGeneratorReady = '1';
     const updateReportAction = () => {
         const format = reportGenerator.querySelector('[name="formato"]:checked')?.value;
         reportGenerator.action = format === 'csv' ? reportGenerator.dataset.csvUrl : reportGenerator.dataset.pdfUrl;
-        reportGenerator.target = format === 'csv' ? '_self' : '_blank';
+        reportGenerator.target = '_blank';
         const button = reportGenerator.querySelector('.btn-gerar');
         if (button) button.textContent = format === 'csv' ? 'Baixar CSV' : 'Visualizar PDF';
     };
@@ -504,15 +513,20 @@ if (reportGenerator) {
         if (event.submitter?.hasAttribute('formaction')) return;
         updateReportAction();
     });
-}
+};
+initReportGenerator();
+document.addEventListener('gse:list-state-restored', () => initReportGenerator());
 
 const studentSelectionKey = (scope) => `gse.passivo-lote.v1:${scope}`;
 document.querySelectorAll('[data-student-selection-reset]').forEach((marker) => {
     try { sessionStorage.removeItem(studentSelectionKey(marker.dataset.selectionScope)); } catch (_) { /* A seleção também pode funcionar apenas na página atual. */ }
 });
 
-const studentArchiveSelection = document.querySelector('[data-student-archive-selection]');
-if (studentArchiveSelection) {
+let restoreStudentArchiveSelection = () => {};
+const initStudentArchiveSelection = () => {
+    const studentArchiveSelection = document.querySelector('[data-student-archive-selection]');
+    if (!studentArchiveSelection || studentArchiveSelection.dataset.selectionReady === '1') return;
+    studentArchiveSelection.dataset.selectionReady = '1';
     const limit = Math.min(200, Math.max(1, Number(studentArchiveSelection.dataset.selectionLimit) || 200));
     const storageKey = studentSelectionKey(studentArchiveSelection.dataset.selectionScope);
     const checkboxes = [...document.querySelectorAll('[data-student-selection-id]')];
@@ -594,8 +608,8 @@ if (studentArchiveSelection) {
         refresh();
         if (selected.size === 0) { event.preventDefault(); summary.focus(); }
     });
-    window.addEventListener('pageshow', (event) => {
-        if (event.persisted && storageAvailable) {
+    restoreStudentArchiveSelection = (persisted = false) => {
+        if (persisted && storageAvailable) {
             try {
                 const parsed = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
                 selected.clear();
@@ -604,9 +618,12 @@ if (studentArchiveSelection) {
             } catch (_) { storageAvailable = false; }
         }
         refresh();
-    });
+    };
     refresh();
-}
+};
+initStudentArchiveSelection();
+document.addEventListener('gse:list-state-restored', initStudentArchiveSelection);
+window.addEventListener('pageshow', (event) => restoreStudentArchiveSelection(event.persisted));
 
 document.querySelectorAll('[data-archive-batch-box]').forEach((form) => {
     const mode = form.querySelector('[data-archive-box-mode]');

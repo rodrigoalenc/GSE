@@ -15,7 +15,7 @@ foreach ([$cookieAdmin, $cookieEmployee, $cookieGuest] as $automaticCookie) {
         checkHttp($removed['status'] === 404, 'Ferramentas e renumeração manual não possuem mais rota: ' . $method . $suffix);
     }
 }
-$automaticPage = request('GET', $baseUrl . '/passivo?caixa=CX-AUTOMATICA&ordem=numero', $cookieAdmin);
+$automaticPage = listRequest($baseUrl, 'passivo', $cookieAdmin, ['caixa'=>'CX-AUTOMATICA','ordem'=>'numero']);
 checkHttp($automaticPage['status'] === 200 && !str_contains($automaticPage['body'], '/passivo/ferramentas')
     && str_contains($automaticPage['body'], 'id="passivo-export-form"')
     && str_contains($automaticPage['body'], 'name="caixa" value="CX-AUTOMATICA"'),

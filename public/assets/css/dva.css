@@ -1,9 +1,10 @@
 .dva-page { min-width: 0; }
 .dva-page-description { margin: -9px 0 22px; color: #61748b; font-size: 13px; }
 .dva-status-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-.dva-status-tabs a { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 19px; border: 1px solid #c7d7e9; border-radius: 6px; background: #fff; color: #244463; font-size: 12px; font-weight: 600; line-height: 1.4; }
-.dva-status-tabs a:hover { border-color: #16508f; background: #f6faff; color: #16508f; }
-.dva-status-tabs a.active { background: #16508f; border-color: #16508f; color: #fff; }
+.dva-status-tabs form { margin: 0; }
+.dva-status-tabs button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 19px; border: 1px solid #c7d7e9; border-radius: 6px; background: #fff; color: #244463; font-size: 12px; font-weight: 600; line-height: 1.4; cursor: pointer; }
+.dva-status-tabs button:hover { border-color: #16508f; background: #f6faff; color: #16508f; }
+.dva-status-tabs button.active { background: #16508f; border-color: #16508f; color: #fff; }
 .dva-workspace { min-width: 0; padding: 22px; border: 1px solid #dbe5f0; border-radius: 10px; background: #fff; box-shadow: 0 2px 4px #0c356604; }
 .dva-page .dva-filters { display: grid; grid-template-columns: minmax(220px, 1.8fr) minmax(160px, 1fr) auto; align-items: end; gap: 16px; margin: 0 0 24px; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .dva-filters > div { min-width: 0; }
@@ -44,13 +45,13 @@
 @media (max-width: 1050px) {
     .dva-page .dva-filters { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; }
     .dva-page .dva-filters .filter-actions { grid-column: 1 / -1; }
-    .dva-status-tabs a { padding: 9px 15px; }
+    .dva-status-tabs button { padding: 9px 15px; }
 }
 @media (max-width: 600px) {
     .dva-page-description { margin: -6px 0 18px; font-size: 12px; }
     .dva-workspace { padding: 16px; }
     .dva-status-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-bottom: 16px; }
-    .dva-status-tabs a { min-width: 0; padding: 10px 6px; font-size: 11px; }
+    .dva-status-tabs button { min-width: 0; padding: 10px 6px; font-size: 11px; }
     .dva-page .dva-filters { grid-template-columns: minmax(0, 1fr); margin-bottom: 20px; }
     .dva-page .dva-filters .filter-actions { grid-column: auto; }
     .dva-page .dva-filters .filter-actions > * { flex: 1; }

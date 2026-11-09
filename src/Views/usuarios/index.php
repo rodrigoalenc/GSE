@@ -1,6 +1,6 @@
 <div class="usuarios-toolbar relatorio">
     <a class="btn-primary" href="<?= e(url('usuario/criar')) ?>">+ Novo Usuário</a>
-    <form class="usuario-search" method="get" action="<?= e(url('usuario')) ?>" role="search">
+    <form class="usuario-search" method="post" action="<?= e(url('usuario')) ?>" role="search" data-list-state-form><?= list_state_fields() ?>
         <label class="visually-hidden" for="q">Pesquisar por nome ou e-mail</label>
         <input id="q" name="q" value="<?= e($termo) ?>" placeholder="Pesquisar por nome ou e-mail" maxlength="100">
         <button class="btn-secondary" type="submit">Pesquisar</button>

@@ -51,7 +51,7 @@ $stockActionInitialUrl=$baseUrl.'/estoque/iniciar/'.$stockActionProduct.$stockAc
 $stockActionReceiveUrl=$baseUrl.'/estoque/receber/'.$stockActionProduct.$stockActionSuffix;
 $stockActionConsumeUrl=$baseUrl.'/estoque/consumir/'.$stockActionProduct.$stockActionSuffix;
 $stockActionAlertsUrl=$baseUrl.'/estoque/alertas/'.$stockActionProduct.$stockActionSuffix;
-$stockActionList=request('GET',$baseUrl.'/estoque'.$stockActionSuffix,$cookieEmployee);
+$stockActionList=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Pedido HTTP controle simples de estoque','pagina'=>'1']);
 $stockActionHeaders=(new DOMXPath(stockActionDocument($stockActionList['body'])))->query('//table/thead/tr/th');
 $stockActionHeaderNames=[];
 foreach ($stockActionHeaders ?: [] as $stockActionHeader) { $stockActionHeaderNames[]=trim($stockActionHeader->textContent); }
@@ -90,7 +90,7 @@ checkHttp($stockActionConfirmed['status']===302 && str_contains($stockActionConf
     && $stockActionBalance()===20 && (int)$stockActionConfigured['estoque_inicializado']===1
     && $stockActionConfigured['estoque_minimo']===null && $stockActionConfigured['estoque_maximo']===null,
     'Confirmar quantidade inicial registra vinte unidades sem exigir limites e preserva a busca no retorno');
-$stockActionAfterInitial=request('GET',$baseUrl.'/estoque'.$stockActionSuffix,$cookieEmployee);
+$stockActionAfterInitial=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Pedido HTTP controle simples de estoque','pagina'=>'1']);
 checkHttp(!str_contains($stockActionAfterInitial['body'],'estoque/iniciar/'.$stockActionProduct.'?')
     && str_contains($stockActionAfterInitial['body'],'estoque/receber/'.$stockActionProduct)
     && str_contains($stockActionAfterInitial['body'],'estoque/consumir/'.$stockActionProduct)
@@ -139,7 +139,7 @@ checkHttp($stockActionAlerts['status']===200 && str_contains($stockActionAlerts[
 $stockActionAlertSave=request('POST',$stockActionAlertsUrl,$cookieEmployee,array_replace(stockActionFields($stockActionAlerts['body']),['minimo'=>'24','maximo'=>'']));
 $stockActionAlertState=$stockActionDb->query('SELECT estoque_minimo,estoque_maximo FROM pedido_produtos WHERE id='.$stockActionProduct)->fetch();
 checkHttp($stockActionAlertSave['status']===302 && (int)$stockActionAlertState['estoque_minimo']===24 && $stockActionAlertState['estoque_maximo']===null
-    && str_contains(request('GET',$baseUrl.'/estoque'.$stockActionSuffix,$cookieEmployee)['body'],'Estoque baixo'),'Mínimo opcional sinaliza estoque baixo sem configurar bloqueio máximo');
+    && str_contains(listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Pedido HTTP controle simples de estoque','pagina'=>'1'])['body'],'Estoque baixo'),'Mínimo opcional sinaliza estoque baixo sem configurar bloqueio máximo');
 $stockActionAlerts=request('GET',$stockActionAlertsUrl,$cookieEmployee);
 $stockActionBadCap=request('POST',$stockActionAlertsUrl,$cookieEmployee,array_replace(stockActionFields($stockActionAlerts['body']),['minimo'=>'0','maximo'=>'23']));
 checkHttp($stockActionBadCap['status']===200 && stockActionFields($stockActionBadCap['body'])['maximo']==='23'

@@ -56,7 +56,7 @@ $lastResult = min((int) $result['total'], $firstResult + count($result['items'])
 
 <div class="students-detail-layout">
 <section class="relatorio students-list-card" aria-label="Lista de alunos">
-    <form class="student-filters" method="get" action="<?= e(url('aluno')) ?>" role="search">
+    <form class="student-filters" method="post" action="<?= e(url('aluno')) ?>" role="search" data-list-state-form><?= list_state_fields() ?>
         <div>
             <label for="q">Buscar por nome</label>
             <input id="q" name="q" value="<?= e($filters['q']) ?>" maxlength="100" placeholder="Nome do aluno">

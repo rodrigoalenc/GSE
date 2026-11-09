@@ -62,7 +62,10 @@ final class TemplateSecurityTest extends TestCase
         $this->assertStringContainsString('data-sidebar-toggle', $layout);
         $this->assertStringContainsString('@media (max-width: 390px)', $studentsCss);
         $this->assertStringNotContainsString('dashboard-hero', $dashboard);
-        $this->assertSame(4, substr_count($dashboard, 'class="dashboard-number-card'));
+        $this->assertSame(2, substr_count($dashboard, 'class="dashboard-number-card'));
+        $this->assertStringContainsString("['sem_dva','missing'", $dashboard);
+        $this->assertStringContainsString("['vencida','expired'", $dashboard);
+        $this->assertStringContainsString("['a_vencer','due'", $dashboard);
         $this->assertStringContainsString('grid-template-columns: repeat(4, minmax(0, 1fr))', $dashboardCss);
         $this->assertStringContainsString('@media (max-width: 600px)', $dashboardCss);
         $this->assertStringContainsString('relatorio form-container', $studentForm);

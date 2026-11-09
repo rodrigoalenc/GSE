@@ -151,8 +151,12 @@ final class DashboardUsabilidadeTest extends DatabaseTestCase
         $xpath = $this->dashboard($filters);
         $this->assertSame(15, $xpath->query('//*[@id="dashboard-search-results"]//tbody/tr')->length);
         $this->assertStringContainsString('17 aluno(s)', $xpath->evaluate('string(//*[@id="dashboard-search-results"])'));
-        $next = $xpath->evaluate('string(//*[@id="dashboard-search-results"]//a[@rel="next"]/@href)');
-        parse_str((string) parse_url($next, PHP_URL_QUERY), $query);
+        $next = $xpath->query('//*[@id="dashboard-search-results"]//form[button[@rel="next"]]')->item(0);
+        $this->assertNotNull($next);
+        $query = [];
+        foreach ($xpath->query('.//input[@type="hidden"]', $next) as $input) {
+            if (!str_starts_with($input->getAttribute('name'), '_')) { $query[$input->getAttribute('name')] = $input->getAttribute('value'); }
+        }
         $this->assertSame($filters + ['page' => '2'], $query);
 
         $second = $this->dashboard($query);
@@ -180,7 +184,7 @@ final class DashboardUsabilidadeTest extends DatabaseTestCase
         $this->assertSame(3, (int) $this->pdo->query('SELECT COUNT(*) FROM alunos')->fetchColumn());
     }
 
-    public function testBuscaFuncionaPorGetParaAmbosPerfisSemDadosDeContato(): void
+    public function testBuscaFuncionaPorPostParaAmbosPerfisSemDadosDeContato(): void
     {
         $class = $this->insertTurma();
         $id = $this->student('Aluno perfil permitido', $class);
@@ -188,7 +192,7 @@ final class DashboardUsabilidadeTest extends DatabaseTestCase
         foreach (['administrador', 'funcionario'] as $role) {
             $this->authenticate($role);
             $xpath = $this->dashboard(['q' => 'perfil permitido']);
-            $this->assertSame('get', $xpath->evaluate('string(//form[@id="dashboard-search-form"]/@method)'));
+            $this->assertSame('post', $xpath->evaluate('string(//form[@id="dashboard-search-form"]/@method)'));
             $this->assertSame('q', $xpath->evaluate('string(//form[@id="dashboard-search-form"]//input[@type="search"]/@name)'));
             $this->assertSame('Buscar alunos', $xpath->evaluate('string(//form[@id="dashboard-search-form"]//button[@type="submit"])'));
             $this->assertSame(1, $xpath->query('//*[@id="dashboard-search-results"]//tbody/tr')->length);
@@ -225,7 +229,9 @@ final class DashboardUsabilidadeTest extends DatabaseTestCase
         $this->pdo->prepare('INSERT INTO certidoes(id_fornecedor,id_tipo_certidao,data_emissao,data_vencimento,arquivado,status) VALUES(?,?,?,?,0,1)')
             ->execute([$supplier, $type, '1999-01-01', $today]);
         $xpath = $this->dashboard(['q' => '']);
-        $this->assertSame(\url('certidao?validade=vence_hoje'), $xpath->evaluate('string(//*[contains(@class,"dashboard-alert-content")]//a/@href)'));
+        $form = $xpath->query('//*[contains(@class,"dashboard-alert-content")]//form[input[@name="validade"][@value="vence_hoje"]]')->item(0);
+        $this->assertNotNull($form);
+        $this->assertSame(\url('certidao'), $xpath->evaluate('string(@action)', $form));
     }
 
     public function testCardDvaAVencerAbreFiltroCorrespondenteASuaContagem(): void
@@ -236,8 +242,9 @@ final class DashboardUsabilidadeTest extends DatabaseTestCase
         $this->student('Vence hoje', $class, '2010-01-01', true, $today->format('Y-m-d'));
         $this->student('Vence amanhã', $class, '2010-01-01', true, $today->modify('+1 day')->format('Y-m-d'));
         $xpath = $this->dashboard(['q' => '']);
-        $link = $xpath->query('//a[contains(@class,"dashboard-number-card") and contains(@class,"due")]')->item(0);
-        $this->assertSame(\url('dva?dva=a_vencer'), $xpath->evaluate('string(@href)', $link));
+        $link = $xpath->query('//form[input[@name="dva"][@value="a_vencer"]]/button[contains(@class,"dashboard-number-card") and contains(@class,"due")]')->item(0);
+        $this->assertNotNull($link);
+        $this->assertSame(\url('dva'), $xpath->evaluate('string(../@action)', $link));
         $this->assertSame('1', $xpath->evaluate('string(strong)', $link));
     }
 

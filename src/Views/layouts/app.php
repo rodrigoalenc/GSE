@@ -94,7 +94,7 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
     <?php if ($dvaActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/dva.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/dva.css'), 0, 12))) ?>"><?php endif; ?>
     <?php if ($currentPath === 'aluno'): ?><link rel="stylesheet" href="<?= e(url('assets/css/alunos-preview.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/alunos-preview.css'), 0, 12))) ?>"><?php endif; ?>
 </head>
-<body data-draft-endpoint="<?= e(url('formulario/rascunho')) ?>" data-list-context="<?= e(json_encode(NavigationContext::links(), JSON_THROW_ON_ERROR)) ?>" data-list-page="<?= e($listPage ?? '') ?>">
+<body data-draft-endpoint="<?= e(url('formulario/rascunho')) ?>" data-list-context="<?= e(json_encode(NavigationContext::links(), JSON_THROW_ON_ERROR)) ?>" data-list-page="<?= e($listPage ?? '') ?>" data-list-state-token="<?= e($listStateToken ?? '') ?>" data-list-state-expired="<?= !empty($listStateExpired) ? '1' : '0' ?>">
 <a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
 <div class="layout-container">
     <aside class="sidebar" aria-label="Menu principal">
@@ -176,5 +176,6 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
 <script src="<?= e(url('assets/js/app.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/app.js'), 0, 12))) ?>"></script>
 <script src="<?= e(url('assets/js/usabilidade.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/usabilidade.js'), 0, 12))) ?>"></script>
 <?php if ($currentPath === 'aluno'): ?><script src="<?= e(url('assets/js/alunos-preview.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/alunos-preview.js'), 0, 12))) ?>"></script><?php endif; ?>
+<script src="<?= e(url('assets/js/list-state.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/list-state.js'), 0, 12))) ?>"></script>
 </body>
 </html>

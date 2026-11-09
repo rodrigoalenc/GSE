@@ -11,8 +11,10 @@ $privacyProfile = request('GET',$baseUrl.'/aluno/perfil/'.$privacyStudent,$cooki
 checkHttp($privacyProfile['status']===200 && str_contains($privacyProfile['body'],'Aluno política HTTP')
     && str_contains($privacyProfile['body'],'OBSERVACAO_DVA_HTTP') && str_contains($privacyProfile['body'],'Histórico de DVAs'),
     'Funcionário consulta a DVA e o histórico no perfil do aluno');
-foreach (['/dva?dva=vigente','/aluno?dva=vigente','/dashboard?dva=vigente','/aluno/perfil/'.$privacyStudent] as $privacyPath) {
-    $privacyPage=request('GET',$baseUrl.$privacyPath,$cookieEmployee);
+foreach (['dva','aluno','dashboard','aluno/perfil/'.$privacyStudent] as $privacyPath) {
+    $privacyPage=$privacyPath==='aluno/perfil/'.$privacyStudent
+        ? request('GET',$baseUrl.'/'.$privacyPath,$cookieEmployee)
+        : listRequest($baseUrl,$privacyPath,$cookieEmployee,['dva'=>'vigente']);
     checkHttp($privacyPage['status']===200 && !preg_match('/65988881234|65988884321|Contatos Registrados/',$privacyPage['body']),
         'Consulta de DVA mantém os contatos protegidos: '.$privacyPath);
 }

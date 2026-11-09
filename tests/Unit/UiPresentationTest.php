@@ -65,14 +65,15 @@ final class UiPresentationTest extends TestCase
         $document = new DOMDocument();
         @$document->loadHTML($html);
         $xpath = new DOMXPath($document);
-        self::assertLessThanOrEqual(9, $xpath->query('//nav/a')->length);
-        self::assertSame(1, $xpath->query('//a[@aria-current="page"]')->length);
-        self::assertSame('5000', $xpath->query('//a[@aria-current="page"]')->item(0)->textContent);
-        foreach ($xpath->query('//nav/a') as $link) {
-            self::assertStringContainsString('turma=3&', $link->getAttribute('href'));
+        self::assertLessThanOrEqual(9, $xpath->query('//nav/form')->length);
+        self::assertSame(1, $xpath->query('//button[@aria-current="page"]')->length);
+        self::assertSame('5000', $xpath->query('//button[@aria-current="page"]')->item(0)->textContent);
+        foreach ($xpath->query('//nav/form') as $form) {
+            self::assertStringNotContainsString('?', $form->getAttribute('action'));
+            self::assertSame('3', $xpath->evaluate('string(.//input[@name="turma"]/@value)', $form));
         }
-        self::assertStringContainsString('page=1"', $html);
-        self::assertStringContainsString('page=10000"', $html);
+        self::assertStringContainsString('name="page" value="1"', $html);
+        self::assertStringContainsString('name="page" value="10000"', $html);
     }
 
     public function testUserPasswordErrorsHaveOneMessageInEitherFormBranch(): void
