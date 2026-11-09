@@ -1,19 +1,19 @@
 # Atualização técnica e rastreabilidade
 
-Data: 22/10/2026. Esta atualização acompanha a documentação acadêmica original e substitui instruções técnicas antigas conflitantes. O manual de usuário e o instrumento de avaliação vigentes estão nos arquivos MANUAL-USUARIO.md e AVALIACAO-USABILIDADE.md desta pasta.
+Revisão: 09/11/2026. Esta atualização acompanha a documentação acadêmica original e substitui instruções técnicas antigas conflitantes. O manual de usuário e o instrumento de avaliação vigentes estão nos arquivos MANUAL-USUARIO.md e AVALIACAO-USABILIDADE.md desta pasta.
 
 ## Situação implementada
 
 O GSE implementa MVC em PHP, interface HTML/CSS/JavaScript e persistência SQLite. Os módulos de login/usuários, alunos/turmas/DVA, arquivo passivo, certidões/fornecedores, contratos/estoque e relatórios estão presentes. Não se deve descrever o backend e os testes já implementados como trabalhos futuros. A homologação institucional continua sendo uma etapa distinta.
 
-O esquema atual é **21**. As versões 12–20 continuam sendo marcos históricos: arquivo passivo, certidões, contratos/estoque, proteção de dados, aditivos e movimentação/progressão anual. A v21 acrescenta revisões de edição e índices. Instruções que esperavam 16, 17 ou 18 como versão atual ficam substituídas por 21. Migrações são exclusivamente CLI; HTTP não altera o esquema.
+O esquema atual é **22**. As versões 12–20 continuam sendo marcos históricos: arquivo passivo, certidões, contratos/estoque, proteção de dados, aditivos e movimentação/progressão anual. A v21 acrescenta revisões de edição e índices; a v22 acrescenta os vínculos e o histórico escolar usados nas movimentações. Instruções que esperavam 16, 17, 18 ou 21 como versão atual ficam substituídas por 22. Migrações são exclusivamente executadas pelos comandos explícitos de instalação/migração; HTTP, manutenção e notificações apenas recusam uma base incompatível.
 
 ## Matriz de requisitos e validação
 
 | Requisito/caso de uso | Implementação | Evidência técnica | Aceite institucional |
 |---|---|---|---|
 | RF001 / UC001 alunos | Cadastro, edição, status e movimentação com histórico/revisão | ModuleTwo, StudentIntegrityRevision, ProgressaoAnual e HTTP/browser | Conferir fluxo da secretaria |
-| RF002/RF003 DVA | Histórico, critérios compartilhados, filtros, painel e relatórios | DvaClassificationConsistency, DvaStatus, Relatorio | Conferir prazos e responsáveis |
+| RF002/RF003 DVA | Histórico, critérios compartilhados, filtros, painel e relatórios; renovação confere a versão exibida e usa recibo idempotente | DvaClassificationConsistency, DvaStatus, Relatorio, DvaModel e HTTP concorrente | Conferir prazos e responsáveis |
 | RF004 / UC004 passivo | Localização, pendências legadas, importação/arquivamento e preservação | Passivo, PassiveMigration e browser autenticado | Conferir caixas e numeração física |
 | RF005 / UC005 certidões | Fornecedores, tipos, PDFs privados, histórico e vigência | Certidao, CertidaoMigration, HTTP/downloads | Validar atores e documentos |
 | RF006 notificações | Serviços CLI, transporte SMTP e controle diário | DvaNotification e CertidaoNotification | SMTP e agendador reais |
@@ -21,7 +21,7 @@ O esquema atual é **21**. As versões 12–20 continuam sendo marcos histórico
 | RF008 / UC006 contratos/estoque | Valores em centavos, revisão, recebimento, consumo e estorno | StockWorkflow, SqliteTransaction e HTTP/browser | Conferir operação física/documental |
 | UC002/UC003 login e contas | Perfis, senha temporária, Argon2id, sessão e limites | Authentication, PasswordSecurity e browser senha | Definir recuperação e revogação |
 | UC007 relatórios | Filtros, PDF/CSV e downloads | Relatorio, HTTP e browser downloads | Autorizar circulação de dados |
-| NF001 responsividade | Layout adaptativo, teclado e menu fixável | Browser desktop/celular/paisagem | Zoom, leitor de tela e tarefas reais |
+| NF001 responsividade | Layout adaptativo, teclado e menu lateral permanente no computador | Browser desktop/celular/paisagem | Zoom, leitor de tela e tarefas reais |
 | NF002/NF004 tecnologias/MVC | PHP, JavaScript, SQLite e separação MVC | Lint, PHPStan e revisão | Sem mudança de stack exigida |
 | NF003 intranet | Nginx/PHP-FPM, HTTPS e configuração institucional | Exemplo servidor e ensaio HTTP local | Servidor efetivo e carga |
 | NF005 senhas | Hash Argon2id; não criptografia reversível | PasswordPolicy e PasswordSecurity | Política e recuperação de acesso |
@@ -33,6 +33,8 @@ Funcionários têm acesso operacional compartilhado; ações administrativas sã
 Retirar um registro da lista ativa preserva seu histórico. Quantidade contratada, quantidade física e faturamento são conceitos distintos. Restauração e reativação devem manter consistência de vínculo entre aluno e passivo. Prévia não representa gravação; a confirmação revalida dados e permissões.
 
 As divergências históricas entre termos de exclusão, atores e importação substitutiva/aditiva devem ser apresentadas ao responsável acadêmico/institucional com esta descrição do comportamento efetivo. Não foi inventada uma aprovação dessas decisões.
+
+Os filtros das telas de consulta são enviados por POST e armazenados temporariamente na sessão do servidor. A paginação e o histórico do navegador usam identificadores opacos por aba, mantendo endereços como `/passivo`, sem o nome pesquisado na URL. Esse mecanismo reduz exposição acidental em histórico, favoritos e logs de URL, mas não substitui autenticação, autorização ou a proteção do servidor.
 
 ## Privacidade documental
 

@@ -13,7 +13,7 @@ Funcionários e administradores podem consultar, registrar e renovar declaraçõ
 
 ## Encontrar as funções
 
-O menu reúne Painel, Alunos, Arquivo Passivo, Certidões, Pedidos, Estoque e Relatórios. As opções administrativas aparecem conforme seu perfil. No computador, os nomes ficam visíveis por padrão; a opção de soltar/fixar o menu guarda sua preferência. No celular, abra Menu de funções e escolha a opção pelo nome. A tecla Tab percorre os controles; Enter aciona links e botões. O primeiro atalho permite pular diretamente para o conteúdo.
+O menu reúne Painel, Alunos, Arquivo Passivo, Certidões, Pedidos, Estoque e Relatórios. As opções administrativas aparecem conforme seu perfil. No computador, o menu lateral e os nomes permanecem visíveis. No celular, abra Menu de funções e escolha a opção pelo nome. A tecla Tab percorre os controles; Enter aciona links e botões. O primeiro atalho permite pular diretamente para o conteúdo.
 
 No painel, Buscar em todos os alunos consulta os campos autorizados da base, inclusive nomes sem acento. Confira turma, nascimento e situação para distinguir homônimos. A busca e os aniversariantes são paginados. Os grupos de DVA aparecem somente para quem tem autorização e mostram uma amostra com acesso à lista completa. No estoque, cada produto informa a situação e a ação disponível. Ao voltar de um cadastro, use Voltar à lista com os filtros para retomar a consulta.
 

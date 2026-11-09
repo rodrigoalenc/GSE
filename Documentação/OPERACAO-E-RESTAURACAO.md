@@ -1,6 +1,6 @@
 # Implantação, recuperação e operação do GSE
 
-Revisão 24/10/2026. Esquema atual: 22. Este procedimento exige operador responsável e execução inicial em homologação. Execute a manutenção como o proprietário do banco e das chaves; no servidor configurado para www-data, use `sudo -u www-data php ...`. Não contém credenciais e não autoriza apagar arquivos institucionais.
+Revisão 09/11/2026. Esquema atual: 22. Este procedimento exige operador responsável e execução inicial em homologação. Execute a manutenção como o proprietário do banco e das chaves; no servidor configurado para www-data, use `sudo -u www-data php ...`. Não contém credenciais e não autoriza apagar arquivos institucionais.
 
 ## Preparar o ambiente
 
@@ -44,6 +44,12 @@ Pare escritores antes de obter o conjunto consistente banco/PDF. Guarde um manif
 ## Agendamento e observabilidade
 
 Agende bin/maintenance.php diariamente e monitore código de saída. Configure as notificações DVA/certidões com SMTP institucional protegido e destinatários aprovados; habilite as flags somente após ensaio. Confirme execução diária, erro de transporte, retentativas e ausência de duplicação diária em condições normais. Não execute testes enviando mensagens para destinatários reais sem uma tarefa institucional específica.
+
+`bin/maintenance.php`, `bin/notify-dva.php`, `bin/notify-certidoes.php` e `bin/certidoes-maintenance.php` exigem que o banco já esteja no esquema atual. Se houver migração pendente, a rotina termina com erro antes de executar a tarefa; ela não deve ser usada para atualizar o esquema. Mantenha a migração na janela controlada descrita acima.
+
+Nas listas, filtros e paginação ficam temporariamente na sessão do usuário, e não na URL. O botão Voltar e abas diferentes dependem dessa sessão; estados antigos expiram e retornam aos filtros padrão com aviso. Isso evita registrar termos pesquisados na URL, mas os dados continuam exigindo HTTPS, controle de acesso, proteção de sessão e retenção adequada dos logs.
+
+A renovação de DVA compara, dentro da transação, a declaração que o operador visualizou com a declaração corrente. Em conflito, o operador precisa revisar a versão mais recente; a repetição do mesmo envio usa recibo idempotente e não cria outra renovação no histórico.
 
 Monitore erros HTTP, database_busy, falhas de backup/limpeza, espaço livre, tarefas atrasadas e falhas SMTP. O logger registra identificador de requisição e cadeia estrutural de causas; não registra mensagens arbitrárias, argumentos ou formulário. Defina responsável e ação para cada alerta. Conserve auditoria e logs conforme retenção aprovada.
 
