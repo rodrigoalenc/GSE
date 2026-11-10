@@ -107,8 +107,8 @@
         }).catch(()=>{status.textContent='Recuperação de rascunho indisponível. O formulário continua funcionando; mantenha a tela aberta enquanto preenche.';});
     });
     document.addEventListener('submit',event=>{
-        if (event.defaultPrevented || !event.target.checkValidity()) return;
         const submitter=event.submitter;
+        if (event.defaultPrevented || (!submitter?.formNoValidate && !event.target.noValidate && !event.target.checkValidity())) return;
         const target=submitter?.formTarget || event.target.target;
         if (target==='_blank' || submitter?.hasAttribute('data-submit-download') || event.target.hasAttribute('data-submit-download')) return;
         navigating=true; entries.forEach(entry=>clearTimeout(entry.timer));

@@ -47,11 +47,13 @@ Para transferir entre turmas, abra o perfil e escolha Transferir entre turmas. A
 ## Arquivo Passivo
 
 1. Pesquise pelo nome, número da pasta ou caixa. Abra o resultado para conferir localização.
-2. No cadastro avulso, informe nome, caixa e número/posição física. Registros antigos incompletos continuam sinalizados até conferência.
+2. Em **Novo Registro**, escolha **Selecionar caixa existente** ou **Criar próxima caixa** antes de preencher nome e nascimento. A próxima caixa recebe seu número automaticamente ao salvar. O sistema ordena os nomes de cada caixa sem distinguir acentos ou maiúsculas e recalcula os números dos alunos em uma sequência global, começando em 1; incluir um aluno em uma caixa anterior desloca os números das caixas seguintes. Confira a nova relação para organizar as pastas físicas. Nenhum aluno é movido de caixa.
 3. Para muitos alunos, o administrador pode usar importação CSV ou arquivamento em lote, sempre com prévia antes de gravar.
 4. Excluir da lista ativa preserva o histórico. A restauração é administrativa.
 5. Para retornar um aluno vinculado ao cadastro original, o administrador abre os detalhes e escolhe Retornar à escola. Selecione uma turma ativa, confira a prévia e confirme. O sistema retira o vínculo passivo ativo e reativa o aluno na mesma operação, preservando o histórico. Um registro passivo avulso sem vínculo original não pode ser retornado automaticamente: confira a identidade e a origem cadastral com o responsável antes de criar ou associar cadastros.
 6. Para exportar a relação física, escolha uma caixa e use Exportar lista da caixa (TXT).
+
+A sequência do cadastro avulso também inclui registros excluídos logicamente, preservados no acervo; por isso, a consulta que oculta esses registros pode mostrar intervalos. Registros históricos sem caixa e sem número continuam pendentes até conferência. Se a gravação falhar, o novo registro e todos os ajustes de numeração são desfeitos juntos. Cancelar a seleção de uma nova caixa não cria uma caixa vazia.
 
 ## Certidões e fornecedores
 

@@ -21,28 +21,73 @@ final class PassivoController extends Controller
 
     public function criar(): void
     {
-        $state = $this->consumeFormState('create');
-        $data = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+        $model = new Passivo();
+        $posting = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+        $source = $posting ? $_POST : $_GET;
+        $providedFlow = isset($source['fluxo']);
+        $flow = $providedFlow ? input_string($source['fluxo']) : bin2hex(random_bytes(16));
+        if (preg_match('/^[a-f0-9]{32}$/D', $flow) !== 1) {
+            render_http_error(422, 'Solicitação inválida', 'Reabra o Novo Registro para escolher a caixa.', 'passivo');
+        }
+        $stateKey = $providedFlow ? 'create_' . $flow : 'create';
+        $returnPath = 'passivo/criar' . ($providedFlow ? '?fluxo=' . $flow : '');
+        $state = $this->consumeFormState($stateKey);
+        $data = $posting
             ? $this->formData() : (is_array($state['data'] ?? null) ? $state['data'] : $this->formData());
+        if ($posting || isset($_GET['tipo_caixa'])) {
+            $data['tipo_caixa'] = mb_substr(input_string($source['tipo_caixa'] ?? ''), 0, 20, 'UTF-8');
+            $data['caixa'] = mb_substr(input_string($source['caixa'] ?? ''), 0, Passivo::BOX_MAX_LENGTH + 1, 'UTF-8');
+        }
         $errors = is_array($state['errors'] ?? null) ? array_values(array_map('strval', $state['errors'])) : [];
 
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $model = new Passivo();
-            $id = $model->cadastrar($data, $this->actorId(), input_string($_POST['_request_token'] ?? ''));
+        if ($posting) {
+            if (input_string($_POST['escolher_caixa'] ?? '') === '1') {
+                $this->storeFormState($stateKey, $data, []);
+                redirect($returnPath . ($providedFlow ? '&' : '?') . 'escolher_caixa=1');
+            }
+            $id = $model->cadastrarAutomatico($data, $this->actorId(), input_string($_POST['_request_token'] ?? ''));
 
             if ($id !== false) {
-                $this->redirectWithFlash('passivo/detalhes/' . $id, 'success', 'Registro adicionado ao Arquivo Passivo.');
+                $this->redirectWithFlash('passivo/detalhes/' . $id, 'success', 'Registro adicionado ao Arquivo Passivo. A numeração foi atualizada em ordem alfabética, mantendo a sequência entre as caixas.');
             }
 
-            $this->storeFormState('create', $data, [$model->validationMessage($model->lastErrorCode())]);
-            redirect('passivo/criar');
+            $this->storeFormState($stateKey, $data, [$model->validationMessage($model->lastErrorCode())]);
+            redirect($returnPath);
         }
 
+        $hasSelection = (string) ($data['tipo_caixa'] ?? '') !== '';
+        $selectedBox = $hasSelection
+            ? $model->validarCaixaCadastro((string) $data['tipo_caixa'], (string) $data['caixa']) : false;
+        if ($selectedBox === false || isset($_GET['escolher_caixa'])) {
+            if ($hasSelection && $selectedBox === false) {
+                $errors[] = $model->validationMessage($model->lastErrorCode());
+            }
+            $errors = array_values(array_unique($errors));
+            // Keep any entered student data while the user corrects the destination.
+            if ((string) ($data['nome_completo'] ?? '') !== '' || (string) ($data['data_nascimento'] ?? '') !== '') {
+                $this->storeFormState('create_' . $flow, $data, []);
+                if (!$providedFlow) {
+                    $this->storeFormState($stateKey, $data, []);
+                }
+            }
+            $this->view('passivo/escolher-caixa', [
+                'title' => 'Novo Registro (Passivo)',
+                'data' => $data,
+                'errors' => $errors,
+                'boxes' => $model->caixas(null),
+                'nextBox' => $model->proximaCaixa(),
+                'flow' => $flow,
+            ]);
+            return;
+        }
+
+        $data['caixa'] = $selectedBox;
         $this->view('passivo/form', [
             'title' => 'Novo Registro (Passivo)',
             'data' => $data,
             'errors' => $errors,
             'editing' => false,
+            'flow' => $flow,
         ]);
     }
 

@@ -42,7 +42,7 @@ final class Passivo extends Model
                          CASE WHEN p.numero GLOB '[0-9]*' AND p.numero NOT GLOB '*[^0-9]*' THEN LENGTH(LTRIM(p.numero,'0')) END,
                          CASE WHEN p.numero GLOB '[0-9]*' AND p.numero NOT GLOB '*[^0-9]*' THEN LTRIM(p.numero,'0') END,
                          p.numero_normalizado ASC, p.nome_normalizado ASC, p.id ASC",
-            'caixa' => 'p.caixa_normalizada COLLATE PASSIVO_CAIXA ASC, p.numero_normalizado ASC, p.nome_normalizado ASC, p.id ASC',
+            'caixa' => 'p.caixa_normalizada COLLATE PASSIVO_CAIXA ASC, p.nome_normalizado ASC, p.id ASC',
             'recente' => 'p.criado_em DESC, p.id DESC',
         ];
         $orderKey = (string) ($filters['ordem'] ?? 'nome');
@@ -110,26 +110,7 @@ final class Passivo extends Model
 
     private function configureBoxOrdering(): void
     {
-        self::$pdo->sqliteCreateCollation('PASSIVO_CAIXA', static function (string $left, string $right): int {
-            $leftIsNumber = preg_match('/^[0-9]+$/D', $left) === 1;
-            $rightIsNumber = preg_match('/^[0-9]+$/D', $right) === 1;
-
-            if ($leftIsNumber && $rightIsNumber) {
-                // Compare digits without integer casts, including boxes longer than int64.
-                $leftDigits = ltrim($left, '0');
-                $rightDigits = ltrim($right, '0');
-
-                return (strlen($leftDigits) <=> strlen($rightDigits))
-                    ?: strcmp($leftDigits, $rightDigits)
-                    ?: strcmp($left, $right);
-            }
-
-            if ($leftIsNumber !== $rightIsNumber) {
-                return $leftIsNumber ? -1 : 1;
-            }
-
-            return strnatcmp($left, $right) ?: strcmp($left, $right);
-        });
+        self::$pdo->sqliteCreateCollation('PASSIVO_CAIXA', $this->compareAutomaticBoxes(...));
     }
 
     /** @return array{anterior:?string,proxima:?string,lista:list<string>} */
@@ -222,6 +203,181 @@ final class Passivo extends Model
 
             return false;
         }
+    }
+
+    /** The box is persisted together with its first record, never by a GET request. */
+    public function proximaCaixa(): string|false
+    {
+        $this->lastErrorCode = null;
+        $numbers = [];
+        foreach ($this->caixas(null) as $box) {
+            $number = $this->automaticBoxNumber($box['caixa_normalizada']);
+            if ($number !== null) {
+                $numbers[] = ['numero' => $number];
+            }
+        }
+        $next = $this->nextArchiveNumber($this->maximumArchiveNumber($numbers));
+        if (strlen($next) > self::BOX_MAX_LENGTH) {
+            $this->lastErrorCode = 'box_range_overflow';
+            return false;
+        }
+        return $next;
+    }
+
+    public function validarCaixaCadastro(string $mode, string $box): string|false
+    {
+        $this->lastErrorCode = null;
+        if ($mode === 'nova') {
+            return $this->proximaCaixa();
+        }
+        if ($mode !== 'existente') {
+            $this->lastErrorCode = 'invalid_box_mode';
+            return false;
+        }
+        $normalized = $this->validatedBoxKey($box);
+        if ($normalized === false) {
+            return false;
+        }
+        $statement = self::$pdo->prepare('SELECT MIN(caixa) FROM alunos_passivo WHERE caixa_normalizada = ?');
+        $statement->execute([$normalized['key']]);
+        $existing = $statement->fetchColumn();
+        if (!is_string($existing)) {
+            $this->lastErrorCode = 'box_not_found';
+            return false;
+        }
+        return $existing;
+    }
+
+    /**
+     * Manual entry uses automatic numbering; import and school movements retain
+     * their existing contracts. Resolve the box and all positions under one lock.
+     * @param array<string,mixed> $data
+     */
+    public function cadastrarAutomatico(array $data, int $actorId, ?string $requestToken = null): int|false
+    {
+        $normalized = $this->normalizeData([
+            'nome_completo' => $data['nome_completo'] ?? '',
+            'data_nascimento' => $data['data_nascimento'] ?? '',
+            'caixa' => '1', 'numero' => '1',
+        ]);
+        if ($normalized === false || !$this->validActor($actorId)) {
+            $this->lastErrorCode ??= 'invalid_actor';
+            return false;
+        }
+        $mode = (string) ($data['tipo_caixa'] ?? '');
+        if (!in_array($mode, ['existente', 'nova'], true)) {
+            $this->lastErrorCode = 'invalid_box_mode';
+            return false;
+        }
+        $box = $mode === 'existente' ? $this->validatedBoxKey((string) ($data['caixa'] ?? '')) : null;
+        if ($box === false) {
+            return false;
+        }
+        // The calculated next box must not enter the receipt digest: a retry of
+        // the same new-box request must return its original record and box.
+        $payload = [$normalized['nome_completo'], $normalized['data_nascimento'], $mode, $box['key'] ?? null];
+        try {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($normalized, $mode, $box, $actorId, $requestToken, $payload): int|false {
+                return RequestReceipt::run($pdo, $actorId, 'passivo.create.automatic', $requestToken, $payload,
+                    function () use ($pdo, $normalized, $mode, $box, $actorId): int|false {
+                        $selectedBox = $this->validarCaixaCadastro($mode, $box['display'] ?? '');
+                        if ($selectedBox === false) {
+                            return false;
+                        }
+                        $normalized['caixa'] = $selectedBox;
+                        $normalized['caixa_normalizada'] = TextNormalizer::searchKey($selectedBox);
+                        return $this->insertWithGlobalNumbering($pdo, $normalized, $actorId);
+                    });
+            });
+        } catch (Throwable $exception) {
+            $this->databaseFailure('passive_automatic_create_failed', $exception);
+            return false;
+        }
+    }
+
+    /** @param array<string,mixed> $data */
+    private function insertWithGlobalNumbering(PDO $pdo, array $data, int $actorId): int
+    {
+        // Unlocated, unnumbered historical records remain pending. Numbered
+        // records without a box participate first, without inventing a box.
+        $rows = $pdo->query("SELECT id, nome_normalizado, caixa_normalizada, numero, numero_normalizado, localizacao_pendente
+            FROM alunos_passivo WHERE NULLIF(TRIM(caixa_normalizada), '') IS NOT NULL
+                OR NULLIF(TRIM(numero_normalizado), '') IS NOT NULL")->fetchAll();
+        $rows[] = [
+            'id' => 0, 'nome_normalizado' => $data['nome_normalizado'],
+            'caixa_normalizada' => $data['caixa_normalizada'],
+            'numero' => null, 'numero_normalizado' => null, 'localizacao_pendente' => 0,
+        ];
+        usort($rows, function (array $left, array $right): int {
+            return $this->compareAutomaticBoxes((string) $left['caixa_normalizada'], (string) $right['caixa_normalizada'])
+                ?: strcmp((string) $left['nome_normalizado'], (string) $right['nome_normalizado'])
+                ?: (($left['id'] === 0 ? PHP_INT_MAX : (int) $left['id']) <=> ($right['id'] === 0 ? PHP_INT_MAX : (int) $right['id']));
+        });
+        $changes = [];
+        $number = '0';
+        foreach ($rows as $row) {
+            $number = $this->nextArchiveNumber($number);
+            if ((int) $row['id'] === 0) {
+                $data['numero'] = $data['numero_normalizado'] = $number;
+                continue;
+            }
+            $pending = trim((string) $row['caixa_normalizada']) === '' ? 1 : 0;
+            if ($row['numero'] !== $number || $row['numero_normalizado'] !== $number
+                || (int) $row['localizacao_pendente'] !== $pending) {
+                $changes[] = ['id' => (int) $row['id'], 'numero' => $number, 'pending' => $pending];
+            }
+        }
+        // Release only positions that change, so swaps also work with unique
+        // indexes. No reader can see this intermediate state before COMMIT.
+        $clear = $pdo->prepare('UPDATE alunos_passivo SET numero = NULL, numero_normalizado = NULL, localizacao_pendente = 1 WHERE id = ?');
+        foreach ($changes as $change) {
+            $clear->execute([$change['id']]);
+            if ($clear->rowCount() !== 1) {
+                throw new RuntimeException('O acervo mudou durante a renumeração.');
+            }
+        }
+        $id = $this->insert($pdo, $data, $actorId, null);
+        $update = $pdo->prepare('UPDATE alunos_passivo SET numero = :number, numero_normalizado = :number,
+            localizacao_pendente = :pending, atualizado_em = :now, atualizado_por = :actor WHERE id = :id');
+        $now = gmdate('Y-m-d H:i:s');
+        foreach ($changes as $change) {
+            $update->execute(['number' => $change['numero'], 'pending' => $change['pending'],
+                'now' => $now, 'actor' => $actorId, 'id' => $change['id']]);
+            if ($update->rowCount() !== 1) {
+                throw new RuntimeException('Não foi possível renumerar um registro do acervo.');
+            }
+        }
+        AuditLogger::recordRequired($pdo, 'passive.created', AuditLogger::SUCCESS, $actorId, null,
+            'Registro do arquivo passivo criado com numeração automática.', 'passive_record', $id);
+        if ($changes !== []) {
+            AuditLogger::recordRequired($pdo, 'passive.enumerated', AuditLogger::SUCCESS, $actorId, null,
+                sprintf('Sequência global e ordem alfabética atualizadas em %d registros.', count($changes)), 'passive_box');
+        }
+        return $id;
+    }
+
+    private function automaticBoxNumber(string $box): ?string
+    {
+        if (preg_match('/^(?:(?:caixa|cx)[ ._\/-]*)?([0-9]+)$/D', $box, $matches) !== 1) {
+            return null;
+        }
+        return ltrim($matches[1], '0') ?: '0';
+    }
+
+    private function compareAutomaticBoxes(string $left, string $right): int
+    {
+        $leftNumber = $this->automaticBoxNumber($left);
+        $rightNumber = $this->automaticBoxNumber($right);
+        if ($leftNumber !== null && $rightNumber !== null) {
+            return (strlen($leftNumber) <=> strlen($rightNumber))
+                ?: strcmp($leftNumber, $rightNumber) ?: strcmp($left, $right);
+        }
+        // Legacy labels precede the numbered series, so a new numeric box is
+        // appended after their records without renaming any physical box.
+        if (($leftNumber === null) !== ($rightNumber === null)) {
+            return $leftNumber === null ? -1 : 1;
+        }
+        return strnatcmp($left, $right) ?: strcmp($left, $right);
     }
 
     /** @param array<string,mixed> $data */
@@ -1098,6 +1254,7 @@ final class Passivo extends Model
             'batch_origin_conflict' => 'Um ou mais alunos selecionados já estão no Arquivo Passivo. Revise a seleção.',
             'invalid_selection' => 'Selecione de 1 a 200 alunos diferentes para enviar ao Arquivo Passivo.',
             'invalid_box_mode' => 'Escolha uma caixa existente ou uma nova caixa.',
+            'box_range_overflow' => 'A próxima caixa excede o limite de 50 dígitos.',
             'box_already_exists' => 'Esta caixa já existe. Selecione a opção de adicionar a uma caixa existente.',
             'number_range_overflow' => 'A numeração desta caixa excede o limite de 40 dígitos. Escolha outra caixa.',
             'active_student' => 'O aluno de origem está ativo. Inative-o pelo fluxo de Alunos antes de arquivar ou restaurar este registro. O histórico será preservado.',

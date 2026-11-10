@@ -610,30 +610,42 @@ try {
         'Painel do Arquivo Passivo autenticado'
     );
     $passiveCreate = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
-    checkHttp(preg_match('/<input[^>]+id="numero"[^>]+required/', $passiveCreate['body']) === 1, 'Interface exige posição física no cadastro passivo');
+    checkHttp($passiveCreate['status'] === 200
+        && str_contains($passiveCreate['body'], 'Selecionar caixa existente')
+        && str_contains($passiveCreate['body'], 'Criar próxima caixa')
+        && !str_contains($passiveCreate['body'], 'name="nome_completo"'),
+        'Novo Registro solicita a escolha da caixa antes dos dados do aluno');
     $incompletePassive = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
-        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($passiveCreate['body']), 'nome_completo' => 'Cadastro sem posição',
+        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($passiveCreate['body']), 'nome_completo' => 'Cadastro sem escolha de caixa',
         'data_nascimento' => '2000-01-01', 'numero' => '', 'caixa' => 'CX-HTTP',
     ]);
     $retainedPassive = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
     $verification = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     checkHttp($incompletePassive['status'] === 302
         && str_ends_with($incompletePassive['headers']['location'] ?? '', '/passivo/criar')
-        && str_contains($retainedPassive['body'], 'Informe uma posição válida')
-        && str_contains($retainedPassive['body'], 'value="Cadastro sem posição"')
+        && str_contains($retainedPassive['body'], 'Escolha uma caixa existente ou uma nova caixa')
         && (int) $verification->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn() === 0,
-        'Servidor rejeita localização incompleta, conserva formulário por PRG e não grava');
+        'Servidor rejeita escolha ausente por PRG e não grava');
+    $passiveStudentForm = request('GET', $baseUrl . '/passivo/criar?tipo_caixa=nova', $cookieAdmin);
+    checkHttp($passiveStudentForm['status'] === 200
+        && str_contains($passiveStudentForm['body'], 'name="nome_completo"')
+        && str_contains($passiveStudentForm['body'], 'value="Cadastro sem escolha de caixa"')
+        && !str_contains($passiveStudentForm['body'], 'name="numero"'),
+        'Escolha de próxima caixa conserva dados informados e libera cadastro com número automático');
     $passiveCreated = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
-        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($passiveCreate['body']),
+        '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($passiveStudentForm['body']),
         'nome_completo' => 'Jose HTTP Passivo',
         'data_nascimento' => '2000-01-01',
-        'numero' => '1',
-        'caixa' => 'CX-HTTP',
+        'tipo_caixa' => 'nova',
     ]);
     checkHttp(
-        $passiveCreated['status'] === 302 && str_contains($passiveCreated['headers']['location'] ?? '', '/passivo/detalhes/1'),
-        'Cadastro PRG no Arquivo Passivo'
+        $passiveCreated['status'] === 302 && str_contains($passiveCreated['headers']['location'] ?? '', '/passivo/detalhes/1')
+        && $verification->query('SELECT caixa FROM alunos_passivo WHERE id = 1')->fetchColumn() === '1'
+        && $verification->query('SELECT numero FROM alunos_passivo WHERE id = 1')->fetchColumn() === '1',
+        'Cadastro PRG cria primeira caixa e atribui primeiro número automaticamente'
     );
+    // Retain the historical fixture name used by the edit/import/export scenarios below.
+    $verification->exec("UPDATE alunos_passivo SET caixa = 'CX-HTTP', caixa_normalizada = 'cx-http' WHERE id = 1");
     $passiveSearch = listRequest($baseUrl, 'passivo', $cookieAdmin, ['q'=>'Jose']);
     checkHttp($passiveSearch['status'] === 200 && str_contains($passiveSearch['body'], 'Jose HTTP Passivo'), 'Busca global do Arquivo Passivo');
     checkHttp(request('GET', $baseUrl . '/passivo/detalhes/999999', $cookieAdmin)['status'] === 404, 'ID passivo inexistente retorna 404');
@@ -725,12 +737,12 @@ try {
     ]);
     checkHttp($passiveRestored['status'] === 302, 'Restauração do passivo');
 
-    $formulaCreatePage = request('GET', $baseUrl . '/passivo/criar', $cookieAdmin);
+    $formulaCreatePage = request('GET', $baseUrl . '/passivo/criar?tipo_caixa=existente&caixa=CX-HTTP', $cookieAdmin);
     $formulaCreated = request('POST', $baseUrl . '/passivo/criar', $cookieAdmin, [
         '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($formulaCreatePage['body']),
         'nome_completo' => '=2+2',
         'data_nascimento' => '',
-        'numero' => '8',
+        'tipo_caixa' => 'existente',
         'caixa' => 'CX-HTTP',
     ]);
     checkHttp($formulaCreated['status'] === 302, 'Cadastro de valor para proteção de fórmula na exportação');
@@ -747,8 +759,8 @@ try {
     ]);
     checkHttp(
         $exported['status'] === 200
-        && str_contains($exported['body'], '7 - Jose HTTP Passivo Editado')
-        && str_contains($exported['body'], "8 - '=2+2")
+        && str_contains($exported['body'], '3 - Jose HTTP Passivo Editado')
+        && str_contains($exported['body'], "2 - '=2+2")
         && str_starts_with($exported['headers']['content-type'] ?? '', 'text/plain; charset=UTF-8')
         && ($exported['headers']['x-content-type-options'] ?? '') === 'nosniff'
         && str_contains($exported['headers']['cache-control'] ?? '', 'no-store')
@@ -852,14 +864,13 @@ try {
     checkHttp($employeePassive['status'] === 200 && str_contains($employeePassive['body'], 'Jose HTTP Passivo Editado'), 'Funcionário consulta, pesquisa e filtra o Arquivo Passivo');
     checkHttp(request('GET', $baseUrl . '/passivo/detalhes/1', $cookieEmployee)['status'] === 200, 'Funcionário detalha registro passivo');
 
-    $employeeCreatePage = request('GET', $baseUrl . '/passivo/criar', $cookieEmployee);
+    $employeeCreatePage = request('GET', $baseUrl . '/passivo/criar?tipo_caixa=nova', $cookieEmployee);
     checkHttp($employeeCreatePage['status'] === 200, 'Funcionário acessa cadastro passivo');
     $employeeCreated = request('POST', $baseUrl . '/passivo/criar', $cookieEmployee, [
         '_request_token' => bin2hex(random_bytes(16)), '_csrf_token' => csrf($employeeCreatePage['body']),
         'nome_completo' => 'Funcionário HTTP Passivo',
         'data_nascimento' => '2002-03-04',
-        'numero' => '1',
-        'caixa' => 'CX-FUNC',
+        'tipo_caixa' => 'nova',
     ]);
     $employeeCreatedLocation = $employeeCreated['headers']['location'] ?? '';
     $employeePassiveId = preg_match('#/passivo/detalhes/(\d+)$#', $employeeCreatedLocation, $employeeIdMatch) === 1
@@ -1037,6 +1048,7 @@ try {
     require __DIR__ . '/http-passivo-batch.php';
     require __DIR__ . '/http-passivo-automatico.php';
     require __DIR__ . '/http-passivo-paginacao.php';
+    require __DIR__ . '/http-passivo-cadastro.php';
     require __DIR__ . '/http-contrato-certidoes.php';
     require __DIR__ . '/http-profile.php';
     require __DIR__ . '/http-user-password.php';

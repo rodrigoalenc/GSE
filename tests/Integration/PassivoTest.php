@@ -26,21 +26,21 @@ final class PassivoTest extends DatabaseTestCase
             $this->assertTrue($model->definirAtivo($id, false, $actor));
         }
 
-        $expected = ['1', '2', '3', '10', '20', 'A-1', 'A-2', 'A-10', 'CX-2', 'CX-10'];
+        $expected = ['A-1', 'A-2', 'A-10', '1', '2', 'CX-2', '3', '10', 'CX-10', '20'];
         $this->assertSame($expected, array_column($model->caixas(), 'caixa'));
         $this->assertSame(['4', '30'], array_column($model->caixas(false), 'caixa'));
         $this->assertSame(
-            ['1', '2', '3', '4', '10', '20', '30', 'A-1', 'A-2', 'A-10', 'CX-2', 'CX-10'],
+            ['A-1', 'A-2', 'A-10', '1', '2', 'CX-2', '3', '4', '10', 'CX-10', '20', '30'],
             array_column($model->caixas(null), 'caixa')
         );
         $this->assertSame([
-            'anterior' => '1', 'proxima' => '3',
-            'lista' => ['1', '2', '3', '10', '20', 'A-1', 'A-2'],
+            'anterior' => '1', 'proxima' => 'CX-2',
+            'lista' => ['A-2', 'A-10', '1', '2', 'CX-2', '3', '10'],
         ], $model->navegacaoCaixas('2'));
-        $this->assertSame('CX-10', $model->navegacaoCaixas('cx-2')['proxima']);
+        $this->assertSame('3', $model->navegacaoCaixas('cx-2')['proxima']);
         $this->assertSame('30', $model->navegacaoCaixas('4', false)['proxima']);
-        $this->assertNull($model->navegacaoCaixas('1')['anterior']);
-        $this->assertNull($model->navegacaoCaixas('CX-10')['proxima']);
+        $this->assertNull($model->navegacaoCaixas('A-1')['anterior']);
+        $this->assertNull($model->navegacaoCaixas('20')['proxima']);
         $this->assertSame($expected, array_column($model->paginate(['ordem' => 'caixa'])['items'], 'caixa'));
         $this->assertSame(['4', '30'], array_column($model->paginate(['ordem' => 'caixa', 'ativo' => '0'])['items'], 'caixa'));
     }
