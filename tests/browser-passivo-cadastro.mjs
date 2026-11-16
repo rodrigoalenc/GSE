@@ -67,8 +67,9 @@ try {
         await tab.until(`document.readyState==='complete' && document.querySelector('#nome-completo')!==null`);
     };
     const save = async tab => {
+        const previousDocument = await tab.evaluate('performance.timeOrigin');
         await tab.click('.passivo-form .form-actions .btn-primary');
-        await tab.until(`document.readyState==='complete' && (location.pathname.startsWith('/passivo/detalhes/') || document.querySelector('[data-form-errors]')!==null)`);
+        await tab.until(`performance.timeOrigin!==${JSON.stringify(previousDocument)} && document.readyState==='complete' && (location.pathname.startsWith('/passivo/detalhes/') || document.querySelector('[data-form-errors]')!==null)`);
     };
     const shot = async (tab,name) => {
         if (!process.env.GSE_BROWSER_EVIDENCE_DIR) return;

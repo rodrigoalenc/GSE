@@ -54,7 +54,8 @@ try {
     assert.equal(await page.evaluate('document.querySelector("#nome").value'),'Pessoa alterada','Discarding a draft does not erase the open form');
     assert.equal(await page.evaluate('document.querySelector("#student a").getAttribute("href")'),'/aluno','Return keeps a clean address');
     await page.command('Emulation.setDeviceMetricsOverride',{width:375,height:812,deviceScaleFactor:1,mobile:true});
-    await page.until('innerWidth < 769');
+    // Media-query change handlers run after the viewport metrics have changed.
+    await page.until('innerWidth < 769 && !document.querySelector("[data-sidebar-toggle]").hidden');
     assert.equal(await page.evaluate('document.querySelector("[data-sidebar-toggle]").hidden'),false,'Mobile navigation can be discovered by its label');
     await page.click('[data-sidebar-toggle]');
     assert.equal(await page.evaluate('document.querySelector("[data-sidebar-toggle]").getAttribute("aria-expanded")'),'true');
