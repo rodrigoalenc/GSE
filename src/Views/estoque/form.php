@@ -1,6 +1,6 @@
 <?php $unit=match ($product['unidade']) { 'UN' => 'unidades', 'K' => 'quilogramas', 'Litros' => 'litros', default => $product['unidade'] }; ?>
 <section class="relatorio stock-form-card">
-<p><a href="<?= e(url($back)) ?>">Voltar ao estoque</a></p>
+<p><a href="<?= e(url($back)) ?>"><?= $returnToReceipt ? 'Voltar ao recebimento' : 'Voltar ao estoque' ?></a></p>
 <h2><?= e($product['nome_produto']) ?><?= $product['marca'] ? ' — '.e($product['marca']) : '' ?></h2>
 <p><?= e($product['contrato_titulo']) ?> · Nota <?= (int)$product['numero_pagina'] ?> · Unidade: <?= e($unit) ?></p>
 <?php if ((int)$product['estoque_inicializado']===1 && !(int)$product['abertura_sem_comprovacao']): ?><p>Disponível agora: <strong><?= (int)$product['saldo'] ?> <?= e($unit) ?></strong></p><?php endif; ?>
@@ -22,12 +22,18 @@
 <?php if ($preview!==null): ?>
 <input type="hidden" name="quantidade" value="<?= (int)$preview['quantity'] ?>">
 <div class="stock-confirmation" role="status">
-<?php if ($mode==='iniciar'): ?><p>Você vai confirmar que há <strong><?= (int)$preview['quantity'] ?> <?= e($unit) ?></strong> disponíveis na escola agora.</p>
+<?php if ($mode==='iniciar' && $returnToReceipt): ?>
+<p>Você vai confirmar <strong><?= (int)$preview['quantity'] ?> <?= e($unit) ?></strong> como quantidade inicial antes desta entrega.</p>
+<p>Depois de confirmar, você voltará ao recebimento desta nota.</p>
+<?php elseif ($mode==='iniciar'): ?><p>Você vai confirmar que há <strong><?= (int)$preview['quantity'] ?> <?= e($unit) ?></strong> disponíveis na escola agora.</p>
 <?php else: ?><p>Você vai registrar <?= $mode==='consumir' ? 'o consumo' : 'o recebimento' ?> de <strong><?= (int)$preview['quantity'] ?> <?= e($unit) ?></strong>. A quantidade disponível passará de <strong><?= (int)$preview['before'] ?></strong> para <strong><?= (int)$preview['after'] ?></strong>.</p><?php endif; ?>
 </div>
 <div class="stock-form-actions"><button name="etapa" value="confirmar" class="btn btn-primary"><?= $mode==='iniciar' ? 'Confirmar quantidade inicial' : ($mode==='consumir' ? 'Confirmar consumo' : 'Confirmar recebimento') ?></button><button name="etapa" value="editar" class="btn btn-secondary">Alterar quantidade</button></div>
 <?php else: ?>
-<?php if ($mode==='iniciar'): ?><h3>Quantas unidades estão disponíveis na escola agora?</h3><p>Conte o que já está na escola, inclusive se a quantidade for zero. Depois de confirmar, registre as próximas entregas em Receber.</p><?php endif; ?>
+<?php if ($mode==='iniciar'): ?>
+    <?php if ($returnToReceipt): ?><h3>Quanto havia antes desta entrega?</h3><p>Informe 0 se não havia nada. Depois de confirmar, você voltará à nota para registrar o que chegou.</p>
+    <?php else: ?><h3>Quantas unidades estão disponíveis na escola agora?</h3><p>Conte o que já está na escola, inclusive se a quantidade for zero. Depois de confirmar, registre as próximas entregas em Receber.</p><?php endif; ?>
+<?php endif; ?>
 <label><?= $mode==='consumir' ? 'Quantidade utilizada' : ($mode==='receber' ? 'Quantidade recebida' : 'Quantidade') ?><input name="quantidade" type="number" min="<?= $mode==='iniciar' ? 0 : 1 ?>" max="<?= $mode==='consumir' ? (int)$product['saldo'] : 1000000000 ?>" required value="<?= e($quantity) ?>" autofocus> <span><?= e($unit) ?></span></label>
 <button class="btn btn-primary" name="etapa" value="revisar"><?= $mode==='iniciar' ? 'Conferir quantidade inicial' : ($mode==='consumir' ? 'Conferir consumo' : 'Conferir recebimento') ?></button>
 <?php endif; ?>

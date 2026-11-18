@@ -33,13 +33,13 @@ final class EstoqueController extends Controller
         $reference=$model->itemForHistory($id);
         $contract=$model->find((int)$reference['id_pedido']);
         if ($contract['excluido_em']!==null || $reference['excluido_em']!==null) { throw new DomainException('Produto indisponível.'); }
-        $activeSheet=false;
+        $activeSheet=null;
         foreach ($model->sheets((int)$reference['id_pedido']) as $sheet) {
-            if ((int)$sheet['numero_pagina']===(int)$reference['numero_pagina'] && $sheet['excluido_em']===null) { $activeSheet=true; }
+            if ((int)$sheet['numero_pagina']===(int)$reference['numero_pagina'] && $sheet['excluido_em']===null) { $activeSheet=(int)$sheet['id']; break; }
         }
-        if (!$activeSheet) { throw new DomainException('Nota indisponível.'); }
+        if ($activeSheet===null) { throw new DomainException('Nota indisponível.'); }
         foreach ($model->items((int)$reference['id_pedido']) as $item) {
-            if ((int)$item['id']===$id) { return $item+['contrato_titulo'=>$contract['titulo']]; }
+            if ((int)$item['id']===$id) { return $item+['contrato_titulo'=>$contract['titulo'],'folha_id'=>$activeSheet]; }
         }
         throw new DomainException('Produto não encontrado.');
     }
@@ -64,8 +64,18 @@ final class EstoqueController extends Controller
         if (isset($_GET['busca']) && is_string($_GET['busca'])) { $query['busca']=mb_substr($_GET['busca'],0,100); }
         $page=filter_var($_GET['pagina'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if ($page!==false) { $query['pagina']=$page; }
+        $stockBack='estoque'.($query ? '?'.http_build_query($query) : '');
+        $receiptBack=null;
+        $sheet=filter_var($_GET['folha'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if ($mode==='iniciar' && $sheet===$product['folha_id']) {
+            $receiptQuery=['folha'=>$sheet];
+            $resume=$_GET['retomar'] ?? null;
+            if (is_string($resume) && preg_match('/^[a-f0-9]{32}$/D',$resume)===1) { $receiptQuery['retomar']=$resume; }
+            $receiptBack='contrato/recebimento/'.$product['id_pedido'].'?'.http_build_query($receiptQuery);
+            $query+=$receiptQuery;
+        }
         $suffix=$query ? '?'.http_build_query($query) : '';
-        $back='estoque'.$suffix;
+        $back=$receiptBack ?? $stockBack;
         $previews=$_SESSION['stock_previews'] ?? [];
         $previews=is_array($previews) ? $previews : [];
         foreach ($previews as $token=>$saved) {
@@ -99,7 +109,7 @@ final class EstoqueController extends Controller
                     if ($mode==='iniciar') { $model->initializeStock((int)$product['id_pedido'],$id,$amount,$revision,(int)$_SESSION['usuario_id'],$key,Auth::isAdmin()); }
                     else { $model->move((int)$product['id_pedido'],$id,$mode==='consumir' ? 'saida' : 'entrada',$amount,$mode==='consumir' ? 'Consumo na escola' : 'Recebimento registrado no estoque',$key,(int)$_SESSION['usuario_id'],$revision); }
                     unset($_SESSION['stock_previews'][$key]);
-                    $this->redirectWithFlash($back.'#produto-'.$id,'success',$mode==='iniciar' ? 'Quantidade inicial confirmada.' : ($mode==='consumir' ? 'Consumo registrado.' : 'Recebimento registrado.'));
+                    $this->redirectWithFlash($receiptBack ?? $stockBack.'#produto-'.$id,'success',$mode==='iniciar' ? 'Quantidade inicial confirmada.' : ($mode==='consumir' ? 'Consumo registrado.' : 'Recebimento registrado.'));
                 }
                 if ($this->field('etapa')!=='editar') {
                     $preview=['quantity'=>$amount,'before'=>$balance,'after'=>$after];
@@ -116,7 +126,7 @@ final class EstoqueController extends Controller
         }
         if (preg_match('/^[a-f0-9]{32}$/D',$key)!==1 || $error!=='') { $key=bin2hex(random_bytes(16)); }
         $titles=['iniciar'=>'Quantidade inicial','receber'=>'Receber produtos','consumir'=>'Registrar consumo','alertas'=>'Alertas de estoque'];
-        $this->view('estoque/form',['title'=>$titles[$mode],'mode'=>$mode,'product'=>$product,'back'=>$back,'suffix'=>$suffix,
+        $this->view('estoque/form',['title'=>$titles[$mode],'mode'=>$mode,'product'=>$product,'back'=>$back,'suffix'=>$suffix,'returnToReceipt'=>$receiptBack!==null,
             'error'=>$error,'quantity'=>$quantity,'preview'=>$preview,'key'=>$key,'minimum'=>$minimum,'maximum'=>$maximum,'blocked'=>$blocked]);
     }
 }

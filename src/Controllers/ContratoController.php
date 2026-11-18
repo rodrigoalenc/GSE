@@ -271,10 +271,24 @@ final class ContratoController extends Controller
             $quantities[$itemId]=$ready ? (string)($item['quantidade_contratada'] ?? $item['quantidade']) : '0';
             $revisions[$itemId]=(string)$item['revisao'];
         }
+        $cutoff=time()-1800;
+        $recent=static fn(mixed $entry): bool => is_array($entry) && (int)($entry['created'] ?? 0)>=$cutoff;
         $saved=$_SESSION['stock_note_previews'] ?? [];
-        $previews=is_array($saved) ? array_filter($saved,static fn(mixed $preview): bool => is_array($preview) && (int)($preview['created'] ?? 0)>=time()-1800) : [];
+        $previews=is_array($saved) ? array_filter($saved,$recent) : [];
         $_SESSION['stock_note_previews']=$previews;
-        $key=bin2hex(random_bytes(16)); $preview=null; $error='';
+        $saved=$_SESSION['stock_note_opening_drafts'] ?? [];
+        $openingDrafts=is_array($saved) ? array_filter($saved,$recent) : [];
+        $_SESSION['stock_note_opening_drafts']=$openingDrafts;
+        $key=bin2hex(random_bytes(16)); $preview=null; $error=''; $openingLink=null;
+        $resume=$_GET['retomar'] ?? null;
+        if (!$posting && is_string($resume) && preg_match('/^[a-f0-9]{32}$/D',$resume)===1) {
+            $draft=$openingDrafts[$resume] ?? null;
+            if (is_array($draft) && ($draft['contract'] ?? null)===$contractId
+                && ($draft['sheet'] ?? null)===$sheetId && is_array($draft['quantities'] ?? null)) {
+                $quantities=array_replace($quantities,array_intersect_key($draft['quantities'],$quantities));
+                unset($_SESSION['stock_note_opening_drafts'][$resume]);
+            }
+        }
         if ($posting) {
             try {
                 $key=$this->field('chave');
@@ -307,7 +321,20 @@ final class ContratoController extends Controller
                             throw new DomainException('A quantidade disponível ou o produto mudou. As quantidades digitadas foram mantidas; confira os dados atuais e revise novamente.');
                         }
                         $ready=(int)$item['estoque_inicializado']===1 && (int)$item['abertura_sem_comprovacao']===0;
-                        if ($quantity>0 && !$ready) { throw new DomainException('Confirme a quantidade inicial de '.$item['nome_produto'].' na tela Estoque antes de registrar o recebimento.'); }
+                        if ($quantity>0 && !$ready) {
+                            if ((int)$item['estoque_inicializado']===0 && (!$item['legado'] || Auth::isAdmin())) {
+                                $resume=bin2hex(random_bytes(16));
+                                $openingDrafts[$resume]=[
+                                    'contract'=>$contractId,'sheet'=>$sheetId,'quantities'=>$quantities,'created'=>time(),
+                                ];
+                                $_SESSION['stock_note_opening_drafts']=array_slice($openingDrafts,-10,null,true);
+                                $openingLink=[
+                                    'path'=>'estoque/iniciar/'.$itemId.'?'.http_build_query(['folha'=>$sheetId,'retomar'=>$resume]),
+                                    'name'=>$item['nome_produto'],
+                                ];
+                            }
+                            throw new DomainException('Confirme a quantidade inicial de '.$item['nome_produto'].' antes de registrar o recebimento.');
+                        }
                         $after=(int)$item['saldo']+$quantity;
                         if ($after>1000000000) { throw new DomainException('A quantidade disponível ultrapassaria o limite permitido.'); }
                         if ($quantity>0 && $item['estoque_maximo']!==null && $after>(int)$item['estoque_maximo']) {
@@ -328,7 +355,8 @@ final class ContratoController extends Controller
             }
         }
         $this->view('contratos/recebimento',['title'=>'Registrar recebimento','record'=>$record,'sheet'=>$sheet,'items'=>$items,
-            'quantities'=>$quantities,'revisions'=>$revisions,'key'=>$key,'preview'=>$preview,'error'=>$error,'isAdmin'=>Auth::isAdmin()]);
+            'quantities'=>$quantities,'revisions'=>$revisions,'key'=>$key,'preview'=>$preview,'error'=>$error,
+            'openingLink'=>$openingLink,'isAdmin'=>Auth::isAdmin()]);
     }
     public function conferirAbertura(string $id): void
     {

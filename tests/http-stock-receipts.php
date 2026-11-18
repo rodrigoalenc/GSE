@@ -39,7 +39,7 @@ $noteReceiptPostUrl=$baseUrl.'/contrato/recebimento/'.$noteReceiptContract;
 $noteReceiptPage=request('GET',$noteReceiptUrl,$cookieEmployee);
 $noteReceiptInitial=noteReceiptFields($noteReceiptPage['body'],'note-receipt-form');
 checkHttp($noteReceiptPage['status']===200 && $noteReceiptInitial['quantidades['.$noteReceiptPending.']']==='0'
-    && str_contains($noteReceiptPage['body'],'/estoque/iniciar/'.$noteReceiptPending),'Recebimento: produtos sem contagem começam em zero e permitem confirmar a quantidade inicial');
+    && str_contains($noteReceiptPage['body'],'/estoque/iniciar/'.$noteReceiptPending.'?folha='.$noteReceiptSheet),'Recebimento: produtos sem contagem começam em zero e permitem confirmar a quantidade inicial');
 
 foreach (array_slice($noteReceiptItems,0,2) as $noteReceiptIndex=>$noteReceiptItem) {
     $noteReceiptOpened=request('POST',$baseUrl.'/contrato/estoque/'.$noteReceiptContract,$cookieEmployee,[
@@ -111,4 +111,43 @@ $noteReceiptBypass=request('POST',$noteReceiptPostUrl,$cookieEmployee,[
 ]);
 checkHttp($noteReceiptBypass['status']===200 && str_contains($noteReceiptBypass['body'],'A confirmação expirou'),
     'Recebimento: envio direto sem revisão válida não altera o estoque');
+$noteReceiptShortcut = (new DOMXPath(stockActionDocument($noteReceiptPendingRejected['body'])))
+    ->query('//*[@role="alert"]//a[contains(@href,"/estoque/iniciar/")]')?->item(0);
+checkHttp($noteReceiptShortcut instanceof DOMElement
+    && trim($noteReceiptShortcut->textContent)==='Informar saldo inicial de Produto sem contagem'
+    && str_contains($noteReceiptPendingRejected['body'],'Se não havia nada, informe 0.'),
+    'Recebimento: aviso oferece atalho para o produto e explica como informar zero');
+$noteReceiptOpeningUrl=$noteReceiptShortcut->getAttribute('href');
+$noteReceiptOpeningPage=request('GET',$noteReceiptOpeningUrl,$cookieEmployee);
+checkHttp($noteReceiptOpeningPage['status']===200
+    && str_contains($noteReceiptOpeningPage['body'],'Voltar ao recebimento')
+    && str_contains($noteReceiptOpeningPage['body'],'antes desta entrega'),
+    'Quantidade inicial acessada pelo recebimento orienta a contagem anterior à entrega');
+$noteReceiptOpeningFields=stockActionFields($noteReceiptOpeningPage['body']);
+$noteReceiptOpeningReview=request('POST',$noteReceiptOpeningUrl,$cookieEmployee,
+    array_replace($noteReceiptOpeningFields,['quantidade'=>'0','etapa'=>'revisar']));
+checkHttp($noteReceiptOpeningReview['status']===200
+    && (int)$noteReceiptDb->query('SELECT estoque_inicializado FROM pedido_produtos WHERE id='.$noteReceiptPending)->fetchColumn()===0,
+    'Quantidade inicial de zero pelo atalho ainda exige confirmação');
+$noteReceiptOpeningSaved=request('POST',$noteReceiptOpeningUrl,$cookieEmployee,
+    stockActionFields($noteReceiptOpeningReview['body'])+['etapa'=>'confirmar']);
+$noteReceiptReturnUrl=$noteReceiptOpeningSaved['headers']['location'] ?? '';
+checkHttp($noteReceiptOpeningSaved['status']===302 && str_starts_with($noteReceiptReturnUrl,$noteReceiptUrl)
+    && (int)$noteReceiptDb->query('SELECT estoque_inicializado FROM pedido_produtos WHERE id='.$noteReceiptPending)->fetchColumn()===1
+    && (int)$noteReceiptDb->query('SELECT COUNT(*) FROM estoque_movimentos WHERE produto_id='.$noteReceiptPending)->fetchColumn()===0,
+    'Confirmar saldo inicial de zero volta à mesma nota sem registrar a entrega');
+$noteReceiptReturned=request('GET',$noteReceiptReturnUrl,$cookieEmployee);
+$noteReceiptReturnedFields=noteReceiptFields($noteReceiptReturned['body'],'note-receipt-form');
+checkHttp(str_contains($noteReceiptReturned['body'],'Quantidade inicial confirmada.')
+    && $noteReceiptReturnedFields['quantidades['.$noteReceiptFirst.']']==='2'
+    && $noteReceiptReturnedFields['quantidades['.$noteReceiptSecond.']']==='1'
+    && $noteReceiptReturnedFields['quantidades['.$noteReceiptPending.']']==='1',
+    'Retorno à nota preserva todas as quantidades da tentativa de recebimento');
+$noteReceiptReturnedReview=request('POST',$noteReceiptPostUrl,$cookieEmployee,$noteReceiptReturnedFields);
+checkHttp(str_contains($noteReceiptReturnedReview['body'],'Confira antes de confirmar')
+    && (int)$noteReceiptDb->query('SELECT COUNT(*) FROM estoque_movimentos WHERE produto_id='.$noteReceiptPending)->fetchColumn()===0,
+    'Recebimento retomado usa as revisões atuais e passa pela própria conferência');
+$noteReceiptForeignReturn=request('GET',$baseUrl.'/estoque/iniciar/'.$noteReceiptPending.'?folha='.($noteReceiptSheet+1),$cookieEmployee);
+checkHttp($noteReceiptForeignReturn['status']===200 && !str_contains($noteReceiptForeignReturn['body'],'Voltar ao recebimento'),
+    'A quantidade inicial não redireciona para uma nota que não pertence ao produto');
 $noteReceiptDb=null;
