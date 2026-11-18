@@ -76,6 +76,14 @@ final class FormDraftTest extends TestCase
         $this->assertFalse(\FormDraft::acceptsContext(8, 'aluno/criar', $context));
     }
 
+    public function testStudentDraftKeepsPhoneInputForValidationAfterRecovery(): void
+    {
+        require_once ROOT_PATH . '/src/Core/FormDraft.php';
+        $phone = '(65) 99999-1234' . str_repeat(' ', 20) . 'ramal';
+        $this->assertTrue(\FormDraft::save(8, 'aluno/editar/1', ['telefone_aluno' => $phone]));
+        $this->assertSame($phone, \FormDraft::read(8, 'aluno/editar/1')['fields']['telefone_aluno'] ?? null);
+    }
+
     public function testPassiveDraftKeepsBirthDate(): void
     {
         require_once ROOT_PATH . '/src/Core/FormDraft.php';

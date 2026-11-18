@@ -156,8 +156,8 @@ final class Certidao extends Model
         foreach (['fornecedor' => 'c.id_fornecedor', 'tipo' => 'c.id_tipo_certidao'] as $key => $column) {
             if (!empty($filters[$key])) { $where[] = $column . ' = ?'; $params[] = self::id($filters[$key]); }
         }
-        if (!empty($filters['ano']) && $filters['ano'] !== 'todos') {
-            if (preg_match('/^[1-9][0-9]{3}$/D', (string) $filters['ano']) !== 1) { throw new DomainException('Ano inválido.'); }
+        if (($filters['ano'] ?? '') !== '' && $filters['ano'] !== 'todos') {
+            if (preg_match('/^[1-9][0-9]{3}$/D', (string) $filters['ano']) !== 1) { throw new DomainException('Informe o ano de vencimento com quatro dígitos, como 2026.'); }
             $where[] = 'substr(c.data_vencimento,1,4) = ?'; $params[] = $filters['ano'];
         }
         if (!empty($filters['validade'])) {
@@ -274,7 +274,9 @@ final class Certidao extends Model
         $emission = is_string($data['data_emissao'] ?? null) ? $data['data_emissao'] : '';
         $expiry = is_string($data['data_vencimento'] ?? null) ? $data['data_vencimento'] : '';
         $notes = is_string($data['observacao'] ?? null) ? trim($data['observacao']) : '';
-        if (!CertidaoStatus::validDate($emission) || !CertidaoStatus::validDate($expiry) || $expiry < $emission) { throw new DomainException('Informe datas reais; o vencimento não pode anteceder a emissão.'); }
+        if (!CertidaoStatus::validDate($emission)) { throw new DomainException('Informe uma data de emissão válida.'); }
+        if (!CertidaoStatus::validDate($expiry)) { throw new DomainException('Informe uma data de vencimento válida.'); }
+        if ($expiry < $emission) { throw new DomainException('Informe um vencimento igual ou posterior à emissão.'); }
         if (!mb_check_encoding($notes, 'UTF-8') || mb_strlen($notes) > 2000) { throw new DomainException('Observação inválida ou acima de 2.000 caracteres.'); }
         return [$f, $t, $emission, $expiry, $notes];
     }

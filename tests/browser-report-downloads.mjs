@@ -287,6 +287,38 @@ try {
     check(await page.evaluate('document.body.textContent.includes("Minha tentativa conferida no navegador")'),true,'Confirmed comparison saves with JavaScript and session drafts enabled');
     await page.command('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false});
     await page.navigate(base+'/certidao/cadastrar');
+    await page.until("document.readyState === 'complete'");
+
+    const reversedDates = await page.evaluate(`(() => {
+        const issue = document.getElementById('data_emissao');
+        const expiry = document.getElementById('data_vencimento');
+        issue.value = '2026-11-10';
+        expiry.value = '2026-11-09';
+        expiry.dispatchEvent(new Event('input', {bubbles: true}));
+        return !expiry.validity.valid && document.getElementById('data_vencimento-client-error')?.textContent.includes('posterior');
+    })()`);
+    check(reversedDates,true,'Vencimento anterior à emissão aponta erro no próprio campo');
+    check(await page.evaluate(`(() => {
+        const expiry = document.getElementById('data_vencimento');
+        expiry.value = '2026-11-10';
+        expiry.dispatchEvent(new Event('input', {bubbles: true}));
+        return expiry.validity.valid && document.querySelector('#data_vencimento-client-error, [data-client-errors]') === null;
+    })()`),true,'Corrigir o vencimento remove o erro do campo e do resumo');
+    check(await page.evaluate(`(() => {
+        const field = document.querySelector('[data-pdf-input]');
+        const bytes = Number(field.dataset.uploadMax);
+        const fileAtSize = (size) => {
+            const selected = new DataTransfer();
+            selected.items.add(new File([new Uint8Array(size)], 'teste.pdf', {type: 'application/pdf'}));
+            field.files = selected.files;
+            field.dispatchEvent(new Event('change', {bubbles: true}));
+            return field.validity.valid;
+        };
+        const atLimit = fileAtSize(bytes);
+        const overLimit = fileAtSize(bytes + 1);
+        return bytes > 0 && atLimit && !overLimit && Boolean(document.getElementById('arquivo_pdf-client-error')?.textContent.includes('limite de envio'));
+    })()`),true,'O seletor de PDF admite o tamanho limite e informa quando o arquivo é maior');
+    await page.click('[data-pdf-clear]');
     await page.command('DOM.setFileInputFiles',{files:[join(temporary,'preview.pdf')],backendNodeId:(await page.command('DOM.describeNode',{
         objectId:(await page.command('Runtime.evaluate',{expression:'document.querySelector("[data-pdf-input]")'})).result.objectId,
     })).node.backendNodeId});

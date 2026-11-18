@@ -82,7 +82,7 @@ final class EstoqueController extends Controller
                 $revision=Contrato::integer($this->field('revisao'),1);
                 if ($revision!==(int)$product['revisao']) { throw new DomainException('A quantidade ou a configuração mudou desde que você abriu o formulário. Confira os dados atuais e tente novamente.'); }
                 if ($mode==='alertas') {
-                    $model->configureStock((int)$product['id_pedido'],$id,$minimum==='' ? null : Contrato::integer($minimum,0),$maximum==='' ? null : Contrato::integer($maximum,1),$revision,(int)$_SESSION['usuario_id']);
+                    $model->configureStock((int)$product['id_pedido'],$id,Contrato::stockLimit($minimum, false),Contrato::stockLimit($maximum, true),$revision,(int)$_SESSION['usuario_id']);
                     $this->redirectWithFlash($back.'#produto-'.$id,'success','Alertas de estoque salvos.');
                 }
                 $amount=Contrato::integer($quantity,$mode==='iniciar' ? 0 : 1);

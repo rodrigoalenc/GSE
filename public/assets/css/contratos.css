@@ -217,6 +217,7 @@
 .contract-note-panel .contract-inline-product { margin: 0 0 25px; padding: 20px; background: #f7fbff; border: 1px dashed #99bfeb; border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
 .contract-inline-product h4 { margin: 1.33em 0 5px; color: var(--primary-blue); font-size: 1em; font-weight: 700; }
 .contract-note-panel .contract-inline-product .contract-product-grid { display: grid; grid-template-columns: 2fr 1.2fr .8fr .8fr 1fr auto; align-items: end; gap: 15px; margin: 0; }
+.contract-note-panel .contract-product-grid > [data-client-errors], .contract-status-form > [data-client-errors] { grid-column: 1 / -1; flex: 1 0 100%; min-width: 0; }
 .contract-note-panel .contract-product-grid label { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; color: var(--text-muted); font-size: .8rem; font-weight: 600; }
 .contract-note-panel .contract-product-grid input, .contract-note-panel .contract-product-grid select { width: 100%; min-width: 0; margin: 0; padding: 10px 12px; color: #495057; background: #fff; border: 1px solid #ddd; border-radius: 6px; font-size: .95rem; line-height: normal; }
 .contract-inline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

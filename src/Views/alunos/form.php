@@ -1,4 +1,4 @@
-<?php $formErrors = $errors; $classField = $editing && ($classChangeLocked ?? false) ? 'turma_atual' : 'id_turma'; $fieldErrors = UiPresentation::fieldErrors($formErrors, ['nome_completo' => ['nome com', 'nome completo'], 'data_nascimento' => ['nascimento'], $classField => ['turma'], 'data_vencimento' => ['vencimento', 'DVA inicial'], 'telefone_aluno' => ['telefone do aluno', 'Os telefones'], 'telefone_responsavel' => ['telefone do responsável', 'Os telefones']]); require __DIR__ . '/../partials/form-errors.php'; ?>
+<?php $formErrors = $errors; $classField = $editing && ($classChangeLocked ?? false) ? 'turma_atual' : 'id_turma'; $fieldErrors = UiPresentation::fieldErrors($formErrors, ['nome_completo' => ['nome com', 'nome completo'], 'data_nascimento' => ['nascimento'], $classField => ['turma'], 'data_vencimento' => ['vencimento', 'DVA inicial'], 'telefone_aluno' => ['telefone do aluno'], 'telefone_responsavel' => ['telefone do responsável']]); require __DIR__ . '/../partials/form-errors.php'; ?>
 <?php $canViewHealth = $canViewHealth ?? AccessPolicy::allows('student.health'); $action = $editing ? 'aluno/editar/' . (int) $studentId : 'aluno/criar'; ?>
 
 
@@ -63,9 +63,18 @@
 
     <section class="form-section form-block" aria-labelledby="student-contacts-title">
         <div class="section-head"><div><h2 id="student-contacts-title">Contatos <span class="field-optional">(opcionais)</span></h2></div></div>
+        <p class="form-help" id="student-phones-help">Use 10 ou 11 dígitos com DDD, como (65) 99999-1234.</p>
         <div class="form-grid contact-grid">
-            <div><label for="telefone_aluno">Telefone do aluno</label><input id="telefone_aluno" name="telefone_aluno" value="<?= e($data['telefone_aluno']) ?>" maxlength="30" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" <?= UiPresentation::fieldAttributes($fieldErrors, 'telefone_aluno') ?>><?php if (isset($fieldErrors['telefone_aluno'])): ?><small class="field-error" id="telefone_aluno-error"><?= e(implode(' ', $fieldErrors['telefone_aluno'])) ?></small><?php endif; ?></div>
-            <div><label for="telefone_responsavel">Telefone do responsável</label><input id="telefone_responsavel" name="telefone_responsavel" value="<?= e($data['telefone_responsavel']) ?>" maxlength="30" inputmode="tel" placeholder="(00) 00000-0000" <?= UiPresentation::fieldAttributes($fieldErrors, 'telefone_responsavel') ?>><?php if (isset($fieldErrors['telefone_responsavel'])): ?><small class="field-error" id="telefone_responsavel-error"><?= e(implode(' ', $fieldErrors['telefone_responsavel'])) ?></small><?php endif; ?></div>
+            <?php foreach (['telefone_aluno' => 'Telefone do aluno', 'telefone_responsavel' => 'Telefone do responsável'] as $field => $label): ?>
+                <div>
+                    <label for="<?= e($field) ?>"><?= e($label) ?></label>
+                    <input type="tel" id="<?= e($field) ?>" name="<?= e($field) ?>" value="<?= e($data[$field]) ?>"
+                           aria-describedby="student-phones-help<?= isset($fieldErrors[$field]) ? ' ' . e($field) . '-error' : '' ?>"<?= isset($fieldErrors[$field]) ? ' aria-invalid="true"' : '' ?>>
+                    <?php if (isset($fieldErrors[$field])): ?>
+                        <small class="field-error" id="<?= e($field) ?>-error"><?= e(implode(' ', $fieldErrors[$field])) ?></small>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
         </div>
     </section>
 

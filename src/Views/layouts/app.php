@@ -74,7 +74,7 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
     <?php if ($contractActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/pedidos-usabilidade.css')) ?>"><?php endif; ?>
     <?php if ($contractActive || $stockActive || $reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/modulo5.css')) ?>"><?php endif; ?>
     <?php if ($stockActive || str_starts_with($currentPath,'contrato/historico/') || str_starts_with($currentPath,'contrato/recebimento/')): ?><link rel="stylesheet" href="<?= e(url('assets/css/estoque.css?v='.substr((string)hash_file('sha256',ROOT_PATH.'/public/assets/css/estoque.css'),0,12))) ?>"><?php endif; ?>
-    <?php if ($contractActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/contratos.css')) ?>"><?php endif; ?>
+    <?php if ($contractActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/contratos.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/contratos.css'), 0, 12))) ?>"><?php endif; ?>
     <?php if ($reportActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/relatorios.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/relatorios.css'), 0, 12))) ?>"><?php endif; ?>
     <?php if ($certActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/certidoes.css'), 0, 12))) ?>">

@@ -35,7 +35,7 @@ final class CertidaoController extends Controller
         $path = 'certidao/' . $mode . ($id === null ? '' : '/' . $id);
         $state = $_SESSION['certidao_form'][$path] ?? null; unset($_SESSION['certidao_form'][$path]);
         $data = is_array($state) ? $state : ($record ?? []);
-        $conflictReview = null; $formErrors = [];
+        $conflictReview = null; $formErrors = is_array($state['_errors'] ?? null) ? $state['_errors'] : [];
         if ($mode === 'editar' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
             // A clean visit starts from the database, never from an earlier failed submission.
             $data = $record;
@@ -78,8 +78,8 @@ final class CertidaoController extends Controller
                 $this->redirectWithFlash('certidao/detalhes/' . $saved, 'success', 'Certidão salva com sucesso.');
             } catch (Throwable $e) {
                 if ($mode !== 'editar') {
-                    $_SESSION['certidao_form'][$path] = $data;
-                    $this->redirectWithFlash($path, 'danger', $this->safeError($e));
+                    $_SESSION['certidao_form'][$path] = $data + ['_errors' => [$this->safeError($e)]];
+                    redirect($path);
                 }
                 $record = $this->record((string) $id);
                 // The transactional model may also discover a writer after our first read.

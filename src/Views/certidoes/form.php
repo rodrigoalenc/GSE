@@ -1,5 +1,16 @@
 <section class="cert-panel cert-form-panel">
-    <?php $fieldErrors = []; require __DIR__ . '/../partials/form-errors.php'; ?>
+    <?php
+    $fieldErrors = UiPresentation::fieldErrors($formErrors, [
+        'data_emissao' => ['data de emissão'],
+        'data_vencimento' => ['data de vencimento', 'vencimento igual ou posterior'],
+        'arquivo_pdf' => ['PDF ultrapassa', 'PDF está vazio', 'Envie um PDF'],
+        'observacao' => ['Observação inválida'],
+    ]);
+    $pdfApplicationLimit = (int) Config::string('CERTIDAO_PDF_MAX_BYTES', '10485760');
+    $pdfLimit = UploadLimits::fileBytes($pdfApplicationLimit);
+    $pdfLimitLabel = UploadLimits::label($pdfLimit);
+    require __DIR__ . '/../partials/form-errors.php';
+    ?>
     <?php if ($mode === 'renovar'): ?><p class="info-message">Renovação da <a href="<?= e(url('certidao/detalhes/' . (int) $record['id'])) ?>"><?= e($record['tipo_certidao']) ?> de <?= e($record['fornecedor']) ?></a>. A anterior e seu PDF, quando houver, serão preservados no arquivo.</p><?php endif; ?>
     <?php if ($mode === 'editar'): ?><p>Esta tela corrige dados cadastrais e mantém o PDF, quando houver. <?php if ($record['estado'] === 'corrente'): ?>Para registrar um novo documento, utilize <a href="<?= e(url('certidao/renovar/' . (int) $record['id'])) ?>">Renovar</a>.<?php else: ?>Para registrar um novo documento, desarquive a certidão e depois utilize a renovação.<?php endif; ?></p><?php endif; ?>
     <form method="post" enctype="multipart/form-data" action="<?= e(url($path)) ?>" class="cert-form">
@@ -49,13 +60,17 @@
             <?php endforeach; ?>
         </div>
         <div class="cert-form-dates">
-            <div><label for="data_emissao">Emissão:</label><input type="date" id="data_emissao" name="data_emissao" required value="<?= e((string) ($data['data_emissao'] ?? '')) ?>"></div>
-            <div><label for="data_vencimento">Vencimento:</label><input type="date" id="data_vencimento" name="data_vencimento" required value="<?= e((string) ($data['data_vencimento'] ?? '')) ?>"></div>
+            <div><label for="data_emissao">Emissão:</label><input type="date" id="data_emissao" name="data_emissao" required value="<?= e((string) ($data['data_emissao'] ?? '')) ?>" <?= UiPresentation::fieldAttributes($fieldErrors, 'data_emissao') ?>>
+                <?php if (isset($fieldErrors['data_emissao'])): ?><small id="data_emissao-error" class="field-error"><?= e(implode(' ', $fieldErrors['data_emissao'])) ?></small><?php endif; ?>
+            </div>
+            <div><label for="data_vencimento">Vencimento:</label><input type="date" id="data_vencimento" name="data_vencimento" required value="<?= e((string) ($data['data_vencimento'] ?? '')) ?>" <?= UiPresentation::fieldAttributes($fieldErrors, 'data_vencimento') ?>>
+                <?php if (isset($fieldErrors['data_vencimento'])): ?><small id="data_vencimento-error" class="field-error"><?= e(implode(' ', $fieldErrors['data_vencimento'])) ?></small><?php endif; ?>
+            </div>
             <div><label for="cert-validity-days">Validade (Dias):</label><input type="text" id="cert-validity-days" value="..." readonly aria-label="Dias entre emissão e vencimento"></div>
         </div>
-        <?php if ($mode !== 'editar'): ?><div class="cert-upload"><label for="arquivo_pdf"><i class="cert-icon cert-icon-paperclip" aria-hidden="true"></i> Anexar PDF (Opcional): <small>até <?= e((string) round((int) Config::string('CERTIDAO_PDF_MAX_BYTES', '10485760') / 1048576, 2)) ?> MiB</small></label><input type="file" id="arquivo_pdf" name="arquivo_pdf" accept="application/pdf,.pdf" aria-describedby="pdf-help" data-pdf-input><div class="cert-pdf-preview" data-pdf-preview hidden><div class="cert-pdf-preview-head"><div><span>Pré-visualização para conferência</span><strong data-pdf-name></strong><small data-pdf-meta></small></div><button type="button" class="btn-secondary" data-pdf-clear>Remover seleção</button></div><iframe data-pdf-frame title="Prévia do PDF selecionado"></iframe><a data-pdf-open href="#" target="_blank" rel="noopener noreferrer" hidden>Abrir PDF para conferir</a><p class="cert-pdf-preview-help">Confira o documento antes de salvar a certidão.</p></div></div><?php endif; ?>
-        <div class="cert-form-observation"><label for="observacao">Observação:</label><textarea id="observacao" name="observacao" rows="3" maxlength="2000" placeholder="Adicione notas adicionais aqui..."><?= e((string) ($data['observacao'] ?? '')) ?></textarea></div>
+        <?php if ($mode !== 'editar'): ?><div class="cert-upload"><label for="arquivo_pdf"><i class="cert-icon cert-icon-paperclip" aria-hidden="true"></i> Anexar PDF (Opcional): <small>até <?= e($pdfLimitLabel) ?></small></label><input type="file" id="arquivo_pdf" name="arquivo_pdf" accept="application/pdf,.pdf" aria-describedby="pdf-help<?= isset($fieldErrors['arquivo_pdf']) ? ' arquivo_pdf-error' : '' ?>"<?= isset($fieldErrors['arquivo_pdf']) ? ' aria-invalid="true"' : '' ?> data-pdf-input data-upload-max="<?= $pdfLimit ?>" data-upload-size-error="<?= e(UploadLimits::pdfSizeError($pdfApplicationLimit)) ?>"><?php if (isset($fieldErrors['arquivo_pdf'])): ?><small id="arquivo_pdf-error" class="field-error"><?= e(implode(' ', $fieldErrors['arquivo_pdf'])) ?></small><?php endif; ?><div class="cert-pdf-preview" data-pdf-preview hidden><div class="cert-pdf-preview-head"><div><span>Pré-visualização para conferência</span><strong data-pdf-name></strong><small data-pdf-meta></small></div><button type="button" class="btn-secondary" data-pdf-clear>Remover seleção</button></div><iframe data-pdf-frame title="Prévia do PDF selecionado"></iframe><a data-pdf-open href="#" target="_blank" rel="noopener noreferrer" hidden>Abrir PDF para conferir</a><p class="cert-pdf-preview-help">Confira o documento antes de salvar a certidão.</p></div></div><?php endif; ?>
+        <div class="cert-form-observation"><label for="observacao">Observação:</label><textarea id="observacao" name="observacao" rows="3" maxlength="2000" placeholder="Adicione notas adicionais aqui..." <?= UiPresentation::fieldAttributes($fieldErrors, 'observacao') ?>><?= e((string) ($data['observacao'] ?? '')) ?></textarea><?php if (isset($fieldErrors['observacao'])): ?><small id="observacao-error" class="field-error"><?= e(implode(' ', $fieldErrors['observacao'])) ?></small><?php endif; ?></div>
         <div class="cert-form-footer"><button type="submit" class="btn-primary"><i class="cert-icon cert-icon-check" aria-hidden="true"></i> <?= match ($mode) { 'renovar' => 'Salvar nova e arquivar anterior', 'editar' => 'Atualizar dados', default => 'Salvar Certidão' } ?></button><a href="<?= e(url('certidao')) ?>"><i class="cert-icon cert-icon-arrow-left" aria-hidden="true"></i> Voltar</a></div>
-        <?php if ($mode !== 'editar'): ?><details class="cert-upload-help"><summary>Orientações para anexar o PDF</summary><p id="pdf-help">O PDF é opcional. O limite é <?= e((string) round((int) Config::string('CERTIDAO_PDF_MAX_BYTES', '10485760') / 1048576, 2)) ?> MiB. Use um nome simples com uma única extensão .pdf. Após um erro, selecione o arquivo novamente.</p></details><?php endif; ?>
+        <?php if ($mode !== 'editar'): ?><details class="cert-upload-help"><summary>Orientações para anexar o PDF</summary><p id="pdf-help">O PDF é opcional. O limite é <?= e($pdfLimitLabel) ?>. Use um nome simples com uma única extensão .pdf. Após um erro, selecione o arquivo novamente.</p></details><?php endif; ?>
     </form>
 </section>

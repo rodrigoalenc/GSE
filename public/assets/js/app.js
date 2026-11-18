@@ -3,45 +3,137 @@ document.querySelectorAll('[data-form-errors] a').forEach((link) => {
     link.addEventListener('click', () => document.getElementById(link.hash.slice(1))?.focus());
 });
 let fieldErrorSequence = 0;
-document.addEventListener('invalid', (event) => {
-    const input = event.target;
-    if (!input.form || !('validationMessage' in input)) return;
+const pendingErrorFocus = new WeakSet();
+const validationText = (input) => {
+    const state = input.validity;
+    const date = (value) => value.split('-').reverse().join('/');
+    if (state.customError) return input.validationMessage;
+    if (state.badInput) return input.type === 'date' ? 'Informe uma data válida.' : 'Informe um número válido.';
+    if (state.valueMissing) {
+        if (input.type === 'checkbox') return 'Marque esta opção para continuar.';
+        if (input.type === 'file') return 'Selecione um arquivo.';
+        if (input.tagName === 'SELECT' || input.type === 'radio') return 'Selecione uma opção.';
+        return 'Preencha este campo.';
+    }
+    if (state.typeMismatch && input.type === 'email') return 'Informe um e-mail válido. Inclua o @, como em nome@escola.com.br.';
+    if (state.typeMismatch && input.type === 'url') return 'Informe um endereço válido, como https://exemplo.com.br.';
+    if (state.rangeUnderflow) return input.type === 'date' ? `Informe uma data a partir de ${date(input.min)}.` : `Informe um número maior ou igual a ${input.min}.`;
+    if (state.rangeOverflow) return input.type === 'date' ? `Informe uma data até ${date(input.max)}.` : `Informe um número menor ou igual a ${input.max}.`;
+    if (state.stepMismatch) return input.type === 'number' && (!input.step || input.step === '1') ? 'Informe um número inteiro.' : 'Informe um valor que corresponda ao intervalo indicado no campo.';
+    if (state.tooShort) return `Use pelo menos ${input.minLength} caracteres.`;
+    if (state.tooLong) return `Use no máximo ${input.maxLength} caracteres.`;
+    if (state.patternMismatch && input.dataset.formatError) return input.dataset.formatError;
+    return 'Confira o formato indicado para este campo.';
+};
+const showFieldError = (input) => {
     if (!input.id || document.getElementById(input.id) !== input) input.id = `validation-field-${++fieldErrorSequence}`;
     const errorId = `${input.id}-client-error`;
+    const text = validationText(input);
+    if (document.getElementById(`${input.id}-error`)?.textContent.trim() === text) return;
     let message = document.getElementById(errorId);
     if (!message) {
-        message = document.createElement('small'); message.id = errorId; message.className = 'field-error';
+        message = document.createElement('small');
+        message.id = errorId;
+        message.className = 'field-error';
         input.insertAdjacentElement('afterend', message);
     }
-    message.textContent = input.validationMessage;
+    message.textContent = text;
     input.setAttribute('aria-invalid', 'true');
     const descriptions = new Set((input.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
-    descriptions.add(errorId); input.setAttribute('aria-describedby', [...descriptions].join(' '));
+    descriptions.add(errorId);
+    input.setAttribute('aria-describedby', [...descriptions].join(' '));
     let summary = input.form.querySelector('[data-client-errors]');
     if (!summary) {
-        summary = document.createElement('div'); summary.className = 'error-message'; summary.dataset.clientErrors = '';
+        summary = document.createElement('div');
+        summary.className = 'error-message';
+        summary.dataset.clientErrors = '';
         summary.setAttribute('role', 'alert');
         summary.append(document.createTextNode('Revise os campos indicados: '), document.createElement('ul'));
         input.form.prepend(summary);
     }
-    if (!document.getElementById(`${errorId}-link`)) {
-        const item = document.createElement('li'); item.id = `${errorId}-link`;
-        const link = document.createElement('a'); link.href = `#${input.id}`;
-        link.textContent = `${input.labels?.[0]?.textContent.trim() || 'Campo'}: ${input.validationMessage}`;
-        link.addEventListener('click', () => input.focus()); item.append(link); summary.querySelector('ul').append(item);
+    let item = document.getElementById(`${errorId}-link`);
+    if (!item) {
+        item = document.createElement('li');
+        item.id = `${errorId}-link`;
+        const link = document.createElement('a');
+        link.href = `#${input.id}`;
+        link.addEventListener('click', () => input.focus());
+        item.append(link);
+        summary.querySelector('ul').append(item);
     }
-}, true);
-document.addEventListener('input', (event) => {
-    const input = event.target;
-    if (!input.id || !input.validity?.valid) return;
+    const label = input.labels?.[0]?.cloneNode(true);
+    label?.querySelectorAll('.field-error, [data-field-hint]').forEach((part) => part.remove());
+    item.firstElementChild.textContent = `${input.getAttribute('aria-label') || label?.textContent.trim() || 'Campo'}: ${text}`;
+};
+const clearServerFieldError = (input) => {
+    const id = `${input.id}-error`;
+    const error = document.getElementById(id);
+    if (!error) return;
+    error.remove();
+    const descriptions = (input.getAttribute('aria-describedby') || '').split(/\s+/).filter((description) => description && description !== id);
+    if (descriptions.length) input.setAttribute('aria-describedby', descriptions.join(' ')); else input.removeAttribute('aria-describedby');
+    if (!document.getElementById(`${input.id}-client-error`)) input.removeAttribute('aria-invalid');
+    document.querySelectorAll('[data-form-errors] a').forEach((link) => {
+        if (link.getAttribute('href') !== `#${input.id}`) return;
+        const summary = link.closest('[data-form-errors]');
+        link.closest('li')?.remove();
+        if (summary && !summary.querySelector('li')) summary.remove();
+    });
+};
+const updateVisibleFieldError = (input) => {
+    if (!input.id || !input.validity) return;
     const errorId = `${input.id}-client-error`;
-    document.getElementById(errorId)?.remove(); document.getElementById(`${errorId}-link`)?.remove();
+    const message = document.getElementById(errorId);
+    if (!message) return;
+    if (!input.validity.valid) {
+        showFieldError(input);
+        return;
+    }
+    message.remove();
+    document.getElementById(`${errorId}-link`)?.remove();
     const descriptions = (input.getAttribute('aria-describedby') || '').split(/\s+/).filter((id) => id && id !== errorId);
     if (descriptions.length) input.setAttribute('aria-describedby', descriptions.join(' ')); else input.removeAttribute('aria-describedby');
     if (!document.getElementById(`${input.id}-error`)) input.removeAttribute('aria-invalid');
     const summary = input.form?.querySelector('[data-client-errors]');
     if (summary && !summary.querySelector('li')) summary.remove();
+};
+document.addEventListener('invalid', (event) => {
+    const input = event.target;
+    if (!input.form || !input.validity) return;
+    event.preventDefault();
+    showFieldError(input);
+    const form = input.form;
+    if (form.noValidate || pendingErrorFocus.has(form)) return;
+    pendingErrorFocus.add(form);
+    window.setTimeout(() => {
+        pendingErrorFocus.delete(form);
+        const firstInvalid = [...form.elements].find((field) => field.willValidate && !field.validity.valid && field.getClientRects().length);
+        firstInvalid?.focus();
+    }, 0);
+}, true);
+document.addEventListener('input', (event) => updateVisibleFieldError(event.target));
+document.addEventListener('change', (event) => updateVisibleFieldError(event.target));
+
+document.querySelectorAll('[data-upload-max]').forEach((input) => {
+    const refresh = () => {
+        clearServerFieldError(input);
+        const tooLarge = input.files[0]?.size > Number(input.dataset.uploadMax);
+        input.setCustomValidity(tooLarge ? input.dataset.uploadSizeError : '');
+        if (tooLarge) showFieldError(input);
+        else updateVisibleFieldError(input);
+    };
+    input.addEventListener('change', refresh);
+    input.addEventListener('gse:file-cleared', refresh);
 });
+
+if (window.GseMoney) {
+    document.querySelectorAll('[data-money-input]').forEach((input) => {
+        const refresh = () => input.setCustomValidity(input.value !== '' && window.GseMoney.cents(input.value) === null
+            ? 'Use 1250,00 ou 1.250,00, com até duas casas decimais e valor máximo de R$ 999.999.999,99.' : '');
+        input.addEventListener('input', refresh);
+        refresh();
+    });
+}
 
 document.querySelectorAll('[data-contract-certificate-form]').forEach((form) => {
     const supplier = form.querySelector('[name="fornecedor"]');
@@ -139,18 +231,19 @@ if (certPdfInput) {
         name.textContent = file.name;
         meta.textContent = `${(file.size / 1048576).toFixed(2)} MiB`;
         preview.hidden = false;
-        if (file.type === 'application/pdf' && /\.pdf$/i.test(file.name)) {
+        if (certPdfInput.validity.valid && file.type === 'application/pdf' && /\.pdf$/i.test(file.name)) {
             previewUrl = URL.createObjectURL(file);
             frame.src = previewUrl;
             frame.hidden = false;
             open.href = previewUrl;
             open.hidden = false;
         } else {
-            meta.textContent += ' · Não é possível pré-visualizar este arquivo como PDF.';
+            meta.textContent += ' · Prévia indisponível para este arquivo.';
         }
     });
     preview.querySelector('[data-pdf-clear]').addEventListener('click', () => {
         certPdfInput.value = '';
+        certPdfInput.dispatchEvent(new Event('gse:file-cleared'));
         clearPreview();
         certPdfInput.focus();
     });
@@ -159,15 +252,29 @@ if (certPdfInput) {
 const certExpiryDate = document.getElementById('data_vencimento');
 const certValidityDays = document.getElementById('cert-validity-days');
 if (certIssueDate && certExpiryDate && certValidityDays) {
-    const refreshValidity = () => {
+    const expiryOrderError = 'Informe um vencimento igual ou posterior à emissão.';
+    const refreshValidity = (event) => {
         const issue = Date.parse(`${certIssueDate.value}T00:00:00Z`);
         const expiry = Date.parse(`${certExpiryDate.value}T00:00:00Z`);
         const days = Math.round((expiry - issue) / 86400000);
         certValidityDays.value = Number.isFinite(days) ? (days < 0 ? 'Inválido' : `${days} dias`) : '...';
-        certValidityDays.classList.toggle('is-invalid', Number.isFinite(days) && days < 0);
+        const reversed = Number.isFinite(days) && days < 0;
+        certValidityDays.classList.toggle('is-invalid', reversed);
+        certExpiryDate.setCustomValidity(reversed ? expiryOrderError : '');
+        if (event) {
+            const editedField = event.currentTarget;
+            if (editedField.validity.valid) clearServerFieldError(editedField);
+            if (!reversed && document.getElementById('data_vencimento-error')?.textContent.trim() === expiryOrderError) {
+                clearServerFieldError(certExpiryDate);
+            }
+        }
+        if (reversed) showFieldError(certExpiryDate);
+        else updateVisibleFieldError(certExpiryDate);
     };
-    certIssueDate.addEventListener('change', refreshValidity);
-    certExpiryDate.addEventListener('change', refreshValidity);
+    for (const dateField of [certIssueDate, certExpiryDate]) {
+        dateField.addEventListener('input', refreshValidity);
+        dateField.addEventListener('change', refreshValidity);
+    }
     refreshValidity();
 }
 

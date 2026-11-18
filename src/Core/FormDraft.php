@@ -93,7 +93,7 @@ final class FormDraft
     {
         $group = explode('/', $target)[0];
         $fields = match ($group) {
-            'aluno' => ['nome_completo' => 150, 'data_nascimento' => 10, 'id_turma' => 20, 'telefone_aluno' => 30, 'telefone_responsavel' => 30, 'data_vencimento' => 10, 'observacao' => 1000],
+            'aluno' => ['nome_completo' => 150, 'data_nascimento' => 10, 'id_turma' => 20, 'telefone_aluno' => self::MAX_BYTES, 'telefone_responsavel' => self::MAX_BYTES, 'data_vencimento' => 10, 'observacao' => 1000],
             'contrato' => ['titulo' => 150, 'valor' => 30, 'fornecedor' => 20],
             'certidao' => ['fornecedor' => 150, 'tipo_certidao' => 150, 'data_emissao' => 10, 'data_vencimento' => 10, 'observacoes' => 2000, 'observacao' => 2000, 'id_fornecedor' => 20, 'id_tipo_certidao' => 20],
             'passivo' => ['nome_completo' => 150, 'data_nascimento' => 10, 'numero' => 60, 'caixa' => 60],

@@ -53,7 +53,7 @@ final class AlunoController extends Controller
             }
 
             $possibleDuplicate = $model->lastErrorCode() === 'possible_duplicate';
-            $errors[] = $this->studentError($model->lastErrorCode());
+            $errors = $this->studentFormErrors($model, $model->lastErrorCode());
             http_response_code(422);
         }
 
@@ -125,7 +125,7 @@ final class AlunoController extends Controller
                 $data['revisao'] = (string) $student['revisao'];
                 if ((int) $student['possui_movimentacao'] === 1) { $data['id_turma'] = (string) $student['id_turma']; }
             }
-            $errors[] = $this->studentError($errorCode);
+            $errors = $this->studentFormErrors($model, $errorCode);
             http_response_code(422);
         }
 
@@ -375,11 +375,32 @@ final class AlunoController extends Controller
             'nome_completo' => mb_substr(input_string($_POST['nome_completo'] ?? ''), 0, Aluno::NAME_MAX_LENGTH + 1, 'UTF-8'),
             'data_nascimento' => mb_substr(trim(input_string($_POST['data_nascimento'] ?? '')), 0, 10, 'UTF-8'),
             'id_turma' => mb_substr(trim(input_string($_POST['id_turma'] ?? '')), 0, 20, 'UTF-8'),
-            'telefone_aluno' => mb_substr(trim(input_string($_POST['telefone_aluno'] ?? '')), 0, 30, 'UTF-8'),
-            'telefone_responsavel' => mb_substr(trim(input_string($_POST['telefone_responsavel'] ?? '')), 0, 30, 'UTF-8'),
+            'telefone_aluno' => $this->phoneInput('telefone_aluno'),
+            'telefone_responsavel' => $this->phoneInput('telefone_responsavel'),
             'data_vencimento' => mb_substr(trim(input_string($_POST['data_vencimento'] ?? '')), 0, 10, 'UTF-8'),
             'observacao' => mb_substr(trim(input_string($_POST['observacao'] ?? '')), 0, Dva::OBSERVATION_MAX_LENGTH + 1, 'UTF-8'),
         ];
+    }
+
+    private function phoneInput(string $field): string
+    {
+        $value = $_POST[$field] ?? '';
+        return is_string($value) ? $value : input_string($value);
+    }
+
+    /** @return list<string> */
+    private function studentFormErrors(Aluno $model, ?string $code): array
+    {
+        if ($code !== 'invalid_phone') {
+            return [$this->studentError($code)];
+        }
+
+        $labels = ['telefone_aluno' => 'do aluno', 'telefone_responsavel' => 'do responsável'];
+        return array_map(
+            static fn (string $field): string => 'Informe o telefone ' . $labels[$field]
+                . ' com 10 ou 11 dígitos, incluindo o DDD. Use apenas números, espaços, parênteses ou hífen.',
+            $model->invalidPhoneFields()
+        );
     }
 
     private function studentError(?string $code): string
@@ -396,7 +417,6 @@ final class AlunoController extends Controller
             'invalid_name' => 'Informe um nome com até 150 caracteres.',
             'invalid_birth_date' => 'Informe uma data de nascimento válida.',
             'future_birth_date' => 'A data de nascimento não pode estar no futuro.',
-            'invalid_phone' => 'Os telefones devem ter 10 ou 11 dígitos.',
             'invalid_class' => 'Selecione uma turma ativa válida.',
             'invalid_dva' => 'Revise a data e a observação da DVA inicial.',
             'not_found' => 'Aluno não encontrado.',

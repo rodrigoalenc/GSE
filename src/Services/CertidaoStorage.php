@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../Core/UploadLimits.php';
+
 /** Private local filesystem. The directory must be owned by the application account. */
 final class CertidaoStorage
 {
@@ -64,7 +66,11 @@ final class CertidaoStorage
      * @return array{key:string,name:string,bytes:int,hash:string} */
     public function receive(array $upload): array
     {
-        if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_string($upload['tmp_name'] ?? null)
+        $error = $upload['error'] ?? UPLOAD_ERR_NO_FILE;
+        if (in_array($error, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            throw new DomainException(UploadLimits::pdfSizeError($this->maximum));
+        }
+        if ($error !== UPLOAD_ERR_OK || !is_string($upload['tmp_name'] ?? null)
             || !is_uploaded_file($upload['tmp_name'])) {
             throw new DomainException('Envie um PDF completo e válido. Verifique também o limite do servidor.');
         }
@@ -91,7 +97,10 @@ final class CertidaoStorage
             throw new DomainException('Use um nome simples com uma única extensão .pdf.');
         }
         $size = filesize($path);
-        if ($size === false || $size < 8 || $size > $this->maximum) { throw new DomainException('PDF vazio ou acima do limite permitido.'); }
+        if ($size === false || $size < 8) { throw new DomainException('O PDF está vazio ou incompleto.'); }
+        if ($size > $this->maximum) {
+            throw new DomainException('O PDF ultrapassa o limite de ' . UploadLimits::label($this->maximum) . '.');
+        }
         if (!class_exists(finfo::class)) { throw new RuntimeException('A extensão fileinfo é obrigatória.'); }
         if ((new finfo(FILEINFO_MIME_TYPE))->file($path) !== 'application/pdf' || file_get_contents($path, false, null, 0, 5) !== '%PDF-') {
             throw new DomainException('O arquivo não contém um PDF válido.');

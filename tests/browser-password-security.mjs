@@ -131,6 +131,19 @@ try {
         await fill('#senha', password);
         await submit();
     };
+    await go('/login');
+    await page.click('.btn-login');
+    check(await page.evaluate("document.querySelector('#email-client-error')?.textContent"), 'Preencha este campo.', 'Login indica e-mail obrigatório em português');
+    await fill('#email', 'email-sem-arroba');
+    await page.click('.btn-login');
+    check(await page.evaluate(`(() => {
+        const field = document.querySelector('#email-client-error')?.textContent;
+        const summary = document.querySelector('#email-client-error-link')?.textContent;
+        return Boolean(field?.includes('Inclua o @') && summary?.includes(field));
+    })()`), true, 'Aviso do campo e resumo mostram o erro atualizado em português');
+    await fill('#email', 'teste@example.test');
+    check(await page.evaluate("document.querySelector('#email-client-error, #email-client-error-link') === null"), true, 'E-mail válido remove os dois avisos');
+
     await login('legacy@example.test', 'L'.repeat(72)+'x');
     check(await page.evaluate('location.pathname'), '/login/entrar', 'Ambiguous bcrypt stays unauthenticated');
     check(fixture().algorithms[1], 'bcrypt', 'Ambiguous login does not rehash');

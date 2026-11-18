@@ -124,6 +124,12 @@ foreach ($draftFailures as [$endpoint,$formId,$changes,$field,$expected]) {
 
 // The inline checkbox has explicit server behavior and retains the correction restrictions.
 $draftBillingPage=request('GET',$draftUrl,$cookieEmployee);
+$draftBillingUnconfirmed = array_replace(contractDraftFields($draftBillingPage['body'],'billing-note-'.$draftNote3), ['data'=>'2026-10-02']);
+$draftBillingUnconfirmedRecovery = contractDraftRecovery(request('POST', $baseUrl.'/contrato/faturar/'.$draftContract, $cookieEmployee, $draftBillingUnconfirmed), $cookieEmployee);
+checkHttp(str_contains($draftBillingUnconfirmedRecovery['body'], 'Marque Pedido faturado')
+    && contractDraftFields($draftBillingUnconfirmedRecovery['body'],'billing-note-'.$draftNote3)['data'] === '2026-10-02'
+    && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn() === null,
+    'Data sem checkbox é recusada e preservada para correção');
 $draftBillingMissing=array_replace(contractDraftFields($draftBillingPage['body'],'billing-note-'.$draftNote3),['faturado'=>'1','data'=>'']);
 $draftBillingMissingResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingMissing);
 $draftBillingMissingRecovery=contractDraftRecovery($draftBillingMissingResponse,$cookieEmployee);
@@ -131,7 +137,9 @@ checkHttp(str_contains($draftBillingMissingRecovery['body'],'Informe a data para
     && contractDraftFields($draftBillingMissingRecovery['body'],'billing-note-'.$draftNote3)['faturado']==='1','Checkbox faturado exige data e mantém a escolha após erro');
 $draftBillingConfirmed=array_replace(contractDraftFields($draftBillingMissingRecovery['body'],'billing-note-'.$draftNote3),['data'=>'2026-10-02']);
 $draftBillingConfirmedResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingConfirmed);
-checkHttp(!str_contains($draftBillingConfirmedResponse['headers']['location'],'rascunho=')
+$draftBillingSaved = request('GET', $draftBillingConfirmedResponse['headers']['location'], $cookieEmployee);
+checkHttp(str_contains($draftBillingSaved['body'], 'Faturamento registrado.')
+    && !str_contains($draftBillingConfirmedResponse['headers']['location'],'rascunho=')
     && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn()==='2026-10-02','Funcionário confirma o primeiro faturamento com checkbox e data válida');
 $draftBilledStock=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Produto 3']);
 checkHttp($draftBilledStock['status']===200
@@ -142,6 +150,7 @@ checkHttp($draftBilledStock['status']===200
 $draftEmployeeCorrectionPage=request('GET',$draftUrl,$cookieEmployee);
 $draftEmployeeCorrection=contractDraftFields($draftEmployeeCorrectionPage['body'],'billing-note-'.$draftNote3);
 unset($draftEmployeeCorrection['faturado']);
+$draftEmployeeCorrection['data']='';
 $draftEmployeeCorrection['motivo']='Tentativa de remover faturamento';
 $draftEmployeeCorrectionRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftEmployeeCorrection),$cookieEmployee);
 checkHttp(str_contains($draftEmployeeCorrectionRecovery['body'],'Correção de faturamento exige administrador e motivo.')
@@ -150,12 +159,15 @@ checkHttp(str_contains($draftEmployeeCorrectionRecovery['body'],'Correção de f
 $draftAdminCorrectionPage=request('GET',$draftUrl,$cookieAdmin);
 $draftAdminCorrection=contractDraftFields($draftAdminCorrectionPage['body'],'billing-note-'.$draftNote3);
 unset($draftAdminCorrection['faturado']);
+$draftAdminCorrection['data']='';
 $draftAdminCorrection['motivo']='';
 $draftAdminCorrectionRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieAdmin,$draftAdminCorrection),$cookieAdmin);
 checkHttp(str_contains($draftAdminCorrectionRecovery['body'],'Correção de faturamento exige administrador e motivo.'),'Administrador deve justificar a remoção de faturamento mesmo no controle inline');
 $draftAdminReviewed=array_replace(contractDraftFields($draftAdminCorrectionRecovery['body'],'billing-note-'.$draftNote3),['motivo'=>'Correção documental conferida HTTP']);
 $draftAdminCorrectionResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieAdmin,$draftAdminReviewed);
-checkHttp(!str_contains($draftAdminCorrectionResponse['headers']['location'],'rascunho=')
+$draftBillingRemoved = request('GET', $draftAdminCorrectionResponse['headers']['location'], $cookieAdmin);
+checkHttp(str_contains($draftBillingRemoved['body'], 'Faturamento removido.')
+    && !str_contains($draftAdminCorrectionResponse['headers']['location'],'rascunho=')
     && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn()===null,'Administrador desmarca e remove faturamento com justificativa auditada');
 $draftBillingInvalidPage=request('GET',$draftUrl,$cookieEmployee);
 $draftBillingInvalid=array_replace(contractDraftFields($draftBillingInvalidPage['body'],'billing-note-'.$draftNote3),['faturado'=>'1','data'=>"2026-10-02\0"]);

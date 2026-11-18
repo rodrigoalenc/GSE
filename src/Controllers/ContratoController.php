@@ -72,6 +72,7 @@ final class ContratoController extends Controller
     }
 
     /** @param callable(): mixed $action */
+    /** @param callable(): (string|array{message:string}|void) $action */
     private function run(string $back,callable $action,?string $operation=null): void
     {
         $resource=null; $contractId=0; $base=$back;
@@ -97,7 +98,8 @@ final class ContratoController extends Controller
         try {
             $target=$action();
             if ($resource!==null) { ContractFormDraft::clear($contractId,$resource['operation'],$resource['sheet'],$resource['item'],$_POST['_form_context'] ?? null); }
-            $this->redirectWithFlash(is_string($target) ? $target : $back,'success','Operação registrada.');
+            $this->redirectWithFlash(is_string($target) ? $target : $back, 'success',
+                is_array($target) ? $target['message'] : 'Operação registrada.');
         }
         catch (DomainException $e) {
             if ($resource!==null) { $draftId=ContractFormDraft::save($contractId,$resource['operation'],$resource['sheet'],$resource['item'],$_POST,$e->getMessage()); redirect($base.'?rascunho='.$draftId.'#'.$resource['target']); }
@@ -212,15 +214,23 @@ final class ContratoController extends Controller
     }
     public function faturar(string $id): void
     {
-        $this->run('contrato/detalhes/'.$id,function() use ($id): void {
+        $this->run('contrato/detalhes/'.$id,function() use ($id): array {
             $date=$this->field('data');
             if ($this->field('_billing_form')==='1') {
                 $billed=$this->field('faturado');
                 if (!in_array($billed,['','1'],true)) { throw new DomainException('Situação de faturamento inválida.'); }
                 if ($billed==='1' && $date==='') { throw new DomainException('Informe a data para confirmar o faturamento.'); }
-                if ($billed==='') { $date=''; }
+                if ($billed==='' && $date!=='') {
+                    throw new DomainException('Marque Pedido faturado para registrar a data ou limpe a data para deixar a nota sem faturamento.');
+                }
             }
-            $this->model()->billSheet(Contrato::integer($id,1),$this->number('folha'),$date,$this->field('motivo'),$this->number('revisao'),$this->actor(),Auth::isAdmin());
+            $previouslyBilled = $this->model()->billSheet(Contrato::integer($id,1),$this->number('folha'),$date,$this->field('motivo'),$this->number('revisao'),$this->actor(),Auth::isAdmin());
+            return ['message' => match (true) {
+                $date === '' && $previouslyBilled => 'Faturamento removido.',
+                $date === '' => 'A nota permanece sem faturamento.',
+                $previouslyBilled => 'Faturamento atualizado.',
+                default => 'Faturamento registrado.',
+            }];
         },'faturar');
     }
     public function produto(string $id): void
@@ -238,7 +248,7 @@ final class ContratoController extends Controller
             $open=$this->field('abertura');
             if ($open!=='' && $this->field('confirmar_abertura')!=='1') { throw new DomainException('Confirme a quantidade inicial, inclusive quando for zero.'); }
             if ($open==='' && $this->field('confirmar_abertura')==='1') { throw new DomainException('Informe a quantidade inicial confirmada.'); }
-            $this->model()->configureStock(Contrato::integer($id,1),$this->number('produto'),$this->field('minimo')==='' ? null : $this->number('minimo',0),$this->field('maximo')==='' ? null : $this->number('maximo'),$this->number('revisao'),$this->actor(),$open==='' ? null : $this->number('abertura',0),$this->field('chave'),Auth::isAdmin());
+            $this->model()->configureStock(Contrato::integer($id,1),$this->number('produto'),Contrato::stockLimit($this->field('minimo'), false),Contrato::stockLimit($this->field('maximo'), true),$this->number('revisao'),$this->actor(),$open==='' ? null : $this->number('abertura',0),$this->field('chave'),Auth::isAdmin());
         },'estoque');
     }
 
@@ -325,7 +335,7 @@ final class ContratoController extends Controller
         $this->requireAdmin();
         $this->run('contrato/detalhes/'.$id,function() use ($id): void {
             $this->model()->recoverOldOpening(Contrato::integer($id,1),$this->number('produto'),$this->number('quantidade',0),
-                $this->field('unidade'),$this->field('minimo')==='' ? null : $this->number('minimo',0),$this->field('maximo')==='' ? null : $this->number('maximo'),$this->number('revisao'),
+                $this->field('unidade'),Contrato::stockLimit($this->field('minimo'), false),Contrato::stockLimit($this->field('maximo'), true),$this->number('revisao'),
                 $this->actor(),$this->field('motivo'),$this->field('chave'),$this->field('confirmar')==='1');
         },'conferir-abertura');
     }

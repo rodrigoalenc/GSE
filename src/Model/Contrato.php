@@ -443,16 +443,17 @@ final class Contrato extends Model
         });
     }
 
-    public function billSheet(int $contractId,int $sheetId,string $date,string $reason,int $revision,int $actor,bool $admin): void
+    public function billSheet(int $contractId,int $sheetId,string $date,string $reason,int $revision,int $actor,bool $admin): bool
     {
         $parsed=$date==='' ? null : DateTimeImmutable::createFromFormat('!Y-m-d',$date);
         if ($date!=='' && ($parsed===false || $parsed->format('Y-m-d')!==$date)) { throw new DomainException('Data de faturamento inválida.'); }
-        SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$sheetId,$date,$reason,$revision,$actor,$admin): void {
+        return SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$sheetId,$date,$reason,$revision,$actor,$admin): bool {
             $this->active($this->find($contractId)); $sheet=$this->sheet($contractId,$sheetId);
             if ($sheet['excluido_em']!==null || (int)$sheet['revisao']!==$revision) { throw new DomainException('Nota alterada ou indisponível.'); }
             if ($sheet['data_faturamento']!==null && (!$admin || mb_strlen(trim($reason))<3)) { throw new DomainException('Correção de faturamento exige administrador e motivo.'); }
             $pdo->prepare('UPDATE pedido_paginas SET data_faturamento=?,revisao=revisao+1 WHERE id=?')->execute([$date==='' ? null : $date,$sheetId]);
             AuditLogger::recordRequired($pdo,'contrato.sheet_billed',AuditLogger::SUCCESS,$actor,null,'Anterior: '.($sheet['data_faturamento'] ?? 'sem data').'; nova: '.($date ?: 'sem data').'; motivo: '.mb_substr(trim($reason),0,180),'folha',$sheetId);
+            return $sheet['data_faturamento'] !== null;
         });
     }
 
@@ -755,12 +756,28 @@ final class Contrato extends Model
         return (int)$q->fetchColumn();
     }
 
-    private function validateStockLimits(?int $minimum,?int $maximum): void
+    public static function stockLimit(string $value, bool $maximum): ?int
     {
-        if (($minimum!==null && ($minimum<0 || $minimum>1000000000))
-            || ($maximum!==null && ($maximum<0 || $maximum>1000000000))
-            || ($minimum!==null && $maximum!==null && $maximum<$minimum)) {
-            throw new DomainException('Limites de estoque incoerentes.');
+        if ($value === '') { return null; }
+        try {
+            return self::integer($value, $maximum ? 1 : 0);
+        } catch (DomainException) {
+            throw new DomainException($maximum
+                ? 'Informe um máximo de estoque inteiro entre 1 e 1.000.000.000.'
+                : 'Informe um mínimo de estoque inteiro entre 0 e 1.000.000.000.');
+        }
+    }
+
+    private function validateStockLimits(?int $minimum, ?int $maximum): void
+    {
+        if ($minimum !== null && ($minimum < 0 || $minimum > 1000000000)) {
+            throw new DomainException('Informe um mínimo de estoque inteiro entre 0 e 1.000.000.000.');
+        }
+        if ($maximum !== null && ($maximum < 0 || $maximum > 1000000000)) {
+            throw new DomainException('Informe um máximo de estoque inteiro entre 0 e 1.000.000.000.');
+        }
+        if ($minimum !== null && $maximum !== null && $maximum < $minimum) {
+            throw new DomainException('O máximo de estoque deve ser igual ou superior ao mínimo.');
         }
     }
 

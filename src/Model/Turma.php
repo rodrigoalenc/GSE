@@ -11,6 +11,8 @@ use src\Core\TextNormalizer;
 
 final class Turma extends Model
 {
+    public const MIN_SCHOOL_YEAR = 2000;
+
     private ?string $lastErrorCode = null;
 
     /** @return list<array<string,mixed>> */
@@ -258,15 +260,22 @@ final class Turma extends Model
         return TextNormalizer::displayName($name);
     }
 
+    public static function maximumSchoolYear(): int
+    {
+        return (int) date('Y') + 5;
+    }
+
+    public static function validSchoolYear(int $year): bool
+    {
+        return $year >= self::MIN_SCHOOL_YEAR && $year <= self::maximumSchoolYear();
+    }
+
     private static function validData(string $name, int $schoolYear): bool
     {
-        $currentYear = (int) date('Y');
-
         return $name !== ''
             && mb_strlen($name, 'UTF-8') <= 100
             && preg_match('/[\x00-\x1f\x7f]/u', $name) !== 1
-            && $schoolYear >= 2000
-            && $schoolYear <= $currentYear + 5;
+            && self::validSchoolYear($schoolYear);
     }
 
     private static function escapeLike(string $value): string

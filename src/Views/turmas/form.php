@@ -13,7 +13,17 @@
         <?php if ($editing): ?><input type="hidden" name="revisao" value="<?= e((string) $data['revisao']) ?>"><?php endif; ?>
         <div class="form-grid">
             <div><label for="nome_turma">Nome da turma</label><input id="nome_turma" name="nome_turma" value="<?= e($data['nome_turma']) ?>" maxlength="100" required <?= UiPresentation::fieldAttributes($fieldErrors, 'nome_turma') ?>><?php if (isset($fieldErrors['nome_turma'])): ?><small class="field-error" id="nome_turma-error"><?= e(implode(' ', $fieldErrors['nome_turma'])) ?></small><?php endif; ?></div>
-            <div><label for="ano_letivo">Ano letivo</label><input type="number" id="ano_letivo" name="ano_letivo" value="<?= e($data['ano_letivo']) ?>" min="2000" max="<?= e((string) ((int) UiPresentation::localNow()->format('Y') + 5)) ?>" required <?= UiPresentation::fieldAttributes($fieldErrors, 'ano_letivo') ?>><?php if (isset($fieldErrors['ano_letivo'])): ?><small class="field-error" id="ano_letivo-error"><?= e(implode(' ', $fieldErrors['ano_letivo'])) ?></small><?php endif; ?></div>
+            <div>
+                <label for="ano_letivo">Ano letivo</label>
+                <input type="text" id="ano_letivo" name="ano_letivo" value="<?= e($data['ano_letivo']) ?>"
+                       inputmode="numeric" pattern="[0-9]{4}" required
+                       data-format-error="Informe o ano letivo com quatro dígitos, como 2026."
+                       aria-describedby="ano_letivo-help<?= isset($fieldErrors['ano_letivo']) ? ' ano_letivo-error' : '' ?>"<?= isset($fieldErrors['ano_letivo']) ? ' aria-invalid="true"' : '' ?>>
+                <small class="form-help" id="ano_letivo-help">Use quatro dígitos, de <?= Turma::MIN_SCHOOL_YEAR ?> a <?= Turma::maximumSchoolYear() ?>.</small>
+                <?php if (isset($fieldErrors['ano_letivo'])): ?>
+                    <small class="field-error" id="ano_letivo-error"><?= e(implode(' ', $fieldErrors['ano_letivo'])) ?></small>
+                <?php endif; ?>
+            </div>
         </div>
         <div class="form-actions"><button class="btn-primary" type="submit"><?= $editing ? 'Salvar alterações' : 'Cadastrar turma' ?></button><a class="btn-secondary" href="<?= e(url('turma')) ?>">Cancelar</a></div>
     </form>

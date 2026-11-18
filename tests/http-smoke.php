@@ -783,7 +783,8 @@ try {
         'Modelo baixado usa UTF-8 com BOM, quatro colunas e nenhum registro de exemplo'
     );
     $csvPath = $tempRoot . DIRECTORY_SEPARATOR . 'passivo-http.csv';
-    file_put_contents($csvPath, $importTemplate['body'] . "CSV HTTP;2001-02-03;1;CX-CSV\r\nCSV sem posição;2001-02-03;;CX-CSV\r\n");
+    file_put_contents($csvPath, $importTemplate['body'] . "CSV HTTP;2001-02-03;1;CX-CSV\r\nCSV sem posição;2001-02-03;;CX-CSV\r\n"
+        . str_repeat("Outra linha inválida;2001-02-03;;CX-CSV\r\n", 50));
     $importPreview = requestMultipart($baseUrl . '/passivo/importar/preview', $cookieAdmin, [
         '_csrf_token' => csrf($importPage['body']),
         'arquivo_csv' => new CURLFile($csvPath, 'text/csv', 'passivo.csv'),
@@ -792,6 +793,8 @@ try {
     $importLocation = $importPreview['headers']['location'] ?? '';
     $importConfirmationPage = request('GET', str_starts_with($importLocation, 'http') ? $importLocation : $baseUrl . $importLocation, $cookieAdmin);
     checkHttp(str_contains($importConfirmationPage['body'], 'Informe uma posição válida'), 'Prévia CSV identifica posição vazia como inválida');
+    checkHttp(str_contains($importConfirmationPage['body'], 'Exibindo 50 de 51 ocorrências'),
+        'Prévia CSV indica quando há mais ocorrências que as exibidas');
     $importConfirmed = request('POST', $baseUrl . '/passivo/importar/confirmar', $cookieAdmin, [
         '_csrf_token' => csrf($importConfirmationPage['body']),
         'preview_token' => hiddenValue($importConfirmationPage['body'], 'preview_token'),
@@ -1054,6 +1057,7 @@ try {
     require __DIR__ . '/http-user-password.php';
     require __DIR__ . '/http-audit-backups.php';
     require __DIR__ . '/http-security-hardening.php';
+    require __DIR__ . '/http-student-class-inputs.php';
     require __DIR__ . '/http-student-movement-edit.php';
     require __DIR__ . '/http-school-links.php';
     require __DIR__ . '/http-usabilidade.php';

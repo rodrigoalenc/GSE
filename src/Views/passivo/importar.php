@@ -24,8 +24,14 @@
         <span class="duplicate"><strong><?= e((string) $preview['duplicate']) ?></strong> duplicados</span>
         <span class="conflict"><strong><?= e((string) $preview['conflict']) ?></strong> conflitos</span>
     </div>
-    <?php if (($preview['errors'] ?? []) !== []): ?>
-        <div class="warning-message" role="alert"><strong>Ocorrências encontradas:</strong><ul><?php foreach ($preview['errors'] as $error): ?><li>Linha <?= e((string) $error['line']) ?>: <?= e((string) $error['message']) ?></li><?php endforeach; ?></ul></div>
+    <?php $shownErrors = count($preview['errors'] ?? []);
+    $totalErrors = (int) $preview['invalid'] + (int) $preview['duplicate'] + (int) $preview['conflict']; ?>
+    <?php if ($shownErrors > 0): ?>
+        <div class="warning-message" role="alert"><strong>Ocorrências encontradas:</strong>
+            <?php if ($shownErrors < $totalErrors): ?>
+                <p>Exibindo <?= $shownErrors ?> de <?= $totalErrors ?> ocorrências. Corrija as linhas indicadas e gere outra prévia para conferir as demais.</p>
+            <?php endif; ?>
+            <ul><?php foreach ($preview['errors'] as $error): ?><li>Linha <?= e((string) $error['line']) ?>: <?= e((string) $error['message']) ?></li><?php endforeach; ?></ul></div>
     <?php endif; ?>
     <?php if ((int) $preview['valid'] > 0): ?>
         <form method="post" action="<?= e(url('passivo/importar/confirmar')) ?>" data-confirm-status="Importar somente as linhas válidas sem apagar o acervo atual?">

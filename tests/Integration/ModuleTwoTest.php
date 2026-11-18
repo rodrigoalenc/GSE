@@ -75,6 +75,60 @@ final class ModuleTwoTest extends DatabaseTestCase
         $this->assertSame('invalid_class', $model->lastErrorCode());
     }
 
+    public function testTelefonesRecusamCaracteresMesmoQuandoHaDezOuOnzeDigitos(): void
+    {
+        $actor = $this->insertUsuario();
+        $model = new \Aluno();
+        $data = $this->validStudentData($this->insertTurma());
+        $data['telefone_aluno'] = '(65) 99999-1234 ramal';
+        $data['telefone_responsavel'] = '+65 3333-1234';
+        $this->assertFalse($model->cadastrar($data, $actor));
+        $this->assertSame(['telefone_aluno', 'telefone_responsavel'], $model->invalidPhoneFields());
+
+        $data['telefone_aluno'] = ' (65) 99999-1234 ';
+        $data['telefone_responsavel'] = '()-';
+        $this->assertFalse($model->cadastrar($data, $actor));
+        $this->assertSame(['telefone_responsavel'], $model->invalidPhoneFields());
+
+        $data['telefone_responsavel'] = '(65) 3333-1234';
+        $id = $model->cadastrar($data, $actor);
+        $this->assertIsInt($id);
+        $this->assertSame('65999991234', $model->buscarPorId($id)['telefone_aluno']);
+        $this->assertSame('6533331234', $model->buscarPorId($id)['telefone_responsavel']);
+        $this->assertSame([], $model->invalidPhoneFields());
+    }
+
+    public function testEdicaoPreservaTelefonesLegadosEExigeRevisaoAtual(): void
+    {
+        $actor = $this->insertUsuario();
+        $model = new \Aluno();
+        $data = $this->validStudentData($this->insertTurma());
+        $id = $model->cadastrar($data, $actor);
+        $this->assertIsInt($id);
+        $legacyPhone = "  123\r\n antigo  ";
+        $formattedPhone = '(65) 3333-1234';
+        $this->pdo->prepare('UPDATE alunos SET telefone_aluno=?, telefone_responsavel=? WHERE id=?')->execute([$legacyPhone, $formattedPhone, $id]);
+        $edited = $model->buscarPorId($id);
+        $edited['nome_completo'] = 'Aluno atualizado';
+        $edited['telefone_aluno'] = '  123 antigo  ';
+        $revision = (int) $edited['revisao'];
+
+        $this->assertFalse($model->atualizar($id, $edited, false, $actor, $revision - 1));
+        $this->assertSame('stale_revision', $model->lastErrorCode());
+        $this->assertTrue($model->atualizar($id, $edited, false, $actor, $revision));
+        $current = $model->buscarPorId($id);
+        $this->assertSame($legacyPhone, $current['telefone_aluno']);
+        $this->assertSame($formattedPhone, $current['telefone_responsavel']);
+
+        $current['telefone_aluno'] = '123 novo';
+        $this->assertFalse($model->atualizar($id, $current, false, $actor, (int) $current['revisao']));
+        $this->assertSame(['telefone_aluno'], $model->invalidPhoneFields());
+        $this->assertSame($legacyPhone, $model->buscarPorId($id)['telefone_aluno']);
+        $current['telefone_aluno'] = '';
+        $this->assertTrue($model->atualizar($id, $current, false, $actor, (int) $current['revisao']));
+        $this->assertSame('', $model->buscarPorId($id)['telefone_aluno']);
+    }
+
     public function testDuplicidadeExigeConfirmacaoMasNaoCriaRestricaoAbsoluta(): void
     {
         $classId = $this->insertTurma();

@@ -16,6 +16,8 @@ final class Aluno extends Model
     public const NAME_MAX_LENGTH = 150;
 
     private ?string $lastErrorCode = null;
+    /** @var list<string> */
+    private array $invalidPhoneFields = [];
     /** @var WeakMap<PDO,bool>|null */
     private static ?WeakMap $searchConnections = null;
 
@@ -125,6 +127,7 @@ final class Aluno extends Model
     public function cadastrar(array $data, int $actorId, ?array $initialDva = null, bool $confirmDuplicate = false, ?string $requestToken = null): int|false
     {
         $this->lastErrorCode = null;
+        $this->invalidPhoneFields = [];
         $normalized = $this->validateAndNormalize($data);
 
         if ($normalized === false || $actorId < 1) {
@@ -232,16 +235,16 @@ final class Aluno extends Model
     public function atualizar(int $id, array $data, bool $confirmDuplicate = false, ?int $actorId = null, ?int $expectedRevision = null): bool
     {
         $this->lastErrorCode = null;
-        $normalized = $this->validateAndNormalize($data);
+        $this->invalidPhoneFields = [];
 
-        if ($id < 1 || $normalized === false) {
-            $this->lastErrorCode ??= 'invalid_data';
+        if ($id < 1) {
+            $this->lastErrorCode = 'invalid_data';
 
             return false;
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $normalized, $confirmDuplicate, $actorId, $expectedRevision): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $data, $confirmDuplicate, $actorId, $expectedRevision): bool {
                 $current = $this->buscarPorId($id);
 
                 if (!$current) {
@@ -253,6 +256,11 @@ final class Aluno extends Model
                 if ($expectedRevision !== null && (int) $current['revisao'] !== $expectedRevision) {
                     $this->lastErrorCode = 'stale_revision';
 
+                    return false;
+                }
+
+                $normalized = $this->validateAndNormalize($data, $current);
+                if ($normalized === false) {
                     return false;
                 }
 
@@ -503,6 +511,12 @@ final class Aluno extends Model
         return $this->lastErrorCode;
     }
 
+    /** @return list<string> */
+    public function invalidPhoneFields(): array
+    {
+        return $this->invalidPhoneFields;
+    }
+
     public static function normalizeName(string $name): string
     {
         return TextNormalizer::displayName($name);
@@ -510,9 +524,10 @@ final class Aluno extends Model
 
     /**
      * @param array<string,mixed> $data
+     * @param array<string,mixed>|null $current
      * @return array<string,mixed>|false
      */
-    private function validateAndNormalize(array $data): array|false
+    private function validateAndNormalize(array $data, ?array $current = null): array|false
     {
         try {
             $name = TextNormalizer::displayName((string) ($data['nome_completo'] ?? ''));
@@ -554,10 +569,25 @@ final class Aluno extends Model
             return false;
         }
 
-        $studentPhone = self::normalizePhone((string) ($data['telefone_aluno'] ?? ''));
-        $guardianPhone = self::normalizePhone((string) ($data['telefone_responsavel'] ?? ''));
+        $phones = [];
+        foreach (['telefone_aluno', 'telefone_responsavel'] as $field) {
+            $phone = $data[$field] ?? '';
+            if ($current !== null) {
+                $saved = (string) $current[$field];
+                // A entrada HTML de telefone remove quebras de linha ao carregar o valor legado.
+                if ($phone === $saved || $phone === str_replace(["\r", "\n"], '', $saved)) {
+                    $phones[$field] = $current[$field];
+                    continue;
+                }
+            }
 
-        if ($studentPhone === false || $guardianPhone === false) {
+            $phones[$field] = self::normalizePhone($phone);
+            if ($phones[$field] === false) {
+                $this->invalidPhoneFields[] = $field;
+            }
+        }
+
+        if ($this->invalidPhoneFields !== []) {
             $this->lastErrorCode = 'invalid_phone';
 
             return false;
@@ -568,19 +598,24 @@ final class Aluno extends Model
             'nome_normalizado' => $comparisonName,
             'data_nascimento' => $birth,
             'id_turma' => (int) $classId,
-            'telefone_aluno' => $studentPhone,
-            'telefone_responsavel' => $guardianPhone,
+            ...$phones,
         ];
     }
 
-    private static function normalizePhone(string $phone): string|false
+    private static function normalizePhone(mixed $phone): string|false
     {
-        $digits = preg_replace('/\D+/u', '', trim($phone)) ?? '';
+        if (is_int($phone)) {
+            $phone = (string) $phone;
+        }
 
-        if ($digits === '') {
+        if (!is_string($phone) || preg_match('/\A[0-9 ()-]*\z/', $phone) !== 1) {
+            return false;
+        }
+        if (trim($phone, ' ') === '') {
             return '';
         }
 
+        $digits = str_replace([' ', '(', ')', '-'], '', $phone);
         return in_array(strlen($digits), [10, 11], true) ? $digits : false;
     }
 

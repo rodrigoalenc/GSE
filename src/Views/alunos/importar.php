@@ -1,17 +1,18 @@
+<?php $pdfLimit = UploadLimits::fileBytes(AlunoPdfParser::MAX_FILE_SIZE); ?>
 <section class="page-intro">
     <h2>Importar alunos pelo relatório de alocados</h2>
     <p>Envie o PDF original do SGDE. Somente alunos com situação <strong>Em curso</strong> entram na importação; Transferido e outras situações são ignoradas.</p>
 </section>
 
 <section class="relatorio form-shell">
-    <div class="section-head"><div><h2>1. Selecionar relatório</h2><p>Até 10 MiB, 200 páginas e 5.000 alunos por arquivo.</p></div></div>
+    <div class="section-head"><div><h2>1. Selecionar relatório</h2><p>Até <?= e(UploadLimits::label($pdfLimit)) ?>, 200 páginas e 5.000 alunos por arquivo.</p></div></div>
     <form class="student-form" method="post" enctype="multipart/form-data" action="<?= e(url('aluno/importar/preview')) ?>">
         <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
         <div class="form-grid">
             <div class="field-wide">
                 <label for="arquivo-pdf">Relatório de Alunos Alocados (PDF)</label>
-                <input id="arquivo-pdf" type="file" name="arquivo_pdf" accept=".pdf,application/pdf" required>
-                <p class="form-help">Use o arquivo exportado pelo SGDE, com texto selecionável.</p>
+                <input id="arquivo-pdf" type="file" name="arquivo_pdf" accept=".pdf,application/pdf" required aria-describedby="arquivo-pdf-help" data-upload-max="<?= $pdfLimit ?>" data-upload-size-error="<?= e(UploadLimits::pdfSizeError(AlunoPdfParser::MAX_FILE_SIZE)) ?>">
+                <p id="arquivo-pdf-help" class="form-help">Use o arquivo exportado pelo SGDE, com texto selecionável.</p>
             </div>
             <div>
                 <label for="ano-letivo">Ano letivo das turmas</label>

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../Core/UploadLimits.php';
 require_once ROOT_PATH . '/src/Services/AlunoPdfParser.php';
 require_once ROOT_PATH . '/src/Model/AlunoImportacao.php';
 
@@ -24,7 +25,7 @@ final class AlunoPdfImportService
     {
         $error = $file['error'] ?? UPLOAD_ERR_NO_FILE;
         if (in_array($error, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
-            throw new DomainException('O PDF ultrapassa o limite de envio do servidor. Use um arquivo de até 10 MiB.');
+            throw new DomainException(UploadLimits::pdfSizeError(AlunoPdfParser::MAX_FILE_SIZE));
         }
         if ($error !== UPLOAD_ERR_OK || !is_string($file['tmp_name'] ?? null)
             || !is_uploaded_file($file['tmp_name'])) {

@@ -79,6 +79,6 @@ $flashClass = ($flash['tipo'] ?? '') === 'success' ? 'success' : 'warning';
     </form>
     </section>
 </main>
-<script src="<?= e(url('assets/js/app.js')) ?>"></script>
+<script src="<?= e(url('assets/js/app.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/app.js'), 0, 12))) ?>"></script>
 </body>
 </html>

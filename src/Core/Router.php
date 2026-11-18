@@ -178,6 +178,16 @@ final class Router
             };
             if ($route['auth'] && $permission !== null) { AccessPolicy::require($permission); }
 
+            if ($method === 'POST' && $_POST === [] && $_FILES === []
+                && in_array($route['pattern'], ['aluno/importar/preview', 'certidao/cadastrar', 'certidao/renovar/{id}'], true)) {
+                require_once __DIR__ . '/UploadLimits.php';
+                if (UploadLimits::formTooLarge((int) ($_SERVER['CONTENT_LENGTH'] ?? 0))) {
+                    render_http_error(413, 'Envio acima do limite',
+                        'O PDF e os dados do formulário ultrapassam o limite do servidor. Volte e selecione um PDF menor.',
+                        $route['pattern'] === 'aluno/importar/preview' ? 'aluno/importar' : $path);
+                }
+            }
+
             if ($method === 'POST' && !csrf_valido($_POST['_csrf_token'] ?? null)) {
                 render_http_error(419, 'Sessão expirada', 'Atualize a página e tente enviar o formulário novamente.');
             }
