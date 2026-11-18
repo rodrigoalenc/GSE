@@ -82,7 +82,7 @@ checkHttp($draftUnitSelect instanceof DOMElement && $draftUnitSelect->getAttribu
 checkHttp(contractDraftFields($draftTabA['body'],'edit-product-'.$draftProduct1)['unidade']==='un','Edição mantém selecionada a unidade anterior do produto');
 checkHttp($draftAdd['_form_context']!==$draftBill['_form_context'],'Duas abas recebem contextos de preenchimento distintos');
 $draftAdd=array_replace($draftAdd,['nome'=>'<Rascunho A>','marca'=>'Marca A','unidade'=>'Litros','quantidade'=>'2','preco'=>'inválido']);
-$draftBill=array_replace($draftBill,['data'=>'2026-02-30','motivo'=>'<Motivo B>','faturado'=>'1']);
+$draftBill=array_replace($draftBill,['prazo_faturamento'=>'2026-02-30','motivo'=>'<Motivo B>']);
 $draftFailureA=request('POST',$baseUrl.'/contrato/produto/'.$draftContract,$cookieEmployee,$draftAdd);
 $draftFailureB=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBill);
 $draftRecoveryA=contractDraftRecovery($draftFailureA,$cookieEmployee); $draftRecoveryB=contractDraftRecovery($draftFailureB,$cookieEmployee);
@@ -92,8 +92,8 @@ checkHttp(contractDraftElement($draftRecoveryA['body'],'add-product-'.$draftNote
 checkHttp(contractDraftFields($draftRecoveryA['body'],'add-product-'.$draftNote2)['nome']==='<Rascunho A>'
     && contractDraftFields($draftRecoveryA['body'],'add-product-'.$draftNote2)['unidade']==='Litros'
     && str_contains($draftRecoveryA['body'],'&lt;Rascunho A&gt;') && !str_contains($draftRecoveryA['body'],'<Rascunho A>'),'Valores de produto recuperados e escapados');
-checkHttp(str_contains($draftRecoveryA['body'],'Valor inválido.') && !str_contains($draftRecoveryA['body'],'Data de faturamento inválida.')
-    && str_contains($draftRecoveryB['body'],'Data de faturamento inválida.') && !str_contains($draftRecoveryB['body'],'Rascunho A'),'Mensagens e campos recusados permanecem isolados entre operações e abas');
+checkHttp(str_contains($draftRecoveryA['body'],'Valor inválido.') && !str_contains($draftRecoveryA['body'],'Prazo de faturamento inválido.')
+    && str_contains($draftRecoveryB['body'],'Prazo de faturamento inválido.') && !str_contains($draftRecoveryB['body'],'Rascunho A'),'Mensagens e campos recusados permanecem isolados entre operações e abas');
 checkHttp(contractDraftElement($draftRecoveryB['body'],'billing-note-'.$draftNote3)->hasAttribute('open')
     && contractDraftFields($draftRecoveryB['body'],'billing-note-'.$draftNote3)['motivo']==='<Motivo B>'
     && str_contains($draftRecoveryB['body'],'2026-02-30'),'Erro de data mantém faturamento na terceira nota e mostra a data recusada');
@@ -122,58 +122,88 @@ foreach ($draftFailures as [$endpoint,$formId,$changes,$field,$expected]) {
     }
 }
 
-// The inline checkbox has explicit server behavior and retains the correction restrictions.
+// Each note has its own deadline. Confirmation records the actual billing date separately.
 $draftBillingPage=request('GET',$draftUrl,$cookieEmployee);
-$draftBillingUnconfirmed = array_replace(contractDraftFields($draftBillingPage['body'],'billing-note-'.$draftNote3), ['data'=>'2026-10-02']);
-$draftBillingUnconfirmedRecovery = contractDraftRecovery(request('POST', $baseUrl.'/contrato/faturar/'.$draftContract, $cookieEmployee, $draftBillingUnconfirmed), $cookieEmployee);
-checkHttp(str_contains($draftBillingUnconfirmedRecovery['body'], 'Marque Pedido faturado')
-    && contractDraftFields($draftBillingUnconfirmedRecovery['body'],'billing-note-'.$draftNote3)['data'] === '2026-10-02'
-    && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn() === null,
-    'Data sem checkbox é recusada e preservada para correção');
-$draftBillingMissing=array_replace(contractDraftFields($draftBillingPage['body'],'billing-note-'.$draftNote3),['faturado'=>'1','data'=>'']);
-$draftBillingMissingResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingMissing);
-$draftBillingMissingRecovery=contractDraftRecovery($draftBillingMissingResponse,$cookieEmployee);
-checkHttp(str_contains($draftBillingMissingRecovery['body'],'Informe a data para confirmar o faturamento.')
-    && contractDraftFields($draftBillingMissingRecovery['body'],'billing-note-'.$draftNote3)['faturado']==='1','Checkbox faturado exige data e mantém a escolha após erro');
-$draftBillingConfirmed=array_replace(contractDraftFields($draftBillingMissingRecovery['body'],'billing-note-'.$draftNote3),['data'=>'2026-10-02']);
+$draftBillingForm=contractDraftFields($draftBillingPage['body'],'billing-note-'.$draftNote3);
+$draftBillingDeadline= '2099-12-15';
+$draftBillingToday=(new DateTimeImmutable('today', new DateTimeZone('America/Cuiaba')))->format('Y-m-d');
+$draftBillingState=static fn (int $note): array => $draftDb->query('SELECT prazo_faturamento,data_faturamento,revisao FROM pedido_paginas WHERE id='.$note)->fetch();
+checkHttp(isset($draftBillingForm['prazo_faturamento']) && !isset($draftBillingForm['faturado'])
+    && str_contains($draftBillingPage['body'],'Prazo para faturar'), 'A nota apresenta prazo e confirmação de faturamento separadamente');
+$draftLegacyBilling=array_replace($draftBillingForm,['_billing_form'=>'1','data'=>$draftBillingDeadline]);
+unset($draftLegacyBilling['prazo_faturamento']);
+$draftLegacyBillingRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftLegacyBilling),$cookieEmployee);
+checkHttp(contractDraftFields($draftLegacyBillingRecovery['body'],'billing-note-'.$draftNote3)['prazo_faturamento']===$draftBillingDeadline
+    && $draftBillingState($draftNote3)['prazo_faturamento']===null
+    && $draftBillingState($draftNote3)['data_faturamento']===null,
+    'Formulário antigo preserva a data digitada para conferência do prazo antes de salvar');
+$draftBillingOverdue=array_replace(contractDraftFields($draftBillingPage['body'],'billing-note-'.$draftNote2),['prazo_faturamento'=>'2000-01-01']);
+request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingOverdue);
+$draftBillingPlanned=array_replace($draftBillingForm,['prazo_faturamento'=>$draftBillingDeadline]);
+$draftBillingPlanResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingPlanned);
+$draftBillingPlannedPage=request('GET',$draftBillingPlanResponse['headers']['location'],$cookieEmployee);
+$draftBillingPlan=$draftBillingState($draftNote3);
+checkHttp($draftBillingPlan['prazo_faturamento']===$draftBillingDeadline && $draftBillingPlan['data_faturamento']===null
+    && $draftBillingState($draftNote2)['prazo_faturamento']==='2000-01-01'
+    && $draftBillingState((int)$draftNotes[0]['id'])['prazo_faturamento']===null
+    && str_contains($draftBillingPlannedPage['body'],'Prazo de faturamento salvo.')
+    && str_contains($draftBillingPlannedPage['body'],'Prazo vencido em 01/01/2000'),
+    'Confirmar a data agenda só a nota selecionada e mostra prazo vencido na nota pendente');
+$draftBillingStale=contractDraftRecovery(request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,
+    array_replace($draftBillingForm,['prazo_faturamento'=>'2099-12-31','faturado'=>'1'])),$cookieEmployee);
+checkHttp(str_contains($draftBillingStale['body'],'Nota alterada ou indisponível.')
+    && $draftBillingState($draftNote3)===$draftBillingPlan,
+    'Ficha desatualizada não altera o prazo nem registra o faturamento');
+$draftBillingListing=listRequest($baseUrl,'contrato',$cookieEmployee,['busca'=>'Pedido HTTP rascunhos']);
+checkHttp(str_contains($draftBillingListing['body'],'Prazo vencido em 01/01/2000')
+    && str_contains($draftBillingListing['body'],'0 de 3 nota(s)'), 'Lista destaca o prazo pendente mais antigo sem contar a nota como faturada');
+$draftBillingConfirmed=array_replace(contractDraftFields($draftBillingPlannedPage['body'],'billing-note-'.$draftNote3),['faturado'=>'1']);
 $draftBillingConfirmedResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingConfirmed);
-$draftBillingSaved = request('GET', $draftBillingConfirmedResponse['headers']['location'], $cookieEmployee);
-checkHttp(str_contains($draftBillingSaved['body'], 'Faturamento registrado.')
-    && !str_contains($draftBillingConfirmedResponse['headers']['location'],'rascunho=')
-    && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn()==='2026-10-02','Funcionário confirma o primeiro faturamento com checkbox e data válida');
+$draftBillingSaved=request('GET', $draftBillingConfirmedResponse['headers']['location'], $cookieEmployee);
+$draftBillingActual=$draftBillingState($draftNote3);
+checkHttp(str_contains($draftBillingSaved['body'],'Faturamento registrado.')
+    && str_contains($draftBillingSaved['body'],'Faturada em ')
+    && $draftBillingActual['data_faturamento']===$draftBillingToday && $draftBillingActual['prazo_faturamento']===$draftBillingDeadline,
+    'Marcar e confirmar grava o dia do faturamento e mantém o prazo original');
 $draftBilledStock=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Produto 3']);
 checkHttp($draftBilledStock['status']===200
     && str_contains($draftBilledStock['body'],'estoque/iniciar/'.$draftProduct3)
     && (int)$draftDb->query('SELECT estoque_inicializado FROM pedido_produtos WHERE id='.$draftProduct3)->fetchColumn()===0
     && (int)$draftDb->query('SELECT COUNT(*) FROM estoque_movimentos WHERE produto_id='.$draftProduct3)->fetchColumn()===0,
     'Nota faturada mantém estoque físico pendente e oferece a confirmação da quantidade inicial no estoque');
-$draftEmployeeCorrectionPage=request('GET',$draftUrl,$cookieEmployee);
-$draftEmployeeCorrection=contractDraftFields($draftEmployeeCorrectionPage['body'],'billing-note-'.$draftNote3);
+$draftEmployeeCorrection=contractDraftFields($draftBillingSaved['body'],'billing-note-'.$draftNote3);
 unset($draftEmployeeCorrection['faturado']);
-$draftEmployeeCorrection['data']='';
 $draftEmployeeCorrection['motivo']='Tentativa de remover faturamento';
 $draftEmployeeCorrectionRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftEmployeeCorrection),$cookieEmployee);
 checkHttp(str_contains($draftEmployeeCorrectionRecovery['body'],'Correção de faturamento exige administrador e motivo.')
-    && !isset(contractDraftFields($draftEmployeeCorrectionRecovery['body'],'billing-note-'.$draftNote3)['faturado'])
-    && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn()==='2026-10-02','Funcionário não remove faturamento; tentativa desmarcada permanece desmarcada sem alterar o registro');
+    && $draftBillingState($draftNote3)===$draftBillingActual,
+    'Funcionário não remove o registro de uma nota faturada');
 $draftAdminCorrectionPage=request('GET',$draftUrl,$cookieAdmin);
+$draftAdminDateCorrection=array_replace(contractDraftFields($draftAdminCorrectionPage['body'],'billing-note-'.$draftNote3),
+    ['data'=>'2001-02-03','motivo'=>'Conferência da data no documento fiscal']);
+$draftAdminDateResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieAdmin,$draftAdminDateCorrection);
+$draftAdminCorrectionPage=request('GET',$draftAdminDateResponse['headers']['location'],$cookieAdmin);
+checkHttp(str_contains($draftAdminCorrectionPage['body'],'Faturamento atualizado.')
+    && $draftBillingState($draftNote3)['data_faturamento']==='2001-02-03'
+    && $draftBillingState($draftNote3)['prazo_faturamento']===$draftBillingDeadline,
+    'Administrador corrige a data efetiva com motivo e preserva o prazo');
 $draftAdminCorrection=contractDraftFields($draftAdminCorrectionPage['body'],'billing-note-'.$draftNote3);
 unset($draftAdminCorrection['faturado']);
-$draftAdminCorrection['data']='';
 $draftAdminCorrection['motivo']='';
 $draftAdminCorrectionRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieAdmin,$draftAdminCorrection),$cookieAdmin);
-checkHttp(str_contains($draftAdminCorrectionRecovery['body'],'Correção de faturamento exige administrador e motivo.'),'Administrador deve justificar a remoção de faturamento mesmo no controle inline');
+checkHttp(str_contains($draftAdminCorrectionRecovery['body'],'Correção de faturamento exige administrador e motivo.'),
+    'Administrador deve justificar a remoção de faturamento');
 $draftAdminReviewed=array_replace(contractDraftFields($draftAdminCorrectionRecovery['body'],'billing-note-'.$draftNote3),['motivo'=>'Correção documental conferida HTTP']);
 $draftAdminCorrectionResponse=request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieAdmin,$draftAdminReviewed);
-$draftBillingRemoved = request('GET', $draftAdminCorrectionResponse['headers']['location'], $cookieAdmin);
-checkHttp(str_contains($draftBillingRemoved['body'], 'Faturamento removido.')
-    && !str_contains($draftAdminCorrectionResponse['headers']['location'],'rascunho=')
-    && $draftDb->query('SELECT data_faturamento FROM pedido_paginas WHERE id='.$draftNote3)->fetchColumn()===null,'Administrador desmarca e remove faturamento com justificativa auditada');
-$draftBillingInvalidPage=request('GET',$draftUrl,$cookieEmployee);
-$draftBillingInvalid=array_replace(contractDraftFields($draftBillingInvalidPage['body'],'billing-note-'.$draftNote3),['faturado'=>'1','data'=>"2026-10-02\0"]);
-$draftBillingInvalidRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieEmployee,$draftBillingInvalid),$cookieEmployee);
-checkHttp(str_contains($draftBillingInvalidRecovery['body'],'Campo inválido: data')
-    && !str_contains($draftBillingInvalidRecovery['body'],"\0"),'Data com estrutura inválida é recusada sem erro interno nem armazenamento de byte nulo');
+$draftBillingRemoved=request('GET', $draftAdminCorrectionResponse['headers']['location'], $cookieAdmin);
+checkHttp(str_contains($draftBillingRemoved['body'],'Faturamento removido.')
+    && $draftBillingState($draftNote3)['data_faturamento']===null
+    && $draftBillingState($draftNote3)['prazo_faturamento']===$draftBillingDeadline,
+    'Remoção administrativa reabre a pendência e mantém o prazo');
+$draftBillingInvalid=array_replace(contractDraftFields($draftBillingRemoved['body'],'billing-note-'.$draftNote3),['prazo_faturamento'=>"2026-10-02\0"]);
+$draftBillingInvalidRecovery=contractDraftRecovery(request('POST',$baseUrl.'/contrato/faturar/'.$draftContract,$cookieAdmin,$draftBillingInvalid),$cookieAdmin);
+checkHttp(str_contains($draftBillingInvalidRecovery['body'],'Campo inválido: prazo_faturamento')
+    && !str_contains($draftBillingInvalidRecovery['body'],"\0"),'Prazo inválido é recusado sem gravar byte nulo');
 
 // A stale edit is visible as an attempt; the current revision and current values remain editable.
 $draftEmployeePage=request('GET',$draftUrl,$cookieEmployee); $draftAdminPage=request('GET',$draftUrl,$cookieAdmin);

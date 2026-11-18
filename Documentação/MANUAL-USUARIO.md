@@ -63,7 +63,9 @@ Cadastre o fornecedor e o tipo, informe emissão/vencimento e anexe o PDF quando
 
 O novo pedido tem três etapas: Dados do pedido, Notas e produtos e Conferir e salvar. Preencha título, valor total e fornecedor quando houver. Em cada nota, informe produtos com nome, unidade, quantidade contratada e preço por unidade. Use valores em reais como 1250,00 ou 1.250,00, com até duas casas decimais. Agrupamentos incorretos, como 1.25,00, são recusados. O resumo só é válido quando todos os valores estão corretos. A quantidade contratada não representa a quantidade física disponível na escola.
 
-Remover uma nota ou produto no construtor permite desfazer a remoção. Confira os itens e o saldo antes de Salvar Pedido. Aditivos têm limite próprio; a tela separa os valores do pedido original e do adicional. Faturamento registra a data documental e não comprova entrada física ou pagamento.
+Remover uma nota ou produto no construtor permite desfazer a remoção. Confira os itens e o saldo antes de Salvar Pedido. Aditivos têm limite próprio; a tela separa os valores do pedido original e do adicional.
+
+Na nota, abra **Faturamento**, preencha o **Prazo para faturar** e clique em **Confirmar**. A lista de Pedidos destaca a data pendente mais próxima ou o prazo vencido. Depois que o pagamento for feito, marque **Pedido faturado** e clique em **Confirmar** novamente. O GSE registra a data do dia e mantém o prazo para consulta. A caixa registra a conclusão informada pelo operador. Para corrigir uma nota já faturada, o administrador informa o motivo.
 
 ## Estoque
 

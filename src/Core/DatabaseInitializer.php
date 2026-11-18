@@ -15,7 +15,7 @@ require_once __DIR__ . '/BackupSnapshot.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 22;
+    private const LATEST_VERSION = 23;
 
     public static function latestVersion(): int
     {
@@ -160,6 +160,7 @@ final class DatabaseInitializer
             20 => self::migrateStudentYearProgression($pdo),
             21 => self::migrateRecordRevisionsAndQueryIndexes($pdo),
             22 => self::migrateStudentSchoolLinks($pdo),
+            23 => self::addColumnIfMissing($pdo, 'pedido_paginas', 'prazo_faturamento', 'TEXT NULL'),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
     }

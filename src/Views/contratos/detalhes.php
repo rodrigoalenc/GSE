@@ -4,6 +4,7 @@ $allocated=$allocation['total_allocated']; $legacy=$allocation['legacy'];
 $active=$record['excluido_em']===null;
 $activeSheets = array_values(array_filter($sheets, static fn (array $sheet): bool => $sheet['excluido_em'] === null));
 $billedSheets = count(array_filter($activeSheets, static fn (array $sheet): bool => $sheet['data_faturamento'] !== null));
+$today=UiPresentation::localNow()->format('Y-m-d');
 $query=[];
 $back='contrato';
 $formatDate=static function (?string $value,bool $dateOnly=false): string {
@@ -28,13 +29,12 @@ $draftNotice=static function(string $operation,int $resource,array $current) use
     $labels=['nome'=>'Nome','marca'=>'Marca','unidade'=>'Unidade','quantidade'=>'Quantidade','preco'=>'Preço unitário R$',
         'observacao'=>'Observação','minimo'=>'Mínimo','maximo'=>'Máximo','abertura'=>'Quantidade inicial',
         'confirmar_abertura'=>'Confirmação da quantidade inicial','confirmar'=>'Confirmação da contagem física',
-        'tipo'=>'Tipo de movimento','motivo'=>'Justificativa','original'=>'Movimento original','data'=>'Data','faturado'=>'Pedido faturado'];
+        'tipo'=>'Tipo de movimento','motivo'=>'Justificativa','original'=>'Movimento original','data'=>'Data do faturamento','prazo_faturamento'=>'Prazo para faturar','faturado'=>'Pedido faturado'];
     if (!$draft['conflict']) {
         echo '<p class="warning-message" role="status">Preenchimento recuperado. A tentativa não foi salva; revise os campos antes de enviar.</p>';
         foreach ($draft['fields'] as $field=>$value) {
             $invalidNumber=in_array($field,['quantidade','minimo','maximo','abertura','original'],true) && $value!=='' && filter_var($value,FILTER_VALIDATE_INT)===false;
-            $date=$field==='data' && $value!=='' ? DateTimeImmutable::createFromFormat('!Y-m-d',$value) : null;
-            $invalidDate=$field==='data' && $value!=='' && (!$date || $date->format('Y-m-d')!==$value);
+            $invalidDate=in_array($field,['data','prazo_faturamento'],true) && $value!=='' && !CertidaoStatus::validDate($value);
             if ($invalidNumber || $invalidDate) { echo '<p>'.e($labels[$field]).' — tentativa não salva: <strong>'.e($value).'</strong></p>'; }
         }
         return;
@@ -71,18 +71,60 @@ if (is_array($draft) && $draft['unavailable']) {
 </section>
 <?php if (is_array($draft) && $draft['unavailable']): ?><section class="relatorio" id="draft-review"><h2>Tentativa não salva</h2><p>O pedido, a nota ou o produto está indisponível para alteração. Confira os dados atuais e a tentativa preservada. Nenhuma alteração será reaplicada.</p><?php $draftNotice($draft['operation'],(int)($draft['item'] ?: $draft['sheet']),$unavailableCurrent); ?></section><?php endif; ?>
 <?php if ($sheets !== []): ?><nav class="modulo5-tabs" aria-label="Notas do pedido" data-contract-tabs><?php foreach ($sheets as $sheet): ?><a class="<?= $sheet['data_faturamento'] !== null ? 'contract-tab-paid' : '' ?> <?= (int)$sheet['aditivo']===1 ? 'contract-tab-additive' : '' ?>" href="#folha-<?= (int)$sheet['id'] ?>">Nota <?= (int)$sheet['numero_pagina'] ?><?= (int)$sheet['aditivo']===1 ? ' · Aditivo' : '' ?></a><?php endforeach; ?><?php if ($active): ?><form method="post" action="<?= e(url('contrato/folha/'.$record['id'])) ?>" data-confirm-status="Deseja adicionar uma nova nota a este pedido?"><input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><?= $formContextField ?><input type="hidden" name="revisao" value="<?= (int)$record['revisao'] ?>"><input type="hidden" name="copiar" value=""><input type="hidden" name="chave" value=""><input type="hidden" name="observacao" value=""><button type="submit" class="contract-add-note-tab" aria-label="Adicionar nota" data-contract-note-create <?= $creationBlocked ? 'disabled' : '' ?>>➕</button></form><?php endif; ?></nav><?php endif; ?>
-<?php foreach ($sheets as $sheet): ?>
+<?php foreach ($sheets as $sheet):
+    $noteId=(int)$sheet['id'];
+    $billingDate=$sheet['data_faturamento'];
+    $billingDeadline=$sheet['prazo_faturamento'];
+    $billingStatus=$billingDate!==null ? 'Faturada em '.UiPresentation::civilDate($billingDate) : 'Não faturada';
+    $billingClass=$billingDate!==null ? 'paid' : 'pending';
+    $deadlineValue=$draftValue('faturar',$noteId,'prazo_faturamento',$billingDeadline);
+    if ($billingDate===null && $matchesDraft('faturar',$noteId) && !$draft['conflict']
+        && !array_key_exists('prazo_faturamento',$draft['fields']) && ($draft['fields']['faturado'] ?? '')==='') {
+        $deadlineValue=$draft['fields']['data'] ?? $deadlineValue;
+    }
+?>
 <section class="relatorio modulo5-sheet contract-note-panel <?= $sheet['data_faturamento'] !== null ? 'contract-note-paid' : '' ?> <?= (int)$sheet['aditivo']===1 ? 'contract-note-additive' : '' ?>" id="folha-<?= (int)$sheet['id'] ?>">
-<div class="section-head contract-note-heading"><div class="contract-note-intro"><h3>Itens da nota <?= (int)$sheet['numero_pagina'] ?> <?= $sheet['excluido_em']!==null ? '(excluída)' : '' ?></h3><div class="contract-note-meta"><?php if ((int)$sheet['aditivo']===1): ?><span class="contract-pill additive">Aditivo · limite conjunto de 25%</span><?php endif; ?><span>Total acumulado desta nota: <strong><?= e(Contrato::money($sheet['valor_centavos']===null ? null : (int)$sheet['valor_centavos'])) ?></strong></span><span class="contract-pill <?= $sheet['data_faturamento'] !== null ? 'paid' : 'pending' ?>"><?= $sheet['data_faturamento'] !== null ? 'Pedido faturado' : 'Não faturada' ?></span></div></div>
+<div class="section-head contract-note-heading"><div class="contract-note-intro"><h3>Itens da nota <?= (int)$sheet['numero_pagina'] ?> <?= $sheet['excluido_em']!==null ? '(excluída)' : '' ?></h3><div class="contract-note-meta"><?php if ((int)$sheet['aditivo']===1): ?><span class="contract-pill additive">Aditivo · limite conjunto de 25%</span><?php endif; ?><span>Total acumulado desta nota: <strong><?= e(Contrato::money($sheet['valor_centavos']===null ? null : (int)$sheet['valor_centavos'])) ?></strong></span>
+<?php if ($active && $sheet['excluido_em']===null): ?>
+    <a class="contract-pill <?= $billingClass ?>" href="#billing-note-<?= $noteId ?>" data-open-details
+        aria-label="<?= e($billingStatus.'. Abrir faturamento da nota '.(int)$sheet['numero_pagina']) ?>"><?= e($billingStatus) ?></a>
+<?php else: ?>
+    <span class="contract-pill <?= $billingClass ?>"><?= e($billingStatus) ?></span>
+<?php endif; ?>
+<?php if ($billingDeadline!==null): ?><span class="contract-pill <?= $billingDate===null && $billingDeadline<=$today ? 'pending' : '' ?>"><?= e($billingDate===null ? UiPresentation::billingDeadline($billingDeadline,$today) : 'Prazo previsto: '.UiPresentation::civilDate($billingDeadline)) ?></span><?php endif; ?>
+</div></div>
 <div class="contract-note-toolbar">
 <?php if ($active && $sheet['excluido_em']===null): ?>
-<details id="billing-note-<?= (int)$sheet['id'] ?>" class="contract-billing-inline" open><summary>Faturamento</summary><?php $draftNotice('faturar',(int)$sheet['id'],['data'=>$sheet['data_faturamento'] ?? '','faturado'=>$sheet['data_faturamento']!==null ? '1' : '']); ?>
-<form method="post" action="<?= e(url('contrato/faturar/'.$record['id'])) ?>" class="contract-status-form">
-<input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><?= $formContextField ?><input type="hidden" name="_billing_form" value="1"><input type="hidden" name="folha" value="<?= (int)$sheet['id'] ?>"><input type="hidden" name="revisao" value="<?= (int)$sheet['revisao'] ?>">
-<label class="contract-check-inline"><input type="checkbox" name="faturado" value="1"<?= $draftValue('faturar',(int)$sheet['id'],'faturado',$sheet['data_faturamento']!==null ? '1' : '')==='1' ? ' checked' : '' ?>><span>Pedido faturado</span></label>
-<label class="contract-status-date"><a href="#billing-note-<?= (int)$sheet['id'] ?>" data-open-details>Data para faturamento</a><input type="date" name="data" value="<?= e($draftValue('faturar',(int)$sheet['id'],'data',$sheet['data_faturamento'] ?? '')) ?>"><small data-field-hint>Para remover, desmarque e limpe a data.</small></label>
-<?php if ($sheet['data_faturamento']!==null || $matchesDraft('faturar',(int)$sheet['id'])): ?><label class="contract-status-date contract-billing-reason">Motivo de correção<input name="motivo" maxlength="180" value="<?= e($draftValue('faturar',(int)$sheet['id'],'motivo')) ?>"></label><?php else: ?><input type="hidden" name="motivo" value=""><?php endif; ?>
-<button class="btn-secondary contract-btn-sm">Confirmar</button></form></details>
+<details id="billing-note-<?= $noteId ?>" class="contract-billing-inline" open>
+    <summary>Faturamento</summary>
+    <?php $draftNotice('faturar',$noteId,['prazo_faturamento'=>$billingDeadline ?? '','data'=>$billingDate ?? '','faturado'=>$billingDate!==null ? '1' : '']); ?>
+    <p id="billing-help-<?= $noteId ?>" class="contract-billing-hint"><?php if ($billingDate===null): ?>Confirme o prazo. Depois do pagamento, marque Pedido faturado e confirme novamente.<?php elseif ($isAdmin): ?>Para corrigir o faturamento, informe o motivo. Para reabrir a pendência, desmarque Pedido faturado.<?php else: ?>Um administrador pode corrigir o faturamento já registrado.<?php endif; ?></p>
+    <form method="post" action="<?= e(url('contrato/faturar/'.$record['id'])) ?>" class="contract-status-form">
+        <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+        <?= $formContextField ?>
+        <input type="hidden" name="_billing_form" value="2">
+        <input type="hidden" name="folha" value="<?= $noteId ?>">
+        <input type="hidden" name="revisao" value="<?= (int)$sheet['revisao'] ?>">
+        <label class="contract-status-date">Prazo para faturar
+            <input type="date" name="prazo_faturamento" aria-describedby="billing-help-<?= $noteId ?>" value="<?= e($deadlineValue) ?>">
+        </label>
+        <label class="contract-check-inline">
+            <input type="checkbox" name="faturado" value="1"<?= $draftValue('faturar',$noteId,'faturado',$billingDate!==null ? '1' : '')==='1' ? ' checked' : '' ?>>
+            <span>Pedido faturado</span>
+        </label>
+        <?php if ($billingDate!==null && $isAdmin): ?>
+            <label class="contract-status-date">Data do faturamento
+                <input type="date" name="data" value="<?= e($draftValue('faturar',$noteId,'data',$billingDate)) ?>">
+            </label>
+        <?php endif; ?>
+        <?php if (($billingDate!==null && $isAdmin) || $matchesDraft('faturar',$noteId)): ?>
+            <label class="contract-status-date contract-billing-reason">Motivo de correção
+                <input name="motivo" maxlength="180" value="<?= e($draftValue('faturar',$noteId,'motivo')) ?>">
+            </label>
+        <?php endif; ?>
+        <button class="btn-secondary contract-btn-sm">Confirmar</button>
+    </form>
+</details>
 <a class="btn-primary" href="<?= e(url('contrato/recebimento/'.$record['id'].'?folha='.$sheet['id'])) ?>">Registrar recebimento</a>
 <a class="btn-secondary" href="#add-product-<?= (int)$sheet['id'] ?>" data-open-details>+ Adicionar Produto</a>
 <?php endif; ?>

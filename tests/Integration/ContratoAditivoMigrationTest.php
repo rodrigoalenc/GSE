@@ -14,7 +14,7 @@ final class ContratoAditivoMigrationTest extends DatabaseTestCase
     {
         $pdo=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
         $pdo->exec('PRAGMA foreign_keys=ON');
-        $schema=preg_replace('/^    aditivo INTEGER NOT NULL DEFAULT 0 CHECK \(aditivo IN \(0, 1\)\),\R/m','',(string)file_get_contents(ROOT_PATH.'/database/schema.sql'));
+        $schema=preg_replace('/^    (?:aditivo INTEGER NOT NULL DEFAULT 0 CHECK \(aditivo IN \(0, 1\)\)|prazo_faturamento TEXT NULL),\R/m','',(string)file_get_contents(ROOT_PATH.'/database/schema.sql'));
         $migration=new \ReflectionMethod(DatabaseInitializer::class,'runMigration');
         for ($version=1;$version<=17;$version++) { $migration->invoke(null,$pdo,$version,$schema); }
         return $pdo;
@@ -42,12 +42,16 @@ final class ContratoAditivoMigrationTest extends DatabaseTestCase
         foreach ($before as $table=>$rows) {
             $after=$pdo->query('SELECT * FROM '.$table)->fetchAll();
             if ($table==='pedido_paginas') {
-                foreach ($after as &$row) { $this->assertSame(0,(int)$row['aditivo']); unset($row['aditivo']); }
+                foreach ($after as &$row) {
+                    $this->assertSame(0,(int)$row['aditivo']);
+                    $this->assertNull($row['prazo_faturamento']);
+                    unset($row['aditivo'], $row['prazo_faturamento']);
+                }
                 unset($row);
             }
             $this->assertSame($rows,$after,$table.' foi alterada na migração.');
         }
-        $this->assertSame(22,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(23,(int)$pdo->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(1,(int)$pdo->query('SELECT COUNT(*) FROM schema_migrations WHERE version=18')->fetchColumn());
         $this->assertSame(90,(int)$pdo->query("SELECT seq FROM sqlite_sequence WHERE name='pedido_paginas'")->fetchColumn());
         $this->assertSame('ok',$pdo->query('PRAGMA integrity_check')->fetchColumn());

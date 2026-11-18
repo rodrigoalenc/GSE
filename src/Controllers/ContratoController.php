@@ -215,13 +215,23 @@ final class ContratoController extends Controller
     public function faturar(string $id): void
     {
         $this->run('contrato/detalhes/'.$id,function() use ($id): array {
+            $formVersion=$this->field('_billing_form');
+            if ($formVersion==='2') {
+                $billed=$this->field('faturado');
+                if (!in_array($billed,['','1'],true)) { throw new DomainException('Situação de faturamento inválida.'); }
+                return ['message'=>$this->model()->saveSheetBilling(
+                    Contrato::integer($id,1), $this->number('folha'), $this->field('prazo_faturamento'),
+                    $billed==='1', $this->field('data'), $this->field('motivo'), $this->number('revisao'),
+                    $this->actor(), Auth::isAdmin()
+                )];
+            }
             $date=$this->field('data');
-            if ($this->field('_billing_form')==='1') {
+            if ($formVersion==='1') {
                 $billed=$this->field('faturado');
                 if (!in_array($billed,['','1'],true)) { throw new DomainException('Situação de faturamento inválida.'); }
                 if ($billed==='1' && $date==='') { throw new DomainException('Informe a data para confirmar o faturamento.'); }
                 if ($billed==='' && $date!=='') {
-                    throw new DomainException('Marque Pedido faturado para registrar a data ou limpe a data para deixar a nota sem faturamento.');
+                    throw new DomainException('Este formulário estava desatualizado. Confira os campos de faturamento e confirme novamente.');
                 }
             }
             $previouslyBilled = $this->model()->billSheet(Contrato::integer($id,1),$this->number('folha'),$date,$this->field('motivo'),$this->number('revisao'),$this->actor(),Auth::isAdmin());

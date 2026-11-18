@@ -82,7 +82,8 @@ final class CertidaoCliTest extends DatabaseTestCase
         $quotedDatabase = str_replace("'", "''", $database);
         $this->pdo->exec("VACUUM INTO '{$quotedDatabase}'");
         $old = new \PDO('sqlite:' . $database, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
-        $old->exec('DELETE FROM schema_migrations WHERE version = 22; PRAGMA user_version = 21;');
+        $old->exec('ALTER TABLE pedido_paginas DROP COLUMN prazo_faturamento;
+            DELETE FROM schema_migrations WHERE version = 23; PRAGMA user_version = 22;');
         $old = null;
 
         $result = $this->runCommand([$command], [
@@ -94,7 +95,8 @@ final class CertidaoCliTest extends DatabaseTestCase
 
         $this->assertSame(1, $result[0], $result[1] . $result[2]);
         $verification = new \PDO('sqlite:' . $database);
-        $this->assertSame(21, (int) $verification->query('PRAGMA user_version')->fetchColumn());
-        $this->assertSame(0, (int) $verification->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 22')->fetchColumn());
+        $this->assertSame(22, (int) $verification->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(0, (int) $verification->query('SELECT COUNT(*) FROM schema_migrations WHERE version = 23')->fetchColumn());
+        $this->assertNotContains('prazo_faturamento', array_column($verification->query('PRAGMA table_info(pedido_paginas)')->fetchAll(), 'name'));
     }
 }

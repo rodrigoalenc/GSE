@@ -37,6 +37,7 @@ final class AuditPresentation
         'contrato.old_opening_recovered' => 'Estoque - Conferir Abertura',
         'contrato.old_zero_opening_confirmed' => 'Estoque - Confirmar Abertura Zerada',
         'contrato.sheet_billed' => 'Pedido - Editar Nota',
+        'contrato.sheet_billing_deadline_updated' => 'Pedido - Alterar Prazo de Faturamento',
         'contrato.sheet_created' => 'Pedido - Cadastrar Nota',
         'contrato.sheet_duplicated' => 'Pedido - Cadastrar Nota',
         'contrato.sheet_updated' => 'Pedido - Editar Nota',

@@ -8,6 +8,7 @@ require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 use src\Core\SqliteTransaction;
 
 require_once ROOT_PATH . '/src/Core/RequestReceipt.php';
+require_once ROOT_PATH . '/src/Core/UiPresentation.php';
 require_once ROOT_PATH . '/src/Services/ContratoCertidaoService.php';
 
 /** @phpstan-import-type ExpiredCertificate from ContratoCertidaoService */
@@ -77,7 +78,8 @@ final class Contrato extends Model
         $page = min($page, max(1, (int) ceil($total / 20)));
         $query = self::$pdo->prepare('SELECT p.*, f.nome AS fornecedor, gse_name(u.nome,u.id) AS excluido_por_nome, '
             . '(SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL) AS notas, '
-            . '(SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL AND pg.data_faturamento IS NOT NULL) AS notas_faturadas '
+            . '(SELECT COUNT(*) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL AND pg.data_faturamento IS NOT NULL) AS notas_faturadas, '
+            . '(SELECT MIN(pg.prazo_faturamento) FROM pedido_paginas pg WHERE pg.id_pedido=p.id AND pg.excluido_em IS NULL AND pg.data_faturamento IS NULL) AS proximo_prazo_faturamento '
             . 'FROM pedidos p LEFT JOIN lista_fornecedores f ON f.id=p.id_fornecedor '
             . 'LEFT JOIN usuarios u ON u.id=p.excluido_por ' . $where . ' ORDER BY p.id DESC LIMIT 20 OFFSET ?');
         $query->bindValue(1, $term);
@@ -448,13 +450,74 @@ final class Contrato extends Model
         $parsed=$date==='' ? null : DateTimeImmutable::createFromFormat('!Y-m-d',$date);
         if ($date!=='' && ($parsed===false || $parsed->format('Y-m-d')!==$date)) { throw new DomainException('Data de faturamento inválida.'); }
         return SqliteTransaction::immediate(self::$pdo,function(PDO $pdo) use ($contractId,$sheetId,$date,$reason,$revision,$actor,$admin): bool {
-            $this->active($this->find($contractId)); $sheet=$this->sheet($contractId,$sheetId);
-            if ($sheet['excluido_em']!==null || (int)$sheet['revisao']!==$revision) { throw new DomainException('Nota alterada ou indisponível.'); }
+            $sheet=$this->sheetForBilling($contractId,$sheetId,$revision);
             if ($sheet['data_faturamento']!==null && (!$admin || mb_strlen(trim($reason))<3)) { throw new DomainException('Correção de faturamento exige administrador e motivo.'); }
             $pdo->prepare('UPDATE pedido_paginas SET data_faturamento=?,revisao=revisao+1 WHERE id=?')->execute([$date==='' ? null : $date,$sheetId]);
             AuditLogger::recordRequired($pdo,'contrato.sheet_billed',AuditLogger::SUCCESS,$actor,null,'Anterior: '.($sheet['data_faturamento'] ?? 'sem data').'; nova: '.($date ?: 'sem data').'; motivo: '.mb_substr(trim($reason),0,180),'folha',$sheetId);
             return $sheet['data_faturamento'] !== null;
         });
+    }
+
+    public function saveSheetBilling(
+        int $contractId, int $sheetId, string $deadline, bool $billed, string $correctedDate,
+        string $reason, int $revision, int $actor, bool $admin
+    ): string {
+        if ($deadline !== '' && !CertidaoStatus::validDate($deadline)) {
+            throw new DomainException('Prazo de faturamento inválido.');
+        }
+        $newDeadline = $deadline === '' ? null : $deadline;
+        $today = UiPresentation::localNow()->format('Y-m-d');
+
+        return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use (
+            $contractId, $sheetId, $newDeadline, $billed, $correctedDate, $reason, $revision, $actor, $admin, $today
+        ): string {
+            $sheet = $this->sheetForBilling($contractId, $sheetId, $revision);
+            $oldDeadline = $sheet['prazo_faturamento'];
+            $oldDate = $sheet['data_faturamento'];
+            $newDate = $billed ? ($oldDate ?? $today) : null;
+            if ($billed && $correctedDate !== '' && $correctedDate !== $oldDate) {
+                if (!$admin || $oldDate === null) {
+                    throw new DomainException('Somente um administrador pode corrigir a data de faturamento já registrada.');
+                }
+                if (!CertidaoStatus::validDate($correctedDate) || $correctedDate > $today) {
+                    throw new DomainException('Informe uma data válida até hoje para corrigir o faturamento.');
+                }
+                $newDate = $correctedDate;
+            }
+            if ($newDeadline === $oldDeadline && $newDate === $oldDate) {
+                return 'Os dados de faturamento já estão salvos.';
+            }
+            if ($oldDate !== null && (!$admin || mb_strlen(trim($reason)) < 3)) {
+                throw new DomainException('Correção de faturamento exige administrador e motivo.');
+            }
+
+            $pdo->prepare('UPDATE pedido_paginas SET prazo_faturamento=?,data_faturamento=?,revisao=revisao+1 WHERE id=?')
+                ->execute([$newDeadline, $newDate, $sheetId]);
+            $action = $newDate === $oldDate ? 'contrato.sheet_billing_deadline_updated' : 'contrato.sheet_billed';
+            $description = 'Prazo anterior: '.($oldDeadline ?? 'sem prazo').'; novo: '.($newDeadline ?? 'sem prazo')
+                .'; faturamento anterior: '.($oldDate ?? 'sem data').'; atual: '.($newDate ?? 'sem data')
+                .'; motivo: '.mb_substr(trim($reason),0,180);
+            AuditLogger::recordRequired($pdo, $action, AuditLogger::SUCCESS, $actor, null, $description, 'folha', $sheetId);
+
+            return match (true) {
+                $oldDate === null && $newDate !== null => 'Faturamento registrado.',
+                $oldDate !== null && $newDate === null => 'Faturamento removido.',
+                $newDate !== $oldDate => 'Faturamento atualizado.',
+                $newDeadline === null => 'Prazo de faturamento removido.',
+                default => 'Prazo de faturamento salvo.',
+            };
+        });
+    }
+
+    /** @return array<string,mixed> */
+    private function sheetForBilling(int $contractId, int $sheetId, int $revision): array
+    {
+        $this->active($this->find($contractId));
+        $sheet = $this->sheet($contractId, $sheetId);
+        if ($sheet['excluido_em'] !== null || (int)$sheet['revisao'] !== $revision) {
+            throw new DomainException('Nota alterada ou indisponível.');
+        }
+        return $sheet;
     }
 
     public function initializeStock(int $contractId,int $itemId,int $quantity,int $revision,int $actor,string $key,bool $admin=false): void

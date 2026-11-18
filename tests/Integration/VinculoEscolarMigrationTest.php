@@ -41,7 +41,7 @@ final class VinculoEscolarMigrationTest extends DatabaseTestCase
         $sql = "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name LIKE '%vinculos%' ORDER BY name";
         $this->assertSame($this->pdo->query($sql)->fetchAll(), $old->query($sql)->fetchAll());
         $this->assertSame(1, (int) $old->query('SELECT COUNT(*) FROM schema_migrations WHERE version=22')->fetchColumn());
-        $this->assertSame(22, (int) $old->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(23, (int) $old->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame([], $old->query('PRAGMA foreign_key_check')->fetchAll());
     }
 

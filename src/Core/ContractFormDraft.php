@@ -17,7 +17,7 @@ final class ContractFormDraft
         'conferir-abertura' => ['quantidade'=>32,'unidade'=>30,'minimo'=>32,'maximo'=>32,'motivo'=>180,'confirmar'=>1],
         'movimentar' => ['tipo'=>10,'quantidade'=>32,'motivo'=>300],
         'estornar' => ['original'=>32,'motivo'=>300],
-        'faturar' => ['data'=>10,'motivo'=>180,'faturado'=>1],
+        'faturar' => ['prazo_faturamento'=>32,'data'=>10,'motivo'=>180,'faturado'=>1],
     ];
 
     public static function context(mixed $value): string

@@ -1,5 +1,6 @@
 <?php
 $params = ['busca' => $search, 'situacao' => $status];
+$today = UiPresentation::localNow()->format('Y-m-d');
 $date = static function (?string $value): string {
     if (!$value) { return '—'; }
     try {
@@ -40,7 +41,11 @@ $date = static function (?string $value): string {
                 <td class="contract-title"><strong><?= e($row['titulo']) ?></strong><small>Pedido criado para controle financeiro e distribuição em notas.</small><?php if ($row['fornecedor']): ?><small><?= e($row['fornecedor']) ?></small><?php endif; ?><?php if ($status === 'excluidos'): ?><small>Pedido excluído</small><?php endif; ?></td>
                 <td><span class="contract-pill"><?= $noteCount ?> nota(s)</span></td>
                 <td class="contract-money"><?= e(Contrato::money($row['valor_centavos'] === null ? null : (int) $row['valor_centavos'])) ?></td>
-                <td><span class="contract-pill <?= $billedCount > 0 ? 'paid' : 'pending' ?>"><?= $billedCount ?> de <?= $noteCount ?> nota(s)</span></td>
+                <td><span class="contract-pill <?= $billedCount > 0 ? 'paid' : 'pending' ?>"><?= $billedCount ?> de <?= $noteCount ?> nota(s)</span>
+                    <?php if ($status === 'ativos' && $row['proximo_prazo_faturamento'] !== null): ?>
+                        <div><small><?= e(UiPresentation::billingDeadline($row['proximo_prazo_faturamento'], $today)) ?></small></div>
+                    <?php endif; ?>
+                </td>
                 <td><span class="contract-average"><?= $row['valor_centavos'] !== null && $noteCount > 0 ? e(Contrato::money((int) round((int) $row['valor_centavos'] / $noteCount))) : '—' ?></span></td>
                 <td class="contract-date"><?php $registeredParts = explode(' ', $date($status === 'ativos' ? $row['criado_em'] : $row['excluido_em']), 2); ?><?= e($registeredParts[0]) ?><?php if (isset($registeredParts[1])): ?><small><?= e($registeredParts[1]) ?></small><?php endif; ?><?php if ($status === 'excluidos'): ?><small>Por <?= e($row['excluido_por_nome'] ?? 'Usuário indisponível') ?></small><?php endif; ?></td>
                 <td><div class="contract-row-actions"><a class="btn-secondary contract-details-link" href="<?= e(url('contrato/detalhes/' . $row['id'])) ?>">Ver detalhes</a><?php if ($status === 'ativos'): ?><a class="contract-delete-link" href="<?= e(url('contrato/detalhes/' . $row['id'] . '#delete-contract')) ?>">🗑️ Apagar</a><?php endif; ?></div></td>

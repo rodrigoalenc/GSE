@@ -16,6 +16,14 @@ final class UiPresentation
         return $date !== false && $date->format('Y-m-d') === $value ? $date->format('d/m/Y') : 'Data inválida';
     }
 
+    public static function billingDeadline(string $deadline, string $today): string
+    {
+        $date = self::civilDate($deadline);
+        if ($deadline < $today) { return 'Prazo vencido em ' . $date; }
+        if ($deadline === $today) { return 'Faturar hoje (' . $date . ')'; }
+        return 'Faturar até ' . $date;
+    }
+
     public static function localDateTime(?string $value): string
     {
         if ($value === null || $value === '') { return '—'; }

@@ -6,7 +6,7 @@ Revisão: 09/11/2026. Esta atualização acompanha a documentação acadêmica o
 
 O GSE implementa MVC em PHP, interface HTML/CSS/JavaScript e persistência SQLite. Os módulos de login/usuários, alunos/turmas/DVA, arquivo passivo, certidões/fornecedores, contratos/estoque e relatórios estão presentes. Não se deve descrever o backend e os testes já implementados como trabalhos futuros. A homologação institucional continua sendo uma etapa distinta.
 
-O esquema atual é **22**. As versões 12–20 continuam sendo marcos históricos: arquivo passivo, certidões, contratos/estoque, proteção de dados, aditivos e movimentação/progressão anual. A v21 acrescenta revisões de edição e índices; a v22 acrescenta os vínculos e o histórico escolar usados nas movimentações. Instruções que esperavam 16, 17, 18 ou 21 como versão atual ficam substituídas por 22. Migrações são exclusivamente executadas pelos comandos explícitos de instalação/migração; HTTP, manutenção e notificações apenas recusam uma base incompatível.
+O esquema atual é **23**. As versões 12–20 continuam sendo marcos históricos: arquivo passivo, certidões, contratos/estoque, proteção de dados, aditivos e movimentação/progressão anual. A v21 acrescenta revisões de edição e índices; a v22 acrescenta os vínculos e o histórico escolar usados nas movimentações. A v23 acrescenta o prazo de faturamento por nota e preserva a data efetiva de faturamento. Migrações são exclusivamente executadas pelos comandos explícitos de instalação/migração; HTTP, manutenção e notificações apenas recusam uma base incompatível.
 
 ## Matriz de requisitos e validação
 
@@ -18,7 +18,7 @@ O esquema atual é **22**. As versões 12–20 continuam sendo marcos histórico
 | RF005 / UC005 certidões | Fornecedores, tipos, PDFs privados, histórico e vigência | Certidao, CertidaoMigration, HTTP/downloads | Validar atores e documentos |
 | RF006 notificações | Serviços CLI, transporte SMTP e controle diário | DvaNotification e CertidaoNotification | SMTP e agendador reais |
 | RF007 auditoria | Evento obrigatório em transações e diagnóstico sem payload | AuditAtomicity e TechnicalLoggerDiagnostics | Aprovar acesso e retenção |
-| RF008 / UC006 contratos/estoque | Valores em centavos, revisão, recebimento, consumo e estorno | StockWorkflow, SqliteTransaction e HTTP/browser | Conferir operação física/documental |
+| RF008 / UC006 contratos/estoque | Valores em centavos, prazo e confirmação de faturamento por nota, recebimento, consumo e estorno | ContratoPrazoFaturamentoMigration, StockWorkflow, SqliteTransaction e HTTP/browser | Conferir operação física/documental |
 | UC002/UC003 login e contas | Perfis, senha temporária, Argon2id, sessão e limites | Authentication, PasswordSecurity e browser senha | Definir recuperação e revogação |
 | UC007 relatórios | Filtros, PDF/CSV e downloads | Relatorio, HTTP e browser downloads | Autorizar circulação de dados |
 | NF001 responsividade | Layout adaptativo, teclado e menu lateral permanente no computador | Browser desktop/celular/paisagem | Zoom, leitor de tela e tarefas reais |
