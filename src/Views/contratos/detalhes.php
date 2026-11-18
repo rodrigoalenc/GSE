@@ -84,17 +84,50 @@ if (is_array($draft) && $draft['unavailable']) {
     }
 ?>
 <section class="relatorio modulo5-sheet contract-note-panel <?= $sheet['data_faturamento'] !== null ? 'contract-note-paid' : '' ?> <?= (int)$sheet['aditivo']===1 ? 'contract-note-additive' : '' ?>" id="folha-<?= (int)$sheet['id'] ?>">
-<div class="section-head contract-note-heading"><div class="contract-note-intro"><h3>Itens da nota <?= (int)$sheet['numero_pagina'] ?> <?= $sheet['excluido_em']!==null ? '(excluída)' : '' ?></h3><div class="contract-note-meta"><?php if ((int)$sheet['aditivo']===1): ?><span class="contract-pill additive">Aditivo · limite conjunto de 25%</span><?php endif; ?><span>Total acumulado desta nota: <strong><?= e(Contrato::money($sheet['valor_centavos']===null ? null : (int)$sheet['valor_centavos'])) ?></strong></span>
-<?php if ($active && $sheet['excluido_em']===null): ?>
-    <a class="contract-pill <?= $billingClass ?>" href="#billing-note-<?= $noteId ?>" data-open-details
-        aria-label="<?= e($billingStatus.'. Abrir faturamento da nota '.(int)$sheet['numero_pagina']) ?>"><?= e($billingStatus) ?></a>
-<?php else: ?>
-    <span class="contract-pill <?= $billingClass ?>"><?= e($billingStatus) ?></span>
-<?php endif; ?>
-<?php if ($billingDeadline!==null): ?><span class="contract-pill <?= $billingDate===null && $billingDeadline<=$today ? 'pending' : '' ?>"><?= e($billingDate===null ? UiPresentation::billingDeadline($billingDeadline,$today) : 'Prazo previsto: '.UiPresentation::civilDate($billingDeadline)) ?></span><?php endif; ?>
-</div></div>
-<div class="contract-note-toolbar">
-<?php if ($active && $sheet['excluido_em']===null): ?>
+<?php $noteEditable=$active && $sheet['excluido_em']===null; ?>
+<div class="section-head contract-note-heading">
+    <div class="contract-note-intro">
+        <h3>Itens da nota <?= (int)$sheet['numero_pagina'] ?><?= $sheet['excluido_em']!==null ? ' (excluída)' : '' ?></h3>
+        <div class="contract-note-meta">
+            <?php if ((int)$sheet['aditivo']===1): ?><span class="contract-pill additive">Aditivo · limite conjunto de 25%</span><?php endif; ?>
+            <span>Total acumulado desta nota: <strong><?= e(Contrato::money($sheet['valor_centavos']===null ? null : (int)$sheet['valor_centavos'])) ?></strong></span>
+            <?php if ($noteEditable): ?>
+                <a class="contract-pill <?= $billingClass ?>" href="#billing-note-<?= $noteId ?>" data-open-details
+                    aria-label="<?= e($billingStatus.'. Abrir faturamento da nota '.(int)$sheet['numero_pagina']) ?>"><?= e($billingStatus) ?></a>
+            <?php else: ?>
+                <span class="contract-pill <?= $billingClass ?>"><?= e($billingStatus) ?></span>
+            <?php endif; ?>
+            <?php if ($billingDeadline!==null): ?>
+                <span class="contract-pill <?= $billingDate===null && $billingDeadline<=$today ? 'pending' : '' ?>"><?= e($billingDate===null ? UiPresentation::billingDeadline($billingDeadline,$today) : 'Prazo previsto: '.UiPresentation::civilDate($billingDeadline)) ?></span>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="contract-note-toolbar" role="group" aria-label="Ações da nota <?= (int)$sheet['numero_pagina'] ?>">
+        <?php if ($noteEditable): ?>
+            <div class="contract-note-actions">
+                <a class="btn-primary" href="<?= e(url('contrato/recebimento/'.$record['id'].'?folha='.$noteId)) ?>">Registrar recebimento</a>
+                <a class="btn-secondary" href="#add-product-<?= $noteId ?>" data-open-details>Adicionar produto</a>
+            </div>
+        <?php endif; ?>
+        <div class="contract-note-actions contract-note-support">
+            <a class="btn-secondary" href="<?= e(url('contrato/imprimir/'.$record['id'].'?folha='.$noteId)) ?>" target="_blank" rel="noopener">Imprimir nota</a>
+            <?php if ($noteEditable): ?>
+                <form method="post" action="<?= e(url('contrato/folha/'.$record['id'])) ?>" data-confirm-status="Duplicar esta nota e seus produtos, sem estoque nem faturamento?">
+                    <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
+                    <?= $formContextField ?>
+                    <input type="hidden" name="revisao" value="<?= (int)$record['revisao'] ?>">
+                    <input type="hidden" name="copiar" value="<?= $noteId ?>">
+                    <input type="hidden" name="chave" value="<?= e(bin2hex(random_bytes(16))) ?>">
+                    <input type="hidden" name="observacao" value="">
+                    <button class="btn-secondary" data-contract-note-create <?= $creationBlocked ? 'disabled' : '' ?>>Duplicar nota</button>
+                </form>
+                <a class="btn-danger" href="#delete-note-<?= $noteId ?>" data-open-details>Apagar nota</a>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+<?php if ($noteEditable): ?>
 <details id="billing-note-<?= $noteId ?>" class="contract-billing-inline" open>
     <summary>Faturamento</summary>
     <?php $draftNotice('faturar',$noteId,['prazo_faturamento'=>$billingDeadline ?? '','data'=>$billingDate ?? '','faturado'=>$billingDate!==null ? '1' : '']); ?>
@@ -125,13 +158,6 @@ if (is_array($draft) && $draft['unavailable']) {
         <button class="btn-secondary contract-btn-sm">Confirmar</button>
     </form>
 </details>
-<a class="btn-primary" href="<?= e(url('contrato/recebimento/'.$record['id'].'?folha='.$sheet['id'])) ?>">Registrar recebimento</a>
-<a class="btn-secondary" href="#add-product-<?= (int)$sheet['id'] ?>" data-open-details>+ Adicionar Produto</a>
-<?php endif; ?>
-<a class="btn-secondary" href="<?= e(url('contrato/imprimir/'.$record['id'].'?folha='.$sheet['id'])) ?>" target="_blank" rel="noopener">🖨️ Imprimir nota</a>
-<?php if ($active && $sheet['excluido_em']===null): ?><form method="post" action="<?= e(url('contrato/folha/'.$record['id'])) ?>" data-confirm-status="Duplicar esta nota e seus produtos, sem estoque nem faturamento?"><input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><?= $formContextField ?><input type="hidden" name="revisao" value="<?= (int)$record['revisao'] ?>"><input type="hidden" name="copiar" value="<?= (int)$sheet['id'] ?>"><input type="hidden" name="chave" value="<?= e(bin2hex(random_bytes(16))) ?>"><input type="hidden" name="observacao" value=""><button class="btn-secondary" data-contract-note-create <?= $creationBlocked ? 'disabled' : '' ?>>📄 Duplicar nota</button></form><a class="btn-danger" href="#delete-note-<?= (int)$sheet['id'] ?>" data-open-details>🗑️ Apagar nota</a><?php endif; ?>
-</div></div>
-<?php if ($active && $sheet['excluido_em']===null): ?>
 <details id="add-product-<?= (int)$sheet['id'] ?>" class="contract-inline-product"<?= $draftOpen('adicionar-produto',(int)$sheet['id']) ?>><summary>Adicionar produto</summary><h4>Novo item para a nota #<?= (int)$sheet['numero_pagina'] ?></h4><?php $draftNotice('adicionar-produto',(int)$sheet['id'],[]); ?>
 <form method="post" action="<?= e(url('contrato/produto/'.$record['id'])) ?>" class="contract-product-grid"><input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>"><?= $formContextField ?><input type="hidden" name="folha" value="<?= (int)$sheet['id'] ?>"><input type="hidden" name="produto" value=""><input type="hidden" name="revisao" value="<?= (int)$record['revisao'] ?>">
 <label>Produto<input name="nome" required maxlength="150" value="<?= e($draftValue('adicionar-produto',(int)$sheet['id'],'nome')) ?>"></label><label>Marca<input name="marca" maxlength="100" placeholder="Ex: Chamex" value="<?= e($draftValue('adicionar-produto',(int)$sheet['id'],'marca')) ?>"></label>

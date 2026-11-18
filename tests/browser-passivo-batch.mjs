@@ -83,6 +83,25 @@ try {
     await go('/contrato/detalhes/1', '[data-contract-tabs]');
     await page.until(`document.querySelectorAll('[role="tabpanel"]').length===3`);
     check(await noteState(), noteSelected(1), 'Authenticated request starts with three notes and the first selected');
+    for (const width of [1366,390,320]) {
+        await viewport(width,832);
+        check(await page.evaluate(`(() => {
+            const note = document.getElementById('folha-1');
+            const actions = note.querySelector('.contract-note-toolbar');
+            const billing = note.querySelector('.contract-billing-inline');
+            const toolbar = actions.getBoundingClientRect();
+            const section = billing.getBoundingClientRect();
+            return section.top >= toolbar.bottom && Array.from(actions.querySelectorAll('a,button')).every(action => {
+                const rect = action.getBoundingClientRect();
+                return rect.height >= 44 && rect.left >= toolbar.left && rect.right <= toolbar.right + 1;
+            });
+        })()`), true, `Note actions fit above the billing form at ${width}px`);
+        if (process.env.GSE_BROWSER_EVIDENCE_DIR) {
+            await page.evaluate(`document.querySelector('#folha-1 .contract-note-heading').scrollIntoView({block:'start'})`);
+            await shot(`contrato-acoes-nota-${width}`);
+        }
+    }
+    await viewport(1366,768);
     for (const id of [2,3]) {
         await page.click(`[data-contract-tabs] a[href="#folha-${id}"]`);
         await page.until(`location.hash==='#folha-${id}' && !document.getElementById('folha-${id}').hidden`);

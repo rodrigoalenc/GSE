@@ -142,8 +142,8 @@ label { font-size: 12px; color: var(--primary-dark); font-weight: 650; }
 .contract-list-create-action .btn-primary, .contract-note-panel .btn-primary { background: var(--primary-color); border-color: var(--primary-color); box-shadow: none; }
 .contract-detail-title-row .contract-billing-hint, .contract-billing-hint { color: var(--text-muted) !important; font-weight: 400; }
 .contract-detail-metrics .contract-balance-remaining { color: var(--primary-dark); }
-.contract-note-toolbar > .btn-danger, .contract-item-actions > .btn-danger { color: var(--primary-dark); background: #edf4fc; border: 1px solid #c7d8eb; box-shadow: none; }
-.contract-note-toolbar .btn, .contract-note-toolbar > .btn-primary, .contract-note-toolbar > .btn-secondary, .contract-note-toolbar > .btn-danger, .contract-item-actions .btn-danger { border-radius: 6px; }
+.contract-item-actions > .btn-danger { color: var(--primary-dark); background: #edf4fc; border: 1px solid #c7d8eb; box-shadow: none; }
+.contract-item-actions .btn-danger { border-radius: 6px; }
 .contract-note-panel .table td .contract-money, .contract-products-table .contract-product-subtotal { color: var(--primary-dark); }
 .passivo-stats span { color: var(--text-muted); background: #eef4fb; border-color: var(--border-color); border-radius: 7px; font-size: 11px; }
 .passivo-stats strong { color: var(--primary-dark); font-size: 21px; }
@@ -154,7 +154,7 @@ label { font-size: 12px; color: var(--primary-dark); font-weight: 650; }
 .contract-detail-actions, .contract-detail-metrics, .contract-note-panel, .profile-shell, .contato-card, .info-item, .passivo-detail-shell, .passivo-box-card { border-radius: 10px; box-shadow: none; }
 .contract-detail-overview.contract-all-paid, .contract-note-panel.contract-note-paid { background: #fff; border-color: var(--border-color); box-shadow: none; }
 .contract-detail-actions .btn-warning, .contract-item-actions .btn-warning { background: #fff; color: var(--primary-dark); border-color: #b9cadd; box-shadow: none; }
-.contract-detail-actions .contract-print-link, .contract-detail-actions .contract-print-link:hover, .contract-note-toolbar > .btn-primary, .contract-note-toolbar > form > .btn-primary { background: var(--primary-color); border-color: var(--primary-color); color: #fff; box-shadow: none; }
+.contract-detail-actions .contract-print-link, .contract-detail-actions .contract-print-link:hover { background: var(--primary-color); border-color: var(--primary-color); color: #fff; box-shadow: none; }
 .contract-delete-link { color: var(--primary-dark); background: #edf4fc; border: 1px solid #c7d8eb; border-radius: 6px; box-shadow: none; }
 .contract-delete-link:hover { color: #fff; background: var(--primary-dark); }
 .btn-whatsapp, .btn-whatsapp-full { background: var(--primary-color); color: #fff; }

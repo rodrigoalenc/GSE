@@ -55,8 +55,6 @@
 .contract-note-heading h2 { color:#0c3566; font-size:1.05rem; }
 .contract-note-heading p { color:#0c2445; }
 .contract-note-heading p strong { color:#005dc5; }
-.contract-note-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:9px; }
-.contract-note-toolbar .btn-primary,.contract-note-toolbar .btn-secondary { white-space:nowrap; }
 .contract-note-panel .table { min-width:980px; border-collapse:collapse; }
 .contract-note-panel .table th { padding:13px; color:#607795; background:#f5f8fc; border-bottom:1px solid #d5e3f2; font-size:.74rem; letter-spacing:.05em; text-transform:uppercase; }
 .contract-note-panel .table td { padding:13px; border-bottom:1px solid #e1eaf4; }
@@ -190,28 +188,63 @@
 .modulo5-tabs a.contract-tab-paid:hover { color: var(--success-green-dark); background: #d7f3e0; }
 .modulo5-tabs a.contract-tab-paid[aria-selected=true]:hover { color: #fff; background: var(--success-green-dark); }
 .contract-add-note-tab { min-height: 42px; padding: 12px 20px; color: #4b5563; background: #eef3f8; border: 1px solid #d7e0eb; border-radius: 999px; font-size: .95rem; font-weight: 600; }
-.contract-note-intro h3 { margin: 0 0 5px; padding-bottom: 10px; color: var(--primary-color); border-bottom: 1px solid #eee; font-size: 1.2rem; font-weight: 600; }
-.contract-note-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 5px 0 0; color: #1f2937; font-size: .95rem; }
-.contract-note-meta strong { color: #007bff; font-size: 1.1em; }
-.contract-note-toolbar { align-items: center; gap: 10px; }
-.contract-note-toolbar>form { margin: 0; }
-.contract-note-toolbar>.btn-primary, .contract-note-toolbar>.btn-secondary, .contract-note-toolbar>.btn-danger, .contract-note-toolbar>form>button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 10px 18px; border: 1px solid transparent; border-radius: 12px; font-weight: 700; line-height: 1; }
-.contract-note-toolbar>.btn-primary, .contract-note-toolbar>.btn-danger, .contract-note-toolbar>form>button { font-family: Arial, sans-serif; font-size: 13.3333px; }
-.contract-note-toolbar>.btn-secondary, .contract-note-toolbar>form>button.btn-secondary, .contract-status-form>.btn-secondary { background: #eef2f6; border-color: #d7e0ea; box-shadow: none; }
-.contract-note-toolbar>.btn-danger, .contract-item-actions>.btn-danger { color: #fff; background: linear-gradient(135deg,var(--danger-red),var(--danger-red-dark)); box-shadow: 0 12px 24px rgba(217,54,54,.16); }
-.contract-note-panel .contract-billing-inline { display: block; margin: 0; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
-.contract-billing-inline>summary { display: none; }
-.contract-note-panel .contract-billing-inline .contract-status-form { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin: 0; }
-.contract-note-panel .contract-status-form .contract-check-inline { display: flex; flex: 0 0 auto; flex-direction: row; align-items: center; gap: 10px; min-width: 0; margin: 0; color: #1f2937; font-size: .92rem; font-weight: 600; cursor: pointer; }
-.contract-note-panel .contract-status-form .contract-check-inline input { width: 18px; height: 18px; min-height: 0; margin: 3px 3px 3px 4px; padding: 0; accent-color: var(--success-green); }
-.contract-note-panel .contract-status-form .contract-status-date { display: flex; flex: 0 0 auto; flex-direction: column; gap: 5px; min-width: 0; margin: 0; color: var(--text-muted); font-size: .8rem; font-weight: 700; }
-.contract-status-date a { color: inherit; text-decoration: none; }
-.contract-status-date a:focus-visible { outline: 3px solid #72a9d6; outline-offset: 2px; }
-.contract-note-panel .contract-status-form .contract-status-date input { width: auto; min-width: 150px; min-height: 0; margin: 0; padding: 10px 12px; background: #fff; border: 1px solid #ddd; border-radius: 6px; color: #495057; font-family: monospace; font-size: .95rem; line-height: normal; }
+.contract-note-panel .contract-note-heading { display: grid; gap: 16px; margin-bottom: 16px; }
+.contract-note-intro { min-width: 0; }
+.contract-note-intro h3 { margin: 0; color: var(--primary-color); font-size: 1.2rem; font-weight: 700; }
+.contract-note-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; color: var(--text-main); font-size: .95rem; }
+.contract-note-meta strong { color: var(--primary-dark); white-space: nowrap; }
+.contract-note-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 18px; }
+.contract-note-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.contract-note-actions > form { display: flex; margin: 0; }
+.contract-note-panel .contract-note-actions :is(a, button), .contract-note-panel .contract-status-form > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font: 700 .875rem/1.25 Arial, sans-serif;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: none;
+}
+.contract-note-panel .contract-note-actions .btn-secondary,
+.contract-note-panel .contract-status-form > .btn-secondary {
+    color: var(--primary-dark);
+    background: #fff;
+    border: 1px solid var(--border-color);
+}
+.contract-note-panel .contract-note-actions .btn-secondary:not(:disabled):hover,
+.contract-note-panel .contract-status-form > .btn-secondary:hover { background: var(--bg-soft); border-color: var(--primary-color); }
+.contract-note-panel .contract-note-actions .btn-primary:hover { background: var(--primary-dark); }
+.contract-note-panel .contract-note-actions .btn-danger { color: #982d35; background: #fff5f5; border: 1px solid #edc7ca; }
+.contract-note-panel .contract-note-actions .btn-danger:hover { background: #fae4e6; border-color: #982d35; }
+.contract-note-actions button:disabled { opacity: .55; cursor: not-allowed; }
+.contract-note-actions :is(a, button):focus-visible, .contract-status-form button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+.contract-item-actions>.btn-danger { color: #fff; background: linear-gradient(135deg,var(--danger-red),var(--danger-red-dark)); box-shadow: 0 12px 24px rgba(217,54,54,.16); }
+.contract-note-panel .contract-billing-inline {
+    margin: 0 0 18px;
+    padding: 12px 16px 16px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: none;
+}
+.contract-billing-inline > summary { min-height: 28px; color: var(--primary-dark); cursor: pointer; font-weight: 700; }
+.contract-billing-inline > summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.contract-billing-inline > .contract-billing-hint { max-width: 74ch; margin: 4px 0 12px !important; line-height: 1.4; }
+.contract-note-panel .contract-billing-inline .contract-status-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px 14px; margin: 0; }
+.contract-note-panel .contract-status-form .contract-check-inline { display: flex; flex: 0 0 auto; flex-direction: row; align-items: center; gap: 8px; min-height: 44px; min-width: 0; margin: 0; color: var(--text-main); font-size: .875rem; font-weight: 600; cursor: pointer; }
+.contract-note-panel .contract-status-form .contract-check-inline input { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; accent-color: var(--primary-color); }
+.contract-note-panel .contract-status-form .contract-status-date { display: flex; flex: 0 1 auto; flex-direction: column; gap: 5px; min-width: 0; margin: 0; color: var(--text-muted); font-size: .825rem; font-weight: 700; }
+.contract-note-panel .contract-status-form .contract-status-date input { width: auto; min-width: 0; min-height: 44px; margin: 0; padding: 8px 10px; background: #fff; border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); font-size: .9rem; line-height: normal; }
+.contract-note-panel .contract-status-form .contract-billing-reason { flex: 1 1 180px; }
 .contract-status-form input[type="date"]::-webkit-datetime-edit { padding: 1px 0; }
-.contract-note-panel .contract-status-form>.contract-btn-sm { margin: 0; font-family: Arial, sans-serif; }
-.contract-note-panel .contract-status-form .contract-billing-reason input { width: 160px; min-width: 0; }
-.contract-btn-sm, .contract-status-form>.contract-btn-sm, .contract-item-actions>.contract-btn-sm { min-height: 34px; padding: 7px 12px; border-radius: 10px; font-size: .82rem; font-weight: 700; line-height: 1; }
+.contract-btn-sm, .contract-item-actions>.contract-btn-sm { min-height: 34px; padding: 7px 12px; border-radius: 10px; font-size: .82rem; font-weight: 700; line-height: 1; }
 .contract-note-panel .contract-inline-product:not([open]), .contract-note-panel .contract-note-delete:not([open]) { display: none; }
 .contract-inline-product>summary { display: none; }
 .contract-note-panel .contract-inline-product { margin: 0 0 25px; padding: 20px; background: #f7fbff; border: 1px dashed #99bfeb; border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
@@ -265,13 +298,20 @@
     .contract-note-panel { padding: 20px; }
     .contract-note-panel .contract-inline-product .contract-product-grid { grid-template-columns: 1fr; }
     .contract-note-panel .contract-item-expanded details form { grid-template-columns: 1fr; }
-    .contract-note-toolbar { align-items: stretch; }
-    .contract-note-panel .contract-billing-inline .contract-status-form { justify-content: flex-start; }
-    .contract-note-panel .contract-status-form>.contract-btn-sm { width: 100%; }
-    .contract-note-toolbar>.btn-primary, .contract-note-toolbar>.btn-secondary, .contract-note-toolbar>.btn-danger { flex: 1 1 auto; }
     .contract-inline-actions { width: 100%; }
     .contract-inline-actions>.btn-primary, .contract-inline-actions>.btn-secondary { width: 100%; }
     .contract-form-panel .modulo5-builder-sheet>.section-head { align-items: stretch; gap: 10px; }
     .contract-form-panel .modulo5-builder-sheet .contract-builder-observation { width: 100%; max-width: none; margin: 0; }
     .contract-form-panel .modulo5-budget { align-items: start; }
+}
+
+@media (max-width: 600px) {
+    .contract-note-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
+    .contract-note-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+    .contract-note-actions > form > button { flex: 1; }
+    .contract-note-actions:not(.contract-note-support) { grid-template-columns: minmax(0, 1fr); }
+    .contract-note-support .btn-danger { grid-column: 1 / -1; justify-self: end; }
+    .contract-note-panel .contract-billing-inline .contract-status-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .contract-note-panel .contract-status-form .contract-status-date input { width: 100%; }
+    .contract-note-panel .contract-status-form [name="faturado"] { flex-shrink: 0; }
 }
