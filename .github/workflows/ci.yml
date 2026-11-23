@@ -15,17 +15,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - name: PHP de referência para o ensaio offline
-        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
-        with:
-          php-version: '8.4.27'
-          extensions: curl, dom, fileinfo, intl, mbstring, openssl, sodium, pdo_sqlite, xml, xmlwriter, zip
-          coverage: none
-          tools: none
-
       - name: Instalação limpa, recuperação e reexecução no PowerShell 5.1
         shell: powershell
-        run: .\tests\runtime-installer.ps1 -PhpFixtureDirectory (Split-Path -Parent (Get-Command php).Source)
+        run: |
+          $manifest = Get-Content -LiteralPath 'config/runtime-windows.json' -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $manifest.phpArchive
+          $fixture = Join-Path $env:RUNNER_TEMP 'gse-php-fixture'
+          $url = "https://downloads.php.net/~windows/releases/archives/$($manifest.phpArchive)"
+          Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $manifest.phpSha256) {
+              throw 'The PHP fixture archive does not match the SHA-256 in config/runtime-windows.json.'
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath $fixture
+          .\tests\runtime-installer.ps1 -PhpFixtureDirectory $fixture
 
   test:
     runs-on: ubuntu-latest
