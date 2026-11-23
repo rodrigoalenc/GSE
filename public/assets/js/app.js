@@ -135,9 +135,32 @@ if (window.GseMoney) {
     });
 }
 
+document.querySelectorAll('[data-staff-grants]').forEach((fieldset) => {
+    const role = fieldset.form.elements.namedItem('tipo');
+    const updateRole = () => {
+        fieldset.hidden = fieldset.disabled = role.value !== 'funcionario';
+    };
+    role.addEventListener('change', updateRole);
+    updateRole();
+
+    fieldset.querySelectorAll('[data-staff-grant]').forEach((grant) => {
+        const toggle = grant.querySelector('input[type="checkbox"]');
+        const fields = grant.querySelector('[data-staff-grant-fields]');
+        const updateGrant = () => {
+            fields.hidden = !toggle.checked;
+            fields.querySelectorAll('input').forEach((input) => {
+                input.disabled = !toggle.checked;
+                input.required = toggle.checked;
+            });
+        };
+        toggle.addEventListener('change', updateGrant);
+        updateGrant();
+    });
+});
+
 document.querySelectorAll('[data-contract-certificate-form]').forEach((form) => {
     const supplier = form.querySelector('[name="fornecedor"]');
-    const alert = document.querySelector('[data-contract-certificate-alert][data-certificate-report]');
+    const alert = form.querySelector('[data-contract-certificate-alert][data-certificate-report]');
     const submit = form.querySelector('[data-contract-create-submit]');
     if (!supplier || !alert || !submit) return;
     let report;

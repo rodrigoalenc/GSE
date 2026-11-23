@@ -241,6 +241,45 @@ try {
     check(fixture().users[0].session_version,beforeOwnEdit.users[0].session_version+1,'Own editor invalidates previous sessions');
     await login('admin@example.test',editorPassword);
     check(await page.evaluate('location.pathname'),'/dashboard','Login after own edit does not request another password change');
+
+    await go('/usuario/criar');
+    const setRole = role => page.evaluate(`(() => {
+        const select = document.querySelector('#tipo');
+        select.value = ${JSON.stringify(role)};
+        select.dispatchEvent(new Event('change', {bubbles:true}));
+    })()`);
+    check(await page.evaluate("document.querySelectorAll('[data-staff-grant] input:checked').length"),0,'Novo funcionário começa sem concessões');
+    await setRole('administrador');
+    check(await page.evaluate("document.querySelector('[data-staff-grants]').hidden"),true,'Perfil administrador dispensa concessões de funcionário');
+    await setRole('funcionario');
+    await fill('#nome', 'Equipe Concessoes');
+    await fill('#email', 'equipe.concessoes@example.test');
+    await fill('#senha', editorPassword);
+    await fill('#confirmar_senha', editorPassword);
+    const grant = async (key, reference) => {
+        await page.click('#grant-' + key);
+        await fill('#grant-' + key + '-reference', reference);
+        await page.evaluate(`document.getElementById(${JSON.stringify('grant-' + key + '-until')}).value = '2099-10-21'`);
+    };
+    await grant('export', 'Autorização de relatórios');
+    await submit('/usuario/criar');
+    check(await page.evaluate('location.pathname'),'/usuario','Cadastro salva a concessão e retorna à lista');
+    const employeeId = fixture().users.find(user => user.email === 'equipe.concessoes@example.test').id;
+    const editEmployee = '/usuario/editar/' + employeeId;
+    await go(editEmployee);
+    check(await page.evaluate("document.querySelector('#grant-export').checked && document.querySelector('#grant-export-reference').value === 'Autorização de relatórios'"),true,'Editar usuário carrega a concessão e a referência salvas');
+    check(await page.evaluate("document.querySelector('#grant-contacts') === null && document.querySelector('#grant-manage-help').textContent.includes('telefones')"),true,'O cadastro inclui telefones em uma única opção');
+    await grant('manage', 'Autorização cadastral');
+    await page.click('#grant-export');
+    await submit(editEmployee);
+    await go(editEmployee);
+    check(await page.evaluate("['manage','export'].map(key => document.querySelector('#grant-' + key).checked)"),[true,false],'Editar salva a concessão de cadastro com telefones e revoga relatórios');
+    if (process.env.GSE_BROWSER_EVIDENCE_DIR) {
+        await mkdir(process.env.GSE_BROWSER_EVIDENCE_DIR, {recursive:true});
+        await page.evaluate("document.querySelector('[data-staff-grants]').scrollIntoView({block:'center'})");
+        const screenshot = await page.command('Page.captureScreenshot', {format:'png', captureBeyondViewport:false});
+        await writeFile(join(process.env.GSE_BROWSER_EVIDENCE_DIR, 'usuario-permissoes.png'), Buffer.from(screenshot.data, 'base64'));
+    }
     const log = await readFile(environment.LOG_PATH,'utf8');
     assert.ok(log.includes('argon2id_unavailable') && log.includes('argon2id_generation_failed'), 'Both runtime failures reached the application');
     for (const secret of [temporaryPassword, permanentPassword, editorPassword, 'Artificial private detail']) assert.ok(!log.includes(secret));

@@ -81,6 +81,7 @@ final class UiPresentationTest extends TestCase
         foreach ([false, true] as $edicao) {
             $usuarioId = 1;
             $editingSelf = false;
+            $grantsRevision = str_repeat('a', 64);
             $dados = ['nome' => '', 'email' => '', 'tipo' => 'funcionario', 'recebe_alertas_dva' => false];
             $erros = ['Use uma senha com pelo menos 15 caracteres.', 'A confirmação da senha não confere.'];
             ob_start();

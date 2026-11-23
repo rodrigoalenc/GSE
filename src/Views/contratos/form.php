@@ -4,7 +4,7 @@ $old=static fn(mixed $value): string => is_string($value) ? $value : '';
 $renderUnitSelect = require __DIR__.'/unit-select.php';
 $formSheets=$record===null && isset($draft['folhas']) && is_array($draft['folhas']) && $draft['folhas']!==[] ? $draft['folhas'] : [['observacao'=>'','produtos'=>[['nome'=>'','marca'=>'','unidade'=>'UN','quantidade'=>'','preco'=>'']]]];
 ?>
-<?php $dynamicCertificateGuard = $record === null; require __DIR__ . '/certidoes-alerta.php'; ?>
+<?php if ($record !== null): require __DIR__ . '/certidoes-alerta.php'; endif; ?>
 <?php if ($record !== null): ?><div class="contract-edit-back"><a class="btn-secondary" href="<?= e(url('contrato/detalhes/' . $record['id'])) ?>">Voltar</a></div><?php endif; ?>
 <section class="relatorio contract-form-panel <?= $record !== null ? 'contract-edit-panel' : '' ?>">
     <?php if ($record!==null && $draft!==[]): ?><div class="warning-message" role="status"><strong>A tentativa anterior não foi salva.</strong> Os dados atuais do pedido estão no formulário abaixo. Compare antes de reenviar.<br>Texto digitado: <?= e($old($draft['titulo'] ?? '')) ?> · Valor: <?= e($old($draft['valor'] ?? '')) ?> · Fornecedor: confira a seleção abaixo</div><?php endif; ?>
@@ -22,6 +22,7 @@ $formSheets=$record===null && isset($draft['folhas']) && is_array($draft['folhas
         <small id="money-format">Use 1250,00 ou 1.250,00. Até duas casas decimais; máximo de R$ 999.999.999,99.</small><div class="mb-3"><label for="fornecedor">Fornecedor (opcional)</label><select class="form-select" id="fornecedor" name="fornecedor"><option value="">Não informado</option><?php foreach ($suppliers as $supplier): if (!(int)$supplier['ativo'] && ($record===null || (int)$record['id_fornecedor']!==(int)$supplier['id'])) { continue; } ?><option value="<?= (int)$supplier['id'] ?>" <?= ($record!==null ? (string)$record['id_fornecedor'] : $old($draft['fornecedor'] ?? ''))===(string)$supplier['id'] ? 'selected' : '' ?>><?= e($supplier['nome']) ?><?= (int)$supplier['ativo']===0 ? ' (inativo; vínculo histórico)' : '' ?></option><?php endforeach; ?></select><small>Fornecedores são geridos em Certidões e Fornecedores.</small></div>
         <?php if ($record===null): ?>
         </fieldset>
+        <?php $dynamicCertificateGuard = true; require __DIR__ . '/certidoes-alerta.php'; ?>
         <fieldset class="pedido-step" data-pedido-step="1"><legend tabindex="-1">2. Notas e produtos</legend>
         <div data-contract-builder>
             <p class="contract-builder-hint">Adicione os produtos de cada nota. Preços podem ser informados como 1250,00 ou 1.250,00. Para começar o controle, informe na tela Estoque a quantidade disponível na escola. Depois, registre quanto chegou em Registrar recebimento.</p>

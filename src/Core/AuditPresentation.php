@@ -103,6 +103,7 @@ final class AuditPresentation
         'user.created' => 'Usuario - Criar',
         'user.deactivated' => 'Usuario - Inativar',
         'user.dva_alerts_updated' => 'Usuario - Editar Alertas de DVA',
+        'user.staff_permissions_updated' => 'Usuário - Alterar permissões',
         'user.identity_updated' => 'Usuario - Editar',
         'user.initial_admin_created' => 'Usuario - Criar',
         'user.profile_updated' => 'Usuario - Editar',

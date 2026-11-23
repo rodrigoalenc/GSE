@@ -35,7 +35,8 @@ final class UsuarioController extends Controller
                 $dados['tipo'],
                 true,
                 $dados['recebe_alertas_dva'],
-                (int) $_SESSION['usuario_id']
+                (int) $_SESSION['usuario_id'],
+                isset($_POST['grants_present']) ? $dados['grants'] : null
             )) {
                 $this->redirectWithFlash('usuario', 'success', 'Usuário cadastrado. A senha informada é temporária e deverá ser alterada no primeiro acesso.');
             }
@@ -83,12 +84,18 @@ final class UsuarioController extends Controller
             'senha' => '',
             'confirmar_senha' => '',
             'recebe_alertas_dva' => (int) ($usuario['recebe_alertas_dva'] ?? 0) === 1,
+            'grants' => AccessPolicy::staffGrants($usuario),
         ];
+        $grantsRevision = AccessPolicy::grantsRevision($usuario);
         $erros = [];
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $dados = $this->dadosDoFormulario();
-            $erros = $this->validar($dados, false);
+            $submittedGrants = isset($_POST['grants_revision']);
+            $previousGrants = AccessPolicy::staffGrants($usuario);
+            $erros = $this->validar($dados, false, $previousGrants);
+            $grantsRevision = $submittedGrants ? input_string($_POST['grants_revision']) : $grantsRevision;
+            if (!$submittedGrants) { $dados['grants'] = $previousGrants; }
             $novaSenha = $dados['senha'] !== '' ? $dados['senha'] : null;
             $senhaAtual = input_string($_POST['senha_atual'] ?? '');
 
@@ -101,7 +108,9 @@ final class UsuarioController extends Controller
                 $dados['recebe_alertas_dva'],
                 (int) $_SESSION['usuario_id'],
                 $senhaAtual,
-                (int) ($_SESSION['auth_version'] ?? 0)
+                (int) ($_SESSION['auth_version'] ?? 0),
+                $submittedGrants ? $dados['grants'] : null,
+                $grantsRevision
             )) {
                 $actor = (int) $_SESSION['usuario_id'];
                 $target = (int) $usuarioId;
@@ -129,6 +138,8 @@ final class UsuarioController extends Controller
                     'last_active_admin' => 'A alteração foi bloqueada: o sistema deve manter um administrador ativo.',
                     'current_password_invalid' => 'Para alterar seu e-mail ou senha, informe a senha atual corretamente.',
                     'session_invalid' => 'Sua conta foi alterada. Faça login novamente antes de continuar.',
+                    'invalid_grants' => 'Revise as permissões e as datas de validade.',
+                    'stale_grants' => 'As permissões mudaram enquanto o formulário estava aberto. Abra a edição novamente para conferir os dados atuais.',
                     'password_reused' => 'A nova senha deve ser diferente da senha atual.',
                     default => 'Não foi possível atualizar o usuário.',
                 };
@@ -156,6 +167,7 @@ final class UsuarioController extends Controller
             'edicao' => true,
             'usuarioId' => (int) $usuarioId,
             'editingSelf' => (int) $usuarioId === (int) $_SESSION['usuario_id'],
+            'grantsRevision' => $grantsRevision,
         ]);
     }
 
@@ -211,21 +223,36 @@ final class UsuarioController extends Controller
     /** @return array<string,mixed> */
     private function dadosDoFormulario(): array
     {
+        $tipo = mb_substr(input_string($_POST['tipo'] ?? Usuario::PERFIL_FUNCIONARIO), 0, 30, 'UTF-8');
+        $grants = [];
+        if ($tipo === Usuario::PERFIL_FUNCIONARIO) {
+            foreach (AccessPolicy::STAFF_PERMISSIONS as $permission => $label) {
+                $submitted = $_POST['grants'][$permission] ?? null;
+                if (is_array($submitted) && ($submitted['enabled'] ?? '') === '1') {
+                    $grants[$permission] = [
+                        'reference' => mb_substr(trim(input_string($submitted['reference'] ?? '')), 0, 201, 'UTF-8'),
+                        'until' => substr(input_string($submitted['until'] ?? ''), 0, 11),
+                    ];
+                }
+            }
+        }
         return [
             'nome' => mb_substr(trim(input_string($_POST['nome'] ?? '')), 0, 151, 'UTF-8'),
             'email' => mb_substr(Usuario::normalizarEmail(input_string($_POST['email'] ?? '')), 0, 255, 'UTF-8'),
-            'tipo' => mb_substr(input_string($_POST['tipo'] ?? Usuario::PERFIL_FUNCIONARIO), 0, 30, 'UTF-8'),
+            'tipo' => $tipo,
             'senha' => input_string($_POST['senha'] ?? ''),
             'confirmar_senha' => input_string($_POST['confirmar_senha'] ?? ''),
             'recebe_alertas_dva' => isset($_POST['recebe_alertas_dva']),
+            'grants' => $grants,
         ];
     }
 
     /**
      * @param array<string,mixed> $dados
+     * @param array<string,array{reference:string,until:string}> $previousGrants
      * @return list<string>
      */
-    private function validar(array $dados, bool $senhaObrigatoria): array
+    private function validar(array $dados, bool $senhaObrigatoria, array $previousGrants = []): array
     {
         $erros = [];
 
@@ -253,6 +280,6 @@ final class UsuarioController extends Controller
             $erros[] = 'A confirmação da senha não confere.';
         }
 
-        return array_values(array_unique($erros));
+        return array_values(array_unique(array_merge($erros, AccessPolicy::validateGrants($dados['grants'], $previousGrants))));
     }
 }

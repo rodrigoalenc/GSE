@@ -97,7 +97,7 @@ label { font-size: 12px; color: var(--primary-dark); font-weight: 650; }
 .compact-pagination [aria-current=page] { background: var(--primary-color); border-color: var(--primary-color); }
 .success-message, .error-message, .warning-message, .info-message, .duplicate-confirmation, .conflict-review { border-radius: 7px; box-shadow: none; font-size: 13px; }
 .success-message { border-color: #bed5ee; color: #0c3566; background: #eff6fd; }
-.warning-message, .duplicate-confirmation, .conflict-review { border-color: #bed5ee; color: #0c3566; background: #eff6fd; }
+.duplicate-confirmation, .conflict-review { border-color: #bed5ee; color: #0c3566; background: #eff6fd; }
 .modulo5-hero { background: #fff; border-top: 1px solid var(--border-color); }
 .modulo5-hero h2 { margin-bottom: 6px; }
 .modulo5-tabs { border-bottom-color: var(--border-color); }

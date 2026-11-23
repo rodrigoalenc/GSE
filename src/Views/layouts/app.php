@@ -80,7 +80,7 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
         <link rel="stylesheet" href="<?= e(url('assets/css/certidoes.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/certidoes.css'), 0, 12))) ?>">
     <?php endif; ?>
     <?php if ($usersActive || $profileActive || $auditActive || $backupActive || $passwordActive): ?>
-        <link rel="stylesheet" href="<?= e(url('assets/css/usuarios.css')) ?>">
+        <link rel="stylesheet" href="<?= e(url('assets/css/usuarios.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/usuarios.css'), 0, 12))) ?>">
     <?php endif; ?>
     <?php if ($studentsActive || $dvaActive || $classesActive || $dashboardActive): ?>
         <link rel="stylesheet" href="<?= e(url('assets/css/alunos.css')) ?>">

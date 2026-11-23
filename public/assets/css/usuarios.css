@@ -156,6 +156,18 @@
     background: rgba(12, 53, 102, 0.05);
 }
 .usuario-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.usuario-grants { margin: 0 0 22px; padding: 12px 16px 4px; border: 1px solid var(--border-color); border-radius: 8px; }
+.usuario-grants legend { float: none; width: auto; margin: 0; padding: 0 6px; color: var(--primary-dark); font-size: 1rem; font-weight: 700; }
+.usuario-grants > p, .usuario-grant > small { color: var(--text-muted); font-size: .85rem; }
+.usuario-grants > p { margin: 0 0 12px; }
+.usuario-grant { padding: 12px 0; border-top: 1px solid var(--border-color); }
+.usuario-grant > label { display: flex; align-items: center; gap: 10px; min-height: 24px; margin: 0; }
+.usuario-grant > label input { width: 18px; height: 18px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: var(--primary-color); }
+.usuario-grant > small { display: block; margin-left: 28px; }
+.usuario-grant-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px 14px; margin: 10px 0 0 28px; }
+.usuario-grant-fields[hidden] { display: none; }
+.usuario-grant-fields input { margin-bottom: 0; }
+.usuario-grant-expired { color: #8b1e1e; font-weight: 650; }
 .senha-opcional { padding: 15px; background: #f8f9fa; border: 1px dashed #cccccc; border-radius: 8px; }
 .senha-opcional input { margin-bottom: 0; }
 .form-help { display: block; margin: -12px 0 20px; color: var(--text-muted); font-size: 0.84rem; }

@@ -17,7 +17,9 @@ Modelo a preencher e aprovar pela escola. Os campos vazios não constituem aprov
 
 Funcionários autenticados podem consultar o cadastro básico e consultar, registrar e renovar DVAs. Administradores têm acesso aos dados operacionais restritos. A escola deve revisar também as contas administrativas. Não compartilhe credenciais.
 
-Concessões adicionais a funcionários são nominativas e temporárias. `ACCESS_CONTACT_STAFF_IDS` autoriza a consulta de telefones. `ACCESS_MANAGE_STAFF_IDS` autoriza a edição cadastral quando há concessão de contatos. Relatórios e exportações com dados de DVA exigem `ACCESS_EXPORT_STAFF_IDS` e `ACCESS_HEALTH_STAFF_IDS`. Todas essas concessões exigem `ACCESS_APPROVAL_REFERENCE` e `ACCESS_APPROVAL_VALID_UNTIL`. Os IDs devem corresponder a contas individuais. Reveja os acessos em caso de afastamento, desligamento ou mudança de função.
+Concessões adicionais a funcionários são nominativas e temporárias. O administrador usa **Usuários → Novo usuário** ou **Editar** para conceder cadastro e edição de alunos ou emissão de relatórios e exportações. Cada concessão exige a referência da aprovação e uma data de validade. A concessão de cadastro e edição inclui consultar os telefones de alunos e responsáveis. A permissão de relatórios inclui dados de DVA e a exportação do Arquivo Passivo. As alterações são registradas na auditoria. Reveja os acessos em caso de afastamento, desligamento ou mudança de função.
+
+Para contas anteriores à v24, as concessões definidas pelas variáveis `ACCESS_*_STAFF_IDS` e `ACCESS_APPROVAL_*` continuam valendo pelas regras anteriores até que o administrador altere as permissões da conta pela interface. A partir desse salvamento, a conta usa as permissões do banco, inclusive quando todas forem revogadas.
 
 Este mecanismo concede capacidades sobre a base escolar compartilhada. Não representa segregação automática por turma ou unidade. Se a escola exigir essa segregação, mantenha a capacidade restrita até implementar e testar o escopo institucional aprovado.
 

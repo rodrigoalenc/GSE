@@ -6,6 +6,13 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require dirname(__DIR__) . '/bootstrap.php';
 $record = null;
-$suppliers = [['id'=>1, 'nome'=>'Fornecedor fictício', 'ativo'=>1]];
+$suppliers = [
+    ['id'=>1, 'nome'=>'Fornecedor fictício', 'ativo'=>1],
+    ['id'=>2, 'nome'=>'Fornecedor com pendência', 'ativo'=>1],
+];
+$certificateGroups = [2 => [[
+    'id' => 42, 'tipo_certidao' => 'Certidão fiscal', 'fornecedor' => 'Fornecedor com pendência',
+    'data_vencimento' => '2025-09-03',
+]]];
 $draft = [];
 ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Novo pedido fictício</title><link href="/bootstrap.css" rel="stylesheet"><link href="/painel.css" rel="stylesheet"><link href="/modulo5.css" rel="stylesheet"><link href="/app.css" rel="stylesheet"><link href="/pedidos.css" rel="stylesheet"><script src="/pedidos.js" defer></script><script src="/app.js" defer></script></head><body><main><?php require ROOT_PATH . '/src/Views/contratos/form.php'; ?></main></body></html>

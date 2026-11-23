@@ -44,6 +44,8 @@ $editingSelf = $editingSelf ?? false;
                 <option value="administrador" <?= $dados['tipo'] === 'administrador' ? 'selected' : '' ?>>Administrador</option>
             </select><?php if (isset($fieldErrors['tipo'])): ?><small class="field-error" id="tipo-error"><?= e(implode(' ', $fieldErrors['tipo'])) ?></small><?php endif; ?>
 
+            <?php require __DIR__ . '/staff-grants.php'; ?>
+
             <?php if (!$edicao): ?>
                 <p class="form-help usuario-password-help">Mínimo de 15 caracteres. A troca será solicitada no primeiro acesso.</p>
             <?php elseif ($editingSelf): ?>

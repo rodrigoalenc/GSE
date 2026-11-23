@@ -6,6 +6,7 @@ require_once ROOT_PATH . '/src/Core/Model.php';
 require_once ROOT_PATH . '/src/Core/SqliteTransaction.php';
 require_once ROOT_PATH . '/src/Core/DataProtection.php';
 require_once ROOT_PATH . '/src/Core/ActionBudget.php';
+require_once ROOT_PATH . '/src/Core/AccessPolicy.php';
 
 use src\Core\SqliteTransaction;
 
@@ -52,6 +53,7 @@ class Usuario extends Model
         return array_map([DataProtection::class, 'user'], $stmt->fetchAll());
     }
 
+    /** @param array<string,array{reference:string,until:string}>|null $grants */
     public function cadastrar(
         string $nome,
         string $email,
@@ -59,7 +61,8 @@ class Usuario extends Model
         string $tipo,
         bool $senhaTemporaria = true,
         bool $recebeAlertasDva = false,
-        ?int $actorId = null
+        ?int $actorId = null,
+        ?array $grants = null
     ): bool {
         $this->lastErrorCode = null;
         $nome = trim($nome);
@@ -72,8 +75,15 @@ class Usuario extends Model
         }
 
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($nome, $email, $senha, $tipo, $senhaTemporaria, $recebeAlertasDva, $actorId): bool {
-                $this->insertAuditedUser($pdo, $nome, $email, $senha, $tipo, $senhaTemporaria, $recebeAlertasDva, $actorId, 'user.created');
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($nome, $email, $senha, $tipo, $senhaTemporaria, $recebeAlertasDva, $actorId, $grants): bool {
+                if ($grants !== null && !$this->canEditStaffGrants($pdo, $actorId)) { return false; }
+                if ($grants !== null && AccessPolicy::validateGrants($grants) !== []) {
+                    $this->lastErrorCode = 'invalid_grants';
+                    return false;
+                }
+                $stored = $tipo === self::PERFIL_FUNCIONARIO ? $grants : null;
+                $id = $this->insertAuditedUser($pdo, $nome, $email, $senha, $tipo, $senhaTemporaria, $recebeAlertasDva, $actorId, 'user.created');
+                if ($stored !== null) { $this->saveStaffGrants($pdo, $id, $actorId, [], $stored); }
                 return true;
             });
         } catch (Throwable $exception) {
@@ -116,6 +126,7 @@ class Usuario extends Model
         }
     }
 
+    /** @param array<string,array{reference:string,until:string}>|null $grants */
     public function atualizar(
         int $id,
         string $nome,
@@ -125,7 +136,9 @@ class Usuario extends Model
         ?bool $recebeAlertasDva = null,
         ?int $actorId = null,
         #[SensitiveParameter] ?string $senhaAtual = null,
-        ?int $sessionVersion = null
+        ?int $sessionVersion = null,
+        ?array $grants = null,
+        ?string $grantsRevision = null
     ): bool {
         $this->lastErrorCode = null;
         $nome = trim($nome);
@@ -147,7 +160,7 @@ class Usuario extends Model
             if ($verified === false) { return false; }
         }
         try {
-            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $nome, $email, $tipo, $novaSenha, $recebeAlertasDva, $actorId, $ownPasswordChange, $verified): bool {
+            return SqliteTransaction::immediate(self::$pdo, function (PDO $pdo) use ($id, $nome, $email, $tipo, $novaSenha, $recebeAlertasDva, $actorId, $ownPasswordChange, $verified, $sessionVersion, $grants, $grantsRevision): bool {
                 $atual = $this->buscarPorId($id);
 
                 if (!$atual) {
@@ -184,10 +197,25 @@ class Usuario extends Model
                 }
 
                 $privilegeChanged = (string) $atual['tipo'] !== $tipo;
+                $previousGrants = AccessPolicy::staffGrants($atual);
+                if ($grants !== null) {
+                    if (!$this->canEditStaffGrants($pdo, $actorId, $sessionVersion)) { return false; }
+                    if ($grantsRevision !== AccessPolicy::grantsRevision($atual)) {
+                        $this->lastErrorCode = 'stale_grants';
+                        return false;
+                    }
+                    if (AccessPolicy::validateGrants($grants, $previousGrants) !== []) {
+                        $this->lastErrorCode = 'invalid_grants';
+                        return false;
+                    }
+                }
+                $nextGrants = $tipo === self::PERFIL_FUNCIONARIO ? $grants : [];
+                if ($privilegeChanged) { $nextGrants ??= []; }
+                $grantsChanged = $nextGrants !== null && ($nextGrants != $previousGrants || $privilegeChanged);
                 $identityChanged = (string) $atual['nome'] !== $nome || (string) $atual['email'] !== $email;
                 $alertsAfter = (int) ($recebeAlertasDva ?? $atual['recebe_alertas_dva']);
                 $alertsChanged = (int) $atual['recebe_alertas_dva'] !== $alertsAfter;
-                if (!$identityChanged && !$privilegeChanged && $novaSenha === null && !$alertsChanged) {
+                if (!$identityChanged && !$privilegeChanged && $novaSenha === null && !$alertsChanged && !$grantsChanged) {
                     return true;
                 }
                 $sql = 'UPDATE usuarios SET nome = :nome, email = :email, email_lookup = :email_lookup, tipo = :tipo,
@@ -230,6 +258,9 @@ class Usuario extends Model
                 }
                 if ($alertsChanged) {
                     $this->recordDvaAlertsChange($pdo, $actorId, $id, $alertsAfter === 1);
+                }
+                if ($grantsChanged) {
+                    $this->saveStaffGrants($pdo, $id, $actorId, $previousGrants, $nextGrants);
                 }
                 return true;
             });
@@ -540,6 +571,36 @@ class Usuario extends Model
         AuditLogger::recordRequired($pdo, 'user.dva_alerts_updated', AuditLogger::SUCCESS, $actorId, $targetId,
             $enabled ? 'Recebimento de alertas de DVA habilitado.' : 'Recebimento de alertas de DVA desabilitado.',
             'user', $targetId);
+    }
+
+    private function canEditStaffGrants(PDO $pdo, ?int $actorId, ?int $sessionVersion = null): bool
+    {
+        $query = $pdo->prepare("SELECT session_version FROM usuarios WHERE id = ? AND tipo = 'administrador' AND ativo = 1");
+        $query->execute([$actorId]);
+        $current = $query->fetchColumn();
+        if ($current !== false && ($sessionVersion === null || $sessionVersion === (int) $current)) { return true; }
+        $this->lastErrorCode = 'session_invalid';
+        return false;
+    }
+
+    /**
+     * @param array<string,array{reference:string,until:string}> $before
+     * @param array<string,array{reference:string,until:string}> $after
+     */
+    private function saveStaffGrants(PDO $pdo, int $id, ?int $actorId, array $before, array $after): void
+    {
+        $pdo->prepare('UPDATE usuarios SET staff_grants = ? WHERE id = ?')
+            ->execute([json_encode((object) $after, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), $id]);
+        $changes = [];
+        foreach (AccessPolicy::STAFF_PERMISSIONS as $permission => $label) {
+            if (($before[$permission] ?? null) === ($after[$permission] ?? null)) { continue; }
+            $status = !isset($after[$permission]) ? 'revogada' : (isset($before[$permission]) ? 'alterada' : 'concedida');
+            $changes[] = $label . ' ' . $status;
+        }
+        if ($changes !== []) {
+            AuditLogger::recordRequired($pdo, 'user.staff_permissions_updated', AuditLogger::SUCCESS, $actorId, $id,
+                implode(' | ', $changes), 'user', $id);
+        }
     }
 
     private function dadosValidos(string $nome, string $email, string $tipo): bool

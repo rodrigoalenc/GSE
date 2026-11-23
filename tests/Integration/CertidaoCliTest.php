@@ -83,7 +83,7 @@ final class CertidaoCliTest extends DatabaseTestCase
         $this->pdo->exec("VACUUM INTO '{$quotedDatabase}'");
         $old = new \PDO('sqlite:' . $database, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
         $old->exec('ALTER TABLE pedido_paginas DROP COLUMN prazo_faturamento;
-            DELETE FROM schema_migrations WHERE version = 23; PRAGMA user_version = 22;');
+            DELETE FROM schema_migrations WHERE version >= 23; PRAGMA user_version = 22;');
         $old = null;
 
         $result = $this->runCommand([$command], [

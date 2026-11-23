@@ -84,6 +84,8 @@ Escolha turma e situação da DVA, confira a prévia e selecione Visualizar PDF,
 
 Meu perfil permite corrigir dados próprios mediante confirmação da senha. A administração de contas e a auditoria têm acesso restrito. Nunca empreste sua conta para atribuir uma operação a outra pessoa.
 
+Para administrar concessões, abra **Usuários → Novo usuário** ou **Editar** e selecione o perfil **Funcionário**. Em **Permissões adicionais do funcionário**, marque as opções necessárias e informe a referência da aprovação e a validade de cada uma. A opção **Cadastrar e editar alunos** inclui a consulta aos telefones do aluno e do responsável. Para revogar uma permissão, desmarque a opção e salve.
+
 A opção Backups cria cópia protegida do banco, com confirmação de senha. Os PDFs e o chaveiro precisam da rotina completa de recuperação mantida pelo responsável técnico. Baixar um arquivo de backup não comprova que uma restauração foi testada.
 
 ## Quando ocorre um problema

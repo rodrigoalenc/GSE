@@ -20,7 +20,7 @@ No Windows:
 
 O instalador verifica SHA256 de distribuições oficiais e usa `%LOCALAPPDATA%/GSE`; não altera o PHP global. `GSE_PHP_BINARY` permite selecionar outro executável compatível. Em Linux, use os comandos Composer com o PHP corrigido do servidor e execute `php bin/runtime-check.php` antes de liberar HTTP. A versão do executável SQLite de terminal não comprova a biblioteca carregada pelo PDO.
 
-**Migração por CLI, em manutenção:** pare requisições e agendadores escritores, valide o backup conjunto de banco/PDF/chaveiro e rode a versão compatível do código. `php bin/init-db.php` aplica versões ausentes até **22**; a migração de proteção v17 em banco existente mantém o procedimento explícito de `bin/security.php`. Execute como o proprietário do banco e das chaves; no servidor configurado com arquivos privados de www-data, use `sudo -u www-data php bin/init-db.php`. Requisições web só verificam compatibilidade e não migram o banco. O servidor de desenvolvimento não inicializa o banco ao iniciar.
+**Migração por CLI, em manutenção:** pare requisições e agendadores escritores, valide o backup conjunto de banco/PDF/chaveiro e rode a versão compatível do código. `php bin/init-db.php` aplica versões ausentes até **24**; a migração de proteção v17 em banco existente mantém o procedimento explícito de `bin/security.php`. Execute como o proprietário do banco e das chaves; no servidor configurado com arquivos privados de www-data, use `sudo -u www-data php bin/init-db.php`. Requisições web só verificam compatibilidade e não migram o banco. O servidor de desenvolvimento não inicializa o banco ao iniciar.
 
 Documentação vigente:
 
@@ -41,11 +41,11 @@ Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 - UC006 — contratos, folhas, produtos e movimentação de estoque;
 - UC007 — relatórios de alunos e situação da DVA.
 
-O sistema usa PHP corrigido de 64 bits, SQLite e MVC sem framework. O esquema atual é **v23**. A revisão de usabilidade acrescenta busca completa, rascunhos de sessão, conferência de edições concorrentes, pedidos em etapas e transferência/retorno escolar com histórico. Consulte [o escopo e a validação](Documentação/USABILIDADE-2026-10-23.md). O aceite institucional depende do ambiente e dos usuários reais.
+O sistema usa PHP corrigido de 64 bits, SQLite e MVC sem framework. O esquema atual é **v24**. A revisão de usabilidade acrescenta busca completa, rascunhos de sessão, conferência de edições concorrentes, pedidos em etapas e transferência/retorno escolar com histórico. Consulte [o escopo e a validação](Documentação/USABILIDADE-2026-10-23.md). O aceite institucional depende do ambiente e dos usuários reais.
 
 ## Módulo 4 — instalação e operação
 
-A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco atual chega à **v23**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. Funcionários e administradores autenticados podem consultar e administrar certidões, fornecedores e tipos. O aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
+A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco atual chega à **v24**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. Funcionários e administradores autenticados podem consultar e administrar certidões, fornecedores e tipos. O aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
 
 - Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
 - PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
@@ -517,7 +517,7 @@ composer security-check
 composer check
 ```
 
-PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v23, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
+PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v24, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
 As regressões de auditoria provocam falhas no log e conferem rollback dos dados, histórico, preferências e versões. A criação inicial do administrador é testada pela CLI, inclusive com dois processos concorrentes; um rehash tardio não pode desfazer um reset de senha. Os testes de backup cobrem WAL sem checkpoint, restauração independente, permissões, CSRF, confirmação de senha, arquivos inexistentes e falhas de auditoria na geração e no download. Testes de permissões POSIX e links simbólicos precisam executar no Linux.
 

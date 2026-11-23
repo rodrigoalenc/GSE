@@ -66,6 +66,107 @@ final class AccessPolicyTest extends DatabaseTestCase
         $this->assertFalse(\AccessPolicy::allows('student.export'));
     }
 
+    public function testSavedPermissionsCanBeGrantedAndRevokedWithoutFallingBackToLegacy(): void
+    {
+        $admin = $this->insertUsuario('Admin Concessoes');
+        $employee = $this->insertUsuario('Funcionario Concessoes', 'funcionario');
+        $model = new \Usuario();
+        $approval = ['reference' => 'Autorização 01', 'until' => gmdate('Y-m-d', time() + 86400)];
+        $_ENV['ACCESS_CONTACT_STAFF_IDS'] = (string) $employee;
+        $_ENV['ACCESS_APPROVAL_REFERENCE'] = $approval['reference'];
+        $_ENV['ACCESS_APPROVAL_VALID_UNTIL'] = $approval['until'];
+        $user = $model->buscarPorId($employee);
+        \SessionManager::authenticate($user);
+        $this->assertTrue(\AccessPolicy::allows('student.contacts'));
+        $this->assertTrue($model->atualizar($employee, $user['nome'], $user['email'], 'funcionario', actorId: $admin,
+            grants: ['student.export' => $approval], grantsRevision: \AccessPolicy::grantsRevision($user)));
+        $this->assertTrue(\AccessPolicy::allows('student.export'));
+        $this->assertFalse(\AccessPolicy::allows('student.contacts'));
+        $stored = $model->buscarPorId($employee);
+        $this->assertTrue($model->atualizar($employee, $user['nome'], $user['email'], 'funcionario', actorId: $admin,
+            grants: [], grantsRevision: \AccessPolicy::grantsRevision($stored)));
+        $this->assertFalse(\AccessPolicy::allows('student.export'));
+        $this->assertFalse(\AccessPolicy::allows('student.contacts'));
+        $this->assertTrue(\AccessPolicy::allows('student.health'));
+        $this->assertFalse($model->atualizar($employee, $user['nome'], $user['email'], 'funcionario', actorId: $admin,
+            grants: ['student.export' => $approval], grantsRevision: \AccessPolicy::grantsRevision($stored)));
+        $this->assertSame('stale_grants', $model->lastErrorCode());
+        $audit = $this->pdo->query("SELECT actor_user_id, target_user_id FROM security_audit WHERE action='user.staff_permissions_updated' ORDER BY id")->fetchAll();
+        $this->assertSame(array_fill(0, 2, ['actor_user_id' => $admin, 'target_user_id' => $employee]), $audit);
+    }
+
+    public function testSavingPermissionsRequiresAnAdministratorAndRollsBackOnAuditFailure(): void
+    {
+        $admin = $this->insertUsuario('Admin Auditoria');
+        $employee = $this->insertUsuario('Funcionario Auditoria', 'funcionario');
+        $target = $this->insertUsuario('Conta Alvo', 'funcionario');
+        $model = new \Usuario();
+        $user = $model->buscarPorId($target);
+        $approval = ['reference' => 'Autorização 02', 'until' => gmdate('Y-m-d', time() + 86400)];
+        $grants = ['student.manage' => $approval];
+        $revision = \AccessPolicy::grantsRevision($user);
+        $this->assertFalse($model->atualizar($target, $user['nome'], $user['email'], 'funcionario', actorId: $employee,
+            grants: $grants, grantsRevision: $revision));
+        $this->pdo->exec("CREATE TRIGGER block_grants_audit BEFORE INSERT ON security_audit
+            WHEN NEW.action='user.staff_permissions_updated' BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END");
+        $this->assertFalse($model->atualizar($target, 'Nome alterado', $user['email'], 'funcionario', actorId: $admin,
+            grants: $grants, grantsRevision: $revision));
+        $this->assertSame($user, $model->buscarPorId($target));
+    }
+
+    public function testStudentManagementIncludesContactAccessAndExpiresSeparatelyFromExport(): void
+    {
+        $admin = $this->insertUsuario('Admin Validades');
+        $model = new \Usuario();
+        $approval = ['reference' => 'Autorização 03', 'until' => gmdate('Y-m-d', time() + 86400)];
+        $name = 'Novo Auxiliar';
+        $email = 'auxiliar.novo@example.test';
+        $password = 'Caminho lunar sobre jardim 783!';
+        $this->assertFalse($model->cadastrar($name, $email, $password, 'funcionario', actorId: $admin,
+            grants: ['student.manage' => ['reference' => 'Autorização antiga', 'until' => '2000-01-01']]));
+        $this->assertTrue($model->cadastrar($name, $email, $password, 'funcionario', actorId: $admin,
+            grants: ['student.manage' => $approval, 'student.export' => $approval]));
+        $user = $model->buscarPorEmail($email);
+        \SessionManager::authenticate($user);
+        $this->assertTrue(\AccessPolicy::allows('student.manage'));
+        $this->assertTrue(\AccessPolicy::allows('student.contacts'));
+        $grants = \AccessPolicy::staffGrants($user);
+        $grants['student.manage']['until'] = '2000-01-01';
+        $this->pdo->prepare('UPDATE usuarios SET staff_grants=? WHERE id=?')->execute([json_encode($grants), $user['id']]);
+        $this->assertFalse(\AccessPolicy::allows('student.contacts'));
+        $this->assertFalse(\AccessPolicy::allows('student.manage'));
+        $this->assertTrue(\AccessPolicy::allows('student.export'));
+    }
+
+    public function testVersion24MigrationPreservesExistingEmployeeAccounts(): void
+    {
+        $pdo = new \PDO('sqlite::memory:', null, null, [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+        ]);
+        \src\Core\DatabaseInitializer::initialize($pdo);
+        $pdo->exec('ALTER TABLE usuarios DROP COLUMN staff_grants;
+            DELETE FROM schema_migrations WHERE version = 24; PRAGMA user_version = 23');
+        $id = \test_insert_user($pdo, [
+            'nome' => 'Conta Legada',
+            'email' => 'legado@example.test',
+            'senha' => 'hash-ficticio',
+            'tipo' => 'funcionario',
+        ]);
+        $before = $pdo->query("SELECT * FROM usuarios WHERE id=$id")->fetch();
+
+        \src\Core\DatabaseInitializer::initialize($pdo);
+        \src\Core\DatabaseInitializer::initialize($pdo);
+        \src\Core\DatabaseInitializer::assertCurrent($pdo);
+
+        $current = $pdo->query("SELECT * FROM usuarios WHERE id=$id")->fetch();
+        $this->assertArrayHasKey('staff_grants', $current);
+        $this->assertNull($current['staff_grants']);
+        unset($current['staff_grants']);
+        $this->assertSame($before, $current);
+        $this->assertSame('ok', $pdo->query('PRAGMA integrity_check')->fetchColumn());
+    }
+
     public function testEmployeeProfileAndListShowDvaWithContactsProtected(): void
     {
         $employee = $this->insertUsuario('Funcionario Perfil DVA', 'funcionario');

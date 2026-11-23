@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
     password_changed_at TEXT NULL,
     recebe_alertas_dva INTEGER NOT NULL DEFAULT 0 CHECK (recebe_alertas_dva IN (0, 1)),
     criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    staff_grants TEXT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_usuarios_nome ON usuarios (nome);

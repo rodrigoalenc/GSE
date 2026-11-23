@@ -44,6 +44,32 @@ try {
     await page.click('[data-pedido-next]');
     check(await page.evaluate('document.activeElement.name'),'titulo','Dados obrigatórios bloqueiam a etapa e recebem foco');
     const fill = (name,value) => page.evaluate(`(() => { const field=document.querySelector('[name='+CSS.escape(${JSON.stringify(name)})+']'); field.value=${JSON.stringify(value)}; field.dispatchEvent(new Event('input',{bubbles:true})); })()`);
+    const selectSupplier = value => page.evaluate(`(() => {
+        const supplier = document.querySelector('#fornecedor');
+        supplier.value = ${JSON.stringify(value)};
+        supplier.dispatchEvent(new Event('change', {bubbles:true}));
+    })()`);
+    const certificateAlert = () => page.evaluate(`(() => {
+        const alert = document.querySelector('[data-contract-certificate-alert]');
+        return [alert.hidden, document.querySelector('[data-contract-create-submit]').disabled];
+    })()`);
+    check(await certificateAlert(), [true,false], 'Sem pendência, o aviso fica oculto e a criação é permitida');
+    await selectSupplier('2');
+    check(await certificateAlert(), [false,true], 'Certidão vencida exibe o aviso e bloqueia o envio');
+    check(await page.evaluate(`(() => {
+        const alert = document.querySelector('[data-contract-certificate-alert]');
+        return alert.getAttribute('role') === 'alert' && Boolean(alert.querySelector('svg'))
+            && alert.querySelector('a').textContent === 'Certidão fiscal'
+            && alert.textContent.includes('03/09/2025')
+            && getComputedStyle(alert).backgroundColor === 'rgb(255, 240, 240)';
+    })()`), true, 'O alerta bloqueante aparece em vermelho suave com ícone, certidão e data legíveis');
+    if (process.env.GSE_BROWSER_EVIDENCE_DIR) {
+        await mkdir(process.env.GSE_BROWSER_EVIDENCE_DIR,{recursive:true});
+        const screenshot = await page.command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+        await writeFile(join(process.env.GSE_BROWSER_EVIDENCE_DIR,'pedido-certidao-vencida.png'),Buffer.from(screenshot.data,'base64'));
+    }
+    await selectSupplier('1');
+    check(await certificateAlert(), [true,false], 'Trocar para fornecedor regular libera o formulário');
     await fill('titulo','Pedido fictício <script>'); await fill('valor','2.500,02');
     await page.click('[data-pedido-next]');
     check(await state(),[false,true,false],'O formato agrupado permite avançar');

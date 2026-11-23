@@ -79,6 +79,7 @@ function gse_icon(string $name): string
         'file' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8m-8 4h6"/>',
         'archive' => '<rect x="3" y="3" width="18" height="4" rx="1"/><path d="M5 7v13h14V7m-10 4h6"/>',
         'certificate' => '<circle cx="12" cy="8" r="5"/><path d="m8 12-2 9 6-3 6 3-2-9"/>',
+        'alert' => '<path d="M10.3 4.4a2 2 0 0 1 3.4 0l8 13.6a2 2 0 0 1-1.7 3H4a2 2 0 0 1-1.7-3Z"/><path d="M12 9v4m0 4h.01"/>',
         'orders' => '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8m-8 4h8m-8 4h5"/>',
         'box' => '<path d="m12 3 9 5-9 5-9-5Zm-9 5v10l9 5 9-5V8m-9 5v10M7.5 5.5l9 5"/>',
         'chart' => '<path d="M3 3v18h18M7 16v-4m5 4V7m5 9v-7"/>',

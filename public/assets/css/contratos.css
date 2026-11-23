@@ -60,7 +60,11 @@
 .contract-note-panel .table td { padding:13px; border-bottom:1px solid #e1eaf4; }
 .contract-note-panel .table tbody tr:nth-child(even) { background:#f9fbfe; }
 .contract-note-panel .table tr[hidden] { display:none; }
-.contract-certificate-warning { margin-bottom: 20px; overflow-wrap: anywhere; }
+.contract-certificate-warning { margin-bottom: 20px; border-inline-start: 4px solid #b34b46; overflow-wrap: anywhere; }
+.contract-certificate-warning-title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: .96rem; }
+.contract-certificate-warning-title .gse-icon { flex: 0 0 auto; }
+.contract-certificate-warning p { margin-bottom: 0; }
+.contract-certificate-warning a { color: inherit; text-decoration: underline; }
 .contract-certificate-warning ul { margin: 10px 0 0; padding-left: 22px; }
 [data-contract-create-submit]:disabled, [data-contract-note-create]:disabled { opacity: .55; cursor: not-allowed; }
 .contract-note-panel .table td:first-child { font-weight:700; }
