@@ -116,10 +116,10 @@ $lastResult = min((int) $result['total'], $firstResult + count($result['items'])
     <?php endif; ?>
     <div class="table-scroll">
         <table class="tabela-filtrada student-table">
-            <thead><tr><?php if ($canArchiveBatch): ?><th class="student-selection-cell" scope="col"><span class="visually-hidden">Selecionar</span></th><?php endif; ?><th scope="col">Aluno</th><th scope="col">Nascimento</th><th scope="col">Turma</th><th scope="col">Situação</th><?php if ($canViewHealth): ?><th scope="col">DVA</th><?php endif; ?><th scope="col">Ações</th></tr></thead>
+            <thead><tr><?php if ($canArchiveBatch): ?><th class="student-selection-cell" scope="col"><span class="visually-hidden">Selecionar</span></th><?php endif; ?><th scope="col">Aluno</th><th scope="col">Nascimento</th><th scope="col">Turma</th><th scope="col">Situação</th><?php if ($canViewHealth): ?><th scope="col">DVA</th><?php endif; ?></tr></thead>
             <tbody>
             <?php if ($result['items'] === []): ?>
-                <tr><td colspan="<?= 5 + ($canViewHealth ? 1 : 0) + ($canArchiveBatch ? 1 : 0) ?>" class="empty-state">Nenhum aluno encontrado. Tente ajustar os filtros da consulta.</td></tr>
+                <tr><td colspan="<?= 4 + ($canViewHealth ? 1 : 0) + ($canArchiveBatch ? 1 : 0) ?>" class="empty-state">Nenhum aluno encontrado. Tente ajustar os filtros da consulta.</td></tr>
             <?php else: ?>
                 <?php foreach ($result['items'] as $index => $item): ?>
                     <tr class="<?= $index === 0 ? 'is-preview-selected' : '' ?>" data-student-preview-row data-student-preview="<?= e(json_encode($previewData($item), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)) ?>">
@@ -131,15 +131,6 @@ $lastResult = min((int) $result['total'], $firstResult + count($result['items'])
                         <?php if ($canViewHealth): ?>
                         <td><span class="dva-badge dva-<?= e((string) $item['dva_status']) ?>"><?= e(DvaStatus::label((string) $item['dva_status'])) ?></span></td>
                         <?php endif; ?>
-                        <td class="table-actions">
-                            <details class="student-row-actions"><summary aria-label="Ações para <?= e((string) $item['nome_completo']) ?>" title="Ações do aluno"><span aria-hidden="true">⋮</span><span class="visually-hidden">Ações</span></summary><div>
-                            <a class="btn-acao" href="<?= e(url('aluno/perfil/' . (int) $item['id'])) ?>">Perfil</a>
-                            <?php if ($canManageStudent): ?><a class="btn-acao" href="<?= e(url('aluno/editar/' . (int) $item['id'])) ?>">Editar</a><?php endif; ?>
-                            <?php if ($canViewHealth && (int) $item['ativo'] === 1): ?>
-                                <a class="btn-acao" href="<?= e(url('aluno/dva/' . (int) $item['id'])) ?>"><?= $item['dva_id'] ? 'Renovar DVA' : 'Registrar DVA' ?></a>
-                            <?php endif; ?>
-                            </div></details>
-                        </td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>

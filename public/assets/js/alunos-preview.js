@@ -51,37 +51,13 @@
         returnButton.hidden = false;
         returnButton.addEventListener('click', () => selectedRow?.querySelector('[data-student-preview-name]')?.focus());
     }
-    const actionMenus = [...workspace.querySelectorAll('.student-row-actions, .students-more-actions')];
-    const positionRowMenu = (menu) => {
-        if (!menu.matches('.student-row-actions')) return;
-        const trigger = menu.querySelector('summary').getBoundingClientRect();
-        const panel = menu.querySelector('div');
-        const bounds = panel.getBoundingClientRect();
-        const viewportWidth = document.documentElement.clientWidth;
-        const viewportHeight = document.documentElement.clientHeight;
-        const table = menu.closest('.table-scroll').getBoundingClientRect();
-        if (trigger.right <= Math.max(0, table.left) || trigger.left >= Math.min(viewportWidth, table.right)
-            || trigger.bottom <= 0 || trigger.top >= viewportHeight) {
-            menu.open = false;
-            return;
-        }
-        const top = trigger.bottom + 4 + bounds.height <= viewportHeight - 8
-            ? trigger.bottom + 4 : trigger.top - bounds.height - 4;
-        panel.style.left = `${Math.max(8, Math.min(trigger.right - bounds.width, viewportWidth - bounds.width - 8))}px`;
-        panel.style.top = `${Math.max(8, top)}px`;
-    };
+    const actionMenus = [...workspace.querySelectorAll('.students-more-actions')];
     for (const menu of actionMenus) {
         menu.addEventListener('toggle', () => {
             if (!menu.open) return;
             for (const other of actionMenus) if (other !== menu) other.open = false;
-            positionRowMenu(menu);
         });
     }
-    const repositionMenus = () => {
-        for (const menu of actionMenus) if (menu.open) positionRowMenu(menu);
-    };
-    window.addEventListener('resize', repositionMenus);
-    document.addEventListener('scroll', repositionMenus, {capture: true, passive: true});
     document.addEventListener('click', (event) => {
         for (const menu of actionMenus) if (!menu.contains(event.target)) menu.open = false;
     });

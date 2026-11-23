@@ -38,16 +38,6 @@
 .students-list-card .student-table .is-preview-selected td:first-child { box-shadow: inset 3px 0 #2c7ed6; }
 .students-list-card .student-table tbody tr:hover td { background: #f2f7fd; }
 .students-list-card .student-table .dva-badge, .students-list-card .student-table .badge-status { padding: 3px 7px; border-radius: 5px; font-size: .71rem; font-weight: 650; }
-.students-list-card .student-table .table-actions { display: table-cell; min-width: 76px; white-space: nowrap; }
-.student-row-actions summary { display: inline-flex; justify-content: center; align-items: center; width: 30px; height: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 5px; color: #16508f; background: transparent; vertical-align: middle; cursor: pointer; }
-.student-row-actions summary:hover { background: #dbeafb; }
-.student-row-actions { display: inline-block; position: relative; vertical-align: middle; }
-.student-row-actions summary { list-style: none; font-size: 1.25rem; font-weight: 700; }
-.student-row-actions summary::-webkit-details-marker { display: none; }
-.student-row-actions > div { position: fixed; z-index: 20; display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 120px; max-height: calc(100dvh - 16px); overflow-y: auto; margin: 0; padding: 5px; background: #fff; border: 1px solid #c5d2e2; border-radius: 6px; }
-.student-row-actions:not([open]) > div { display: none; }
-.student-row-actions > div .btn-acao { display: block; margin: 0; padding: 8px 10px; color: #16508f; background: #fff; border: 0; border-radius: 4px; font-size: .8rem; text-align: left; white-space: nowrap; }
-.student-row-actions > div .btn-acao:hover { background: #eef4fb; }
 .students-list-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 18px; }
 .students-list-footer .result-summary { margin: 0; font-size: .78rem; }
 .students-list-footer .pagination { margin: 0; gap: 4px; }
