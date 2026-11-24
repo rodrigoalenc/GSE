@@ -30,7 +30,7 @@ final class AuditPresentationTest extends TestCase
     public function testKnownEventsResourcesAndResultsHavePortugueseLabels(): void
     {
         $this->assertSame('Cadastrar Aluno', \AuditPresentation::actionLabel('student.created'));
-        $this->assertSame('Editar Aluno', \AuditPresentation::actionLabel('student.updated'));
+        $this->assertSame('Editou cadastro de aluno', \AuditPresentation::actionLabel('student.updated'));
         $this->assertSame('Transferir Aluno', \AuditPresentation::actionLabel('student.transferred'));
         $this->assertSame('Retornar Aluno à Escola', \AuditPresentation::actionLabel('student.returned_from_passive'));
         $this->assertSame('Passivo - Retorno à Escola', \AuditPresentation::actionLabel('passive.student_returned'));
@@ -60,6 +60,29 @@ final class AuditPresentationTest extends TestCase
             'Pedido cadastrado.',
             \AuditPresentation::description('contrato.created', 'Módulo 5: created')
         );
+    }
+
+    public function testDashboardReadExplainsWhatWasLoadedWithoutClaimingUniqueStudents(): void
+    {
+        $entry = \AuditPresentation::logEntry([
+            'action' => 'student.sensitive_read', 'result' => 'success',
+            'description' => 'Contexto=painel; quantidade=19', 'resource_type' => 'student',
+        ]);
+        $this->assertSame('Carregou dados de DVA no Painel geral', $entry['action']);
+        $this->assertSame('19 entradas carregadas.', $entry['details']);
+        $this->assertSame('Concluído', $entry['result']);
+    }
+
+    public function testReportDistinguishesOpenPdfFromDownloadAndResolvesTheClass(): void
+    {
+        $entry = \AuditPresentation::logEntry([
+            'action' => 'relatorio.pdf_generated', 'result' => 'success',
+            'resource_type' => 'relatorio', 'resource_id' => 12, 'resource_name' => '9º A (2026)',
+            'description' => 'Filtros turma=12; dva=; ativo=1; total=28; entrega=inline',
+        ]);
+        $this->assertSame('Gerou PDF para visualização', $entry['action']);
+        $this->assertStringContainsString('28 registros no arquivo.', $entry['details']);
+        $this->assertStringContainsString('Turma 9º A (2026)', $entry['details']);
     }
 
     public function testCustomDescriptionsKeepBusinessDetailsAndUnknownEventsRemainIntact(): void
@@ -112,14 +135,14 @@ final class AuditPresentationTest extends TestCase
     public function testReportDescriptionTranslatesFiltersWithoutLosingClassOrResultCount(): void
     {
         $this->assertSame(
-            'Filtros: turma #37; DVA a vencer; alunos inativos; total de resultados: 109.',
+            'Total de resultados: 109. Turma #37. DVA: a vencer. Alunos: inativos.',
             \AuditPresentation::description(
                 'relatorio.pdf_generated',
                 'Filtros turma=37; dva=a_vencer; ativo=0; total=109'
             )
         );
         $this->assertSame(
-            'Filtros: turma todas; DVA sem DVA; alunos ativos; total de resultados: 0.',
+            'Total de resultados: 0. Todas as turmas. DVA: sem DVA. Alunos: ativos.',
             \AuditPresentation::description(
                 'relatorio.csv_generated',
                 'Filtros turma=; dva=sem_dva; ativo=1; total=0'
@@ -184,7 +207,7 @@ final class AuditPresentationTest extends TestCase
             'description' => $description,
         ]);
 
-        $this->assertSame('Editar Aluno', $entry['action']);
+        $this->assertSame('Editou cadastro de aluno', $entry['action']);
         $this->assertSame($name, $entry['user']);
         $this->assertStringContainsString($description, $entry['details']);
         $this->assertSame('13/10/2026 22:03:04', $entry['date']);
@@ -231,7 +254,7 @@ final class AuditPresentationTest extends TestCase
                 'description' => 'Motivo: dados incompletos.', 'resource_name' => 'Aluno Teste',
             ]);
             $this->assertStringContainsString('Motivo: dados incompletos.', $entry['details']);
-            $this->assertStringContainsString($label, $entry['details']);
+            $this->assertSame($label, $entry['result']);
             $this->assertStringNotContainsString('Concluído', $entry['details']);
             $this->assertStringNotContainsString('Cadastrou o aluno', $entry['details']);
         }
@@ -241,7 +264,7 @@ final class AuditPresentationTest extends TestCase
             'description' => 'Módulo 5: created', 'resource_type' => 'contrato', 'resource_id' => 42,
         ]);
         $this->assertStringContainsString('Módulo 5: created', $failedContract['details']);
-        $this->assertStringContainsString('Resultado: Falhou.', $failedContract['details']);
+        $this->assertSame('Falhou', $failedContract['result']);
         $this->assertStringNotContainsString('Pedido cadastrado.', $failedContract['details']);
     }
 

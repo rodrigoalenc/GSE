@@ -85,6 +85,7 @@ final class Auditoria extends Model
                         WHEN 'student' THEN student.nome_completo
                         WHEN 'dva' THEN dva_student.nome_completo
                         WHEN 'class' THEN school_class.nome_turma
+                        WHEN 'relatorio' THEN school_class.nome_turma || CASE WHEN school_class.ano_letivo IS NULL THEN '' ELSE ' (' || school_class.ano_letivo || ')' END
                         WHEN 'user' THEN gse_name(resource_user.nome, resource_user.id)
                         WHEN 'passive_record' THEN passive.nome_completo
                         WHEN 'certidao' THEN document_type.nome || ' - ' || supplier.nome
@@ -93,6 +94,7 @@ final class Auditoria extends Model
                         WHEN 'contrato' THEN contract.titulo
                         WHEN 'produto' THEN product.nome_produto
                     END AS resource_name,
+                    dva.id_aluno AS resource_student_id,
                     passive.caixa AS resource_box,
                     COALESCE(sheet.id_pedido, product.id_pedido) AS resource_parent_id,
                     COALESCE(sheet.numero_pagina, product.numero_pagina) AS resource_number,
@@ -104,7 +106,7 @@ final class Auditoria extends Model
              LEFT JOIN alunos student ON audit.resource_type = 'student' AND student.id = audit.resource_id
              LEFT JOIN dvas dva ON audit.resource_type = 'dva' AND dva.id = audit.resource_id
              LEFT JOIN alunos dva_student ON dva_student.id = dva.id_aluno
-             LEFT JOIN turmas school_class ON audit.resource_type = 'class' AND school_class.id = audit.resource_id
+             LEFT JOIN turmas school_class ON audit.resource_type IN ('class', 'relatorio') AND school_class.id = audit.resource_id
              LEFT JOIN usuarios resource_user ON audit.resource_type = 'user' AND resource_user.id = audit.resource_id
              LEFT JOIN alunos_passivo passive ON audit.resource_type = 'passive_record' AND passive.id = audit.resource_id
              LEFT JOIN certidoes document ON audit.resource_type = 'certidao' AND document.id = audit.resource_id

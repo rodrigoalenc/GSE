@@ -176,7 +176,21 @@ final class Router
                 in_array($route['pattern'], ['aluno/criar', 'aluno/editar/{id}', 'aluno/status/{id}'], true) => 'student.manage',
                 default => null,
             };
-            if ($route['auth'] && $permission !== null) { AccessPolicy::require($permission); }
+            if ($route['auth'] && $permission !== null) {
+                $operation = match ($route['pattern']) {
+                    'relatorio' => 'Abrir relatórios de alunos e DVA',
+                    'relatorio/csv' => 'Exportar relatório em CSV',
+                    'relatorio/pdf' => 'Exportar relatório em PDF',
+                    'passivo/exportar' => 'Exportar lista do Arquivo Passivo',
+                    'aluno/criar' => 'Cadastrar aluno',
+                    'aluno/editar/{id}' => 'Editar cadastro de aluno',
+                    'aluno/status/{id}' => 'Alterar situação de aluno',
+                    'dva' => 'Consultar a lista de DVAs',
+                    'aluno/dva/{id}' => $method === 'POST' ? 'Salvar DVA' : 'Consultar DVA do aluno',
+                    default => null,
+                };
+                AccessPolicy::require($permission, $operation);
+            }
 
             if ($method === 'POST' && $_POST === [] && $_FILES === []
                 && in_array($route['pattern'], ['aluno/importar/preview', 'certidao/cadastrar', 'certidao/renovar/{id}'], true)) {

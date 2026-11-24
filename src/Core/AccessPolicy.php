@@ -112,12 +112,13 @@ final class AccessPolicy
         return $errors;
     }
 
-    public static function require(string $permission): void
+    public static function require(string $permission, ?string $operation = null): void
     {
         if (self::allows($permission)) { return; }
         AuditLogger::record('authorization.data_denied', AuditLogger::BLOCKED,
             (int) ($_SESSION['usuario_id'] ?? 0) ?: null, null,
-            'Acesso a dados restritos negado pela política vigente.');
+            $operation === null ? 'Acesso a dados restritos negado pela política vigente.'
+                : 'Operação solicitada: ' . $operation . '. Motivo: A permissão exigida está ausente ou fora de vigência.');
         render_http_error(403, 'Acesso não autorizado', 'Esta função exige autorização específica vigente.', 'dashboard');
     }
 

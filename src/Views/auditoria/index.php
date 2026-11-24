@@ -30,7 +30,10 @@
                     <tr class="item-filtrado">
                         <td class="col-data"><?= e($entry['date']) ?></td>
                         <td class="col-user filtro-user" title="Nome consultado no cadastro atual."><?= e($entry['user']) ?></td>
-                        <td class="col-acao filtro-acao <?= e($entry['action_class']) ?>"><?= e($entry['action']) ?></td>
+                        <td class="col-acao filtro-acao <?= e($entry['action_class']) ?>">
+                            <span class="audit-action"><?= e($entry['action']) ?></span>
+                            <span class="audit-result audit-result-<?= e($entry['result_code']) ?>"><?= e($entry['result']) ?></span>
+                        </td>
                         <td class="col-detalhe filtro-detalhe" title="Identificação dos registros conforme o cadastro atual."><?= e($entry['details']) ?></td>
                     </tr>
                 <?php endforeach; ?>

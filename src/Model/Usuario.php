@@ -212,7 +212,10 @@ class Usuario extends Model
                 $nextGrants = $tipo === self::PERFIL_FUNCIONARIO ? $grants : [];
                 if ($privilegeChanged) { $nextGrants ??= []; }
                 $grantsChanged = $nextGrants !== null && ($nextGrants != $previousGrants || $privilegeChanged);
-                $identityChanged = (string) $atual['nome'] !== $nome || (string) $atual['email'] !== $email;
+                $changedFields = [];
+                if ((string) $atual['nome'] !== $nome) { $changedFields[] = 'nome'; }
+                if ((string) $atual['email'] !== $email) { $changedFields[] = 'e-mail'; }
+                $identityChanged = $changedFields !== [];
                 $alertsAfter = (int) ($recebeAlertasDva ?? $atual['recebe_alertas_dva']);
                 $alertsChanged = (int) $atual['recebe_alertas_dva'] !== $alertsAfter;
                 if (!$identityChanged && !$privilegeChanged && $novaSenha === null && !$alertsChanged && !$grantsChanged) {
@@ -246,11 +249,11 @@ class Usuario extends Model
 
                 if ($identityChanged) {
                     AuditLogger::recordRequired($pdo, 'user.identity_updated', AuditLogger::SUCCESS, $actorId, $id,
-                        'Nome ou e-mail da conta alterado.', 'user', $id);
+                        'Campos da conta alterados: ' . implode(', ', $changedFields) . '.', 'user', $id);
                 }
                 if ($privilegeChanged) {
                     AuditLogger::recordRequired($pdo, 'user.role_updated', AuditLogger::SUCCESS, $actorId, $id,
-                        'Perfil de acesso alterado.', 'user', $id);
+                        'Perfil de acesso alterado para ' . $tipo . '.', 'user', $id);
                 }
                 if ($novaSenha !== null) {
                     AuditLogger::recordRequired($pdo, $ownPasswordChange ? 'password.changed' : 'password.reset', AuditLogger::SUCCESS, $actorId, $id,
@@ -595,7 +598,8 @@ class Usuario extends Model
         foreach (AccessPolicy::STAFF_PERMISSIONS as $permission => $label) {
             if (($before[$permission] ?? null) === ($after[$permission] ?? null)) { continue; }
             $status = !isset($after[$permission]) ? 'revogada' : (isset($before[$permission]) ? 'alterada' : 'concedida');
-            $changes[] = $label . ' ' . $status;
+            $until = isset($after[$permission]) ? ' com validade até ' . implode('/', array_reverse(explode('-', $after[$permission]['until']))) : '';
+            $changes[] = $label . ' — ' . $status . $until . '.';
         }
         if ($changes !== []) {
             AuditLogger::recordRequired($pdo, 'user.staff_permissions_updated', AuditLogger::SUCCESS, $actorId, $id,

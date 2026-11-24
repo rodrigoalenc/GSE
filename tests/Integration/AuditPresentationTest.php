@@ -223,6 +223,8 @@ final class AuditPresentationTest extends DatabaseTestCase
         foreach (['Evento não identificado', 'Detalhe legado preservado.', 'Sistema', 'Usuário #900001', 'Falhou', 'Bloqueado', 'legacy.custom'] as $value) {
             $this->assertStringContainsString($value, $tableText);
         }
+        $this->assertSame('Falhou', trim($xpath->evaluate('string(//span[contains(@class, "audit-result-failure")])')));
+        $this->assertSame('Bloqueado', trim($xpath->evaluate('string(//span[contains(@class, "audit-result-blocked")])')));
         $this->assertSame(3, $xpath->query('//tbody/tr[contains(concat(" ", normalize-space(@class), " "), " item-filtrado ")]')->length);
     }
 
@@ -252,12 +254,12 @@ final class AuditPresentationTest extends DatabaseTestCase
         $this->assertCount(count($events), $rows);
         foreach (array_reverse($events) as $index => [$action, $type, $id, $label, $result]) {
             $row = $rows->item($index);
-            $this->assertSame($label, trim($xpath->evaluate('string(td[3])', $row)));
+            $this->assertSame($label, trim($xpath->evaluate('string(td[3]/span[@class="audit-action"])', $row)));
             $details = $xpath->evaluate('string(td[4])', $row);
             $this->assertStringContainsString('Ano: 2026; motivo: conferência & <script>auditoria</script>.', $details);
             $this->assertStringNotContainsString('Ação: ' . $action, $details);
             if ($result === 'blocked') {
-                $this->assertStringContainsString('Resultado: Bloqueado.', $details);
+                $this->assertSame('Bloqueado', trim($xpath->evaluate('string(td[3]/span[contains(@class, "audit-result-blocked")])', $row)));
             }
             if ($type === 'student') {
                 $this->assertStringContainsString('Aluna em movimentação', $details);
@@ -322,7 +324,7 @@ final class AuditPresentationTest extends DatabaseTestCase
         $xpath = $this->xpath($this->render((new \Auditoria())->latest()));
         $details = $xpath->evaluate('string(//tbody[@id="corpoLogs"])');
 
-        $this->assertSame(2, $xpath->query('//tbody/tr/td[contains(concat(" ", normalize-space(@class), " "), " col-acao ") and normalize-space(.)="Sistema"]')->length);
+        $this->assertSame(2, $xpath->query('//tbody/tr/td/span[@class="audit-action" and normalize-space(.)="Sistema"]')->length);
         $this->assertStringContainsString('Criou backup manual via painel.', $details);
         $this->assertStringContainsString('Download do backup: ' . $filename, $details);
         $this->assertStringNotContainsString('Snapshot SQLite criado:', $details);

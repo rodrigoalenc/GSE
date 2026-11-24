@@ -30,22 +30,43 @@ final class RelatorioController extends Controller
     private function export(string $format): void
     {
         AccessPolicy::require('student.export');
+        $event = 'relatorio.' . $format . '_generated';
+        $actor = (int) ($_SESSION['usuario_id'] ?? 0);
         try { $result=(new RelatorioAlunos())->query($this->filters(),1,true,$format==='pdf' ? 500 : 10000); }
-        catch (DomainException $e) { render_http_error(422,'Filtro inválido',$e->getMessage(),'relatorio'); }
+        catch (DomainException $e) {
+            AuditLogger::record($event, AuditLogger::BLOCKED, $actor, null, $e->getMessage(), 'relatorio');
+            render_http_error(422,'Filtro inválido',$e->getMessage(),'relatorio');
+        }
         if ($format==='pdf' && $result['total']>500) { render_http_error(422,'Relatório extenso','O PDF aceita até 500 alunos. Aplique filtros mais específicos.','relatorio'); }
-        $actor=(int)($_SESSION['usuario_id'] ?? 0);
-        AuditLogger::recordRequired(Model::getConexao(),'relatorio.'.$format.'_generated',AuditLogger::SUCCESS,$actor,null,
-            'Filtros turma='.$result['filters']['turma'].'; dva='.$result['filters']['dva'].'; ativo='.$result['filters']['ativo'].'; total='.$result['total'],'relatorio',null);
         $now=new DateTimeImmutable('now',new DateTimeZone(Config::string('APP_TIMEZONE','America/Cuiaba')));
         $filename='relatorio-alunos-dva-'.$now->format('Ymd').'.'.$format;
-        header('Cache-Control: private, no-store'); header('X-Content-Type-Options: nosniff');
         $source = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' ? $_POST : $_GET;
         $disposition = $format === 'pdf' && input_string($source['baixar'] ?? '') !== '1' ? 'inline' : 'attachment';
+        $class = $result['filters']['turma'];
+        $classId = $class === '' ? null : (int) $class;
+        try {
+            $content = $format === 'csv' ? $this->csvContent($result, $now) : $this->pdfContent($result);
+        } catch (Throwable $exception) {
+            AuditLogger::record($event, AuditLogger::FAILURE, $actor, null, 'Falha ao gerar o arquivo do relatório.', 'relatorio', $classId);
+            throw $exception;
+        }
+        AuditLogger::recordRequired(Model::getConexao(), $event, AuditLogger::SUCCESS, $actor, null,
+            'Filtros turma=' . $class . '; dva=' . $result['filters']['dva'] . '; ativo=' . $result['filters']['ativo']
+            . '; total=' . count($result['items']) . '; entrega=' . $disposition,
+            'relatorio', $classId);
+
+        header('Cache-Control: private, no-store'); header('X-Content-Type-Options: nosniff');
         header('Content-Disposition: '.$disposition.'; filename="'.$filename.'"');
-        if ($format==='csv') {
-            header('Content-Type: text/csv; charset=UTF-8');
-            $stream=fopen('php://output','wb');
-            if ($stream===false) { throw new RuntimeException('Saída CSV indisponível.'); }
+        header('Content-Type: ' . ($format === 'csv' ? 'text/csv; charset=UTF-8' : 'application/pdf'));
+        echo $content;
+    }
+
+    /** @param array<string,mixed> $result */
+    private function csvContent(array $result, DateTimeImmutable $now): string
+    {
+        $stream = fopen('php://memory', 'w+b');
+        if ($stream === false) { throw new RuntimeException('Saída CSV indisponível.'); }
+        try {
             fwrite($stream,"\xEF\xBB\xBF");
             fputcsv($stream,['Relatório de alunos e DVA','Gerado em '.$now->format('d/m/Y H:i')],';','"','');
             fputcsv($stream,['Turma',RelatorioAlunos::csvCell($result['class_filter_label']),'DVA',$result['filters']['dva'] ?: 'Todas','Alunos',$result['filters']['ativo']],';','"','');
@@ -55,8 +76,18 @@ final class RelatorioController extends Controller
             foreach ($result['items'] as $row) {
                 fputcsv($stream,[RelatorioAlunos::csvCell($row['nome_completo']),RelatorioAlunos::csvCell(RelatorioAlunos::classLabel($row['nome_turma'],$row['ano_letivo'])),RelatorioAlunos::displayDate($row['data_nascimento']),RelatorioAlunos::displayDate($row['data_vencimento']),DvaStatus::label($row['dva_status']),$row['ativo'] ? 'Ativo' : 'Inativo'],';','"','');
             }
-            fclose($stream); return;
+            rewind($stream);
+            $content = stream_get_contents($stream);
+            if ($content === false) { throw new RuntimeException('Falha ao gerar CSV.'); }
+            return $content;
+        } finally {
+            fclose($stream);
         }
+    }
+
+    /** @param array<string,mixed> $result */
+    private function pdfContent(array $result): string
+    {
         require_once ROOT_PATH . '/vendor/autoload.php';
         $options=new \Dompdf\Options();
         $options->setIsRemoteEnabled(false); $options->setIsPhpEnabled(false);
@@ -66,8 +97,9 @@ final class RelatorioController extends Controller
         $pdf=new \Dompdf\Dompdf($options);
         $html=$this->pdfHtml($result);
         $pdf->loadHtml($html,'UTF-8'); $pdf->setPaper('A4','portrait'); $pdf->render();
-        header('Content-Type: application/pdf');
-        echo $pdf->output();
+        $content = $pdf->output();
+        if ($content === '') { throw new RuntimeException('Falha ao gerar PDF.'); }
+        return $content;
     }
 
     /** @param array<string,mixed> $result */

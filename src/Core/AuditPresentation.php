@@ -48,8 +48,8 @@ final class AuditPresentation
         'contrato.stock_saida' => 'Estoque - Consumo',
         'contrato.sheet_received' => 'Estoque - Recebimento da Nota',
         'contrato.updated' => 'Pedido - Editar',
-        'dva.created' => 'Cadastrar DVA',
-        'dva.renewed' => 'Renovar DVA',
+        'dva.created' => 'Registrou DVA',
+        'dva.renewed' => 'Renovou DVA',
         'fornecedor.created' => 'Certidao - Cadastrar Opcao',
         'fornecedor.deactivated' => 'Certidao - Excluir Opcao',
         'fornecedor.updated' => 'Certidao - Editar Opcao',
@@ -85,7 +85,7 @@ final class AuditPresentation
         'student.import_previewed' => 'Alunos - Conferir Importação',
         'student.import_failed' => 'Alunos - Falha na Importação',
         'student.progressed' => 'Progredir Aluno',
-        'student.profile_read' => 'Aluno - Consultar Cadastro',
+        'student.profile_read' => 'Consultou cadastro de aluno',
         'student.sensitive_read' => 'Aluno - Consultar Dados Restritos',
         'student.reactivated' => 'Reativar Aluno',
         'student.regressed' => 'Regredir Aluno',
@@ -94,7 +94,7 @@ final class AuditPresentation
         'student.senior_class_closed' => 'Turma - Conferir 3º Ano',
         'student.senior_reviewed' => 'Alunos - Conferir 3º Ano',
         'student.status_failed' => 'Alterar Situação do Aluno',
-        'student.updated' => 'Editar Aluno',
+        'student.updated' => 'Editou cadastro de aluno',
         'student.year_progressed' => 'Alunos - Progredir Ano Letivo',
         'tipo.created' => 'Certidao - Cadastrar Opcao',
         'tipo.deactivated' => 'Certidao - Excluir Opcao',
@@ -103,11 +103,11 @@ final class AuditPresentation
         'user.created' => 'Usuario - Criar',
         'user.deactivated' => 'Usuario - Inativar',
         'user.dva_alerts_updated' => 'Usuario - Editar Alertas de DVA',
-        'user.staff_permissions_updated' => 'Usuário - Alterar permissões',
-        'user.identity_updated' => 'Usuario - Editar',
+        'user.staff_permissions_updated' => 'Alterou permissões de funcionário',
+        'user.identity_updated' => 'Editou dados da conta',
         'user.initial_admin_created' => 'Usuario - Criar',
         'user.profile_updated' => 'Usuario - Editar',
-        'user.role_updated' => 'Usuario - Editar',
+        'user.role_updated' => 'Alterou perfil de acesso',
         'user.self_deactivation_blocked' => 'Usuario - Inativação Bloqueada',
         'user.status_change_failed' => 'Usuario - Alterar Situação',
     ];
@@ -206,21 +206,21 @@ final class AuditPresentation
         if (str_contains($label, 'cadastrar') || str_contains($label, 'criar')) {
             return 'acao-cadastrar';
         }
-        if (str_contains($label, 'editar') || str_contains($label, 'atualizar')) {
+        if (str_contains($label, 'editar') || str_contains($label, 'editou') || str_contains($label, 'atualizar')) {
             return 'acao-editar';
         }
         return str_contains($label, 'login') ? 'acao-login' : '';
     }
 
     /** @param array<string,mixed> $item
-     *  @return array{action:string,details:string,user:string,date:string,action_class:string} */
+     *  @return array{action:string,details:string,user:string,date:string,action_class:string,result:string,result_code:string} */
     public static function logEntry(array $item): array
     {
         $action = self::text($item, 'action');
         $label = self::actionLabel($action);
         $result = self::text($item, 'result');
         $rawDescription = self::text($item, 'description');
-        $description = self::description($action, $rawDescription);
+        $description = self::description($action, $rawDescription, self::text($item, 'resource_name'));
         $actor = self::text($item, 'actor_name');
         $actorId = self::text($item, 'actor_user_id');
         if ($actor === '') {
@@ -235,7 +235,35 @@ final class AuditPresentation
             };
         }
 
-        if (!isset(self::ACTION_LABELS[$action])) {
+        if ($action === 'student.sensitive_read' && $result === 'success'
+            && preg_match('/\AContexto=(painel|lista_alunos|lista_dva|dva_individual); quantidade=(\d+)(?:; dados=(DVA e telefones|DVA|telefones))?\.?\z/', $rawDescription, $read) === 1) {
+            $label = match ($read[1]) {
+                'painel' => 'Carregou dados de DVA no Painel geral',
+                'lista_alunos' => 'Consultou a lista de alunos',
+                'lista_dva' => 'Consultou a lista de DVAs',
+                'dva_individual' => 'Abriu a DVA do aluno',
+            };
+            $count = (int) $read[2];
+            $details = $read[1] === 'dva_individual' ? '' : ($count === 1 ? '1 entrada carregada.' : $count . ' entradas carregadas.');
+            if (isset($read[3])) {
+                $details = self::joinDetails($details, 'Dados incluídos: ' . $read[3] . '.');
+            } elseif ($read[1] === 'lista_alunos') {
+                $details = self::joinDetails($details, 'A lista incluiu dados restritos.');
+            }
+            $details = self::withContext($details, $item);
+        } elseif ($action === 'authorization.data_denied' && str_starts_with($rawDescription, 'Operação solicitada: ')) {
+            [$operation, $reason] = array_pad(explode('. Motivo: ', substr($rawDescription, strlen('Operação solicitada: ')), 2), 2, '');
+            $label = $operation . ' — acesso negado';
+            $details = self::withContext($reason, $item);
+        } elseif (in_array($action, ['relatorio.csv_generated', 'relatorio.pdf_generated'], true) && $result === 'success' && $description !== $rawDescription) {
+            $label = match (true) {
+                str_ends_with($rawDescription, '; entrega=inline') => 'Gerou PDF para visualização',
+                str_ends_with($rawDescription, '; entrega=attachment') => $action === 'relatorio.pdf_generated'
+                    ? 'Gerou PDF para download' : 'Gerou CSV para download',
+                default => $label,
+            };
+            $details = $description;
+        } elseif (!isset(self::ACTION_LABELS[$action])) {
             $details = self::withContext(self::joinDetails('Ação: ' . $action . '.', $description), $item);
         } elseif ($result !== 'success') {
             // Um evento sem confirmação não recebe uma descrição de operação concluída.
@@ -249,16 +277,14 @@ final class AuditPresentation
             }
         }
 
-        if ($result !== 'success') {
-            $details = self::joinDetails($details, 'Resultado: ' . self::resultLabel($result) . '.');
-        }
-
         return [
             'action' => $label,
             'details' => $details,
             'user' => $actor,
             'date' => self::dateTime(self::text($item, 'occurred_at')),
             'action_class' => self::actionClass($label),
+            'result' => self::resultLabel($result),
+            'result_code' => in_array($result, ['success', 'failure', 'blocked'], true) ? $result : 'unknown',
         ];
     }
 
@@ -283,7 +309,7 @@ final class AuditPresentation
         return self::RESOURCE_LABELS[$resource] ?? 'Registro';
     }
 
-    public static function description(string $action, string $description): string
+    public static function description(string $action, string $description, string $className = ''): string
     {
         // Traduz somente formatos conhecidos, sem substituir palavras em texto livre.
         if (str_starts_with($action, 'contrato.')) {
@@ -304,8 +330,8 @@ final class AuditPresentation
         }
 
         if (in_array($action, ['relatorio.csv_generated', 'relatorio.pdf_generated'], true)
-            && preg_match('/\AFiltros turma=([0-9]*); dva=(|sem_dva|vencida|vence_hoje|a_vencer|vigente); ativo=(0|1|todos); total=([0-9]+)\z/', $description, $matches) === 1) {
-            $class = $matches[1] === '' ? 'todas' : '#' . $matches[1];
+            && preg_match('/\AFiltros turma=([0-9]*); dva=(|sem_dva|vencida|vence_hoje|a_vencer|vigente); ativo=(0|1|todos); total=([0-9]+)(?:; entrega=(inline|attachment))?\z/', $description, $matches) === 1) {
+            $class = $matches[1] === '' ? 'todas' : ($className !== '' ? $className . ' (#' . $matches[1] . ')' : '#' . $matches[1]);
             $dva = match ($matches[2]) {
                 '' => 'todas',
                 'sem_dva' => 'sem DVA',
@@ -316,7 +342,10 @@ final class AuditPresentation
                 default => $matches[2],
             };
             $students = match ($matches[3]) { '0' => 'inativos', '1' => 'ativos', 'todos' => 'todos', default => $matches[3] };
-            return 'Filtros: turma ' . $class . '; DVA ' . $dva . '; alunos ' . $students . '; total de resultados: ' . $matches[4] . '.';
+            $count = (int) $matches[4];
+            $total = isset($matches[5]) ? ($count === 1 ? '1 registro no arquivo.' : $count . ' registros no arquivo.') : 'Total de resultados: ' . $count . '.';
+            $scope = $matches[1] === '' ? 'Todas as turmas.' : 'Turma ' . $class . '.';
+            return $total . ' ' . $scope . ' DVA: ' . $dva . '. Alunos: ' . $students . '.';
         }
 
         return $description;
@@ -504,7 +533,10 @@ final class AuditPresentation
         $target = self::text($item, 'target_name');
         $targetId = self::text($item, 'target_user_id');
         $context = '';
-        if ($resourceId !== '' || self::text($item, 'resource_name') !== '') {
+        if ($resourceType === 'dva' && $resourceId !== '') {
+            $studentId = self::text($item, 'resource_student_id');
+            $context = 'DVA #' . $resourceId . '.' . ($studentId !== '' ? ' Aluno #' . $studentId . '.' : '');
+        } elseif ($resourceId !== '' || self::text($item, 'resource_name') !== '') {
             $context = self::resourceLabel($resourceType) . ': ' . self::resourceDetails($item) . '.';
         } elseif ($target !== '' || $targetId !== '') {
             $context = 'Usuário: ' . ($target !== '' ? $target : '#' . $targetId) . ($target !== '' && $targetId !== '' ? ' (ID: ' . $targetId . ')' : '') . '.';

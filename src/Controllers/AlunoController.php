@@ -18,7 +18,10 @@ final class AlunoController extends Controller
         $canViewHealth = AccessPolicy::allows('student.health');
         $canViewContacts = AccessPolicy::allows('student.contacts');
         $result = (new Aluno())->paginate($filters, (int) $page, 15, null, $canViewHealth, $canViewContacts);
-        if ($canViewHealth || $canViewContacts) { $this->recordSensitiveRead('lista_alunos', count($result['items'])); }
+        if ($canViewHealth || $canViewContacts) {
+            $scope = implode(' e ', array_filter([$canViewHealth ? 'DVA' : '', $canViewContacts ? 'telefones' : '']));
+            $this->recordSensitiveRead('lista_alunos', count($result['items']), null, $scope);
+        }
 
         $this->view('alunos/index', [
             'title' => 'Gerenciar Alunos',
@@ -175,8 +178,11 @@ final class AlunoController extends Controller
             }
         }
         if (!$canViewContacts) { unset($student['telefone_aluno'], $student['telefone_responsavel']); }
+        $scope = implode(' e ', array_filter([$canViewHealth ? 'DVA' : '', $canViewContacts ? 'telefones' : '']));
         AuditLogger::recordRequired(Model::getConexao(), 'student.profile_read', AuditLogger::SUCCESS,
-            (int) $_SESSION['usuario_id'], null, 'Consulta de cadastro escolar autorizada.', 'student', $studentId);
+            (int) $_SESSION['usuario_id'], null,
+            $scope === '' ? 'Consultou o cadastro escolar.' : 'Consultou o cadastro escolar com acesso a ' . $scope . '.',
+            'student', $studentId);
 
         $this->view('alunos/perfil', [
             'title' => 'Perfil do Aluno',
@@ -424,10 +430,12 @@ final class AlunoController extends Controller
         };
     }
 
-    private function recordSensitiveRead(string $context, int $quantity, ?int $studentId = null): void
+    private function recordSensitiveRead(string $context, int $quantity, ?int $studentId = null, string $scope = ''): void
     {
         AuditLogger::recordRequired(Model::getConexao(), 'student.sensitive_read', AuditLogger::SUCCESS,
-            (int) $_SESSION['usuario_id'], null, 'Contexto=' . $context . '; quantidade=' . $quantity . '.', 'student', $studentId);
+            (int) $_SESSION['usuario_id'], null,
+            'Contexto=' . $context . '; quantidade=' . $quantity . ($scope !== '' ? '; dados=' . $scope : '') . '.',
+            'student', $studentId);
     }
 
     private function validId(string $id): int

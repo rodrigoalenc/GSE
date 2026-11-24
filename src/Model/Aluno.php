@@ -312,9 +312,22 @@ final class Aluno extends Model
 
                     return false;
                 }
+                $changedFields = [];
+                foreach ([
+                    'nome_completo' => 'nome completo',
+                    'data_nascimento' => 'data de nascimento',
+                    'id_turma' => 'turma',
+                    'telefone_aluno' => 'telefone do aluno',
+                    'telefone_responsavel' => 'telefone do responsável',
+                ] as $field => $label) {
+                    if ((string) $current[$field] !== (string) $normalized[$field]) {
+                        $changedFields[] = $label;
+                    }
+                }
                 AuditLogger::recordRequired(
                     $pdo, 'student.updated', AuditLogger::SUCCESS, $actorId, null,
-                    'Dados cadastrais do aluno atualizados.', 'student', $id
+                    $changedFields === [] ? 'Cadastro salvo sem alterações nos campos.' : 'Campos alterados: ' . implode(', ', $changedFields) . '.',
+                    'student', $id
                 );
 
                 return true;

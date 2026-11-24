@@ -225,7 +225,12 @@
 .tabela-logs td { font-size: .9rem; vertical-align: top; }
 .tabela-logs .col-data { width: 160px; color: #6c757d; font-family: monospace; }
 .tabela-logs .col-user { width: 180px; font-weight: 700; color: #004a91; }
-.tabela-logs .col-acao { width: 150px; font-weight: 700; text-transform: uppercase; font-size: .8rem; }
+.tabela-logs .col-acao { width: 220px; font-weight: 700; font-size: .85rem; }
+.audit-action { display: block; }
+.audit-result { display: inline-block; margin-top: 4px; padding: 2px 7px; border-radius: 5px; background: #edf1f5; color: #40546a; font-size: .75rem; font-weight: 650; }
+.audit-result-success { background: #e6f3eb; color: #17643b; }
+.audit-result-blocked { background: #fff3d8; color: #704600; }
+.audit-result-failure { background: #fbe9e7; color: #8b1e1e; }
 .tabela-logs .col-detalhe { color: #333; line-height: 1.4; overflow-wrap: anywhere; }
 .tabela-logs .acao-apagar { color: #dc3545; }
 .tabela-logs .acao-cadastrar { color: #28a745; }

@@ -116,6 +116,10 @@ final class ModuleTwoTest extends DatabaseTestCase
         $this->assertFalse($model->atualizar($id, $edited, false, $actor, $revision - 1));
         $this->assertSame('stale_revision', $model->lastErrorCode());
         $this->assertTrue($model->atualizar($id, $edited, false, $actor, $revision));
+        $audit = $this->pdo->query("SELECT description FROM security_audit WHERE action='student.updated'")->fetchColumn();
+        $this->assertSame('Campos alterados: nome completo.', $audit);
+        $this->assertStringNotContainsString($formattedPhone, $audit);
+        $this->assertStringNotContainsString($edited['nome_completo'], $audit);
         $current = $model->buscarPorId($id);
         $this->assertSame($legacyPhone, $current['telefone_aluno']);
         $this->assertSame($formattedPhone, $current['telefone_responsavel']);
