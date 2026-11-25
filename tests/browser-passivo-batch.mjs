@@ -53,6 +53,8 @@ try {
         await page.until(`location.href === ${JSON.stringify(base+path)} && document.readyState === 'complete' && document.querySelector(${JSON.stringify(selector)}) !== null`);
     };
     const selectionReady = () => page.until(`document.readyState === 'complete' && document.querySelector('[data-student-select-page]')?.hidden === false`);
+    const archiveDestinationReady = (box) => page.until(`location.pathname === '/passivo' && location.search === ''
+        && document.readyState === 'complete' && document.querySelector('#exportar-caixa')?.value === ${JSON.stringify(box)}`);
     const fill = async (selector, text) => {
         await page.click(selector);
         await page.command('Input.insertText', {text});
@@ -203,7 +205,7 @@ try {
     await page.click('.passivo-batch-confirm-form input[name="confirmar"]');
     await shot('passivo-lote-previa-390');
     await page.click('.passivo-batch-confirm-form button[type="submit"]');
-    await page.until(`location.pathname === '/passivo' && location.search === '' && document.querySelector('#exportar-caixa')?.value === '2'`);
+    await archiveDestinationReady('2');
     check(await page.evaluate(`({search:location.search,caixa:document.querySelector('#exportar-caixa')?.value})`), {search:'',caixa:'2'}, 'Success opens the destination box with a clean address');
     const firstResult = fixture('inspect');
     check(firstResult.passivo.slice(-2).map(p=>[p.aluno_origem_id,p.caixa,p.numero]), [[1,'2','16'],[31,'2','17']], 'Correct origins and folders persisted');
@@ -237,12 +239,13 @@ try {
     check(await page.evaluate(`[...document.querySelectorAll('.passivo-preview tbody tr td:first-child')].map(n=>n.textContent.trim())`), ['18','19'], 'New box continues after the previous box');
     await page.click('.passivo-batch-confirm-form input[name="confirmar"]');
     await page.click('.passivo-batch-confirm-form button[type="submit"]');
-    await page.until(`location.pathname === '/passivo'`);
+    await archiveDestinationReady('25');
     const finalResult = fixture('inspect');
     check(finalResult.passivo.slice(-2).map(p=>[p.aluno_origem_id,p.caixa,p.numero]), [[2,'25','18'],[33,'25','19']], 'New box persists both origins with continuing numbers');
     check(finalResult.alunos.find(a=>a.id===33), initial.alunos.find(a=>a.id===33), 'Existing inactivation metadata preserved');
     check(finalResult.dvas, initial.dvas, 'DVAs unchanged after both batches');
     await go('/aluno', '[data-student-archive-selection]');
+    check(await ids(), [], 'Success clears selection after creating a box');
     await page.click('[data-student-select-page]');
     check((await ids()).length, 15, 'Select current page');
     await page.click('[data-student-select-page]');
