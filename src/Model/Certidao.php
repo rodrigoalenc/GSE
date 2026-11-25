@@ -19,6 +19,11 @@ final class Certidao extends Model
         parent::__construct();
         $this->dates = $dates ?? new CertidaoStatus();
         self::$pdo->sqliteCreateFunction('cert_status', fn (?string $date): string => $this->dates->classify($date), 1);
+        $collator = new Collator('pt_BR');
+        self::$pdo->sqliteCreateCollation('CERTIDAO_NOME', static function (string $left, string $right) use ($collator): int {
+            $order = $collator->compare($left, $right);
+            return $order === false ? strcmp($left, $right) : $order;
+        });
     }
 
     public static function id(mixed $value): int
@@ -41,7 +46,7 @@ final class Certidao extends Model
     public function options(string $kind, string $search = '', bool $activeOnly = false): array
     {
         $table = $this->table($kind);
-        $rows = self::$pdo->query('SELECT * FROM ' . $table . ($activeOnly ? ' WHERE ativo = 1' : '') . ' ORDER BY nome, id')->fetchAll();
+        $rows = self::$pdo->query('SELECT * FROM ' . $table . ($activeOnly ? ' WHERE ativo = 1' : '') . ' ORDER BY nome COLLATE CERTIDAO_NOME, id')->fetchAll();
         $key = TextNormalizer::comparisonKey(mb_substr($search, 0, 150));
         return array_values(array_filter($rows, static fn (array $row): bool => $key === '' || str_contains(TextNormalizer::comparisonKey((string) $row['nome']), $key)));
     }
@@ -96,7 +101,7 @@ final class Certidao extends Model
         $q = self::$pdo->prepare('SELECT COUNT(*)' . $from); $q->execute($params);
         $total = (int) $q->fetchColumn();
         $perPage = max(1, min(50, $perPage)); $pages = max(1, (int) ceil($total / $perPage)); $page = max(1, min($page, $pages));
-        $q = self::$pdo->prepare('SELECT c.*, f.nome AS fornecedor, t.nome AS tipo_certidao, cert_status(c.data_vencimento) AS validade' . $from . ' ORDER BY f.nome, c.data_vencimento, c.id LIMIT ' . $perPage . ' OFFSET ' . (($page-1)*$perPage));
+        $q = self::$pdo->prepare('SELECT c.*, f.nome AS fornecedor, t.nome AS tipo_certidao, cert_status(c.data_vencimento) AS validade' . $from . ' ORDER BY f.nome COLLATE CERTIDAO_NOME, c.data_vencimento, c.id LIMIT ' . $perPage . ' OFFSET ' . (($page-1)*$perPage));
         $q->execute($params);
         return ['items' => $q->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
     }
@@ -125,7 +130,7 @@ final class Certidao extends Model
             $q->execute($params); $totals = $q->fetch(); $q->closeCursor();
             $pages = max(1, (int) ceil((int)$totals['suppliers'] / 8));
             $page = max(1, min($page, $pages));
-            $q = self::$pdo->prepare('SELECT f.id, f.nome, COUNT(*) AS total' . $from . ' GROUP BY f.id, f.nome ORDER BY f.nome, f.id LIMIT 8 OFFSET ' . (($page-1)*8));
+            $q = self::$pdo->prepare('SELECT f.id, f.nome, COUNT(*) AS total' . $from . ' GROUP BY f.id, f.nome ORDER BY f.nome COLLATE CERTIDAO_NOME, f.id LIMIT 8 OFFSET ' . (($page-1)*8));
             $q->execute($params); $suppliers = $q->fetchAll();
             $items = [];
             foreach ($suppliers as &$supplier) {
@@ -133,7 +138,7 @@ final class Certidao extends Model
                 $requested = $documentPages[(int)$supplier['id']] ?? 1;
                 $requested = is_scalar($requested) ? (int)$requested : 1;
                 $supplier['page'] = max(1, min($requested, $supplier['pages']));
-                $q = self::$pdo->prepare('SELECT c.*, f.nome AS fornecedor, t.nome AS tipo_certidao, cert_status(c.data_vencimento) AS validade' . $from . ' AND f.id=? ORDER BY t.nome,t.id,c.data_vencimento,c.id LIMIT 10 OFFSET ' . (($supplier['page']-1)*10));
+                $q = self::$pdo->prepare('SELECT c.*, f.nome AS fornecedor, t.nome AS tipo_certidao, cert_status(c.data_vencimento) AS validade' . $from . ' AND f.id=? ORDER BY t.nome COLLATE CERTIDAO_NOME,t.id,c.data_vencimento,c.id LIMIT 10 OFFSET ' . (($supplier['page']-1)*10));
                 $q->execute([...$params,$supplier['id']]);
                 array_push($items, ...$q->fetchAll());
             }

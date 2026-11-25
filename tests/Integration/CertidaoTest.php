@@ -113,6 +113,26 @@ final class CertidaoTest extends DatabaseTestCase
         $this->assertCount(1,$this->model->options('fornecedor','á'));
         $this->expectException(\DomainException::class); $this->model->options('usuarios');
     }
+
+    public function testCatalogAndSupplierPagesSortNamesInPortuguese(): void
+    {
+        $bebidas = $this->model->saveOption('fornecedor', null, 'bebidas', true, $this->actor);
+        $agua = $this->model->saveOption('fornecedor', null, 'Água', true, $this->actor);
+        $bombeiros = $this->model->saveOption('tipo', null, 'bombeiros', true, $this->actor);
+        $aguaPotavel = $this->model->saveOption('tipo', null, 'Água potável', true, $this->actor);
+
+        foreach ([[1, 1], [$bebidas, $bombeiros], [$agua, $bombeiros], [$agua, $aguaPotavel]] as [$supplier, $type]) {
+            $fields = array_replace($this->data(), ['id_fornecedor' => $supplier, 'id_tipo_certidao' => $type]);
+            $this->model->create($fields, [], $this->actor, null, $this->storage);
+        }
+
+        $this->assertSame(['Água', 'bebidas', 'Fornecedor Á'], array_column($this->model->options('fornecedor'), 'nome'));
+        $this->assertSame(['Água potável', 'bombeiros', 'Fiscal'], array_column($this->model->options('tipo'), 'nome'));
+        $this->assertSame(['Água', 'bebidas', 'Fornecedor Á'], array_column($this->model->matrix()['suppliers'], 'nome'));
+        $this->assertSame(['Água potável', 'bombeiros'], array_column($this->model->matrix(['fornecedor' => $agua])['items'], 'tipo_certidao'));
+        $this->assertSame('bebidas', $this->model->paginate([], 3, 1)['items'][0]['fornecedor']);
+    }
+
     public function testAuditFailureRollsBackMetadataArchiveDeletionAndOptions(): void
     {
         $id=$this->create(); $before=$this->model->buscarPorId($id);

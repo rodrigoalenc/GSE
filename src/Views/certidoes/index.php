@@ -2,7 +2,6 @@
 $state = $filters['estado'];
 $route = match ($state) { 'arquivada' => 'certidao/arquivadas', 'excluida' => 'certidao/excluidas', default => 'certidao' };
 $columns = [];
-$rows = [];
 $cells = [];
 $documentPages = [];
 foreach ($result['suppliers'] ?? [] as $supplier) {
@@ -10,7 +9,6 @@ foreach ($result['suppliers'] ?? [] as $supplier) {
     $documentPages[(int) $supplier['id']] = (int) $supplier['page'];
 }
 foreach ($result['items'] as $item) {
-    $rows[(int) $item['id_tipo_certidao']] = $item['tipo_certidao'];
     $cells[(int) $item['id_tipo_certidao']][(int) $item['id_fornecedor']][] = $item;
 }
 $dates = new CertidaoStatus();
@@ -122,7 +120,11 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
                     <?= e($supplier['nome']) ?>
                     <?php if ((int) $supplier['pages'] > 1): ?><?php $renderPagination = require __DIR__ . '/../partials/pagination.php'; $renderPagination((int) $supplier['page'], null, static fn (int $p): string => url($route . '?' . http_build_query(array_merge($filters, ['page' => $result['page'], 'documentos' => array_replace($documentPages, [(int) $supplier['id'] => $p])]))), 'Documentos de ' . $supplier['nome'], (int) $supplier['page'] < (int) $supplier['pages'], 'cert-column-pages'); ?><?php endif; ?>
                 </th><?php endforeach; ?></tr></thead>
-                <tbody><?php foreach ($rows as $typeId => $name): ?><tr><th scope="row"><?= e($name) ?></th>
+                <tbody><?php foreach ($tipos as $tipo):
+                    $typeId = (int) $tipo['id'];
+                    if (!isset($cells[$typeId])) { continue; }
+                    $name = $tipo['nome'];
+                ?><tr><th scope="row"><?= e($name) ?></th>
                     <?php foreach ($columns as $supplierId => $supplier): ?><td>
                         <?php if (empty($cells[$typeId][$supplierId])): ?><span class="cert-no-document" aria-label="Sem documento">–</span><?php endif; ?>
                         <?php foreach ($cells[$typeId][$supplierId] ?? [] as $item): ?>
