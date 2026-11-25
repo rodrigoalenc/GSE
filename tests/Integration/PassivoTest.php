@@ -534,13 +534,24 @@ final class PassivoTest extends DatabaseTestCase
     {
         $actor = $this->insertUsuario('Admin Duplicidade Importacao');
         $model = new \Passivo();
-        $first = ['nome_completo' => 'Pasta primeira', 'caixa' => 'A', 'numero' => '1'];
+        $first = ['nome_completo' => 'Pasta primeira', 'data_nascimento' => '2000-01-01', 'caixa' => 'A', 'numero' => '1'];
         $second = ['nome_completo' => 'Pasta segunda', 'caixa' => 'a', 'numero' => '1'];
         $this->assertFalse($model->importarLote([$first, $second], $actor));
         $this->assertSame('location_conflict', $model->lastErrorCode());
-        $this->assertFalse($model->importarLote([$first, ['nome_completo' => 'Pasta primeira', 'caixa' => 'B', 'numero' => '2']], $actor));
+        $this->assertFalse($model->importarLote([$first, ['caixa' => 'B', 'numero' => '2'] + $first], $actor));
         $this->assertSame('duplicate_changed', $model->lastErrorCode());
         $this->assertSame(0, (int) $this->pdo->query('SELECT COUNT(*) FROM alunos_passivo')->fetchColumn());
+    }
+
+    public function testImportStillDetectsUndatedDuplicateWithPendingLocation(): void
+    {
+        $actor = $this->insertUsuario('Admin Importação Legado');
+        $this->legacyPending('Registro Histórico', 'A');
+        $model = new \Passivo();
+
+        $this->assertFalse($model->importarLote([['nome_completo' => 'Registro Histórico', 'caixa' => 'B', 'numero' => '1']], $actor));
+        $this->assertSame('duplicate_changed', $model->lastErrorCode());
+        $this->assertSame(1, $model->paginate(['ativo' => '1'])['total']);
     }
 
     private function legacyPending(string $name, ?string $box, ?string $number = null): int

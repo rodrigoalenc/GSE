@@ -106,6 +106,40 @@ final class PassivoCsvTest extends DatabaseTestCase
         $this->assertSame(1, $model->paginate(['q' => 'Existente', 'ativo' => '1'])['total']);
     }
 
+    public function testImportKeepsSameNameWithoutBirthDateAtDistinctLocations(): void
+    {
+        $actor = $this->insertUsuario('Admin CSV Locais Distintos');
+        $service = new \PassivoCsvService();
+        $model = new \Passivo();
+        $file = $this->csv(
+            "Nome;Data;Numero;Caixa\nJosé Silva;;1;A\nJOSE SILVA;;2;A\nJose Silva;;1;a\n"
+        );
+
+        $preview = $service->previewTrustedFile($file, $actor, $model);
+
+        $this->assertIsArray($preview);
+        $this->assertSame(2, $preview['valid']);
+        $this->assertSame(1, $preview['duplicate']);
+        $this->assertSame(4, $preview['errors'][0]['line']);
+        $this->assertSame(2, $service->confirm($preview['token'], $actor, $model));
+        $this->assertSame(
+            ['1', '2'],
+            $this->pdo->query('SELECT numero FROM alunos_passivo ORDER BY numero')->fetchAll(\PDO::FETCH_COLUMN)
+        );
+
+        $nextPreview = $service->previewTrustedFile(
+            $this->csv("Nome;Data;Numero;Caixa\nJose Silva;;1;A\nJose Silva;;2;A\nJose Silva;;1;B\n"),
+            $actor,
+            $model
+        );
+
+        $this->assertIsArray($nextPreview);
+        $this->assertSame(1, $nextPreview['valid']);
+        $this->assertSame(2, $nextPreview['duplicate']);
+        $this->assertSame(1, $service->confirm($nextPreview['token'], $actor, $model));
+        $this->assertSame(3, $model->paginate(['ativo' => '1'])['total']);
+    }
+
     public function testInvalidHeaderAndUtf8AreRejectedWithoutPreviewToken(): void
     {
         $actor = $this->insertUsuario('Admin CSV Inválido');

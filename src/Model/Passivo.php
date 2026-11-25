@@ -991,10 +991,8 @@ final class Passivo extends Model
                 continue;
             }
 
-            $personKey = $normalized['nome_normalizado'] . "\0" . ($normalized['data_nascimento'] ?? '');
-            $locationKey = $normalized['numero_normalizado'] === null
-                ? null
-                : $normalized['caixa_normalizada'] . "\0" . $normalized['numero_normalizado'];
+            $locationKey = $normalized['caixa_normalizada'] . "\0" . $normalized['numero_normalizado'];
+            $personKey = $this->importPersonKey($normalized, $locationKey);
 
             if (isset($seenPeople[$personKey]) || $this->databaseDuplicate(self::$pdo, $normalized)) {
                 $counts['duplicate']++;
@@ -1002,19 +1000,15 @@ final class Passivo extends Model
                 continue;
             }
 
-            if ($locationKey !== null && (isset($seenLocations[$locationKey])
-                || $this->locationConflict(self::$pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado']))) {
+            if (isset($seenLocations[$locationKey])
+                || $this->locationConflict(self::$pdo, $normalized['caixa_normalizada'], $normalized['numero_normalizado'])) {
                 $counts['conflict']++;
                 $errors[] = ['line' => $row['line'], 'message' => 'A caixa e a posição informadas já estão ocupadas.'];
                 continue;
             }
 
             $seenPeople[$personKey] = true;
-
-            if ($locationKey !== null) {
-                $seenLocations[$locationKey] = true;
-            }
-
+            $seenLocations[$locationKey] = true;
             $normalized['line'] = $row['line'];
             $validRows[] = $normalized;
             $counts['valid']++;
@@ -1049,8 +1043,8 @@ final class Passivo extends Model
             if ($normalized === false) {
                 return false;
             }
-            $personKey = $normalized['nome_normalizado'] . "\0" . ($normalized['data_nascimento'] ?? '');
             $locationKey = $normalized['caixa_normalizada'] . "\0" . $normalized['numero_normalizado'];
+            $personKey = $this->importPersonKey($normalized, $locationKey);
             if (isset($seenPeople[$personKey]) || isset($seenLocations[$locationKey])) {
                 $this->lastErrorCode = isset($seenPeople[$personKey]) ? 'duplicate_changed' : 'location_conflict';
                 return false;
@@ -1341,15 +1335,28 @@ final class Passivo extends Model
         return (int) $pdo->lastInsertId();
     }
 
+    /** @param array{nome_normalizado:string,data_nascimento:?string} $data */
+    private function importPersonKey(array $data, string $locationKey): string
+    {
+        return $data['nome_normalizado'] . "\0" . ($data['data_nascimento'] ?? $locationKey);
+    }
+
     /** @param array<string,mixed> $data */
     private function databaseDuplicate(PDO $pdo, array $data): bool
     {
-        $statement = $pdo->prepare(
-            "SELECT 1 FROM alunos_passivo
-             WHERE ativo = 1 AND nome_normalizado = :name
-               AND COALESCE(data_nascimento, '') = COALESCE(:birth_date, '') LIMIT 1"
-        );
-        $statement->execute(['name' => $data['nome_normalizado'], 'birth_date' => $data['data_nascimento']]);
+        $sql = "SELECT 1 FROM alunos_passivo
+                WHERE ativo = 1 AND nome_normalizado = :name
+                  AND COALESCE(data_nascimento, '') = COALESCE(:birth_date, '')";
+        $params = ['name' => $data['nome_normalizado'], 'birth_date' => $data['data_nascimento']];
+
+        if ($data['data_nascimento'] === null) {
+            $sql .= ' AND (localizacao_pendente = 1 OR (caixa_normalizada = :box AND numero_normalizado = :number))';
+            $params['box'] = $data['caixa_normalizada'];
+            $params['number'] = $data['numero_normalizado'];
+        }
+
+        $statement = $pdo->prepare($sql . ' LIMIT 1');
+        $statement->execute($params);
 
         return $statement->fetchColumn() !== false;
     }
