@@ -55,7 +55,7 @@ final class SessionLifecycleTest extends DatabaseTestCase
             'auth_version' => (int) $before['session_version'],
             'usuario_tipo' => 'funcionario',
         ];
-        $this->assertTrue($model->alterarSenha($id, 'Frase sessão 2026', 'Nova frase sessão 2027'));
+        $this->assertTrue($model->alterarSenha($id, 'Frase sessão 2026', 'Nova frase sessão 2027!'));
         $this->assertFalse(\Auth::check());
 
         $updated = $model->buscarPorId($id);
@@ -84,23 +84,23 @@ final class SessionLifecycleTest extends DatabaseTestCase
         $this->assertTrue($model->cadastrar(
             'Primeiro Acesso',
             'primeiro@example.test',
-            'Temporária inicial 2026',
+            'Temporária inicial 2026!',
             \Usuario::PERFIL_ADMINISTRADOR,
             true
         ));
         $created = $model->buscarPorEmail('primeiro@example.test');
         $this->assertSame(1, (int) $created['deve_alterar_senha']);
-        $this->assertTrue(\Auth::attempt('primeiro@example.test', 'Temporária inicial 2026'));
+        $this->assertTrue(\Auth::attempt('primeiro@example.test', 'Temporária inicial 2026!'));
         $this->assertTrue(\Auth::mustChangePassword());
         $oldVersion = (int) $_SESSION['auth_version'];
 
-        $this->assertTrue($model->alterarSenha((int) $created['id'], 'Temporária inicial 2026', 'Frase definitiva 2027'));
+        $this->assertTrue($model->alterarSenha((int) $created['id'], 'Temporária inicial 2026!', 'Frase definitiva 2027!'));
         $changed = $model->buscarPorId((int) $created['id']);
         $this->assertSame(0, (int) $changed['deve_alterar_senha']);
         $this->assertNotNull($changed['password_changed_at']);
         $this->assertGreaterThan($oldVersion, (int) $changed['session_version']);
         $this->assertFalse(\Auth::check());
-        $this->assertTrue(\Auth::attempt('primeiro@example.test', 'Frase definitiva 2027'));
+        $this->assertTrue(\Auth::attempt('primeiro@example.test', 'Frase definitiva 2027!'));
         $this->assertFalse(\Auth::mustChangePassword());
     }
 
@@ -111,13 +111,13 @@ final class SessionLifecycleTest extends DatabaseTestCase
         $before = $model->buscarPorId($id);
         $this->assertTrue(\Auth::attempt((string) $before['email'], 'Frase segura 2026'));
         $this->assertTrue($model->atualizar($id, (string) $before['nome'], (string) $before['email'], 'administrador',
-            'Nova frase definitiva 2027', null, $id, 'Frase segura 2026'));
+            'Nova frase definitiva 2027!', null, $id, 'Frase segura 2026'));
         $after = $model->buscarPorId($id);
         $this->assertSame(0, (int) $after['deve_alterar_senha']);
         $this->assertNotNull($after['password_changed_at']);
         $this->assertSame((int) $before['session_version'] + 1, (int) $after['session_version']);
         $this->assertFalse(\Auth::check());
-        $this->assertTrue(\Auth::attempt((string) $after['email'], 'Nova frase definitiva 2027'));
+        $this->assertTrue(\Auth::attempt((string) $after['email'], 'Nova frase definitiva 2027!'));
         $this->assertFalse(\Auth::mustChangePassword());
         $this->assertSame(['login.success', 'password.changed', 'session.invalidated', 'login.success'],
             $this->pdo->query('SELECT action FROM security_audit ORDER BY id')->fetchAll(\PDO::FETCH_COLUMN));

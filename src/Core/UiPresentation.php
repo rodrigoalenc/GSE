@@ -52,8 +52,13 @@ final class UiPresentation
     }
 
     /** @param array<string, array<string>> $errors */
-    public static function fieldAttributes(array $errors, string $field): string
+    public static function fieldAttributes(array $errors, string $field, string $descriptionId = ''): string
     {
-        return isset($errors[$field]) ? ' aria-invalid="true" aria-describedby="' . htmlspecialchars($field . '-error', ENT_QUOTES, 'UTF-8') . '"' : '';
+        $invalid = isset($errors[$field]);
+        if ($invalid) {
+            $descriptionId = trim($descriptionId . ' ' . $field . '-error');
+        }
+        return ($invalid ? ' aria-invalid="true"' : '')
+            . ($descriptionId === '' ? '' : ' aria-describedby="' . htmlspecialchars($descriptionId, ENT_QUOTES, 'UTF-8') . '"');
     }
 }

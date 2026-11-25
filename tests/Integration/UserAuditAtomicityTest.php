@@ -15,12 +15,12 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $model = new \Usuario();
         $before = $this->snapshot();
         $this->rejectAudit('user.created');
-        $this->assertFalse($model->cadastrar('Administrador Inicial', 'inicial@example.test', 'Frase inicial segura 2027', 'administrador'));
+        $this->assertFalse($model->cadastrar('Administrador Inicial', 'inicial@example.test', 'Frase inicial segura 2027!', 'administrador'));
         $this->assertSame('database_error', $model->lastErrorCode());
         $this->assertSame($before, $this->snapshot());
 
         $this->pdo->exec('DROP TRIGGER reject_user_audit');
-        $this->assertTrue($model->cadastrar('Administrador Inicial', 'inicial@example.test', 'Frase inicial segura 2027', 'administrador'));
+        $this->assertTrue($model->cadastrar('Administrador Inicial', 'inicial@example.test', 'Frase inicial segura 2027!', 'administrador'));
         $created = $model->buscarPorEmail('inicial@example.test');
         $this->assertIsArray($created);
         $events = $this->events();
@@ -36,7 +36,7 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
     {
         $actor = $this->insertUsuario('Autor administrativo');
         $_SESSION['usuario_id'] = $this->insertUsuario('Sessao diferente');
-        $password = 'Segredo exclusivo ficticio 2027';
+        $password = 'Segredo exclusivo ficticio 2027!';
         $model = new \Usuario();
         $this->assertTrue($model->cadastrar('Conta criada', 'conta@example.test', $password, 'funcionario', true, false, $actor));
         $created = $model->buscarPorEmail('conta@example.test');
@@ -72,12 +72,12 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $model = new \Usuario();
         $before = $this->snapshot();
         $this->rejectAudit($action);
-        $this->assertFalse($model->atualizar($target, 'Nome alterado', 'alterado@example.test', 'funcionario', 'Nova frase operacional 2027', false, $actor));
+        $this->assertFalse($model->atualizar($target, 'Nome alterado', 'alterado@example.test', 'funcionario', 'Nova frase operacional 2027!', false, $actor));
         $this->assertSame('database_error', $model->lastErrorCode());
         $this->assertSame($before, $this->snapshot());
 
         $this->pdo->exec('DROP TRIGGER reject_user_audit');
-        $this->assertTrue($model->atualizar($target, 'Nome alterado', 'alterado@example.test', 'funcionario', 'Nova frase operacional 2027', false, $actor));
+        $this->assertTrue($model->atualizar($target, 'Nome alterado', 'alterado@example.test', 'funcionario', 'Nova frase operacional 2027!', false, $actor));
         $after = $model->buscarPorId($target);
         $this->assertIsArray($after);
         $this->assertSame('funcionario', $after['tipo']);
@@ -85,14 +85,14 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $this->assertSame(1, (int) $after['deve_alterar_senha']);
         $this->assertNull($after['password_changed_at']);
         $this->assertSame((int) $before['usuarios'][1]['session_version'] + 1, (int) $after['session_version']);
-        $this->assertTrue(password_verify('Nova frase operacional 2027', (string) $after['senha']));
+        $this->assertTrue(password_verify('Nova frase operacional 2027!', (string) $after['senha']));
         $events = $this->events();
         $this->assertSame(['user.identity_updated', 'user.role_updated', 'password.reset', 'user.dva_alerts_updated'], array_column($events, 'action'));
         foreach ($events as $event) {
             $this->assertSame($actor, (int) $event['actor_user_id']);
             $this->assertSame($target, (int) $event['target_user_id']);
             $this->assertSame($target, (int) $event['resource_id']);
-            $this->assertStringNotContainsString('Nova frase operacional 2027', (string) $event['description']);
+            $this->assertStringNotContainsString('Nova frase operacional 2027!', (string) $event['description']);
         }
     }
 
@@ -161,17 +161,17 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $model = new \Usuario();
         $before = $this->snapshot();
         $this->rejectAudit('password.changed');
-        $this->assertFalse($model->alterarSenha($id, 'Frase segura 2026', 'Nova frase operacional 2027'));
+        $this->assertFalse($model->alterarSenha($id, 'Frase segura 2026', 'Nova frase operacional 2027!'));
         $this->assertSame('database_error', $model->lastErrorCode());
         $this->assertSame($before, $this->snapshot());
 
         $this->pdo->exec('DROP TRIGGER reject_user_audit');
-        $this->assertTrue($model->alterarSenha($id, 'Frase segura 2026', 'Nova frase operacional 2027'));
+        $this->assertTrue($model->alterarSenha($id, 'Frase segura 2026', 'Nova frase operacional 2027!'));
         $after = $model->buscarPorId($id);
         $this->assertSame(0, (int) $after['deve_alterar_senha']);
         $this->assertNotNull($after['password_changed_at']);
         $this->assertSame((int) $before['usuarios'][0]['session_version'] + 1, (int) $after['session_version']);
-        $this->assertTrue(password_verify('Nova frase operacional 2027', (string) $after['senha']));
+        $this->assertTrue(password_verify('Nova frase operacional 2027!', (string) $after['senha']));
         $event = $this->events()[0];
         $this->assertSame('password.changed', $event['action']);
         $this->assertSame($id, (int) $event['actor_user_id']);
@@ -215,7 +215,7 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $this->assertSame('last_active_admin', $model->lastErrorCode());
         $this->assertFalse($model->atualizar($id, 'Ultimo administrador', 'ultimo.administrador@teste.local', 'funcionario'));
         $this->assertSame('last_active_admin', $model->lastErrorCode());
-        $this->assertFalse($model->alterarSenha($id, 'Senha incorreta', 'Nova frase operacional 2027'));
+        $this->assertFalse($model->alterarSenha($id, 'Senha incorreta', 'Nova frase operacional 2027!'));
         $this->assertSame('current_password_invalid', $model->lastErrorCode());
         $this->assertSame($before, $this->snapshot());
     }
@@ -230,13 +230,13 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $oldHash = (string) $verified['senha'];
         $pendingRehash = \PasswordPolicy::hash('Frase segura 2026');
         $this->assertTrue($model->atualizar($target, (string) $verified['nome'], (string) $verified['email'], 'funcionario',
-            'Nova frase operacional 2027', null, $actor));
+            'Nova frase operacional 2027!', null, $actor));
         $afterReset = $this->snapshot();
         $this->assertFalse($model->atualizarSenhaHash($target, $pendingRehash, $oldHash));
         $this->assertSame('rehash_stale', $model->lastErrorCode());
         $this->assertSame($afterReset, $this->snapshot());
         $current = $model->buscarPorId($target);
-        $this->assertTrue(password_verify('Nova frase operacional 2027', (string) $current['senha']));
+        $this->assertTrue(password_verify('Nova frase operacional 2027!', (string) $current['senha']));
         $this->assertFalse(password_verify('Frase segura 2026', (string) $current['senha']));
         $this->assertSame(['password.reset'], array_column($this->events(), 'action'));
     }
@@ -280,7 +280,7 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $this->assertSame(1, $second['exit']);
         $this->assertStringContainsString('Já existe um administrador ativo', $second['stderr']);
         $this->assertSame($before, $this->snapshot());
-        $this->assertStringNotContainsString('Frase inicial segura 2027', $first['stdout'] . $first['stderr'] . $second['stdout'] . $second['stderr']);
+        $this->assertStringNotContainsString('Frase inicial segura 2027!', $first['stdout'] . $first['stderr'] . $second['stdout'] . $second['stderr']);
     }
 
     public function testTheActualCliRollsBackCreationWhenMandatoryBootstrapAuditFails(): void
@@ -329,7 +329,7 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $environment['APP_ENV'] = 'testing';
         $environment['DB_PATH'] = (string) getenv('DB_PATH');
         $environment['LOG_PATH'] = $environment['DB_PATH'] . '.' . bin2hex(random_bytes(5)) . '.log';
-        $environment['GSE_ADMIN_PASSWORD'] = 'Frase inicial segura 2027';
+        $environment['GSE_ADMIN_PASSWORD'] = 'Frase inicial segura 2027!';
         $pipes = [];
         $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, ROOT_PATH, $environment);
         if (!is_resource($process)) {
@@ -364,18 +364,19 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
 
     public function testOwnPasswordEditRequiresCurrentPasswordAndRejectsReuseWithoutMutations(): void
     {
-        $id = $this->insertUsuario('Autor senha propria');
+        $currentPassword = 'Frase segura 2026!';
+        $id = $this->insertUsuario('Autor senha propria', 'administrador', true, $currentPassword);
         $model = new \Usuario();
         $before = $model->buscarPorId($id);
         $snapshot = $this->snapshot();
         foreach ([null, 'Senha atual incorreta'] as $current) {
             $this->assertFalse($model->atualizar($id, 'Nome a preservar', (string) $before['email'], 'administrador',
-                'Nova frase definitiva 2027', null, $id, $current));
+                'Nova frase definitiva 2027!', null, $id, $current));
             $this->assertSame('current_password_invalid', $model->lastErrorCode());
             $this->assertSame($snapshot, $this->snapshot());
         }
         $this->assertFalse($model->atualizar($id, (string) $before['nome'], (string) $before['email'], 'administrador',
-            'Frase segura 2026', null, $id, 'Frase segura 2026'));
+            $currentPassword, null, $id, $currentPassword));
         $this->assertSame('password_reused', $model->lastErrorCode());
         $this->assertSame($snapshot, $this->snapshot());
     }
@@ -388,7 +389,7 @@ final class UserAuditAtomicityTest extends DatabaseTestCase
         $snapshot = $this->snapshot();
         $this->rejectAudit('password.changed');
         $this->assertFalse($model->atualizar($id, 'Nome a preservar', (string) $before['email'], 'administrador',
-            'Nova frase definitiva 2027', null, $id, 'Frase segura 2026'));
+            'Nova frase definitiva 2027!', null, $id, 'Frase segura 2026'));
         $this->assertSame('database_error', $model->lastErrorCode());
         $this->assertSame($snapshot, $this->snapshot());
     }

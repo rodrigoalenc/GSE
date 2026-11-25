@@ -15,13 +15,13 @@ final class UsuarioTest extends DatabaseTestCase
         $this->assertTrue($usuario->cadastrar(
             'Maria Silva',
             'maria@example.com',
-            'Frase segura 2026',
+            'R7#vQa',
             \Usuario::PERFIL_FUNCIONARIO
         ));
 
         $registro = $usuario->buscarPorEmail('MARIA@example.com');
         $this->assertSame('Maria Silva', $registro['nome'] ?? null);
-        $this->assertTrue(password_verify('Frase segura 2026', $registro['senha'] ?? ''));
+        $this->assertTrue(password_verify('R7#vQa', $registro['senha'] ?? ''));
         $this->assertCount(1, $usuario->listar('maria'));
         $this->assertSame([
             'total' => 1,
@@ -35,10 +35,10 @@ final class UsuarioTest extends DatabaseTestCase
             'Maria Atualizada',
             'maria2@example.com',
             \Usuario::PERFIL_FUNCIONARIO,
-            'Nova frase segura 2027'
+            'Nova frase segura 2027!'
         ));
         $atualizado = $usuario->buscarPorId((int) $registro['id']);
-        $this->assertTrue(password_verify('Nova frase segura 2027', $atualizado['senha'] ?? ''));
+        $this->assertTrue(password_verify('Nova frase segura 2027!', $atualizado['senha'] ?? ''));
 
         $this->assertTrue($usuario->definirAtivo((int) $registro['id'], false));
         $this->assertSame(0, (int) $usuario->buscarPorId((int) $registro['id'])['ativo']);
@@ -54,13 +54,13 @@ final class UsuarioTest extends DatabaseTestCase
         $this->assertTrue($usuario->cadastrar(
             'Primeiro',
             'conta@example.com',
-            'Frase de teste 2026',
+            'Frase de teste 2026!',
             \Usuario::PERFIL_FUNCIONARIO
         ));
         $this->assertFalse($usuario->cadastrar(
             'Duplicado',
             'CONTA@example.com',
-            'Outra frase teste 2027',
+            'Outra frase teste 2027!',
             \Usuario::PERFIL_FUNCIONARIO
         ));
     }
@@ -88,6 +88,6 @@ final class UsuarioTest extends DatabaseTestCase
             'administrador.rebaixado@teste.local',
             \Usuario::PERFIL_FUNCIONARIO
         ));
-        $this->assertTrue($usuario->alterarSenha($id, 'Frase segura 2026', 'Nova frase posterior 2027'));
+        $this->assertTrue($usuario->alterarSenha($id, 'Frase segura 2026', 'Nova frase posterior 2027!'));
     }
 }

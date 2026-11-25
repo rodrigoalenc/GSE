@@ -1,4 +1,4 @@
-<?php $formErrors = $erros; $fieldErrors = UiPresentation::fieldErrors($formErrors, ['nome' => ['Informe um nome'], 'email' => ['Informe um e-mail', 'e-mail informado'], 'tipo' => ['perfil de acesso'], 'senha' => ['Use uma senha', 'A senha pode', 'A senha não pode', 'senha menos comum', 'nova senha deve', 'senha temporária inicial'], 'confirmar_senha' => ['confirmação da senha'], 'senha_atual' => ['senha atual corretamente']]); require __DIR__ . '/../partials/form-errors.php'; ?>
+<?php $formErrors = $erros; $fieldErrors = UiPresentation::fieldErrors($formErrors, ['nome' => ['Informe um nome'], 'email' => ['Informe um e-mail', 'e-mail informado'], 'tipo' => ['perfil de acesso'], 'senha' => ['Use uma senha', 'A senha pode', 'A senha deve', 'A senha não pode', 'senha menos comum', 'nova senha deve', 'senha temporária inicial'], 'confirmar_senha' => ['confirmação da senha'], 'senha_atual' => ['senha atual corretamente']]); require __DIR__ . '/../partials/form-errors.php'; ?>
 <?php
 $action = $edicao ? 'usuario/editar/' . (int) $usuarioId : 'usuario/criar';
 $editingSelf = $editingSelf ?? false;
@@ -23,7 +23,7 @@ $editingSelf = $editingSelf ?? false;
                 <div>
                     <label for="senha"><?= $edicao ? ($editingSelf ? 'Alterar minha senha (opcional)' : 'Redefinir senha temporária (opcional)') : 'Senha temporária' ?></label>
                     <div class="input-with-toggle">
-                        <input type="password" id="senha" name="senha" autocomplete="new-password" data-password-max="128" data-password-min="15" placeholder="<?= $edicao ? 'Em branco para manter a atual' : 'Digite uma senha temporária' ?>" <?= $edicao ? '' : 'required' ?> <?= UiPresentation::fieldAttributes($fieldErrors, 'senha') ?>>
+                        <input type="password" id="senha" name="senha" autocomplete="new-password" data-password-max="<?= PasswordPolicy::MAX_LENGTH ?>" data-password-min="<?= PasswordPolicy::MIN_LENGTH ?>" placeholder="<?= $edicao ? 'Em branco para manter a atual' : 'Digite uma senha temporária' ?>" <?= $edicao ? '' : 'required' ?> <?= UiPresentation::fieldAttributes($fieldErrors, 'senha', 'senha-requisitos') ?>>
                         <button type="button" class="toggle-password" data-password-toggle="senha" aria-label="Mostrar senha" title="Mostrar senha"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/></svg></button>
                     </div>
                     <?php if (isset($fieldErrors['senha'])): ?><small class="field-error" id="senha-error"><?= e(implode(' ', $fieldErrors['senha'])) ?></small><?php endif; ?>
@@ -37,6 +37,7 @@ $editingSelf = $editingSelf ?? false;
                     <?php if (isset($fieldErrors['confirmar_senha'])): ?><small class="field-error" id="confirmar_senha-error"><?= e(implode(' ', $fieldErrors['confirmar_senha'])) ?></small><?php endif; ?>
                 </div>
             </div>
+            <p class="form-help usuario-password-help" id="senha-requisitos">Use de <?= PasswordPolicy::MIN_LENGTH ?> a <?= PasswordPolicy::MAX_LENGTH ?> caracteres, com uma letra maiúscula, um número e um caractere especial.</p>
 
             <label for="tipo">Perfil de acesso</label>
             <select id="tipo" name="tipo" required <?= UiPresentation::fieldAttributes($fieldErrors, 'tipo') ?>>
@@ -47,7 +48,7 @@ $editingSelf = $editingSelf ?? false;
             <?php require __DIR__ . '/staff-grants.php'; ?>
 
             <?php if (!$edicao): ?>
-                <p class="form-help usuario-password-help">Mínimo de 15 caracteres. A troca será solicitada no primeiro acesso.</p>
+                <p class="form-help">A troca será solicitada no primeiro acesso.</p>
             <?php elseif ($editingSelf): ?>
                 <label for="senha_atual">Senha atual (necessária ao alterar seu e-mail ou senha)</label>
                 <input type="password" id="senha_atual" name="senha_atual" autocomplete="current-password" data-password-max="128" <?= UiPresentation::fieldAttributes($fieldErrors, 'senha_atual') ?>><?php if (isset($fieldErrors['senha_atual'])): ?><small class="field-error" id="senha_atual-error"><?= e(implode(' ', $fieldErrors['senha_atual'])) ?></small><?php endif; ?>
@@ -62,7 +63,7 @@ $editingSelf = $editingSelf ?? false;
             </label>
 
             <div class="form-actions">
-                <details class="usuario-access-help"><summary>Orientações de acesso</summary><p>Use de 15 a 128 caracteres. Frases-senha, espaços e letras com acentos são aceitas; senhas comuns ou semelhantes ao nome/e-mail são recusadas.<?= $edicao ? ' Deixe os campos de nova senha e confirmação em branco para manter a senha atual.' : '' ?> <?= $editingSelf ? 'Sua nova senha será definitiva. A alteração do próprio e-mail ou senha exige confirmação da senha atual.' : 'A senha definida para outro usuário será temporária.' ?> Alterações de e-mail, perfil de acesso e senha invalidam as sessões anteriores.</p></details>
+                <details class="usuario-access-help"><summary>Orientações de acesso</summary><p>Frases-senha, espaços e letras com acentos são aceitos. Senhas comuns ou semelhantes ao nome ou e-mail são recusadas.<?= $edicao ? ' Deixe os campos de nova senha e confirmação em branco para manter a senha atual.' : '' ?> <?= $editingSelf ? 'Sua nova senha será definitiva. A alteração do próprio e-mail ou senha exige confirmação da senha atual.' : 'A senha definida para outro usuário será temporária.' ?> Alterações de e-mail, perfil de acesso e senha invalidam as sessões anteriores.</p></details>
                 <a class="cancelar" href="<?= e(url('usuario')) ?>">Cancelar</a>
                 <button type="submit"><?= $edicao ? 'Salvar alterações' : 'Salvar usuário' ?></button>
             </div>

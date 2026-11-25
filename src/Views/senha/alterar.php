@@ -1,4 +1,4 @@
-<?php $formErrors = $erros; $fieldErrors = UiPresentation::fieldErrors($formErrors, ['senha_atual' => ['senha atual não confere'], 'nova_senha' => ['Use uma senha', 'A senha pode', 'A senha não pode', 'senha menos comum', 'nova senha deve'], 'confirmar_senha' => ['confirmação']]); require __DIR__ . '/../partials/form-errors.php'; ?>
+<?php $formErrors = $erros; $fieldErrors = UiPresentation::fieldErrors($formErrors, ['senha_atual' => ['senha atual não confere'], 'nova_senha' => ['Use uma senha', 'A senha pode', 'A senha deve', 'A senha não pode', 'senha menos comum', 'nova senha deve'], 'confirmar_senha' => ['confirmação']]); require __DIR__ . '/../partials/form-errors.php'; ?>
 <div class="usuario-form-card">
     <section class="page-intro user-page-intro">
         <p class="hero-kicker">Segurança da conta</p>
@@ -24,8 +24,8 @@
 
             <label for="nova_senha">Nova senha:</label>
             <div class="input-with-toggle">
-                <input type="password" id="nova_senha" name="nova_senha" data-password-max="128" data-password-min="15"
-                    autocomplete="new-password" required <?= UiPresentation::fieldAttributes($fieldErrors, 'nova_senha') ?>><?php if (isset($fieldErrors['nova_senha'])): ?><small class="field-error" id="nova_senha-error"><?= e(implode(' ', $fieldErrors['nova_senha'])) ?></small><?php endif; ?>
+                <input type="password" id="nova_senha" name="nova_senha" data-password-max="<?= PasswordPolicy::MAX_LENGTH ?>" data-password-min="<?= PasswordPolicy::MIN_LENGTH ?>"
+                    autocomplete="new-password" required <?= UiPresentation::fieldAttributes($fieldErrors, 'nova_senha', 'senha-requisitos') ?>><?php if (isset($fieldErrors['nova_senha'])): ?><small class="field-error" id="nova_senha-error"><?= e(implode(' ', $fieldErrors['nova_senha'])) ?></small><?php endif; ?>
                 <button class="toggle-password" type="button" data-password-toggle="nova_senha"
                     aria-label="Mostrar senha" title="Mostrar senha">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -50,8 +50,7 @@
                 </button>
             </div>
 
-            <small class="form-help password-guidance">Use de 15 a 128 caracteres. Frases-senha, espaços e caracteres
-                Letras com acentos são aceitas. Evite senhas comuns e dados do seu nome ou e-mail.</small>
+            <small class="form-help password-guidance" id="senha-requisitos">Use de <?= PasswordPolicy::MIN_LENGTH ?> a <?= PasswordPolicy::MAX_LENGTH ?> caracteres, com uma letra maiúscula, um número e um caractere especial.</small>
 
             <div class="form-actions">
                 <button class="btn-primary" type="submit">Alterar senha</button>

@@ -40,7 +40,7 @@ final class AdministrativeIdentityTest extends DatabaseTestCase
             $this->assertFalse($result);
         }
         try {
-            $model->alterarSenha($id,'Frase segura 2026','Outra frase valida 2027');
+            $model->alterarSenha($id,'Frase segura 2026','Outra frase valida 2027!');
             $this->fail('Switching to password route bypassed shared reauthentication budget.');
         } catch (\ActionLimitExceeded $exception) { $this->assertGreaterThan(0,$exception->retryAfter); }
         $this->assertSame($before,$model->buscarPorId($id));

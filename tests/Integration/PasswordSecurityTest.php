@@ -29,7 +29,7 @@ final class PasswordSecurityTest extends DatabaseTestCase
             $this->assertFalse(\Auth::attempt((string) $before['email'], $ambiguous));
             $this->assertSame(\Auth::ATTEMPT_INVALID, \Auth::lastAttemptStatus());
             $this->assertArrayNotHasKey('usuario_id', $_SESSION);
-            $this->assertFalse($model->alterarSenha($id, $ambiguous, 'Outra frase segura 2027'));
+            $this->assertFalse($model->alterarSenha($id, $ambiguous, 'Outra frase segura 2027!'));
             $this->assertSame('current_password_invalid', $model->lastErrorCode());
             $this->assertFalse($model->atualizarPerfilProprio($id, 1, 'Novo nome', 'novo@example.test', $ambiguous));
             $this->assertSame($before, $model->buscarPorId($id));
@@ -76,16 +76,16 @@ final class PasswordSecurityTest extends DatabaseTestCase
         $before = $this->snapshot();
         foreach (['unavailable', 'failure'] as $mode) {
             $this->injectFailure($mode);
-            $this->assertFalse($model->cadastrar('Nova conta', 'nova@example.test', 'Nova frase segura 2027', 'funcionario'));
+            $this->assertFalse($model->cadastrar('Nova conta', 'nova@example.test', 'Nova frase segura 2027!', 'funcionario'));
             $this->assertSame($before, $this->snapshot());
-            $this->assertFalse($model->criarAdministradorInicial('Primeiro admin', 'primeiro@example.test', 'Nova frase segura 2027'));
+            $this->assertFalse($model->criarAdministradorInicial('Primeiro admin', 'primeiro@example.test', 'Nova frase segura 2027!'));
             $this->assertSame($before, $this->snapshot());
-            $this->assertFalse($model->atualizar($id, 'Nome alterado', 'alterado@example.test', 'administrador', 'Nova frase segura 2027', true));
+            $this->assertFalse($model->atualizar($id, 'Nome alterado', 'alterado@example.test', 'administrador', 'Nova frase segura 2027!', true));
             $this->assertSame($before, $this->snapshot());
-            $this->assertFalse($model->atualizar($id, 'Nome alterado', 'alterado@example.test', 'administrador', 'Nova frase segura 2027', true,
+            $this->assertFalse($model->atualizar($id, 'Nome alterado', 'alterado@example.test', 'administrador', 'Nova frase segura 2027!', true,
                 $id, 'Frase segura 2026'));
             $this->assertSame($before, $this->snapshot());
-            $this->assertFalse($model->alterarSenha($id, 'Frase segura 2026', 'Nova frase segura 2027'));
+            $this->assertFalse($model->alterarSenha($id, 'Frase segura 2026', 'Nova frase segura 2027!'));
             $this->assertSame($before, $this->snapshot());
         }
     }
@@ -136,7 +136,7 @@ final class PasswordSecurityTest extends DatabaseTestCase
     {
         $modeFile = (string) getenv('DB_PATH') . '.password-runtime';
         $log = (string) getenv('DB_PATH') . '.technical.log';
-        $secret = 'Segredo CLI ficticio 2027';
+        $secret = 'Segredo CLI ficticio 2027!';
         try {
             foreach (['unavailable', 'failure'] as $mode) {
                 file_put_contents($modeFile, $mode);

@@ -174,9 +174,9 @@ Alertas de DVA são opt-in. Na tela **Usuários**, marque **Receber o resumo di�
 
 ## Política de senhas
 
-- 15 a 128 caracteres Unicode para novas definições; credenciais legadas continuam verificáveis;
+- 6 a 128 caracteres Unicode para novas definições. Credenciais legadas continuam verificáveis;
 - espaços e frases-senha são permitidos;
-- não há exigência artificial de símbolo, maiúscula ou dígito;
+- novas senhas exigem pelo menos uma letra maiúscula, um número e um caractere especial;
 - senhas vazias, comuns ou muito semelhantes ao nome/e-mail são recusadas;
 - senhas não são truncadas, normalizadas nem aparadas; UTF-8 inválido e bytes nulos são recusados;
 - novos hashes exigem Argon2id, com os custos nativos do PHP e sem fallback; indisponibilidade ou falha impede cadastro/reset/troca sem alteração parcial ou revogação de sessões;

@@ -43,7 +43,7 @@ $password = (string) (getenv('GSE_ADMIN_PASSWORD') ?: '');
 $generatedPassword = false;
 
 if ($password === '') {
-    $password = 'GSE-' . bin2hex(random_bytes(12));
+    $password = 'GSE-1' . bin2hex(random_bytes(12));
     $generatedPassword = true;
 }
 

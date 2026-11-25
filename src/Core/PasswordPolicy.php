@@ -22,7 +22,7 @@ class PasswordHashRuntime
 
 final class PasswordPolicy
 {
-    public const MIN_LENGTH = 15;
+    public const MIN_LENGTH = 6;
     public const MAX_LENGTH = 128;
 
     // Tests replace this private native adapter by reflection; no environment switch.
@@ -34,6 +34,7 @@ final class PasswordPolicy
     }
 
     private const COMMON = [
+        'abc123', 'admin1', 'password1', 'qwerty1', 'senha1', 'senha123', 'admin123',
         '123456789012', '123456789123', 'administrator', 'administrador', 'password1234',
         'qwerty123456', 'letmein123456', 'iloveyou12345', 'senha123456', 'changeme1234',
         'welcome12345', 'bemvindo1234', 'secret123456', 'segredo123456', 'abcdef123456',
@@ -49,7 +50,7 @@ final class PasswordPolicy
         $length = mb_strlen($password, 'UTF-8');
 
         if ($length < self::MIN_LENGTH) {
-            $errors[] = 'Use uma senha com pelo menos 15 caracteres.';
+            $errors[] = 'Use uma senha com pelo menos ' . self::MIN_LENGTH . ' caracteres.';
         }
 
         if ($length > self::MAX_LENGTH) {
@@ -58,6 +59,12 @@ final class PasswordPolicy
 
         if (trim($password) === '') {
             $errors[] = 'A senha não pode estar vazia nem conter apenas espaços.';
+        }
+
+        if (preg_match('/\p{Lu}/u', $password) !== 1
+            || preg_match('/\p{Nd}/u', $password) !== 1
+            || preg_match('/[\p{P}\p{S}]/u', $password) !== 1) {
+            $errors[] = 'A senha deve incluir uma letra maiúscula, um número e um caractere especial.';
         }
 
         $normalized = self::compact($password);

@@ -769,9 +769,21 @@ document.querySelectorAll('[data-archive-batch-box]').forEach((form) => {
 // Count Unicode code points, as the server does; native maxlength counts UTF-16 units.
 document.querySelectorAll('[data-password-max]').forEach((input) => {
     const validate = () => {
-        const length = Array.from(input.value).length;
-        input.setCustomValidity(length > Number(input.dataset.passwordMax) ? 'Use no máximo 128 caracteres.'
-            : length > 0 && length < Number(input.dataset.passwordMin || 0) ? 'Use pelo menos 15 caracteres.' : '');
+        const password = input.value;
+        const length = Array.from(password).length;
+        const min = Number(input.dataset.passwordMin || 0);
+        const max = Number(input.dataset.passwordMax);
+        let message = '';
+        if (length > max) {
+            message = `Use no máximo ${max} caracteres.`;
+        } else if (min > 0 && length > 0) {
+            if (length < min) {
+                message = `Use pelo menos ${min} caracteres.`;
+            } else if (!/\p{Lu}/u.test(password) || !/\p{Nd}/u.test(password) || !/[\p{P}\p{S}]/u.test(password)) {
+                message = 'A senha deve incluir uma letra maiúscula, um número e um caractere especial.';
+            }
+        }
+        input.setCustomValidity(message);
     };
     input.addEventListener('input', validate);
     validate();

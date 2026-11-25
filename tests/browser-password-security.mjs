@@ -24,9 +24,9 @@ const fixture = (mode = 'state') => {
     assert.equal(result.status, 0, result.stderr);
     return JSON.parse(result.stdout);
 };
-const temporaryPassword = 'á'.repeat(40) + ' frase temporária';
-const permanentPassword = '\u{1F9D1}'.repeat(100) + ' frase definitiva';
-const editorPassword = 'Frase própria definitiva 2028';
+const temporaryPassword = 'á'.repeat(40) + ' Frase temporária 7!';
+const permanentPassword = '\u{1F9D1}'.repeat(100) + ' Frase definitiva 8!';
+const editorPassword = 'R7#vQa';
 let server, browser, page, originalFailure, activeMode;
 let checks = 0;
 const check = (value, expected, message) => {assert.deepEqual(value, expected, message); checks++;};
@@ -243,6 +243,10 @@ try {
     check(await page.evaluate('location.pathname'),'/dashboard','Login after own edit does not request another password change');
 
     await go('/usuario/criar');
+    await fill('#senha', 'Q7@ab');
+    check(await page.evaluate("document.querySelector('#senha').validationMessage"), 'Use pelo menos 6 caracteres.', 'Senha de cinco caracteres é recusada no navegador');
+    await fill('#senha', 'q7@abc');
+    check(await page.evaluate("document.querySelector('#senha').validationMessage.includes('maiúscula')"), true, 'Senha sem maiúscula informa a composição exigida');
     const setRole = role => page.evaluate(`(() => {
         const select = document.querySelector('#tipo');
         select.value = ${JSON.stringify(role)};
@@ -255,6 +259,7 @@ try {
     await fill('#nome', 'Equipe Concessoes');
     await fill('#email', 'equipe.concessoes@example.test');
     await fill('#senha', editorPassword);
+    check(await page.evaluate("document.querySelector('#senha').validity.valid"), true, 'Senha de seis caracteres com os requisitos é aceita');
     await fill('#confirmar_senha', editorPassword);
     const grant = async (key, reference) => {
         await page.click('#grant-' + key);

@@ -10,7 +10,7 @@ O mantenedor deve confirmar o recebimento, avaliar severidade e coordenar corre�
 
 ## Escopo suportado
 
-Novas senhas exigem Argon2id registrado em `password_algos()` no PHP 8.3+ usado pela CLI e pelo servidor web. Não há fallback para bcrypt. Ausência do algoritmo ou falha de geração impede alterações de senha e criação de contas, preservando transações, auditoria e versões de sessão. Os custos nativos de Argon2id são mantidos. Novas frases-senha Unicode de 15 a 128 caracteres são preservadas sem truncamento, trim ou normalização; UTF-8 inválido e bytes nulos são recusados.
+Novas senhas exigem Argon2id registrado em `password_algos()` no PHP 8.3+ usado pela CLI e pelo servidor web. Não há fallback para bcrypt. Ausência do algoritmo ou falha de geração impede alterações de senha e criação de contas, preservando transações, auditoria e versões de sessão. Os custos nativos de Argon2id são mantidos. Novas senhas Unicode têm de 6 a 128 caracteres e exigem uma letra maiúscula, um número e um caractere especial. O GSE preserva os caracteres digitados e recusa UTF-8 inválido e bytes nulos.
 
 Bcrypt legado verifica somente entradas de até 72 bytes; entradas maiores falham genericamente, mantêm limitação de tentativas e não autenticam nem disparam rehash. Essa proteção também se aplica à confirmação de senha atual. Argon2id verifica integralmente entradas acima de 72 bytes. Rehash oportunista depende de Argon2id disponível, preserva o hash anterior em falhas e usa atualização condicionada ao hash verificado para não sobrescrever resets concorrentes. Hashes fictícios bcrypt usados no login não são hashes de novas contas.
 

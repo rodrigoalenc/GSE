@@ -38,7 +38,7 @@ checkHttp($limitedAdminResult['status']===429 && (int)($limitedAdminResult['head
     'Mesmo orçamento impede contornar confirmação pela edição administrativa do próprio e-mail');
 $limitedPasswordPage=request('GET',$baseUrl.'/senha/alterar',$cookieAdmin);
 $limitedPasswordResult=request('POST',$baseUrl.'/senha/alterar',$cookieAdmin,['_csrf_token'=>csrf($limitedPasswordPage['body']),
-    'senha_atual'=>$permanentPassword,'nova_senha'=>'Outra frase sequencial 2030','confirmar_senha'=>'Outra frase sequencial 2030']);
+    'senha_atual'=>$permanentPassword,'nova_senha'=>'Outra frase sequencial 2030!','confirmar_senha'=>'Outra frase sequencial 2030!']);
 checkHttp($limitedPasswordResult['status']===429 && (int)($limitedPasswordResult['headers']['retry-after']??0)>0,
     'Mesmo orçamento impede contornar confirmação pela troca de senha');
 checkHttp($hardeningBefore===$hardeningDb->query('SELECT * FROM usuarios WHERE id=1')->fetch(PDO::FETCH_ASSOC),

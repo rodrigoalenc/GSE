@@ -95,7 +95,7 @@ As únicas rotas públicas são GET da apresentação/login e POST de credenciai
 
 Sessões têm conta ativa, perfil e versão reconsultados. `BEGIN IMMEDIATE` revalida a identidade HTTP sob o lock de escrita antes de operações transacionais, evitando gravação com sessão revogada entre a checagem da rota e o commit. Alterações intencionais da própria versão continuam permitidas dentro dessa operação. A proteção do último administrador, CSRF, auditoria obrigatória e exclusões lógicas permanecem.
 
-Novas senhas: 15–128 caracteres Unicode, sem composição arbitrária, sem trim/truncamento. Login e rehash continuam aceitando credenciais legadas válidas, inclusive 12 caracteres; bcrypt recusa entrada acima de 72 bytes. Falhas Argon2id preservam o hash antigo no rehash oportunista e impedem novas definições. O navegador conta pontos de código, incluindo caracteres fora do BMP; o servidor permanece a autoridade.
+Novas senhas usam de 6 a 128 caracteres Unicode, com pelo menos uma letra maiúscula, um número e um caractere especial. O GSE preserva os caracteres digitados. Login e rehash continuam aceitando credenciais legadas válidas, inclusive 12 caracteres; bcrypt recusa entrada acima de 72 bytes. Falhas Argon2id preservam o hash antigo no rehash oportunista e impedem novas definições. O navegador conta pontos de código, incluindo caracteres fora do BMP; o servidor permanece a autoridade.
 
 | Orçamento | Padrão | Persistência e resposta |
 |---|---|---|

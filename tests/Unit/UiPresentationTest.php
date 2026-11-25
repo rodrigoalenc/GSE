@@ -83,7 +83,7 @@ final class UiPresentationTest extends TestCase
             $editingSelf = false;
             $grantsRevision = str_repeat('a', 64);
             $dados = ['nome' => '', 'email' => '', 'tipo' => 'funcionario', 'recebe_alertas_dva' => false];
-            $erros = ['Use uma senha com pelo menos 15 caracteres.', 'A confirmação da senha não confere.'];
+            $erros = ['Use uma senha com pelo menos 6 caracteres.', 'A confirmação da senha não confere.'];
             ob_start();
             require ROOT_PATH . '/src/Views/usuarios/form.php';
             $html = (string) ob_get_clean();

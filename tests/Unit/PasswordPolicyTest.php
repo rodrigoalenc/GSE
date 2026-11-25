@@ -10,7 +10,7 @@ final class PasswordPolicyTest extends TestCase
 {
     public function testAcceptsUnicodePassphrasesAndArgon2id(): void
     {
-        $password = 'Café na escola às sete 2026';
+        $password = 'Café na escola às sete 2026!';
 
         $this->assertSame([], \PasswordPolicy::validate($password, 'Ana Souza', 'ana@example.test'));
         $hash = \PasswordPolicy::hash($password);
@@ -28,9 +28,15 @@ final class PasswordPolicyTest extends TestCase
         $this->assertNotEmpty(\PasswordPolicy::validate(str_repeat('á', 129)));
     }
 
-    public function testDoesNotRequireSymbolsOrCompositionClasses(): void
+    public function testNewPasswordRequiresUppercaseNumberAndSpecialCharacter(): void
     {
-        $this->assertSame([], \PasswordPolicy::validate('uma frase longa somente letras'));
+        $this->assertSame([], \PasswordPolicy::validate('Q7@çb9'));
+        $this->assertSame([], \PasswordPolicy::validate('É٢†çaa'));
+        foreach (['q7@çb9', 'QR@çbd', 'QR7çb9', 'QR7 ç9', 'Senha1!'] as $password) {
+            $this->assertNotEmpty(\PasswordPolicy::validate($password));
+        }
+        $legacyHash = \PasswordPolicy::hash('legado');
+        $this->assertTrue(\PasswordPolicy::verify('legado', $legacyHash));
     }
 
     public function testDistinctSuffixesBeyond72BytesAreFullyProtected(): void
@@ -49,12 +55,12 @@ final class PasswordPolicyTest extends TestCase
 
     public function testCharacterBoundariesAndInvalidEncoding(): void
     {
-        foreach ([15, 128] as $length) {
-            $password = str_repeat('界', $length);
+        foreach ([6, 128] as $length) {
+            $password = 'Q7@' . str_repeat('界', $length - 3);
             $this->assertSame([], \PasswordPolicy::validate($password));
             $this->assertTrue(\PasswordPolicy::verify($password, \PasswordPolicy::hash($password)));
         }
-        foreach ([str_repeat('界', 14), str_repeat('界', 129), "Invalid UTF8 \xff", "Frase com nulo\0"] as $password) {
+        foreach (['Q7@界界', 'Q7@' . str_repeat('界', 126), "Invalid UTF8 \xff", "Frase com nulo\0"] as $password) {
             $this->assertNotEmpty(\PasswordPolicy::validate($password));
         }
         $password = '  Café com espaços 2026  ';

@@ -19,7 +19,7 @@ $pdo = Model::getConexao();
 src\Core\DatabaseInitializer::initialize($pdo);
 $users = new Usuario();
 if (($argv[1] ?? '') === 'seed') {
-    if (!$users->criarAdministradorInicial('Admin ficticio', 'admin@example.test', str_repeat('á', 40) . ' frase temporária')) {
+    if (!$users->criarAdministradorInicial('Admin ficticio', 'admin@example.test', str_repeat('á', 40) . ' Frase temporária 7!')) {
         throw new RuntimeException('Password fixture failed.');
     }
     test_insert_user($pdo, ['nome'=>'Legado ficticio','email'=>'legacy@example.test','senha'=>password_hash(str_repeat('L', 72), PASSWORD_BCRYPT, ['cost' => 4]),'tipo'=>'funcionario']);

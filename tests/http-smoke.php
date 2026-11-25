@@ -27,8 +27,8 @@ $serverError = $tempRoot . DIRECTORY_SEPARATOR . 'server.error.log';
 $process = null;
 $failure = null;
 $checks = 0;
-$temporaryPassword = 'Temporária HTTP segura 2026';
-$permanentPassword = 'Frase definitiva HTTP 2027';
+$temporaryPassword = 'Temporária HTTP segura 2026!';
+$permanentPassword = 'Frase definitiva HTTP 2027!';
 
 /** @param array<string, string> $environment */
 function runCli(array $arguments, array $environment): array
@@ -475,7 +475,7 @@ try {
     checkHttp(str_starts_with($reportCsv['headers']['content-disposition'] ?? '', 'attachment;'), 'CSV continua sendo baixado');
 
     $createPage = request('GET', $baseUrl . '/usuario/criar', $cookieAdmin);
-    $employeeTemporaryPassword = 'Inicial funcionário HTTP 2026';
+    $employeeTemporaryPassword = 'Inicial funcionário HTTP 2026!';
     $createdUser = request('POST', $baseUrl . '/usuario/criar', $cookieAdmin, [
         '_csrf_token' => csrf($createPage['body']),
         'nome' => 'Funcionário HTTP',
@@ -839,7 +839,7 @@ try {
     ]);
     checkHttp($employeeAuth['status'] === 302 && str_contains($employeeAuth['headers']['location'] ?? '', '/senha/alterar'), 'Funcionário recebe troca obrigatória');
     $employeePasswordPage = request('GET', $baseUrl . '/senha/alterar', $cookieEmployee);
-    $employeePassword = 'Frase funcionário definitiva 2027';
+    $employeePassword = 'Frase funcionário definitiva 2027!';
     $employeeChanged = request('POST', $baseUrl . '/senha/alterar', $cookieEmployee, [
         '_csrf_token' => csrf($employeePasswordPage['body']),
         'senha_atual' => $employeeTemporaryPassword,

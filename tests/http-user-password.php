@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 // Only the disposable SQLite database and sessions created by http-smoke.php.
 $ownPasswordDb = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-$ownPasswordOld = 'Frase inicial ficticia 2026';
-$ownPasswordNew = 'Frase definitiva ficticia 2027';
+$ownPasswordOld = 'Frase inicial ficticia 2026!';
+$ownPasswordNew = 'Frase definitiva ficticia 2027!';
 $ownPasswordEmail = 'senha-propria@example.test';
 $ownPasswordId = test_insert_user($ownPasswordDb, ['nome' => 'Administrador senha propria', 'email' => $ownPasswordEmail,
     'senha' => password_hash($ownPasswordOld, PASSWORD_DEFAULT), 'tipo' => 'administrador', 'ativo' => 1, 'deve_alterar_senha' => 0]);
