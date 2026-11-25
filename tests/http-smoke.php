@@ -1043,6 +1043,7 @@ try {
     unset($oldAuditCount);
     $auditDb = null;
     require __DIR__ . '/http-alunos-import.php';
+    require __DIR__ . '/http-agenda.php';
     require __DIR__ . '/http-contract-drafts.php';
     require __DIR__ . '/http-stock-actions.php';
     require __DIR__ . '/http-stock-receipts.php';

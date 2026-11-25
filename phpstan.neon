@@ -12,6 +12,7 @@ parameters:
         - src/Model/Aluno.php
         - src/Model/AlunoImportacao.php
         - src/Model/Auditoria.php
+        - src/Model/Agenda.php
         - src/Model/Dva.php
         - src/Model/Painel.php
         - src/Model/Turma.php

@@ -1,0 +1,423 @@
+.etiquetas-introducao {
+    max-width: 72ch;
+    margin: 0 0 16px;
+    color: var(--text-muted);
+}
+
+.etiquetas-grade-modelos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.etiquetas-cartao-modelo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    margin: 0;
+}
+
+.etiquetas-icone-modelo {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 12px;
+    border-radius: 7px;
+    color: var(--primary-color);
+    background: #e9f2fb;
+}
+
+.etiquetas-cartao-modelo p {
+    flex: 1;
+    margin-bottom: 16px;
+}
+
+.etiquetas-cartao-modelo .gse-icon {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+}
+
+.etiquetas-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.etiquetas-acoes .context-return {
+    margin: 0 0 0 4px;
+    padding: 10px 4px;
+}
+
+.etiquetas-status {
+    min-height: 21px;
+    margin: 5px 0;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+.etiquetas-status.erro {
+    color: #9e1c28;
+}
+
+.etiquetas-editor .etiquetas-so-impressao {
+    display: none;
+}
+
+.etiquetas-aluno-identificacao,
+.etiquetas-aluno-detalhes {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+    gap: 16px;
+}
+
+.etiquetas-aluno-identificacao {
+    margin-bottom: 14px;
+}
+
+.etiquetas-campo-ficha label,
+.etiquetas-passivo-campos label {
+    margin: 0 0 4px;
+}
+
+.etiquetas-campo-ficha input,
+.etiquetas-passivo-campos input,
+.etiquetas-passivo-campos textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid var(--border-color);
+    background: #fff;
+}
+
+.etiquetas-campo-ficha input {
+    text-transform: uppercase;
+}
+
+.etiquetas-aluno-documentos,
+.etiquetas-passivo-campos {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+}
+
+.etiquetas-aluno-documentos h3,
+.etiquetas-historico h3 {
+    margin: 4px 0 0;
+}
+
+.etiquetas-historico-scroll {
+    overflow: auto;
+    padding: 4px;
+    margin: 4px -4px 0;
+}
+
+.etiquetas-historico table {
+    width: 100%;
+    min-width: 340px;
+    table-layout: fixed;
+}
+
+.etiquetas-historico th {
+    padding: 6px 4px;
+    background: #eaf1f9;
+    color: var(--primary-dark);
+    font-size: 12px;
+    text-align: center;
+}
+
+.etiquetas-historico th:nth-child(2) {
+    width: 13%;
+}
+
+.etiquetas-historico td {
+    padding: 3px;
+}
+
+.etiquetas-historico input {
+    text-align: center;
+}
+
+.etiquetas-passivo-campos input,
+.etiquetas-passivo-campos textarea {
+    margin-top: 4px;
+}
+
+.etiquetas-passivo-campos textarea {
+    resize: vertical;
+}
+
+@media screen and (max-width: 900px) {
+    .etiquetas-aluno-detalhes {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .etiquetas-aluno-documentos {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .etiquetas-aluno-documentos h3 {
+        grid-column: 1 / -1;
+    }
+}
+
+@media screen and (max-width: 620px) {
+    .etiquetas-grade-modelos {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.etiquetas-folha-passivo {
+    box-sizing: border-box;
+    margin: 0 auto;
+    padding: 15mm 15mm 15mm 20mm;
+    width: 170mm;
+    height: 250mm;
+    color: #000;
+    background: #fff;
+    font-family: "Times New Roman", Times, serif;
+    overflow-wrap: anywhere;
+}
+
+.etiquetas-folha-caixa {
+    border: 2px solid #000;
+}
+
+.etiquetas-passivo-conteudo {
+    height: 100%;
+    font-size: calc(14pt * var(--etiquetas-escala, 1));
+    line-height: 1.45;
+}
+
+.etiquetas-passivo-escola {
+    font-size: .86em;
+    text-transform: uppercase;
+}
+
+.etiquetas-passivo-titulo {
+    margin: .1em 0 .65em;
+    font-size: 1.71em;
+    font-weight: 700;
+}
+
+.etiquetas-passivo-registros {
+    white-space: pre-wrap;
+}
+
+.etiquetas-passivo-registros > div {
+    min-height: 1lh;
+    break-inside: avoid;
+}
+
+.etiquetas-registros-colunas {
+    column-count: 2;
+    column-gap: 5mm;
+}
+
+@media screen {
+    .etiquetas-editor.etiquetas-preparando-impressao .etiquetas-folhas-passivo {
+        display: block;
+        position: fixed;
+        inset: 0 auto auto 0;
+        width: 210mm;
+        max-height: 100vh;
+        overflow: hidden;
+        pointer-events: none;
+        visibility: hidden;
+    }
+}
+
+@page etiquetas {
+    size: A4 portrait;
+    margin: 0;
+}
+
+@media print {
+    body:has(.etiquetas-editor) {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+    }
+
+    body:has(.etiquetas-editor) .layout-container,
+    body:has(.etiquetas-editor) .main-content-wrapper,
+    body:has(.etiquetas-editor) #conteudo-principal {
+        display: block;
+        width: 100%;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        overflow: visible;
+    }
+
+    body:has(.etiquetas-editor) .sidebar,
+    body:has(.etiquetas-editor) .app-topbar,
+    body:has(.etiquetas-editor) .page-header,
+    body:has(.etiquetas-editor) #conteudo-principal > :not(.etiquetas-editor),
+    .etiquetas-editor .etiquetas-edicao,
+    .etiquetas-editor .etiquetas-campo-ficha input {
+        display: none;
+    }
+
+    .etiquetas-editor {
+        page: etiquetas;
+    }
+
+    .etiquetas-editor .etiquetas-so-impressao {
+        display: block;
+    }
+
+    .etiquetas-folha-pasta {
+        font-family: Arial, sans-serif;
+        color: #000;
+    }
+
+    .etiquetas-editor .etiquetas-ficha {
+        box-sizing: border-box;
+        height: 148.4mm;
+        padding: 4mm 6mm;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+        break-inside: avoid;
+    }
+
+    .etiquetas-ficha + .etiquetas-ficha {
+        border-top: 1px dashed #000;
+    }
+
+    .etiquetas-editor .etiquetas-escola {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3mm;
+        margin-bottom: 1.5mm;
+        font-size: 16pt;
+    }
+
+    .etiquetas-escola img {
+        width: 11mm;
+        height: 11mm;
+        object-fit: contain;
+    }
+
+    .etiquetas-aluno-identificacao,
+    .etiquetas-aluno-detalhes {
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+        gap: 0;
+        margin: 0;
+        border: 1px solid #000;
+    }
+
+    .etiquetas-aluno-detalhes {
+        border-top: 0;
+    }
+
+    .etiquetas-aluno-identificacao > :first-child,
+    .etiquetas-aluno-documentos {
+        border-right: 1px solid #000;
+    }
+
+    .etiquetas-editor .etiquetas-aluno-documentos {
+        display: block;
+    }
+
+    .etiquetas-campo-ficha,
+    .etiquetas-editor .etiquetas-aluno-documentos h3 {
+        display: flex;
+        align-items: center;
+        gap: 1.5mm;
+        height: 8.3mm;
+        padding: 0 2mm;
+        margin: 0;
+        color: #000;
+        line-height: 1.15;
+    }
+
+    .etiquetas-aluno-documentos > :not(:last-child) {
+        border-bottom: 1px solid #000;
+    }
+
+    .etiquetas-campo-ficha label,
+    .etiquetas-editor .etiquetas-aluno-documentos h3 {
+        margin: 0;
+        color: #000;
+        font-size: 8pt;
+        font-weight: 700;
+        letter-spacing: normal;
+        text-transform: uppercase;
+    }
+
+    .etiquetas-ficha label:not(.visually-hidden)::after {
+        content: ":";
+    }
+
+    .etiquetas-editor .etiquetas-aluno-documentos h3 {
+        justify-content: center;
+    }
+
+    .etiquetas-valor-ficha {
+        min-width: 0;
+        max-height: 2lh;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        font-size: 9pt;
+        text-transform: uppercase;
+    }
+
+    .etiquetas-historico-scroll {
+        padding: 0;
+        margin: 0;
+        overflow: visible;
+    }
+
+    .etiquetas-historico table {
+        min-width: 0;
+        border-collapse: collapse;
+    }
+
+    .etiquetas-historico th,
+    .etiquetas-historico td {
+        height: 8.3mm;
+        padding: 0;
+        border: 1px solid #000;
+        border-top: 0;
+        border-left: 0;
+    }
+
+    .etiquetas-historico :is(th, td):last-child {
+        border-right: 0;
+    }
+
+    .etiquetas-historico tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .etiquetas-historico th {
+        color: #000;
+        background: none;
+        font-size: 7.5pt;
+        text-transform: uppercase;
+    }
+
+    .etiquetas-historico .etiquetas-campo-ficha {
+        justify-content: center;
+        padding: 0 1mm;
+        text-align: center;
+    }
+
+    .etiquetas-pagina-passivo {
+        padding-top: 10mm;
+        break-inside: avoid;
+    }
+
+    .etiquetas-pagina-passivo + .etiquetas-pagina-passivo {
+        break-before: page;
+    }
+}

@@ -15,7 +15,7 @@ require_once __DIR__ . '/BackupSnapshot.php';
 
 final class DatabaseInitializer
 {
-    private const LATEST_VERSION = 24;
+    private const LATEST_VERSION = 25;
 
     public static function latestVersion(): int
     {
@@ -162,8 +162,25 @@ final class DatabaseInitializer
             22 => self::migrateStudentSchoolLinks($pdo),
             23 => self::addColumnIfMissing($pdo, 'pedido_paginas', 'prazo_faturamento', 'TEXT NULL'),
             24 => self::addColumnIfMissing($pdo, 'usuarios', 'staff_grants', 'TEXT NULL'),
+            25 => self::migrateAgenda($pdo),
             default => throw new RuntimeException('Versao de migracao desconhecida.'),
         };
+    }
+
+    private static function migrateAgenda(PDO $pdo): void
+    {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS agenda_avisos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+            data_aviso TEXT NOT NULL,
+            titulo TEXT NOT NULL,
+            descricao TEXT NOT NULL DEFAULT '',
+            criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )");
+        self::addColumnIfMissing($pdo, 'agenda_avisos', 'tipo', 'TEXT');
+        self::addColumnIfMissing($pdo, 'agenda_avisos', 'revisao', 'INTEGER NOT NULL DEFAULT 1 CHECK (revisao >= 1)');
+        self::addColumnIfMissing($pdo, 'agenda_avisos', 'excluido_em', 'TEXT');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_agenda_data ON agenda_avisos (data_aviso, id) WHERE excluido_em IS NULL');
     }
 
     private static function migrateStudentSchoolLinks(PDO $pdo): void

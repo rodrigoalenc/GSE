@@ -43,7 +43,8 @@
             "node tests/browser-students-preview.mjs",
             "node tests/browser-passivo-batch.mjs",
             "node tests/browser-passivo-cadastro.mjs",
-            "node tests/browser-report-downloads.mjs"
+            "node tests/browser-report-downloads.mjs",
+            "node tests/browser-etiquetas.mjs"
         ],
         "maintenance": "@php bin/maintenance.php",
         "notify-dva": "@php bin/notify-dva.php",

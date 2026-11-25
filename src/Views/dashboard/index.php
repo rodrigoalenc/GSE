@@ -42,6 +42,22 @@ $totalPendencias = (int) $moduloDois['sem_dva'] + (int) $moduloDois['vencidas'] 
         </details>
     <?php endif; ?>
 
+    <?php if (!empty($agenda)): ?>
+        <section class="relatorio dashboard-agenda" aria-labelledby="dashboard-agenda-title">
+            <div class="section-head">
+                <div><h2 id="dashboard-agenda-title"><?= gse_icon('calendar') ?> Próximos compromissos</h2><p>Avisos e feriados de hoje até os próximos sete dias.</p></div>
+                <a class="btn-secondary" href="<?= e(url('agenda')) ?>">Abrir agenda</a>
+            </div>
+            <ul class="dashboard-agenda-list">
+                <?php foreach ($agenda as $evento): ?>
+                    <li><time datetime="<?= e($evento['data']) ?>"><?= $evento['data'] === $agendaHoje ? 'Hoje' : e((new DateTimeImmutable($evento['data']))->format('d/m')) ?></time>
+                        <a href="<?= e(url('agenda?data=' . rawurlencode($evento['data']))) ?>#agenda-dia-<?= e($evento['data']) ?>"><?= e($evento['titulo']) ?></a>
+                        <span class="form-help">· <?= e($evento['tipo']) ?></span></li>
+                <?php endforeach; ?>
+            </ul>
+        </section>
+    <?php endif; ?>
+
     <?php if ($aniversariantesHoje !== []): ?>
         <section class="dashboard-birthday-today" aria-labelledby="dashboard-birthday-today-title">
             <h2 id="dashboard-birthday-today-title"><span aria-hidden="true">🎈</span> Aniversariantes de hoje</h2>

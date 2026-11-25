@@ -20,7 +20,7 @@ No Windows:
 
 O instalador verifica SHA256 de distribuições oficiais e usa `%LOCALAPPDATA%/GSE`; não altera o PHP global. `GSE_PHP_BINARY` permite selecionar outro executável compatível. Em Linux, use os comandos Composer com o PHP corrigido do servidor e execute `php bin/runtime-check.php` antes de liberar HTTP. A versão do executável SQLite de terminal não comprova a biblioteca carregada pelo PDO.
 
-**Migração por CLI, em manutenção:** pare requisições e agendadores escritores, valide o backup conjunto de banco/PDF/chaveiro e rode a versão compatível do código. `php bin/init-db.php` aplica versões ausentes até **24**; a migração de proteção v17 em banco existente mantém o procedimento explícito de `bin/security.php`. Execute como o proprietário do banco e das chaves; no servidor configurado com arquivos privados de www-data, use `sudo -u www-data php bin/init-db.php`. Requisições web só verificam compatibilidade e não migram o banco. O servidor de desenvolvimento não inicializa o banco ao iniciar.
+**Migração por CLI, em manutenção:** pare requisições e agendadores escritores, valide o backup conjunto de banco/PDF/chaveiro e rode a versão compatível do código. `php bin/init-db.php` aplica versões ausentes até **25**; a migração de proteção v17 em banco existente mantém o procedimento explícito de `bin/security.php`. Execute como o proprietário do banco e das chaves; no servidor configurado com arquivos privados de www-data, use `sudo -u www-data php bin/init-db.php`. Requisições web só verificam compatibilidade e não migram o banco. O servidor de desenvolvimento não inicializa o banco ao iniciar.
 
 Documentação vigente:
 
@@ -41,11 +41,11 @@ Entrega funcional e endurecida do Gestor de Secretaria Escolar:
 - UC006 — contratos, folhas, produtos e movimentação de estoque;
 - UC007 — relatórios de alunos e situação da DVA.
 
-O sistema usa PHP corrigido de 64 bits, SQLite e MVC sem framework. O esquema atual é **v24**. A revisão de usabilidade acrescenta busca completa, rascunhos de sessão, conferência de edições concorrentes, pedidos em etapas e transferência/retorno escolar com histórico. Consulte [o escopo e a validação](Documentação/USABILIDADE-2026-10-23.md). O aceite institucional depende do ambiente e dos usuários reais.
+O sistema usa PHP corrigido de 64 bits, SQLite e MVC sem framework. O esquema atual é **v25**. A revisão de usabilidade acrescenta busca completa, rascunhos de sessão, conferência de edições concorrentes, pedidos em etapas e transferência/retorno escolar com histórico. Consulte [o escopo e a validação](Documentação/USABILIDADE-2026-10-23.md). O aceite institucional depende do ambiente e dos usuários reais.
 
 ## Módulo 4 — instalação e operação
 
-A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação; o banco atual chega à **v24**. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. Funcionários e administradores autenticados podem consultar e administrar certidões, fornecedores e tipos. O aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
+A migração **v14** do módulo protege a revisão de fornecedores/tipos e registra tentativas de notificação. O inicializador valida um backup antes de atualizar banco existente. SMTP ocorre fora da transação SQLite, sob lock exclusivo do processo. A matriz pagina fornecedores e documentos de cada coluna, com filtro de pendências, prazo e tela cheia. Funcionários e administradores autenticados podem consultar e administrar certidões, fornecedores e tipos. O aceite institucional e a interpretação acadêmica da exclusão lógica permanecem pendentes.
 
 - Requer `ext-fileinfo`, `ext-intl`, `ext-mbstring`, `ext-pdo_sqlite` e as demais extensões já declaradas no Composer.
 - PDFs: `CERTIDAO_STORAGE_PATH` absoluto fora de `public` (padrão `storage/certidoes`), `CERTIDAO_PDF_MAX_BYTES=10485760`; PHP inicial `upload_max_filesize=10M`, `post_max_size=12M`.
@@ -373,7 +373,7 @@ Quando HTTPS é reconhecido com segurança, o sistema ativa cookie `Secure`, HST
 
 O banco permanece fora de `public/`; em produção essa regra é validada e uma configuração insegura é recusada. No Linux, diretório e arquivos SQLite/`-wal`/`-shm` recebem permissões restritivas. No Windows, o código não tenta aplicar modos POSIX; use ACLs NTFS para o usuário do serviço.
 
-`schema_migrations` controla versões individuais de 1 a 21. `php bin/init-db.php` exige `GSE_KEYRING_PATH` e pode ser repetido em bancos já protegidos; bancos existentes com usuários exigem a migração explícita v17 antes de abrir o HTTP. A inicialização por CLI cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação. A v15 acrescenta contratos/notas/produtos, valores em centavos, limites e movimentos de estoque, registro de operações e preservação dos valores legados. A v16 corrige indicadores de localização incompleta e impede novos registros completos sem caixa ou posição. As versões 17 a 21 acrescentam proteção de dados, aditivos, movimentação e progressão anual, revisões de edição e índices.
+`schema_migrations` controla versões individuais de 1 a 25. `php bin/init-db.php` exige `GSE_KEYRING_PATH` e pode ser repetido em bancos já protegidos; bancos existentes com usuários exigem a migração explícita v17 antes de abrir o HTTP. A inicialização por CLI cria esquema limpo ou aplica somente versões ausentes, em ordem, sem apagar tabelas/Models futuros. As versões 5 a 11 acrescentam o ciclo de vida de alunos, dados de turmas, histórico da DVA, recursos de auditoria, preferência de alertas, controle idempotente de entregas, comparação Unicode persistida e convergência estrutural do schema. A v12 profissionaliza o Arquivo Passivo sem apagar registros legados. A v13 acrescenta autoria, PDFs privados, renovação e exclusão lógica das certidões e controle diário de entregas. A v14 adiciona revisão às listas de fornecedores/tipos e registro de tentativas de notificação. A v15 acrescenta contratos/notas/produtos, valores em centavos, limites e movimentos de estoque, registro de operações e preservação dos valores legados. A v16 corrige indicadores de localização incompleta e impede novos registros completos sem caixa ou posição. As versões 17 a 21 acrescentam proteção de dados, aditivos, movimentação e progressão anual, revisões de edição e índices.
 
 | Versão | Alteração |
 |---|---|
@@ -395,6 +395,10 @@ O banco permanece fora de `public/`; em produção essa regra é validada e uma 
 | 19 | Movimentação escolar com histórico e confirmação idempotente |
 | 20 | Progressão anual, referência letiva e controle de confirmação |
 | 21 | Revisão em alunos/turmas/passivo e índices de produtos/operações |
+| 22 | Histórico de vínculos escolares |
+| 23 | Prazo de faturamento por nota |
+| 24 | Permissões de funcionários |
+| 25 | Avisos da agenda com autoria, revisão e exclusão lógica |
 
 Na atualização legada, todos os alunos permanecem ativos, `atualizado_em` deriva do timestamp de criação quando disponível e anos letivos desconhecidos continuam nulos. A v6 reconstrói a restrição antiga de turmas com `foreign_keys` alterado somente fora da transação, preserva IDs e o mapa exato `aluno_id → id_turma`, compara contagens e IDs de alunos/turmas/DVAs e exige `PRAGMA foreign_key_check` vazio antes do commit e após restaurar a proteção. Qualquer divergência provoca rollback. Para múltiplas DVAs antigas, a vigente é escolhida deterministicamente por `criado_em` e, em empate, pelo maior ID; as demais viram históricas sem datas fabricadas.
 
@@ -503,6 +507,14 @@ Rotas adicionais:
 | POST | `/passivo/exportar` | autenticado + CSRF |
 | GET/POST | `/aluno/arquivar/{id}` | administrador + CSRF em POST |
 
+## Agenda e etiquetas
+
+Abra **Agenda** para navegar pelo mês ou pela semana. Funcionários e administradores podem consultar e criar avisos. O autor e os administradores podem editar e excluir avisos. O painel mostra avisos e feriados dos próximos sete dias. Os feriados nacionais e de Vicentina são calculados no próprio GSE.
+
+Administradores podem abrir **Importar calendário**, enviar o PDF escolar ou colar o texto, selecionar os avisos reconhecidos e confirmar. PDFs escaneados precisam de texto transcrito ou extraído por OCR. A prévia tem validade de 15 minutos. A migração v25 cria a agenda e acrescenta revisão e exclusão lógica aos avisos legados que já existam na mesma base.
+
+Em **Etiquetas**, o modelo **Pasta de aluno** imprime duas fichas independentes por folha A4. O modelo **Arquivo passivo** imprime Caixa e Livro em páginas separadas e aceita listas TXT e XML do Word. Os dados digitados ficam na página até ela ser fechada ou limpa.
+
 ## Testes e comandos Composer
 
 ```bash
@@ -517,7 +529,7 @@ composer security-check
 composer check
 ```
 
-PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v24, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
+PHPUnit usa bancos temporários e cobre autenticação, bloqueio/expiração, sessões, senha temporária, CSRF, autorização, usuários, último administrador, alunos, turmas, DVA, semáforo, rollback, notificações, auditoria, headers, host/proxy/HTTPS, migrações até v25, limites/tokens/integridade do CSV e SQLite, certidões e estoque. `tests/http-smoke.php` inicia servidores temporários e testa fluxos HTTP dos cinco módulos em Windows/Linux, incluindo permissões do Arquivo Passivo, PDFs privados, contratos e exportação de relatórios. No PowerShell, `tests/manual-http.ps1` é um wrapper equivalente.
 
 As regressões de auditoria provocam falhas no log e conferem rollback dos dados, histórico, preferências e versões. A criação inicial do administrador é testada pela CLI, inclusive com dois processos concorrentes; um rehash tardio não pode desfazer um reset de senha. Os testes de backup cobrem WAL sem checkpoint, restauração independente, permissões, CSRF, confirmação de senha, arquivos inexistentes e falhas de auditoria na geração e no download. Testes de permissões POSIX e links simbólicos precisam executar no Linux.
 
@@ -548,7 +560,6 @@ As regressões de auditoria provocam falhas no log e conferem rollback dos dados
 - disponibilidade distribuída exigiria rate limiting e sessões em armazenamento compartilhado;
 - alterações futuras do logo ou da identidade institucional dependem de aprovação da escola;
 - notificações dependem de um SMTP institucional configurado e de agendamento externo;
-- agenda e etiquetas não integram o escopo atual;
 - a edição acadêmica de 34 páginas foi lida; as ambiguidades de atores, exclusão lógica e PDF opcional, assim como a importação CSV aditiva em relação ao fluxo substitutivo descrito, exigem decisão acadêmica/institucional;
 - o aceite institucional e a validação de usabilidade com os usuários permanecem pendentes.
 

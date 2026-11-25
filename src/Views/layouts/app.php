@@ -5,6 +5,8 @@ $title = $title ?? 'GSE';
 $isAdmin = Auth::isAdmin();
 $currentPath = trim((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? ''), '/');
 $dashboardActive = in_array($currentPath, ['dashboard', 'painel', ''], true);
+$agendaActive = $currentPath === 'agenda' || str_starts_with($currentPath, 'agenda/');
+$etiquetaActive = $currentPath === 'etiqueta' || str_starts_with($currentPath, 'etiqueta/');
 $profileActive = $currentPath === 'usuario/perfil';
 $usersActive = str_starts_with($currentPath, 'usuario') && !$profileActive;
 $auditActive = str_starts_with($currentPath, 'auditoria');
@@ -32,9 +34,11 @@ $flashClass = [
 ];
 $navigation = [
     ['dashboard', 'Painel geral', 'layout', $dashboardActive, true],
+    ['agenda', 'Agenda', 'calendar', $agendaActive, true],
     ['aluno', 'Alunos', 'users', $studentsActive, true],
     ['dva', 'DVAs', 'clipboard', $dvaActive, AccessPolicy::allows('student.health')],
     ['passivo', 'Arquivo passivo', 'archive', $passiveActive, true],
+    ['etiqueta', 'Etiquetas', 'tag', $etiquetaActive, true],
     ['certidao', 'Certidões', 'certificate', $certActive, true],
     ['contrato', 'Pedidos', 'orders', $contractActive, true],
     ['estoque', 'Estoque', 'box', $stockActive, true],
@@ -48,6 +52,7 @@ $adminNavigation = [
 ];
 $pageIcon = match (true) {
     $dashboardActive => 'layout', $studentsActive => 'users', $dvaActive => 'clipboard',
+    $agendaActive => 'calendar', $etiquetaActive => 'tag',
     $passiveActive => 'archive', $certActive => 'certificate', $contractActive => 'orders',
     $stockActive => 'box', $reportActive => 'chart', $classesActive => 'school',
     $auditActive => 'shield', $backupActive => 'database', $passwordActive => 'key', default => 'user',
@@ -90,6 +95,8 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
         <link rel="stylesheet" href="<?= e(url('assets/css/passivo.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/passivo.css'), 0, 12))) ?>">
     <?php endif; ?>
     <link rel="stylesheet" href="<?= e(url('assets/css/institucional.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/institucional.css'), 0, 12))) ?>">
+    <?php if ($agendaActive || $dashboardActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/agenda.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/agenda.css'), 0, 12))) ?>"><?php endif; ?>
+    <?php if ($etiquetaActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/etiquetas.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/etiquetas.css'), 0, 12))) ?>"><?php endif; ?>
     <?php if ($currentPath === 'aluno/criar' || str_starts_with($currentPath, 'aluno/editar/')): ?><link rel="stylesheet" href="<?= e(url('assets/css/alunos-form.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/alunos-form.css'), 0, 12))) ?>"><?php endif; ?>
     <?php if ($dvaActive): ?><link rel="stylesheet" href="<?= e(url('assets/css/dva.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/dva.css'), 0, 12))) ?>"><?php endif; ?>
     <?php if ($currentPath === 'aluno'): ?><link rel="stylesheet" href="<?= e(url('assets/css/alunos-preview.css?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/css/alunos-preview.css'), 0, 12))) ?>"><?php endif; ?>
@@ -175,6 +182,8 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
 <script src="<?= e(url('assets/js/pedidos-usabilidade.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/pedidos-usabilidade.js'), 0, 12))) ?>"></script>
 <script src="<?= e(url('assets/js/app.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/app.js'), 0, 12))) ?>"></script>
 <script src="<?= e(url('assets/js/usabilidade.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/usabilidade.js'), 0, 12))) ?>"></script>
+<?php if ($currentPath === 'agenda/importar'): ?><script src="<?= e(url('assets/js/agenda-importacao.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/agenda-importacao.js'), 0, 12))) ?>"></script><?php endif; ?>
+<?php if ($etiquetaActive): ?><script src="<?= e(url('assets/js/etiquetas.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/etiquetas.js'), 0, 12))) ?>"></script><?php endif; ?>
 <?php if ($currentPath === 'aluno'): ?><script src="<?= e(url('assets/js/alunos-preview.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/alunos-preview.js'), 0, 12))) ?>"></script><?php endif; ?>
 <script src="<?= e(url('assets/js/list-state.js?v=' . substr((string) hash_file('sha256', ROOT_PATH . '/public/assets/js/list-state.js'), 0, 12))) ?>"></script>
 </body>

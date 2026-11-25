@@ -1,0 +1,104 @@
+.agenda-page { display: grid; gap: 18px; }
+.agenda-page .relatorio { min-width: 0; margin: 0; }
+.agenda-periodo-header, .agenda-toolbar, .agenda-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.agenda-periodo-header, .agenda-toolbar { justify-content: space-between; gap: 12px; }
+.agenda-periodo-header h2, .agenda-periodo-header p { margin: 0; }
+.agenda-periodo-header p { color: var(--text-muted); font-size: .875rem; }
+.agenda-toolbar { margin: 16px 0 0; }
+.agenda-actions .btn-primary, .agenda-actions .btn-secondary, .agenda-dia-link { min-height: 38px; }
+.agenda-actions form { margin: 0; }
+.agenda-calendario {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin-top: 14px;
+    font-size: .875rem;
+}
+.agenda-calendario th, .agenda-calendario td { border: 1px solid var(--border-color); }
+.agenda-calendario th { color: var(--primary-dark); background: var(--bg-body); text-align: center; padding: 6px 2px; }
+.agenda-calendario td { vertical-align: top; height: 84px; padding: 0 4px 4px; }
+.agenda-dia-fora { background: var(--bg-body); }
+.agenda-dia.selecionado, .agenda-grupo:target { background: var(--bg-body); }
+.agenda-dia.hoje { box-shadow: inset 0 3px var(--primary-color); }
+.agenda-dia-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3px;
+    padding: 3px;
+    color: var(--primary-dark);
+    text-decoration: none;
+    font-weight: 700;
+}
+.agenda-dia-link:hover { text-decoration: underline; }
+.agenda-dia-contagem {
+    padding: 1px 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-size: .75rem;
+    line-height: 1.25;
+    background: #fff;
+}
+.agenda-dia-previa { display: grid; gap: 3px; padding: 0; margin: 0; list-style: none; }
+.agenda-dia-previa li { min-width: 0; }
+.agenda-dia-previa a {
+    display: block;
+    padding: 2px 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: inherit;
+    font-size: .75rem;
+}
+.agenda-evento-aviso { color: var(--primary-dark); background: #edf5fe; }
+.agenda-evento-feriado { color: #215d36; background: #e6f3eb; }
+.agenda-detalhes { display: grid; align-items: start; grid-template-columns: minmax(0, 3fr) minmax(235px, 2fr); gap: 18px; }
+.agenda-vazio, .agenda-autoria { color: var(--text-muted); }
+.agenda-grupo { padding: 8px 0; scroll-margin-top: 16px; }
+.agenda-grupo + .agenda-grupo { border-top: 1px solid var(--border-color); }
+.agenda-grupo h3 { margin-bottom: 6px; }
+.agenda-item {
+    border-radius: 6px;
+    margin: 0 0 6px;
+    padding: 8px 10px;
+    overflow-wrap: anywhere;
+}
+.agenda-item summary { cursor: pointer; }
+.agenda-item span { margin-inline-start: 8px; font-size: .8125rem; }
+.agenda-item-conteudo { padding-top: 5px; }
+.agenda-item-conteudo p { margin: 0 0 6px; }
+.agenda-descricao { white-space: pre-wrap; }
+.agenda-form { scroll-margin-top: 16px; }
+.agenda-form form, .agenda-campo { display: grid; gap: 7px; }
+.agenda-campo { margin-bottom: 10px; }
+.agenda-campo p { margin: 0; }
+.agenda-campo :is(input, textarea) { width: 100%; min-width: 0; }
+.agenda-form .error-message { padding-inline-start: 28px; }
+.agenda-importacao { max-width: 1100px; }
+.agenda-importacao .table-scroll { margin-bottom: 12px; }
+.agenda-importacao-campos { display: grid; grid-template-columns: minmax(110px, 150px) minmax(0, 1fr); gap: 12px; }
+.agenda-importacao-atalhos { margin: 0 0 12px; }
+.agenda-importacao-atalhos[hidden] { display: none; }
+.agenda-importacao input[type="checkbox"] { width: 20px; height: 20px; }
+.dashboard-agenda-list { list-style: none; display: grid; gap: 6px; padding: 0; margin: 10px 0 0; }
+.dashboard-agenda-list a { overflow-wrap: anywhere; }
+.dashboard-agenda-list time { margin-inline-end: 6px; color: var(--text-muted); }
+
+@media (max-width: 915px) {
+    .agenda-dia-previa { display: none; }
+    .agenda-calendario td { height: auto; }
+}
+
+@media (max-width: 650px) {
+    .agenda-page { gap: 12px; }
+    .agenda-page .relatorio { padding: 13px; }
+    .agenda-detalhes, .agenda-importacao-campos { grid-template-columns: minmax(0, 1fr); }
+    .agenda-calendario td { padding: 0 1px; }
+    .agenda-dia-link { justify-content: center; flex-wrap: wrap; }
+    .agenda-actions .btn-primary, .agenda-actions .btn-secondary, .agenda-dia-link { min-height: 44px; }
+}

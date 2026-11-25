@@ -38,9 +38,21 @@ final class DashboardController extends Controller
         $birthdayPages = max(1, (int) ceil($birthdayTotal / 20));
         $birthdayPage = max(1, min($birthdayPages, (int) (filter_var($_GET['aniversariantes_pagina'] ?? 1, FILTER_VALIDATE_INT) ?: 1)));
         require_once ROOT_PATH . '/src/Model/Certidao.php';
+        require_once ROOT_PATH . '/src/Model/Agenda.php';
+        require_once ROOT_PATH . '/src/Services/FeriadosAgenda.php';
+        $hoje = UiPresentation::localNow()->setTime(0, 0);
+        $agendaHoje = $hoje->format('Y-m-d');
+        $agendaLimite = $hoje->modify('+7 days')->format('Y-m-d');
+        $agenda = (new FeriadosAgenda())->listarProximos($hoje, 7);
+        foreach ((new Agenda())->listar($agendaHoje, $agendaLimite) as $aviso) {
+            $agenda[] = ['data' => $aviso['data_aviso'], 'titulo' => $aviso['titulo'], 'tipo' => $aviso['tipo'] ?? 'Aviso'];
+        }
+        usort($agenda, static fn (array $a, array $b): int => [$a['data'], $a['titulo']] <=> [$b['data'], $b['titulo']]);
         $viewData = [
             'title' => 'Painel de Controle',
             'certidoes' => (new Certidao())->summary(),
+            'agenda' => $agenda,
+            'agendaHoje' => $agendaHoje,
             'moduloDois' => $canViewHealth ? $painel->resumo($statusService) : array_fill_keys(['sem_dva', 'vencidas', 'vence_hoje', 'a_vencer', 'vigentes'], 0) + ['alunos_ativos' => $alunos->contar(['ativo' => '1']), 'alunos_inativos' => $alunos->contar(['ativo' => '0'])],
             'alunosPorStatus' => $canViewHealth ? $painel->alunosPorStatus($statusService) : array_fill_keys(DvaStatus::ALL, []),
             'canViewHealth' => $canViewHealth,

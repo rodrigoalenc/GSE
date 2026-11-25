@@ -16,6 +16,15 @@ final class Router
             $this->route('POST', 'login/sair', 'LoginController', 'sair', true, false, true),
             $this->route('GET', 'dashboard', 'DashboardController', 'index', true),
             $this->route('POST', 'dashboard', 'DashboardController', 'index', true),
+            $this->route('GET', 'agenda', 'AgendaController', 'index', true),
+            $this->route('POST', 'agenda/cadastrar', 'AgendaController', 'cadastrar', true),
+            $this->route('POST', 'agenda/editar/{id}', 'AgendaController', 'editar', true),
+            $this->route('POST', 'agenda/excluir/{id}', 'AgendaController', 'excluir', true),
+            $this->route('GET', 'agenda/importar', 'AgendaController', 'importar', true, true),
+            $this->route('POST', 'agenda/importar', 'AgendaController', 'importar', true, true),
+            $this->route('GET', 'etiqueta', 'EtiquetaController', 'index', true),
+            $this->route('GET', 'etiqueta/pasta', 'EtiquetaController', 'pasta', true),
+            $this->route('GET', 'etiqueta/caixa', 'EtiquetaController', 'caixa', true),
             $this->route('GET', 'formulario/rascunho', 'FormDraftController', 'read', true),
             $this->route('POST', 'formulario/rascunho', 'FormDraftController', 'save', true),
             $this->route('GET', 'contrato', 'ContratoController', 'index', true),
@@ -193,7 +202,7 @@ final class Router
             }
 
             if ($method === 'POST' && $_POST === [] && $_FILES === []
-                && in_array($route['pattern'], ['aluno/importar/preview', 'certidao/cadastrar', 'certidao/renovar/{id}'], true)) {
+                && in_array($route['pattern'], ['aluno/importar/preview', 'agenda/importar', 'certidao/cadastrar', 'certidao/renovar/{id}'], true)) {
                 require_once __DIR__ . '/UploadLimits.php';
                 if (UploadLimits::formTooLarge((int) ($_SERVER['CONTENT_LENGTH'] ?? 0))) {
                     render_http_error(413, 'Envio acima do limite',
@@ -210,7 +219,7 @@ final class Router
 
             require_once __DIR__ . '/ActionBudget.php';
             try {
-                if ($route['auth'] && preg_match('~(?:^(?:dashboard|aluno|dva)$|^aluno/(?:perfil|dva)/[0-9]+$|exportar|imprimir|download|baixar|preview|backup/criar|relatorio/(?:csv|pdf)|certidao/(?:pdf|cadastrar|renovar|editar))~', $path) === 1) {
+                if ($route['auth'] && preg_match('~(?:^(?:dashboard|aluno|dva|agenda/importar)$|^aluno/(?:perfil|dva)/[0-9]+$|exportar|imprimir|download|baixar|preview|backup/criar|relatorio/(?:csv|pdf)|certidao/(?:pdf|cadastrar|renovar|editar))~', $path) === 1) {
                     ActionBudget::consume(\src\Core\Database::getConnection(), (int) $_SESSION['usuario_id'], $route['pattern'], false);
                 }
                 $this->invoke($route, $params);

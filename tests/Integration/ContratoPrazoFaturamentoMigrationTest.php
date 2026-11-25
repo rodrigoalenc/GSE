@@ -32,7 +32,7 @@ final class ContratoPrazoFaturamentoMigrationTest extends DatabaseTestCase
         DatabaseInitializer::initialize($old);
         DatabaseInitializer::initialize($old);
 
-        $this->assertSame(24, (int) $old->query('PRAGMA user_version')->fetchColumn());
+        $this->assertSame(25, (int) $old->query('PRAGMA user_version')->fetchColumn());
         $this->assertSame(1, (int) $old->query('SELECT COUNT(*) FROM schema_migrations WHERE version=23')->fetchColumn());
         $notes = $old->query('SELECT * FROM pedido_paginas ORDER BY id')->fetchAll();
         foreach ($notes as &$note) {
