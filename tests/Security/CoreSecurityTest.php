@@ -34,7 +34,7 @@ final class CoreSecurityTest extends TestCase
         $match = $reflection->getMethod('match');
         $match->setAccessible(true);
 
-        $this->assertCount(143, $routes);
+        $this->assertCount(144, $routes);
         $this->assertEmpty(array_filter($routes, static fn (array $route): bool => str_starts_with($route['pattern'], 'passivo/ferramentas')));
         $routeKeys = array_map(static fn (array $route): string => $route['method'] . ' ' . $route['pattern'], $routes);
         $this->assertCount(count($routes), array_unique($routeKeys), 'Cada método/caminho deve ter uma única autorização.');
@@ -90,9 +90,16 @@ final class CoreSecurityTest extends TestCase
         $this->assertTrue($stockReview[0]['admin']);
         $this->assertSame('POST', $stockReview[0]['method']);
         $this->assertTrue($stockReview[0]['auth']);
-        foreach (['estoque/iniciar/{id}','estoque/receber/{id}','estoque/consumir/{id}','estoque/alertas/{id}','contrato/recebimento/{id}'] as $path) {
+        foreach ([
+            'estoque/pedido/{id}' => ['GET'],
+            'estoque/iniciar/{id}' => ['GET', 'POST'],
+            'estoque/receber/{id}' => ['GET', 'POST'],
+            'estoque/consumir/{id}' => ['GET', 'POST'],
+            'estoque/alertas/{id}' => ['GET', 'POST'],
+            'contrato/recebimento/{id}' => ['GET', 'POST'],
+        ] as $path => $methods) {
             $stockRoutes=array_values(array_filter($routes,static fn(array $route): bool=>$route['pattern']===$path));
-            $this->assertSame(['GET','POST'],array_column($stockRoutes,'method'));
+            $this->assertSame($methods,array_column($stockRoutes,'method'));
             foreach ($stockRoutes as $route) {
                 $this->assertTrue($route['auth']);
                 $this->assertFalse($route['admin']);

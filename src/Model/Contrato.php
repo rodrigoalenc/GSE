@@ -17,6 +17,19 @@ final class Contrato extends Model
     public const MAX_SHEETS = 20;
     public const MAX_ITEMS = 100;
 
+    private const STOCK_COLUMNS = "COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo,
+        EXISTS(SELECT 1 FROM modulo5_valores_legados v WHERE v.tabela='pedido_produtos' AND v.registro_id=i.id) AS legado,
+        CASE WHEN i.estoque_inicializado=1
+            AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id)
+            AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id
+                AND o.tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida'))
+        THEN 1 ELSE 0 END AS abertura_sem_comprovacao";
+
+    private const ACTIVE_STOCK_ITEM = 'i.excluido_em IS NULL AND EXISTS(
+        SELECT 1 FROM pedido_paginas pg
+        WHERE pg.id_pedido=i.id_pedido AND pg.numero_pagina=i.numero_pagina AND pg.excluido_em IS NULL
+    )';
+
     public function __construct(private readonly ?CertidaoStatus $certificateDates = null)
     {
         parent::__construct();
@@ -160,7 +173,8 @@ final class Contrato extends Model
             if ((int)$count->fetchColumn() > self::MAX_ITEMS) { throw new DomainException('Esta nota ultrapassa 100 produtos e precisa de revisão técnica antes da impressão.'); }
         }
         $scope = $sheetNumber === null ? '' : ' AND i.numero_pagina=?';
-        $query = self::$pdo->prepare("SELECT i.*, COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, EXISTS(SELECT 1 FROM modulo5_valores_legados v WHERE v.tabela='pedido_produtos' AND v.registro_id=i.id) AS legado, CASE WHEN i.estoque_inicializado=1 AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id) AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id AND o.tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida')) THEN 1 ELSE 0 END AS abertura_sem_comprovacao FROM pedido_produtos i WHERE i.id_pedido=?" . $scope . ' ORDER BY i.numero_pagina,i.id');
+        $query = self::$pdo->prepare('SELECT i.*, ' . self::STOCK_COLUMNS
+            . ' FROM pedido_produtos i WHERE i.id_pedido=?' . $scope . ' ORDER BY i.numero_pagina,i.id');
         $query->execute($arguments);
         return $query->fetchAll();
     }
@@ -203,12 +217,48 @@ final class Contrato extends Model
     public function stockList(string $search='',int $page=1): array
     {
         $term='%'.str_replace(['\\','%','_'],['\\\\','\\%','\\_'],mb_substr(trim($search),0,100)).'%';
-        $from=" FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido WHERE p.excluido_em IS NULL AND i.excluido_em IS NULL AND EXISTS(SELECT 1 FROM pedido_paginas pg WHERE pg.id_pedido=i.id_pedido AND pg.numero_pagina=i.numero_pagina AND pg.excluido_em IS NULL) AND (i.nome_produto LIKE ? ESCAPE '\\' OR i.marca LIKE ? ESCAPE '\\' OR p.titulo LIKE ? ESCAPE '\\')";
+        $from=" FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido WHERE p.excluido_em IS NULL AND "
+            . self::ACTIVE_STOCK_ITEM . " AND (i.nome_produto LIKE ? ESCAPE '\\' OR i.marca LIKE ? ESCAPE '\\' OR p.titulo LIKE ? ESCAPE '\\')";
         $count=self::$pdo->prepare('SELECT COUNT(*)'.$from); $count->execute([$term,$term,$term]); $total=(int)$count->fetchColumn();
         $pages=max(1,(int)ceil($total/20)); $page=max(1,min($page,$pages));
-        $q=self::$pdo->prepare("SELECT i.*,p.titulo,COALESCE((SELECT SUM(m.quantidade) FROM estoque_movimentos m WHERE m.produto_id=i.id),0) AS saldo, EXISTS(SELECT 1 FROM modulo5_valores_legados v WHERE v.tabela='pedido_produtos' AND v.registro_id=i.id) AS legado, CASE WHEN i.estoque_inicializado=1 AND NOT EXISTS(SELECT 1 FROM estoque_movimentos m WHERE m.produto_id=i.id) AND NOT EXISTS(SELECT 1 FROM modulo5_operacoes o WHERE o.recurso_id=i.id AND o.tipo IN ('abertura_estoque','abertura_zero_conferida','abertura_legada_conferida')) THEN 1 ELSE 0 END AS abertura_sem_comprovacao".$from.' ORDER BY i.id DESC LIMIT 20 OFFSET ?');
+        $q=self::$pdo->prepare('SELECT i.*,p.titulo,' . self::STOCK_COLUMNS . $from . ' ORDER BY i.id DESC LIMIT 20 OFFSET ?');
         $q->bindValue(1,$term); $q->bindValue(2,$term); $q->bindValue(3,$term); $q->bindValue(4,($page-1)*20,PDO::PARAM_INT); $q->execute();
         return ['items'=>$q->fetchAll(),'total'=>$total,'page'=>$page,'pages'=>$pages];
+    }
+
+    /** @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int} */
+    public function stockOrders(string $search, int $page): array
+    {
+        $term = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr(trim($search), 0, 100)) . '%';
+        $activeItems = ' FROM pedido_produtos i WHERE i.id_pedido=p.id AND ' . self::ACTIVE_STOCK_ITEM;
+        $from = " FROM pedidos p WHERE p.excluido_em IS NULL AND (p.titulo LIKE ? ESCAPE '\\' OR EXISTS(
+            SELECT 1" . $activeItems . " AND (i.nome_produto LIKE ? ESCAPE '\\' OR i.marca LIKE ? ESCAPE '\\')
+        ))";
+        $count = self::$pdo->prepare('SELECT COUNT(*)' . $from);
+        $count->execute([$term, $term, $term]);
+        $total = (int) $count->fetchColumn();
+        $pages = max(1, (int) ceil($total / 20));
+        $page = max(1, min($page, $pages));
+
+        $query = self::$pdo->prepare('SELECT p.id,p.titulo,(SELECT COUNT(*)' . $activeItems . ') AS produtos'
+            . $from . ' ORDER BY p.id DESC LIMIT 20 OFFSET ?');
+        $query->bindValue(1, $term);
+        $query->bindValue(2, $term);
+        $query->bindValue(3, $term);
+        $query->bindValue(4, ($page - 1) * 20, PDO::PARAM_INT);
+        $query->execute();
+        return ['items' => $query->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function stockOrderItems(int $id): array
+    {
+        $query = self::$pdo->prepare('SELECT i.*, ' . self::STOCK_COLUMNS
+            . ' FROM pedido_produtos i JOIN pedidos p ON p.id=i.id_pedido
+                WHERE i.id_pedido=? AND p.excluido_em IS NULL AND ' . self::ACTIVE_STOCK_ITEM
+            . ' ORDER BY i.numero_pagina,i.id');
+        $query->execute([$id]);
+        return $query->fetchAll();
     }
 
     public function create(string $title, string $money, string $supplier, int $actor, ?string $requestToken = null): int

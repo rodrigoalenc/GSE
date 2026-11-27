@@ -51,12 +51,23 @@ $stockActionInitialUrl=$baseUrl.'/estoque/iniciar/'.$stockActionProduct.$stockAc
 $stockActionReceiveUrl=$baseUrl.'/estoque/receber/'.$stockActionProduct.$stockActionSuffix;
 $stockActionConsumeUrl=$baseUrl.'/estoque/consumir/'.$stockActionProduct.$stockActionSuffix;
 $stockActionAlertsUrl=$baseUrl.'/estoque/alertas/'.$stockActionProduct.$stockActionSuffix;
-$stockActionList=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Pedido HTTP controle simples de estoque','pagina'=>'1']);
+$stockActionOrderUrl=$baseUrl.'/estoque/pedido/'.$stockActionContract;
+$stockActionOrders=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'CHAM','pagina'=>'1']);
+$stockActionOrderLinks=(new DOMXPath(stockActionDocument($stockActionOrders['body'])))->query('//a[@href="'.$stockActionOrderUrl.'"]');
+checkHttp($stockActionOrders['status']===200 && $stockActionOrderLinks?->length===1
+    && str_contains($stockActionOrderLinks->item(0)->textContent,'Pedido HTTP controle simples de estoque')
+    && !str_contains($stockActionOrders['body'],'id="produto-'.$stockActionProduct.'"'),
+    'Busca por marca localiza o pedido uma vez, com o título como link para o estoque do pedido');
+checkHttp(request('GET',$stockActionOrderUrl,$cookieGuest)['status']===302
+    && request('GET',$baseUrl.'/estoque/pedido/999999',$cookieEmployee)['status']===404,
+    'Estoque do pedido exige autenticação e retorna 404 para pedido inexistente');
+$stockActionList=request('GET',$stockActionOrderUrl,$cookieEmployee);
 $stockActionHeaders=(new DOMXPath(stockActionDocument($stockActionList['body'])))->query('//table/thead/tr/th');
 $stockActionHeaderNames=[];
 foreach ($stockActionHeaders ?: [] as $stockActionHeader) { $stockActionHeaderNames[]=trim($stockActionHeader->textContent); }
 checkHttp($stockActionList['status']===200 && $stockActionHeaderNames===['Produto','Disponível agora','Situação','Ações']
-    && str_contains($stockActionList['body'],'Açúcar cristalizado HTTP') && str_contains($stockActionList['body'],'CHAM'),
+    && str_contains($stockActionList['body'],'Açúcar cristalizado HTTP') && str_contains($stockActionList['body'],'CHAM')
+    && str_contains($stockActionList['body'],'Produto HTTP sem unidades'),
     'Estoque concentra produto e marca, disponível agora, situação e ações em quatro colunas');
 checkHttp(!str_contains($stockActionList['body'],'saldo de abertura') && !str_contains($stockActionList['body'],'Abertura pendente'),
     'Tela diária usa termos claros para a quantidade inicial');
@@ -86,12 +97,13 @@ $stockActionPreview=request('POST',$stockActionInitialUrl,$cookieEmployee,array_
 $stockActionConfirmed=request('POST',$stockActionInitialUrl,$cookieEmployee,array_replace(stockActionFields($stockActionPreview['body']),['etapa'=>'confirmar']));
 $stockActionConfigured=$stockActionDb->query('SELECT * FROM pedido_produtos WHERE id='.$stockActionProduct)->fetch();
 checkHttp($stockActionConfirmed['status']===302 && str_contains($stockActionConfirmed['headers']['location'],'busca=')
+    && str_starts_with($stockActionConfirmed['headers']['location'],$stockActionOrderUrl.'?')
     && str_ends_with($stockActionConfirmed['headers']['location'],'#produto-'.$stockActionProduct)
     && $stockActionBalance()===20 && (int)$stockActionConfigured['estoque_inicializado']===1
     && $stockActionConfigured['estoque_minimo']===null && $stockActionConfigured['estoque_maximo']===null,
     'Confirmar quantidade inicial registra vinte unidades sem exigir limites e preserva a busca no retorno');
-$stockActionAfterInitial=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Pedido HTTP controle simples de estoque','pagina'=>'1']);
-checkHttp(!str_contains($stockActionAfterInitial['body'],'estoque/iniciar/'.$stockActionProduct.'?')
+$stockActionAfterInitial=request('GET',$stockActionOrderUrl,$cookieEmployee);
+checkHttp(!str_contains($stockActionAfterInitial['body'],'estoque/iniciar/'.$stockActionProduct.'"')
     && str_contains($stockActionAfterInitial['body'],'estoque/receber/'.$stockActionProduct)
     && str_contains($stockActionAfterInitial['body'],'estoque/consumir/'.$stockActionProduct)
     && !str_contains(request('GET',$stockActionInitialUrl,$cookieEmployee)['body'],'class="stock-action-form"'),
@@ -119,13 +131,14 @@ checkHttp(str_contains(stockActionText($stockActionConsumePreview['body']),'Voc�
     && $stockActionBalance()===30,'Consumo informa a quantidade utilizada e a redução exata antes de confirmar');
 $stockActionConsumed=request('POST',$stockActionConsumeUrl,$cookieEmployee,array_replace(stockActionFields($stockActionConsumePreview['body']),['etapa'=>'confirmar']));
 checkHttp($stockActionConsumed['status']===302 && $stockActionBalance()===24 && $stockActionCount()===3,'Consumo confirmado desconta a quantidade e grava um movimento');
-$stockActionHistory=request('GET',$baseUrl.'/contrato/historico/'.$stockActionProduct,$cookieEmployee);
+$stockActionHistory=request('GET',$baseUrl.'/contrato/historico/'.$stockActionProduct.'?origem=estoque',$cookieEmployee);
 $stockActionLast=$stockActionDb->query('SELECT * FROM estoque_movimentos WHERE produto_id='.$stockActionProduct.' ORDER BY id DESC LIMIT 1')->fetch();
 $stockActionHistoryCells=(new DOMXPath(stockActionDocument($stockActionHistory['body'])))->query('//table/tbody/tr[1]/td');
 $stockActionExpectedTime=(new DateTimeImmutable($stockActionLast['criado_em'],new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('America/Cuiaba'))->format('d/m/Y H:i');
 checkHttp($stockActionHistory['status']===200 && str_contains(stockActionText($stockActionHistory['body']),'Consumo')
     && str_contains(stockActionText($stockActionHistory['body']),'-6') && (int)$stockActionLast['quantidade']===-6 && $stockActionLast['criado_em']!==''
     && (int)$stockActionLast['usuario_id']===$employeeActorId && trim($stockActionHistoryCells?->item(1)?->textContent ?? '')===$stockActionExpectedTime
+    && str_contains($stockActionHistory['body'],$stockActionOrderUrl.'#produto-'.$stockActionProduct)
     && trim($stockActionHistoryCells?->item(5)?->textContent ?? '')==='Funcionário HTTP Editado',
     'Histórico mantém consumo, quantidade, data e autoria da movimentação');
 
@@ -139,7 +152,7 @@ checkHttp($stockActionAlerts['status']===200 && str_contains($stockActionAlerts[
 $stockActionAlertSave=request('POST',$stockActionAlertsUrl,$cookieEmployee,array_replace(stockActionFields($stockActionAlerts['body']),['minimo'=>'24','maximo'=>'']));
 $stockActionAlertState=$stockActionDb->query('SELECT estoque_minimo,estoque_maximo FROM pedido_produtos WHERE id='.$stockActionProduct)->fetch();
 checkHttp($stockActionAlertSave['status']===302 && (int)$stockActionAlertState['estoque_minimo']===24 && $stockActionAlertState['estoque_maximo']===null
-    && str_contains(listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Pedido HTTP controle simples de estoque','pagina'=>'1'])['body'],'Estoque baixo'),'Mínimo opcional sinaliza estoque baixo sem configurar bloqueio máximo');
+    && str_contains(request('GET',$stockActionOrderUrl,$cookieEmployee)['body'],'Estoque baixo'),'Mínimo opcional sinaliza estoque baixo sem configurar bloqueio máximo');
 $stockActionAlerts=request('GET',$stockActionAlertsUrl,$cookieEmployee);
 $stockActionBadCap=request('POST',$stockActionAlertsUrl,$cookieEmployee,array_replace(stockActionFields($stockActionAlerts['body']),['minimo'=>'0','maximo'=>'23']));
 checkHttp($stockActionBadCap['status']===200 && stockActionFields($stockActionBadCap['body'])['maximo']==='23'

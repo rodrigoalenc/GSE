@@ -1,6 +1,6 @@
 <?php $unit=match ($product['unidade']) { 'UN' => 'unidades', 'K' => 'quilogramas', 'Litros' => 'litros', default => $product['unidade'] }; ?>
 <section class="relatorio stock-form-card">
-<p><a href="<?= e(url($back)) ?>"><?= $returnToReceipt ? 'Voltar ao recebimento' : 'Voltar ao estoque' ?></a></p>
+<p><a href="<?= e(url($back)) ?>"><?= $returnToReceipt ? 'Voltar ao recebimento' : 'Voltar ao estoque do pedido' ?></a></p>
 <h2><?= e($product['nome_produto']) ?><?= $product['marca'] ? ' — '.e($product['marca']) : '' ?></h2>
 <p><?= e($product['contrato_titulo']) ?> · Nota <?= (int)$product['numero_pagina'] ?> · Unidade: <?= e($unit) ?></p>
 <?php if ((int)$product['estoque_inicializado']===1 && !(int)$product['abertura_sem_comprovacao']): ?><p>Disponível agora: <strong><?= (int)$product['saldo'] ?> <?= e($unit) ?></strong></p><?php endif; ?>

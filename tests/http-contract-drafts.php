@@ -166,11 +166,18 @@ checkHttp(str_contains($draftBillingSaved['body'],'Faturamento registrado.')
     && $draftBillingActual['data_faturamento']===$draftBillingToday && $draftBillingActual['prazo_faturamento']===$draftBillingDeadline,
     'Marcar e confirmar grava o dia do faturamento e mantém o prazo original');
 $draftBilledStock=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Produto 3']);
+$draftStockUrl=$baseUrl.'/estoque/pedido/'.$draftContract;
+$draftStockDetails=request('GET',$draftStockUrl,$cookieEmployee);
 checkHttp($draftBilledStock['status']===200
-    && str_contains($draftBilledStock['body'],'estoque/iniciar/'.$draftProduct3)
+    && str_contains($draftBilledStock['body'],'estoque/pedido/'.$draftContract)
+    && !str_contains($draftBilledStock['body'],'id="produto-'.$draftProduct3.'"')
+    && $draftStockDetails['status']===200
+    && str_contains($draftStockDetails['body'],'estoque/iniciar/'.$draftProduct3)
+    && str_contains($draftStockDetails['body'],'id="produto-'.$draftProduct1.'"')
+    && str_contains($draftStockDetails['body'],'id="produto-'.$draftProduct2.'"')
     && (int)$draftDb->query('SELECT estoque_inicializado FROM pedido_produtos WHERE id='.$draftProduct3)->fetchColumn()===0
     && (int)$draftDb->query('SELECT COUNT(*) FROM estoque_movimentos WHERE produto_id='.$draftProduct3)->fetchColumn()===0,
-    'Nota faturada mantém estoque físico pendente e oferece a confirmação da quantidade inicial no estoque');
+    'Busca por um produto lista o pedido; ao abrir, aparecem os produtos de todas as notas e suas ações');
 $draftEmployeeCorrection=contractDraftFields($draftBillingSaved['body'],'billing-note-'.$draftNote3);
 unset($draftEmployeeCorrection['faturado']);
 $draftEmployeeCorrection['motivo']='Tentativa de remover faturamento';
@@ -229,7 +236,7 @@ checkHttp($draftSaved['status']===302 && !str_contains($draftSaved['headers']['l
 $draftStockPage=request('GET',$draftUrl,$cookieEmployee);
 $draftOpening=array_replace(contractDraftLegacyStockFields($draftStockPage['body'],'stock-config-'.$draftProduct1,$draftProduct1),['minimo'=>'0','maximo'=>'20','abertura'=>'5','confirmar_abertura'=>'1']);
 request('POST',$baseUrl.'/contrato/estoque/'.$draftContract,$cookieEmployee,$draftOpening);
-$draftOpenedStock=listRequest($baseUrl,'estoque',$cookieEmployee,['busca'=>'Pedido HTTP rascunhos']);
+$draftOpenedStock=request('GET',$draftStockUrl,$cookieEmployee);
 checkHttp($draftOpenedStock['status']===200
     && str_contains($draftOpenedStock['body'],'estoque/receber/'.$draftProduct1)
     && str_contains($draftOpenedStock['body'],'estoque/consumir/'.$draftProduct1)

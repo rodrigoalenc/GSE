@@ -9,6 +9,8 @@ if (isset($_GET['busca']) && is_string($_GET['busca'])) { $return['busca']=$_GET
 if (($_GET['situacao'] ?? '')==='excluidos') { $return['situacao']='excluidos'; }
 if (isset($_GET['pagina']) && filter_var($_GET['pagina'],FILTER_VALIDATE_INT)) { $return['pagina']=$_GET['pagina']; }
 $fromStock=($_GET['origem'] ?? '')==='estoque';
+$back=($fromStock ? 'estoque/pedido/' : 'contrato/detalhes/').$product['id_pedido']
+    .($return ? '?'.http_build_query($return) : '').($fromStock ? '#produto-'.(int)$product['id'] : '');
 $labels=['abertura'=>'Quantidade inicial','entrada'=>'Recebimento','saida'=>'Consumo','estorno'=>'Estorno'];
 $confirmed=(int)$product['estoque_inicializado']===1 && $movements!==[];
 $totals=['available'=>0,'received'=>0,'consumed'=>0]; $types=[];
@@ -20,7 +22,7 @@ foreach ($movements as $move) {
     if ($type==='saida') { $totals['consumed']-=$quantity; }
 }
 ?>
-<section class="relatorio modulo5-hero"><p><a href="<?= e(url(($fromStock ? 'estoque' : 'contrato/detalhes/'.$product['id_pedido']).($return ? '?'.http_build_query($return) : ''))) ?>"><?= $fromStock ? 'Voltar ao estoque' : 'Voltar ao pedido' ?></a></p>
+<section class="relatorio modulo5-hero"><p><a href="<?= e(url($back)) ?>"><?= $fromStock ? 'Voltar ao estoque do pedido' : 'Voltar ao pedido' ?></a></p>
 <h2>Histórico de <?= e($product['nome_produto']) ?></h2>
 <p>Pedido #<?= (int)$product['id_pedido'] ?>: <?= e($product['contrato_titulo']) ?> · Nota <?= (int)$product['numero_pagina'] ?> · Unidade: <?= e($product['unidade']) ?></p>
 <p>Cada registro mostra quando ocorreu, a quantidade e quem registrou. Consumos reduzem a quantidade disponível; estornos desfazem o movimento indicado.</p>

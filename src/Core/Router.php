@@ -31,6 +31,7 @@ final class Router
             $this->route('POST', 'contrato', 'ContratoController', 'index', true),
             $this->route('GET', 'estoque', 'EstoqueController', 'index', true),
             $this->route('POST', 'estoque', 'EstoqueController', 'index', true),
+            $this->route('GET', 'estoque/pedido/{id}', 'EstoqueController', 'pedido', true),
             $this->route('GET', 'estoque/iniciar/{id}', 'EstoqueController', 'iniciar', true),
             $this->route('POST', 'estoque/iniciar/{id}', 'EstoqueController', 'iniciar', true),
             $this->route('GET', 'estoque/receber/{id}', 'EstoqueController', 'receber', true),

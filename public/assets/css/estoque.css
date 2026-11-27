@@ -1,5 +1,23 @@
+.stock-order-list { list-style: none; margin: 0; padding: 0; }
+.stock-order-list li + li { border-top: 1px solid var(--border-color); }
+.stock-order-list a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    padding: 12px;
+    color: var(--primary-color);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+.stock-order-list a:hover { background: var(--bg-body); }
+.stock-order-list a:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+.stock-order-list strong { display: block; text-decoration: underline; }
+.stock-order-list small, .stock-order-count { color: var(--text-muted); }
 .stock-table { min-width: 760px; }
 .stock-table th, .stock-table td { padding: 16px; vertical-align: middle; }
+.stock-table tr:target td { background: var(--bg-body); }
 .stock-product-source { display: block; margin-top: 6px; color: #61738b; font-weight: 400; }
 .stock-row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .stock-row-actions .btn { white-space: nowrap; min-height: 36px; display: inline-flex; align-items: center; }

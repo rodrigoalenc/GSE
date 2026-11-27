@@ -10,7 +10,26 @@ final class EstoqueController extends Controller
     {
         $search=is_string($_GET['busca'] ?? null) ? $_GET['busca'] : '';
         $page=filter_var($_GET['pagina'] ?? 1,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 1;
-        $this->view('estoque/index',['title'=>'Estoque','search'=>$search,'result'=>(new Contrato())->stockList($search,$page)]);
+        $this->view('estoque/index',['title'=>'Estoque','search'=>$search,'result'=>(new Contrato())->stockOrders($search,$page)]);
+    }
+
+    public function pedido(string $rawId): void
+    {
+        $model = new Contrato();
+        try {
+            $id = Contrato::integer($rawId, 1);
+            $order = $model->find($id);
+        } catch (DomainException) {
+            render_http_error(404, 'Pedido indisponível', 'O pedido solicitado não está disponível no estoque.', 'estoque');
+        }
+        if ($order['excluido_em'] !== null) {
+            render_http_error(404, 'Pedido indisponível', 'O pedido solicitado não está disponível no estoque.', 'estoque');
+        }
+        $this->view('estoque/pedido', [
+            'title' => 'Estoque do pedido',
+            'order' => $order,
+            'items' => $model->stockOrderItems($id),
+        ]);
     }
 
     public function iniciar(string $id): void { $this->form($id,'iniciar'); }
@@ -64,7 +83,7 @@ final class EstoqueController extends Controller
         if (isset($_GET['busca']) && is_string($_GET['busca'])) { $query['busca']=mb_substr($_GET['busca'],0,100); }
         $page=filter_var($_GET['pagina'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if ($page!==false) { $query['pagina']=$page; }
-        $stockBack='estoque'.($query ? '?'.http_build_query($query) : '');
+        $stockBack='estoque/pedido/'.$product['id_pedido'].($query ? '?'.http_build_query($query) : '').'#produto-'.$id;
         $receiptBack=null;
         $sheet=filter_var($_GET['folha'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if ($mode==='iniciar' && $sheet===$product['folha_id']) {
@@ -93,7 +112,7 @@ final class EstoqueController extends Controller
                 if ($revision!==(int)$product['revisao']) { throw new DomainException('A quantidade ou a configuração mudou desde que você abriu o formulário. Confira os dados atuais e tente novamente.'); }
                 if ($mode==='alertas') {
                     $model->configureStock((int)$product['id_pedido'],$id,Contrato::stockLimit($minimum, false),Contrato::stockLimit($maximum, true),$revision,(int)$_SESSION['usuario_id']);
-                    $this->redirectWithFlash($back.'#produto-'.$id,'success','Alertas de estoque salvos.');
+                    $this->redirectWithFlash($back,'success','Alertas de estoque salvos.');
                 }
                 $amount=Contrato::integer($quantity,$mode==='iniciar' ? 0 : 1);
                 $key=$this->field('chave');
@@ -109,7 +128,7 @@ final class EstoqueController extends Controller
                     if ($mode==='iniciar') { $model->initializeStock((int)$product['id_pedido'],$id,$amount,$revision,(int)$_SESSION['usuario_id'],$key,Auth::isAdmin()); }
                     else { $model->move((int)$product['id_pedido'],$id,$mode==='consumir' ? 'saida' : 'entrada',$amount,$mode==='consumir' ? 'Consumo na escola' : 'Recebimento registrado no estoque',$key,(int)$_SESSION['usuario_id'],$revision); }
                     unset($_SESSION['stock_previews'][$key]);
-                    $this->redirectWithFlash($receiptBack ?? $stockBack.'#produto-'.$id,'success',$mode==='iniciar' ? 'Quantidade inicial confirmada.' : ($mode==='consumir' ? 'Consumo registrado.' : 'Recebimento registrado.'));
+                    $this->redirectWithFlash($back,'success',$mode==='iniciar' ? 'Quantidade inicial confirmada.' : ($mode==='consumir' ? 'Consumo registrado.' : 'Recebimento registrado.'));
                 }
                 if ($this->field('etapa')!=='editar') {
                     $preview=['quantity'=>$amount,'before'=>$balance,'after'=>$after];
