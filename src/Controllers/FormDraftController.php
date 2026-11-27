@@ -67,5 +67,7 @@ final class FormDraftController extends Controller
             AccessPolicy::require('student.health');
         }
         elseif (str_starts_with($target, 'aluno/')) { AccessPolicy::require('student.manage'); }
+        elseif (str_starts_with($target, 'contrato/')) { AccessPolicy::require('orders.access'); }
+        elseif (str_starts_with($target, 'certidao/')) { AccessPolicy::require('certificates.access'); }
     }
 }

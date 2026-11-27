@@ -39,9 +39,9 @@ $navigation = [
     ['dva', 'DVAs', 'clipboard', $dvaActive, AccessPolicy::allows('student.health')],
     ['passivo', 'Arquivo passivo', 'archive', $passiveActive, true],
     ['etiqueta', 'Etiquetas', 'tag', $etiquetaActive, true],
-    ['certidao', 'Certidões', 'certificate', $certActive, true],
-    ['contrato', 'Pedidos', 'orders', $contractActive, true],
-    ['estoque', 'Estoque', 'box', $stockActive, true],
+    ['certidao', 'Certidões', 'certificate', $certActive, AccessPolicy::allows('certificates.access')],
+    ['contrato', 'Pedidos', 'orders', $contractActive, AccessPolicy::allows('orders.access')],
+    ['estoque', 'Estoque', 'box', $stockActive, AccessPolicy::allows('orders.access')],
     ['relatorio', 'Relatórios', 'chart', $reportActive, AccessPolicy::allows('student.export')],
 ];
 $adminNavigation = [
@@ -104,7 +104,7 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
 <body data-draft-endpoint="<?= e(url('formulario/rascunho')) ?>" data-list-context="<?= e(json_encode(NavigationContext::links(), JSON_THROW_ON_ERROR)) ?>" data-list-page="<?= e($listPage ?? '') ?>" data-list-state-token="<?= e($listStateToken ?? '') ?>" data-list-state-expired="<?= !empty($listStateExpired) ? '1' : '0' ?>">
 <a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
 <div class="layout-container">
-    <aside class="sidebar" aria-label="Menu principal">
+    <aside id="gse-sidebar" class="sidebar" aria-label="Menu principal">
         <div class="sidebar-header">
             <a class="sidebar-brand" href="<?= e(url($mustChangePassword ? 'senha/alterar' : 'dashboard')) ?>" aria-label="GSE — E.E. São José">
                 <img class="sidebar-brand-icon" src="<?= e(url('assets/image/logo_escola.png')) ?>" alt="Logotipo da E.E. São José">
@@ -117,7 +117,7 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
         <nav id="gse-main-navigation">
             <?php if (!$mustChangePassword): ?>
                 <?php foreach ($navigation as [$path, $label, $icon, $active, $allowed]): if (!$allowed) { continue; } ?>
-                <a href="<?= e(url($path)) ?>" class="sidebar-link <?= $active ? 'active' : '' ?>" <?= $active ? 'aria-current="page"' : '' ?>>
+                <a href="<?= e(url($path)) ?>" class="sidebar-link <?= $active ? 'active' : '' ?>" title="<?= e($label) ?>" aria-label="<?= e($label) ?>" <?= $active ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon"><?= gse_icon($icon) ?></span><span class="sidebar-label"><?= e($label) ?></span>
                 </a>
                 <?php endforeach; ?>
@@ -127,13 +127,13 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
                 <div class="sidebar-divider"></div>
                 <small class="sidebar-section-label">Administração</small>
                 <?php foreach ($adminNavigation as [$path, $label, $icon, $active]): ?>
-                <a href="<?= e(url($path)) ?>" class="sidebar-link <?= $active ? 'active' : '' ?>" <?= $active ? 'aria-current="page"' : '' ?>>
+                <a href="<?= e(url($path)) ?>" class="sidebar-link <?= $active ? 'active' : '' ?>" title="<?= e($label) ?>" aria-label="<?= e($label) ?>" <?= $active ? 'aria-current="page"' : '' ?>>
                     <span class="sidebar-icon"><?= gse_icon($icon) ?></span><span class="sidebar-label"><?= e($label) ?></span>
                 </a>
                 <?php endforeach; ?>
             <?php endif; ?>
 
-            <a href="<?= e(url('senha/alterar')) ?>" class="sidebar-link <?= $passwordActive ? 'active' : '' ?>" <?= $passwordActive ? 'aria-current="page"' : '' ?>>
+            <a href="<?= e(url('senha/alterar')) ?>" class="sidebar-link <?= $passwordActive ? 'active' : '' ?>" aria-label="Alterar senha" title="Alterar senha" <?= $passwordActive ? 'aria-current="page"' : '' ?>>
                 <span class="sidebar-icon"><?= gse_icon('key') ?></span>
                 <span class="sidebar-label">Alterar senha</span>
             </a>
@@ -148,13 +148,23 @@ $userInitials = mb_strtoupper(mb_substr($nameParts[0], 0, 1) . (count($nameParts
             </div>
             <form class="logout-form" method="post" action="<?= e(url('login/sair')) ?>">
                 <input type="hidden" name="_csrf_token" value="<?= e(csrf_token()) ?>">
-                <button class="btn-sair" type="submit"><?= gse_icon('logout') ?><span>Sair do sistema</span></button>
+                <button class="btn-sair" type="submit" aria-label="Sair do sistema" title="Sair do sistema"><?= gse_icon('logout') ?><span>Sair do sistema</span></button>
             </form>
         </div>
     </aside>
 
     <div class="main-content-wrapper">
-        <div class="app-topbar"><span>E.E. São José <span class="topbar-divider">/</span> Secretaria escolar</span><span class="topbar-account"><?= gse_icon('user') ?> <?= e($userName) ?></span></div>
+        <div class="app-topbar">
+            <div class="topbar-brand">
+                <button type="button" class="sidebar-desktop-toggle" data-sidebar-compact aria-expanded="true" aria-controls="gse-sidebar" aria-label="Recolher menu lateral" title="Recolher menu lateral" hidden><?= gse_icon('menu') ?></button>
+                <span>E.E. São José <span class="topbar-divider">/</span> Secretaria escolar</span>
+            </div>
+            <?php if ($mustChangePassword): ?>
+                <span class="topbar-account"><?= gse_icon('user') ?> <?= e($userName) ?></span>
+            <?php else: ?>
+                <a class="topbar-account" href="<?= e(url('usuario/perfil')) ?>" title="Editar meu perfil"><?= gse_icon('user') ?> <?= e($userName) ?></a>
+            <?php endif; ?>
+        </div>
         <header class="page-header <?= e($certHeaderClass) ?>">
             <div class="page-heading"><p class="page-breadcrumb"><?= $usersActive || $auditActive || $backupActive || $classesActive ? 'Administração' : 'Secretaria' ?><span>/</span><?php if ($usersActive && $currentPath !== 'usuario'): ?><a href="<?= e(url('usuario')) ?>">Usuários</a><span>/</span><?php elseif ($studentsActive && $currentPath !== 'aluno'): ?><a href="<?= e(url('aluno')) ?>">Alunos</a><span>/</span><?php endif; ?><?= e($pageHeading) ?></p><h1><?= gse_icon($pageIcon) ?><?= e($pageHeading) ?></h1></div>
             <?php $contextList = $studentsActive ? 'aluno' : ($passiveActive ? 'passivo' : ($contractActive ? 'contrato' : ($stockActive ? 'estoque' : ($certActive ? 'certidao' : ($usersActive ? 'usuario' : ($classesActive ? 'turma' : null)))))); ?>

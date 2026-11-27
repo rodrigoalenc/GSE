@@ -10,9 +10,11 @@
     $permissionHelp = [
         'student.manage' => 'Inclui a consulta aos telefones do aluno e do responsável.',
         'student.export' => 'Inclui dados de DVA e exportação do Arquivo Passivo.',
+        'orders.access' => 'Permite consultar e gerenciar pedidos, produtos e movimentos de estoque conforme o perfil.',
+        'certificates.access' => 'Permite consultar e gerenciar certidões e acessar seus PDFs conforme o perfil.',
     ];
     foreach (AccessPolicy::STAFF_PERMISSIONS as $permission => $label):
-        $fieldId = 'grant-' . substr($permission, strlen('student.'));
+        $fieldId = 'grant-' . (str_starts_with($permission, 'student.') ? substr($permission, strlen('student.')) : str_replace('.', '-', $permission));
         $fieldName = 'grants[' . $permission . ']';
         $grant = $dados['grants'][$permission] ?? null;
     ?>

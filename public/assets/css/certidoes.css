@@ -800,3 +800,47 @@ body.cert-option-modal-open { overflow: hidden; }
     .cert-year-filter { flex-wrap:wrap; }
     .cert-detail { padding:24px; }
 }
+
+/* Validity colors shared by the overview, filters and matrix. */
+.cert-overview.cert-overview-corrente {
+    padding: 20px 22px;
+    color: var(--primary-dark);
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-inline-start: 4px solid var(--primary-color);
+    border-radius: 10px;
+    box-shadow: none;
+}
+.cert-overview-corrente h2 { color: var(--primary-dark); font-size: clamp(1.25rem, 2vw, 1.7rem); }
+.cert-overview-corrente p { color: var(--text-muted); font-weight: 400; }
+.cert-overview-corrente .cert-stats .cert-stat {
+    min-width: 94px;
+    padding: 8px 12px;
+    color: var(--status-ink);
+    background: var(--status-paper);
+    border: 1px solid var(--status-line);
+    border-radius: 8px;
+}
+.cert-overview-corrente .cert-stat strong { color: inherit; }
+.cert-overview-corrente .cert-stats .cert-stat span { color: inherit; white-space: nowrap; }
+.cert-vigente, .cert-filter-chip.valid { --status-paper: #e1f3e9; --status-ink: #1d5b41; --status-line: #88bfa1; --status-accent: #3b8964; }
+.cert-a_vencer, .cert-vence_hoje, .cert-filter-chip.warning { --status-paper: #fff2d8; --status-ink: #704b03; --status-line: #e1ba72; --status-accent: #bf7a14; }
+.cert-vencida, .cert-filter-chip.expired { --status-paper: #fbe8e8; --status-ink: #8d2b34; --status-line: #dc9a9f; --status-accent: #bd4c58; }
+.cert-pendente { --status-paper: #f1eaff; --status-ink: #4f347b; --status-line: #c4afe1; --status-accent: #8056b1; }
+.cert-matrix-scroll .cert-matrix thead th { color: #fff; background: var(--primary-color); }
+.cert-matrix-scroll .cert-matrix thead th:first-child { background: var(--primary-dark); }
+.cert-matrix .cert-card { background: var(--status-paper); border-color: var(--status-line); border-inline-start: 4px solid var(--status-accent); border-top-width: 1px; box-shadow: none; }
+.cert-matrix .cert-card .cert-deadline { padding: 2px 0; color: var(--status-ink); background: transparent; border-radius: 0; text-transform: none; letter-spacing: 0; }
+.cert-matrix .cert-card-dates dt { color: var(--text-muted); }
+.cert-matrix .cert-card-links { border-top-color: var(--status-line); }
+.cert-matrix .cert-card-links a { color: var(--primary-color); background: #fff; }
+.cert-matrix .cert-card-links a:hover { background: var(--bg-body); }
+.cert-matrix .cert-card-links .cert-link-delete { color: #8d2b34; }
+#cert-workspace .cert-status-filters .cert-filter-chip:not(.active):is(.valid,.warning,.expired) {
+    color: var(--status-ink);
+    background: var(--status-paper);
+    border-color: var(--status-line);
+}
+#cert-workspace .cert-status-filters .cert-filter-chip:not(.active):is(.valid,.warning,.expired)::before {
+    background: var(--status-accent);
+}

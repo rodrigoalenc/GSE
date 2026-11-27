@@ -181,6 +181,8 @@ final class Router
             $this->authorize($route);
             require_once __DIR__ . '/AccessPolicy.php';
             $permission = match (true) {
+                in_array($route['controller'], ['ContratoController', 'EstoqueController'], true) => 'orders.access',
+                $route['controller'] === 'CertidaoController' => 'certificates.access',
                 str_starts_with($route['pattern'], 'relatorio'), $route['pattern'] === 'passivo/exportar' => 'student.export',
                 $route['pattern'] === 'dva', str_starts_with($route['pattern'], 'aluno/dva/') => 'student.health',
                 in_array($route['pattern'], ['aluno/criar', 'aluno/editar/{id}', 'aluno/status/{id}'], true) => 'student.manage',
@@ -197,7 +199,11 @@ final class Router
                     'aluno/status/{id}' => 'Alterar situação de aluno',
                     'dva' => 'Consultar a lista de DVAs',
                     'aluno/dva/{id}' => $method === 'POST' ? 'Salvar DVA' : 'Consultar DVA do aluno',
-                    default => null,
+                    default => match ($permission) {
+                        'orders.access' => 'Acessar Pedidos e Estoque',
+                        'certificates.access' => 'Acessar Certidões',
+                        default => null,
+                    },
                 };
                 AccessPolicy::require($permission, $operation);
             }

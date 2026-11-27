@@ -13,6 +13,29 @@
         });
         mobile.addEventListener('change',syncMenu); syncMenu();
     }
+    const compactToggle = document.querySelector('[data-sidebar-compact]');
+    if (compactToggle) {
+        const layout = compactToggle.closest('.layout-container');
+        const desktop = matchMedia('(min-width: 769px)');
+        const storageKey = 'gse:sidebar-compact';
+        let compact = false;
+        try { compact = localStorage.getItem(storageKey) === '1'; } catch (_) { /* Session-only preference. */ }
+        const syncCompact = () => {
+            compactToggle.hidden = !desktop.matches;
+            layout.classList.toggle('is-sidebar-compact', compact && desktop.matches);
+            compactToggle.setAttribute('aria-expanded', String(!compact));
+            const label = compact ? 'Expandir menu lateral' : 'Recolher menu lateral';
+            compactToggle.setAttribute('aria-label', label);
+            compactToggle.title = label;
+        };
+        compactToggle.addEventListener('click', () => {
+            compact = !compact;
+            try { localStorage.setItem(storageKey, compact ? '1' : '0'); } catch (_) { /* Keep the current state. */ }
+            syncCompact();
+        });
+        desktop.addEventListener('change', syncCompact);
+        syncCompact();
+    }
     const entries = [];
     let navigating = false;
     const signature = (form) => JSON.stringify([...form.elements].filter(el => el.name && !el.disabled && !['hidden','submit','button'].includes(el.type)).map(el => [el.name, ['checkbox','radio'].includes(el.type) ? el.checked : el.value]));

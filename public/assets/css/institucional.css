@@ -46,6 +46,20 @@ h1, h2, h3, h4 { color: var(--primary-dark); letter-spacing: -.025em; }
 .app-topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 61px; margin: 0 -30px; padding: 0 30px; color: #526a84; background: #fff; border-bottom: 1px solid var(--border-color); font-size: 12px; }
 .topbar-divider { color: #9aaec3; padding: 0 9px; }
 .topbar-account { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--primary-dark); }
+.topbar-brand { display: flex; align-items: center; gap: 10px; }
+.sidebar-desktop-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--primary-dark);
+}
+.sidebar-desktop-toggle[hidden] { display: none; }
+.sidebar-desktop-toggle:hover { background: var(--bg-body); }
+.sidebar-desktop-toggle:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 .topbar-account .gse-icon { width: 17px; height: 17px; flex-basis: 17px; }
 .page-header { padding: 26px 0 21px; margin: 0 0 22px; gap: 16px; border-bottom: 1px solid var(--border-color); align-items: flex-end; flex-wrap: wrap; }
 .page-breadcrumb { display: flex; align-items: center; gap: 9px; margin: 0 0 9px; color: var(--text-muted); font-size: 11px; }
@@ -168,6 +182,12 @@ label { font-size: 12px; color: var(--primary-dark); font-weight: 650; }
 @media (min-width: 769px) {
     .sidebar { width: 228px; }
     .main-content-wrapper { width: calc(100% - 228px); margin-left: 228px; }
+    .is-sidebar-compact .sidebar { width: 64px; }
+    .is-sidebar-compact .main-content-wrapper { width: calc(100% - 64px); margin-left: 64px; }
+    .is-sidebar-compact .sidebar-header { padding: 14px 8px; }
+    .is-sidebar-compact .sidebar nav, .is-sidebar-compact .sidebar-footer { padding: 12px 8px; }
+    .is-sidebar-compact .sidebar-link, .is-sidebar-compact .btn-sair { justify-content: center; padding: 9px 0; }
+    .is-sidebar-compact :is(.sidebar-brand-text, .sidebar-school, .sidebar-label, .sidebar-section-label, .sidebar-user, .btn-sair span) { display: none; }
 }
 @media (max-width: 1100px) {
     .main-content-wrapper { padding-right: 22px; padding-left: 22px; }

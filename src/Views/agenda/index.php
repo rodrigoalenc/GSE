@@ -94,6 +94,11 @@ $editando = $edicao !== null;
             ?>
             </tbody>
         </table>
+        <ul class="agenda-legenda" aria-label="Legenda da agenda">
+            <li>Hoje</li>
+            <li class="agenda-evento-aviso">Aviso</li>
+            <li class="agenda-evento-feriado">Feriado</li>
+        </ul>
         <?php endif; ?>
     </section>
 

@@ -15,15 +15,23 @@ $dates = new CertidaoStatus();
 $displayDate = static fn ($value): string => CertidaoStatus::validDate((string) $value) ? (new DateTimeImmutable($value))->format('d/m/Y') : 'Data pendente';
 $displayFullDate = static fn ($value): string => CertidaoStatus::validDate((string) $value) ? (new DateTimeImmutable($value))->format('d/m/Y') : 'Data pendente';
 $statusFilters = static fn (string $validade): array => array_merge($filters, ['validade' => $validade, 'page' => 1]);
-$activeSuppliers = count(array_filter($fornecedores, static fn (array $option): bool => (int) $option['ativo'] === 1));
-$activeTypes = count(array_filter($tipos, static fn (array $option): bool => (int) $option['ativo'] === 1));
-$overviewTitle = match ($state) { 'arquivada' => 'Histórico completo das certidões movimentadas', 'excluida' => 'Certidões excluídas', default => 'Painel central das certidões' };
-$overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arquivados por ano, recupere itens para a lista principal e mantenha o histórico limpo sem perder rastreabilidade.', 'excluida' => 'Consulte os registros excluídos e seus documentos preservados.', default => 'Acompanhe rapidamente os documentos ativos, filtre por fornecedor e destaque o que precisa de renovação ou atenção imediata.' };
+$validitySummary = [
+    'vigente' => ['Vigentes', $summary['vigente']],
+    'a_vencer' => ['A vencer', $summary['a_vencer'] + $summary['vence_hoje']],
+    'vencida' => ['Vencidas', $summary['vencida']],
+];
+if ($summary['pendente'] > 0) { $validitySummary['pendente'] = ['Data pendente', $summary['pendente']]; }
+$overviewTitle = match ($state) { 'arquivada' => 'Histórico completo das certidões movimentadas', 'excluida' => 'Certidões excluídas', default => 'Validade das certidões' };
+$overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arquivados por ano, recupere itens para a lista principal e mantenha o histórico limpo sem perder rastreabilidade.', 'excluida' => 'Consulte os registros excluídos e seus documentos preservados.', default => 'Confira os prazos e veja quais documentos precisam de renovação.' };
 ?>
 
 <section class="cert-overview cert-overview-<?= e($state) ?>" aria-label="Resumo das certidões">
     <div><h2><?= e($overviewTitle) ?></h2><p><?= e($overviewDescription) ?></p></div>
-    <?php if ($state === 'corrente'): ?><div class="cert-stats" role="group" aria-label="Certidões correntes"><div class="cert-stat"><strong><?= array_sum($summary) ?></strong><span>Certidões</span></div><div class="cert-stat"><strong><?= $activeSuppliers ?></strong><span>Fornecedores</span></div><div class="cert-stat"><strong><?= $activeTypes ?></strong><span>Tipos</span></div></div>
+    <?php if ($state === 'corrente'): ?><div class="cert-stats" role="group" aria-label="Resumo por validade">
+        <?php foreach ($validitySummary as $validity => [$label, $total]): ?>
+            <div class="cert-stat cert-<?= e($validity) ?>"><strong><?= (int) $total ?></strong><span><?= e($label) ?></span></div>
+        <?php endforeach; ?>
+    </div>
     <?php else: ?><div class="cert-stats" role="group" aria-label="Registros no filtro"><div class="cert-stat"><strong><?= (int) $result['total'] ?></strong><span>registros no filtro</span></div><div class="cert-stat"><strong><?= $filters['ano'] === '' || $filters['ano'] === 'todos' ? 'Todos' : e($filters['ano']) ?></strong><span>ano selecionado</span></div><div class="cert-stat"><strong><?= count($years) ?></strong><span>anos disponíveis</span></div></div><?php endif; ?>
 </section>
 
@@ -129,7 +137,7 @@ $overviewDescription = match ($state) { 'arquivada' => 'Consulte documentos arqu
                         <?php if (empty($cells[$typeId][$supplierId])): ?><span class="cert-no-document" aria-label="Sem documento">–</span><?php endif; ?>
                         <?php foreach ($cells[$typeId][$supplierId] ?? [] as $item): ?>
                             <article class="cert-card cert-<?= e($item['validade']) ?>" aria-label="<?= e($name . ' de ' . $supplier) ?>">
-                                <div class="cert-card-head"><span class="cert-deadline" title="<?= e($dates->deadline($item['data_vencimento'])) ?>"><?= e($dates->badge($item['data_vencimento'])) ?></span></div>
+                                <div class="cert-card-head"><span class="cert-deadline" title="<?= e($dates->deadline($item['data_vencimento'])) ?>"><?= e(CertidaoStatus::LABELS[$item['validade']]) ?><?php if (!in_array($item['validade'], ['vence_hoje', 'pendente'], true)): ?> · <?= e(mb_strtolower($dates->badge($item['data_vencimento']))) ?><?php endif; ?></span></div>
                                 <dl class="cert-card-dates"><div><dt>Emissão</dt><dd><?= e($displayDate($item['data_emissao'])) ?></dd></div><div><dt>Validade</dt><dd><?= e($displayDate($item['data_vencimento'])) ?></dd></div></dl>
                                 <?php if (empty($item['pdf_privado']) && !empty($item['arquivo_pdf'])): ?><p class="cert-pdf-note legacy">PDF legado para revisão</p><?php endif; ?>
                                 <div class="cert-card-links">

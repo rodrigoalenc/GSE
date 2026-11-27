@@ -50,7 +50,7 @@ final class DashboardController extends Controller
         usort($agenda, static fn (array $a, array $b): int => [$a['data'], $a['titulo']] <=> [$b['data'], $b['titulo']]);
         $viewData = [
             'title' => 'Painel de Controle',
-            'certidoes' => (new Certidao())->summary(),
+            'certidoes' => AccessPolicy::allows('certificates.access') ? (new Certidao())->summary() : [],
             'agenda' => $agenda,
             'agendaHoje' => $agendaHoje,
             'moduloDois' => $canViewHealth ? $painel->resumo($statusService) : array_fill_keys(['sem_dva', 'vencidas', 'vence_hoje', 'a_vencer', 'vigentes'], 0) + ['alunos_ativos' => $alunos->contar(['ativo' => '1']), 'alunos_inativos' => $alunos->contar(['ativo' => '0'])],

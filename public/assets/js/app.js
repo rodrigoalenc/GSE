@@ -167,9 +167,11 @@ document.querySelectorAll('[data-contract-certificate-form]').forEach((form) => 
     try { report = JSON.parse(alert.dataset.certificateReport); } catch { return; }
     const list = alert.querySelector('[data-contract-certificate-list]');
     const update = () => {
-        const expired = Array.isArray(report[supplier.value]) ? report[supplier.value] : [];
-        list.replaceChildren();
-        expired.forEach((certificate) => {
+        const entry = report[supplier.value];
+        const expired = Array.isArray(entry) ? entry : [];
+        const blocked = entry === true || expired.length > 0;
+        list?.replaceChildren();
+        if (list) expired.forEach((certificate) => {
             const item = document.createElement('li');
             const date = certificate.data_vencimento.split('-').reverse().join('/');
             const link = document.createElement('a');
@@ -178,9 +180,9 @@ document.querySelectorAll('[data-contract-certificate-form]').forEach((form) => 
             item.append(link, document.createTextNode(` — ${certificate.fornecedor} — vencida em ${date}.`));
             list.append(item);
         });
-        alert.hidden = expired.length === 0;
-        submit.disabled = expired.length > 0;
-        return expired.length === 0;
+        alert.hidden = !blocked;
+        submit.disabled = blocked;
+        return !blocked;
     };
     supplier.addEventListener('change', update);
     form.addEventListener('submit', (event) => {

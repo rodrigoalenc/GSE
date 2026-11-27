@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-/** DVA access follows the user's role. Other student permissions use named grants. */
+/** DVA access follows the user's role. Additional staff permissions use named grants. */
 final class AccessPolicy
 {
     public const STAFF_PERMISSIONS = [
         'student.manage' => 'Cadastrar e editar alunos',
         'student.export' => 'Emitir relatórios e exportar dados',
+        'orders.access' => 'Acessar Pedidos e Estoque',
+        'certificates.access' => 'Acessar Certidões',
     ];
 
     private const LEGACY_GRANTS = [

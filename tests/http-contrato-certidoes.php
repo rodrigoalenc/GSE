@@ -34,6 +34,17 @@ $guardId = (int) basename(parse_url($guardFirst['headers']['location'], PHP_URL_
 $guardGoodId = (int) basename(parse_url($guardSecond['headers']['location'], PHP_URL_PATH));
 $guardSheet = (int) $guardDb->query('SELECT id FROM pedido_paginas WHERE id_pedido=' . $guardId)->fetchColumn();
 $guardDb->prepare('UPDATE certidoes SET data_vencimento=? WHERE id=?')->execute([$guardYesterday, $guardCertificate]);
+checkHttp($moduleSetGrants(['orders.access'])['status'] === 302, 'Funcionário recebe apenas acesso a Pedidos para conferir aviso sem dados de certidão');
+$guardRestrictedCreate = $moduleGet('contrato/criar');
+$guardRestrictedDetail = $moduleGet('contrato/detalhes/' . $guardId);
+checkHttp($guardRestrictedCreate['status'] === 200
+    && $guardRestrictedDetail['status'] === 200
+    && str_contains($guardRestrictedCreate['body'], '&quot;' . $guardSupplier . '&quot;:true')
+    && str_contains($guardRestrictedDetail['body'], 'Fornecedor com certidões vencidas')
+    && !str_contains($guardRestrictedCreate['body'], 'certidao-teste')
+    && !str_contains($guardRestrictedDetail['body'], '/certidao/detalhes/'),
+    'A autorização de Pedidos preserva o bloqueio do fornecedor sem expor detalhes de Certidões');
+checkHttp($moduleSetGrants(['orders.access', 'certificates.access'])['status'] === 302, 'Permissões do funcionário de teste restauradas');
 $guardState = static function () use ($guardDb): array {
     $state = [];
     foreach (['pedidos', 'pedido_paginas', 'pedido_produtos', 'modulo5_operacoes', 'request_receipts'] as $table) {

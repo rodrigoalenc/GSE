@@ -31,9 +31,10 @@ checkHttp(str_contains(request('GET',$baseUrl.'/certidao/editar/'.$certId,$cooki
 $matrix=request('GET',$baseUrl.'/certidao',$cookieEmployee);
 checkHttp($matrix['status']===200 && str_contains($matrix['body'],'cert-matrix') && str_contains($matrix['body'],'Fornecedor HTTP Certidão'),'Matriz tem tipos e fornecedores');
 $currentCertCount=(int)$certDb->query('SELECT COUNT(*) FROM certidoes WHERE COALESCE(arquivado,0)<>1 AND COALESCE(status,1)<>0 AND excluido_em IS NULL')->fetchColumn();
-checkHttp(str_contains($matrix['body'],'aria-label="Certidões correntes"')
-    && preg_match('/<strong>'.$currentCertCount.'<\/strong>\s*<span>Certidões<\/span>/u',$matrix['body'])===1
-    && str_contains($matrix['body'],'/certidao/excluidas'),'Matriz mostra contagem corrente correta e acesso às excluídas');
+preg_match_all('/class="cert-stat cert-[a-z_]+"><strong>(\d+)<\/strong>/u', $matrix['body'], $validityCounts);
+checkHttp(str_contains($matrix['body'],'aria-label="Resumo por validade"')
+    && count($validityCounts[1]) >= 3 && array_sum($validityCounts[1]) === $currentCertCount
+    && str_contains($matrix['body'],'/certidao/excluidas'),'Matriz mostra contagem corrente por validade e acesso às excluídas');
 checkHttp(str_contains($matrix['body'],'cert-fullscreen-status-bar') && str_contains($matrix['body'],'data-cert-fullscreen-filter="vigente"') && str_contains($matrix['body'],'cert-fullscreen-exit-btn'),'Tela cheia oferece filtros e saída próprios');
 checkHttp(str_contains($matrix['body'],'Somente pendências') && str_contains($matrix['body'],'cert-fullscreen') && str_contains($matrix['body'],'Emissão') && str_contains($matrix['body'],'cert-deadline'),'Matriz apresenta filtros, tela cheia, emissão e prazo');
 $pendingMatrix=listRequest($baseUrl,'certidao',$cookieEmployee,['pendencias'=>'1','validade'=>'vigente']);

@@ -102,8 +102,10 @@ final class ContratoController extends Controller
                 is_array($target) ? $target['message'] : 'Operação registrada.');
         }
         catch (DomainException $e) {
-            if ($resource!==null) { $draftId=ContractFormDraft::save($contractId,$resource['operation'],$resource['sheet'],$resource['item'],$_POST,$e->getMessage()); redirect($base.'?rascunho='.$draftId.'#'.$resource['target']); }
-            $this->redirectWithFlash($back,'danger',$e->getMessage());
+            $message = $e instanceof ExpiredSupplierCertificates
+                ? ExpiredSupplierCertificates::USER_MESSAGE : $e->getMessage();
+            if ($resource!==null) { $draftId=ContractFormDraft::save($contractId,$resource['operation'],$resource['sheet'],$resource['item'],$_POST,$message); redirect($base.'?rascunho='.$draftId.'#'.$resource['target']); }
+            $this->redirectWithFlash($back,'danger',$message);
         }
         catch (PDOException $e) {
             TechnicalLogger::error('contract_database_error',['exception'=>$e::class]);
@@ -128,7 +130,7 @@ final class ContratoController extends Controller
                 $suppliers[$supplierId]=true;
             }
         }
-        $this->view('contratos/index',['title'=>'Gerenciar Pedidos','search'=>$search,'status'=>$status,'result'=>$result,'summary'=>$status==='ativos' ? $model->summary($search) : null,'certificateWarnings'=>$warnings,'certificateGroups'=>$certificateGroups]);
+        $this->view('contratos/index',['title'=>'Gerenciar Pedidos','search'=>$search,'status'=>$status,'result'=>$result,'summary'=>$status==='ativos' ? $model->summary($search) : null,'canViewCertificates'=>AccessPolicy::allows('certificates.access'),'certificateWarnings'=>$warnings,'certificateGroups'=>$certificateGroups]);
     }
 
     public function criar(): void
@@ -151,7 +153,7 @@ final class ContratoController extends Controller
         $draft=is_array($draft)?$draft:[];
         $supplierId=filter_var($draft['fornecedor'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: null;
         $model=$this->model();
-        $this->view('contratos/form',['title'=>'Cadastrar Novo Pedido','record'=>null,'suppliers'=>$model->suppliers(),'draft'=>$draft,'certificateWarnings'=>$model->expiredCertificates($supplierId),'certificateGroups'=>$model->expiredCertificateGroups()]);
+        $this->view('contratos/form',['title'=>'Cadastrar Novo Pedido','record'=>null,'suppliers'=>$model->suppliers(),'draft'=>$draft,'canViewCertificates'=>AccessPolicy::allows('certificates.access'),'certificateWarnings'=>$model->expiredCertificates($supplierId),'certificateGroups'=>$model->expiredCertificateGroups()]);
     }
 
     public function editar(string $id): void
@@ -169,7 +171,7 @@ final class ContratoController extends Controller
         if ($record['excluido_em']!==null) { render_http_error(404,'Pedido excluído','O pedido está disponível apenas para consulta.','contrato'); }
         $draft=$_SESSION['contract_edit_draft_'.$id] ?? [];
         unset($_SESSION['contract_edit_draft_'.$id]);
-        $this->view('contratos/form',['title'=>'✏️ Editar Dados Gerais #'.$record['id'],'record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[],'certificateWarnings'=>$this->model()->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
+        $this->view('contratos/form',['title'=>'✏️ Editar Dados Gerais #'.$record['id'],'record'=>$record,'suppliers'=>$this->model()->suppliers(),'draft'=>is_array($draft)?$draft:[],'canViewCertificates'=>AccessPolicy::allows('certificates.access'),'certificateWarnings'=>$this->model()->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
     }
 
     public function detalhes(string $id): void
@@ -194,7 +196,7 @@ final class ContratoController extends Controller
             $draft['current']=$current ?? [];
             $draft['conflict']=$draft['unavailable'] || $draft['revision']===null || $draft['revision']!==(int)$current['revisao'];
         }
-        $this->view('contratos/detalhes',['title'=>'Detalhes do Pedido','headerMeta'=>'ID: #'.$id.' | Registrado em: '.$registeredText,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'allocation'=>$model->allocationSummary($contractId),'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin(),'draft'=>$draft,'formContext'=>ContractFormDraft::context($draft['context'] ?? null),'certificateWarnings'=>$model->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
+        $this->view('contratos/detalhes',['title'=>'Detalhes do Pedido','headerMeta'=>'ID: #'.$id.' | Registrado em: '.$registeredText,'record'=>$record,'sheets'=>$sheets,'items'=>$items,'allocation'=>$model->allocationSummary($contractId),'key'=>bin2hex(random_bytes(16)),'isAdmin'=>Auth::isAdmin(),'draft'=>$draft,'formContext'=>ContractFormDraft::context($draft['context'] ?? null),'canViewCertificates'=>AccessPolicy::allows('certificates.access'),'certificateWarnings'=>$model->expiredCertificates($record['id_fornecedor']===null?null:(int)$record['id_fornecedor'])]);
     }
 
     public function folha(string $id): void

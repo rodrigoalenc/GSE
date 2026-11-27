@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 require_once ROOT_PATH . '/src/Model/Certidao.php';
 
+final class ExpiredSupplierCertificates extends DomainException
+{
+    public const USER_MESSAGE = 'Não é possível criar pedido ou nota: o fornecedor possui certidões vencidas. Solicite a regularização das certidões para continuar.';
+}
+
 /** @phpstan-type ExpiredCertificate array{id:int,id_fornecedor:int,fornecedor:string,tipo_certidao:string,data_vencimento:string} */
 final class ContratoCertidaoService
 {
@@ -46,7 +51,7 @@ final class ContratoCertidaoService
         $descriptions = array_map(static fn (array $certificate): string => $certificate['tipo_certidao']
             . ' — ' . $certificate['fornecedor'] . ' (vencida em '
             . (new DateTimeImmutable($certificate['data_vencimento']))->format('d/m/Y') . ')', $expired);
-        throw new DomainException('Não é possível criar pedido ou nota: o fornecedor possui certidões vencidas. '
+        throw new ExpiredSupplierCertificates('Não é possível criar pedido ou nota: o fornecedor possui certidões vencidas. '
             . implode('; ', $descriptions) . '. Regularize as certidões para continuar.');
     }
 }

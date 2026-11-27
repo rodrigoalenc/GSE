@@ -139,6 +139,8 @@ Referências das primitivas: [PHP AEAD XChaCha20-Poly1305](https://www.php.net/m
 
 Todas as operações internas exigem conta ativa e sessão vigente. Conta com senha temporária acessa somente troca de senha e logout. “Compartilhado” designa os registros escolares permitidos ao perfil; relacionamentos de folha/produto/contrato, PDF/certidão, aluno/DVA e arquivo de backup são conferidos no backend. Ações administrativas condicionais (estorno, remoção de faturamento e restauração) continuam exigindo administrador mesmo quando a rota também atende outras ações de funcionário.
 
+Para funcionários, as rotas de Pedidos e Estoque exigem a concessão vigente `orders.access`, e as de Certidões exigem `certificates.access`. Um administrador gerencia cada concessão em **Usuários → Editar → Permissões adicionais do funcionário**, com referência da aprovação e validade. A verificação também cobre PDFs, operações de escrita e rascunhos dos módulos. Os administradores têm acesso conforme o perfil.
+
 | Método | Caminho | Controlador | Perfil | Recurso | CSRF | Limite |
 |---|---|---|---|---|---|---|
 | GET | `/` | `LoginController::index` | Público | Credenciais | — | — |
