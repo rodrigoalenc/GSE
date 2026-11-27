@@ -16,13 +16,28 @@ export async function launchBrowser() {
     for (const candidate of candidates) { try { await access(candidate); binary = candidate; break; } catch {} }
     if (!binary) throw new Error('Chrome/Chromium unavailable; set BROWSER_BINARY to run browser tests.');
     const profile = await mkdtemp(join(tmpdir(), 'gse-browser-'));
+    // Only opt in on disposable Linux runners serving synthetic test pages on loopback.
+    const runnerFlags = process.platform === 'linux' && process.env.GSE_BROWSER_TEST_NO_SANDBOX === '1'
+        ? ['--no-sandbox', '--disable-dev-shm-usage'] : [];
     const child = spawn(binary, ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
-        '--remote-debugging-port=0', '--remote-allow-origins=*', `--user-data-dir=${profile}`, 'about:blank'], {stdio: 'ignore', windowsHide: true});
+        ...runnerFlags, '--remote-debugging-port=0', '--remote-allow-origins=*', `--user-data-dir=${profile}`, 'about:blank'],
+    {stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true});
+    let stderr = '';
+    let spawnError;
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
+    child.once('error', error => { spawnError = error; });
+    const stopped = () => Boolean(spawnError || child.exitCode !== null || child.signalCode !== null);
     let socket;
     const cleanup = async () => {
         socket?.close();
-        child.kill();
-        await new Promise((done) => { if (child.exitCode !== null) done(); else { child.once('exit', done); setTimeout(done, 2000); } });
+        if (!stopped()) {
+            await new Promise(done => {
+                const timeout = setTimeout(done, 2000);
+                child.once('close', () => { clearTimeout(timeout); done(); });
+                child.kill();
+            });
+        }
         if (dirname(resolve(profile)) !== resolve(tmpdir()) || !basename(profile).startsWith('gse-browser-')) {
             throw new Error('Refusing cleanup outside the generated browser profile directory.');
         }
@@ -30,11 +45,14 @@ export async function launchBrowser() {
     };
     try {
         let portFile;
-        for (let attempt = 0; attempt < 100; attempt++) {
+        for (let attempt = 0; attempt < 100 && !stopped(); attempt++) {
             try { portFile = await readFile(join(profile, 'DevToolsActivePort'), 'utf8'); break; } catch {}
             await new Promise((done) => setTimeout(done, 100));
         }
-        if (!portFile) throw new Error('The isolated headless browser did not start.');
+        if (!portFile) {
+            const status = spawnError?.message ?? child.signalCode ?? child.exitCode ?? 'startup timed out';
+            throw new Error(`The isolated headless browser did not start (${status}).${stderr.trim() ? '\n' + stderr.trim() : ''}`);
+        }
         const [port, path] = portFile.trim().split(/\r?\n/);
         socket = new WebSocket(`ws://127.0.0.1:${port}${path}`);
         await new Promise((done, reject) => { socket.addEventListener('open', done, {once:true}); socket.addEventListener('error', reject, {once:true}); });

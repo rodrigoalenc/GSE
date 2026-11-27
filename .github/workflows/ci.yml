@@ -108,6 +108,8 @@ jobs:
       - name: Sintaxe e navegação no Chrome isolado
         env:
           GSE_BROWSER_EVIDENCE_DIR: ${{ runner.temp }}/gse-browser-evidence
+          # A VM descartável executa páginas de teste fictícias em loopback.
+          GSE_BROWSER_TEST_NO_SANDBOX: '1'
         run: |
           node --check public/assets/js/app.js
           browser_binary=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
