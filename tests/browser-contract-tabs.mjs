@@ -173,7 +173,12 @@ async function run() {
         const selected=id=>[{hidden:id!==1,visible:id===1},{hidden:id!==2,visible:id===2},{hidden:id!==3,visible:id===3}];
         await page.navigate(base);
         check(await state(), selected(1), 'Initial note');
+        await page.evaluate(`document.querySelector('[data-contract-tabs]').addEventListener('click', () => {
+            window.scrollBeforeNoteClick = window.scrollY;
+        }, {capture:true, once:true})`);
         await page.click(`[data-contract-tabs] a[href="#folha-2"]`); await page.until(`location.hash === '#folha-2'`);
+        await page.evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))');
+        check(await page.evaluate('window.scrollY === window.scrollBeforeNoteClick'),true,'Clicking a note preserves the page position');
         await page.evaluate('history.back()'); await page.until(`location.hash === '' && !document.getElementById('folha-1').hidden`);
         check(await state(),selected(1),'Back to base URL restores initial note');
         await page.evaluate('history.forward()'); await page.until(`location.hash === '#folha-2' && !document.getElementById('folha-2').hidden`);
@@ -237,11 +242,13 @@ async function run() {
         check(await state(),selected(2),'Ctrl+click opens a separate tab without changing current note');
         await page.evaluate(`document.querySelector('[aria-selected="true"]').focus()`);
         for (const [key,id] of [['ArrowRight',3],['Home',1],['End',3],['ArrowLeft',2]]) {
+            const scrollBefore = await page.evaluate('window.scrollY');
             await page.command('Input.dispatchKeyEvent',{type:'keyDown',key,code:key});
             await page.command('Input.dispatchKeyEvent',{type:'keyUp',key,code:key});
             await page.until(`location.hash==='#folha-${id}'`);
             check(await state(),selected(id),'Keyboard selects note');
             check(await page.evaluate(`document.activeElement.getAttribute('aria-selected')`),'true','Keyboard focus stays on selected tab');
+            check(await page.evaluate('window.scrollY'),scrollBefore,'Keyboard note selection preserves the page position');
         }
         await page.evaluate(`location.hash='#billing-note-2'`); await page.until(`location.hash==='#billing-note-2'`);
         await page.evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))');

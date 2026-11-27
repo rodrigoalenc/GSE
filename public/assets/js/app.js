@@ -581,7 +581,19 @@ if (contractTabs) {
             tab.tabIndex = current === index ? 0 : -1;
             panels[current].hidden = current !== index;
         });
-        if (focus) tabs[index].focus();
+        if (focus) {
+            const tab = tabs[index];
+            tab.focus({preventScroll: true});
+            const bounds = contractTabs.getBoundingClientRect();
+            const item = tab.getBoundingClientRect();
+            if (item.left < bounds.left) contractTabs.scrollLeft += item.left - bounds.left;
+            else if (item.right > bounds.right) contractTabs.scrollLeft += item.right - bounds.right;
+        }
+    };
+    const activateTab = (index, focus = false) => {
+        const hash = tabs[index].getAttribute('href');
+        if (location.hash !== hash) history.pushState(history.state, '', hash);
+        select(index, focus);
     };
     const fromHash = () => {
         if (!location.hash) return 0;
@@ -594,7 +606,7 @@ if (contractTabs) {
             const target = fragmentTarget(location.hash);
             select(index);
             revealFragmentTarget(target);
-            if (scroll) target?.scrollIntoView({block: 'start'});
+            if (scroll && target !== panels[index]) target?.scrollIntoView({block: 'start'});
         }
     };
     select(0);
@@ -602,7 +614,7 @@ if (contractTabs) {
     // Select the ancestor before the browser scrolls to a form in a previously hidden note.
     document.addEventListener('click', (event) => {
         const link = event.target.closest('a[href^="#"]');
-        if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        if (!link || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
         const target = fragmentTarget(link.getAttribute('href'));
         const index = target ? panels.findIndex((panel) => panel === target || panel.contains(target)) : -1;
         if (index >= 0) { select(index); revealFragmentTarget(target); }
@@ -610,7 +622,10 @@ if (contractTabs) {
     contractTabs.addEventListener('click', (event) => {
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
         const index = tabs.indexOf(event.target.closest('a'));
-        if (index >= 0) select(index);
+        if (index >= 0) {
+            event.preventDefault();
+            activateTab(index);
+        }
     });
     contractTabs.addEventListener('keydown', (event) => {
         const current = tabs.indexOf(document.activeElement);
@@ -618,7 +633,7 @@ if (contractTabs) {
         const next = event.key === 'ArrowRight' ? (current + 1) % tabs.length
             : event.key === 'ArrowLeft' ? (current - 1 + tabs.length) % tabs.length
             : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
-        if (next >= 0) { event.preventDefault(); location.hash = tabs[next].getAttribute('href'); select(next, true); }
+        if (next >= 0) { event.preventDefault(); activateTab(next, true); }
     });
     window.addEventListener('hashchange', () => followHash());
     window.addEventListener('pageshow', () => followHash());
